@@ -135,18 +135,24 @@ interface ShownContext {
  * router answers. The stack trace after it is left out.
  *
  * @param {CommandFailed} failed The failure.
- * @returns {string} The text pi shows.
+ * @returns {string} The line.
  */
-const failureText: (failed: Pick<CommandFailed, "cause" | "command">) => string = (failed) => {
-	const why = pipe(
+const printedLine: (failed: Pick<CommandFailed, "cause">) => string = (failed) =>
+	pipe(
 		Str.split(String(failed.cause), "\n"),
 		Array.map(Str.trim),
 		Array.findFirst(Str.isNonEmpty),
 		Option.getOrElse(() => "it printed nothing"),
 	);
 
-	return `phi-router ${failed.command} failed: ${why}`;
-};
+/**
+ * `printedLine` after the command's name.
+ *
+ * @param {CommandFailed} failed The failure.
+ * @returns {string} The text pi shows.
+ */
+const failureText: (failed: Pick<CommandFailed, "cause" | "command">) => string = (failed) =>
+	`phi-router ${failed.command} failed: ${printedLine(failed)}`;
 
 const sessionOf: (ctx: ShownContext) => typeof SessionId.Type = (ctx) =>
 	SessionId.make(ctx.sessionManager.getSessionId());
@@ -266,7 +272,7 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 	return { afterTurn: observe(true), atStart: observe(false) };
 });
 
-export { answered, observerOn, routed, routedProvider, usage };
+export { answered, observerOn, printedLine, routed, routedProvider, usage };
 
 export { phiModels } from "./models.ts";
 

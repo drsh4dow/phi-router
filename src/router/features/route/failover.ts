@@ -1,6 +1,6 @@
 import type { Aim, Arrived } from "./send.ts";
-import { Array, Effect, Option, Predicate, Ref, Stream, Struct, pipe } from "effect";
-import type { PlatformError, Schema, Scope } from "effect";
+import { Array, Effect, Option, Predicate, Ref, Schema, Stream, Struct, pipe } from "effect";
+import type { PlatformError, Scope } from "effect";
 import type { Spend, Stop } from "./walked.ts";
 import { chosen, keepingReplyKeys, targetOf } from "./send.ts";
 import { current, onward, walkOf } from "#router/features/accounts/index.ts";
@@ -10,15 +10,26 @@ import type { Digest } from "effect/crypto";
 import type { Outgoing } from "#router/client/server.ts";
 import type { Walk } from "#router/features/accounts/index.ts";
 import { reasoningRejected } from "#router/features/codex/index.ts";
+import { stopLines } from "./stopped.ts";
 
-const statuses = { failed: 500, ok: 200, rateLimited: 429, unreadable: 400 } as const;
+const statuses = { failed: 500, ok: 200, rateLimited: 429, unauthorized: 401, unreadable: 400 } as const;
+
+/** A BAA account answered 401 to its key, so the message stops there, with nothing sent to an open account. */
+class BaaKeyRefused extends Schema.TaggedError<BaaKeyRefused, { readonly brand: unique symbol }>()("BaaKeyRefused", {
+	account: Schema.String,
+	harness: Schema.Literals(["claude", "codex", "pi"]),
+}) {
+	public override get message(): string {
+		return stopLines.baaKeyRefused(this.harness);
+	}
+}
 
 const relaying = { kind: "relayed" } as const;
 
 type Unanswered = Effect.Error<ReturnType<Account["send"]>>;
 
 /** What routing a judged request can fail with. `answering` turns each into an answer. */
-type Unrouted = PlatformError.PlatformError | Schema.SchemaError | Unanswered;
+type Unrouted = BaaKeyRefused | PlatformError.PlatformError | Schema.SchemaError | Unanswered;
 
 type Relaying = Digest.Digest | Scope.Scope;
 
@@ -42,14 +53,18 @@ interface Walking extends Arrived {
 
 /**
  * The send to the walk's current account, kept as the request's latest. A 429 or a 5xx fails over, and a 429 stamps an
- * open account. No answer and an ended login fail over too, the second with its notice logged. An open account's 200
- * keeps its reply keys as it passes.
+ * open account. No answer and an ended login fail over too, the second with its notice logged. A BAA account's 401 fails
+ * with `BaaKeyRefused`. An open account's 200 keeps its reply keys as it passes.
  */
 const sentTo = Effect.fnUntraced(function* sentTo(arrival: Walking, aim: Aim) {
 	const { incoming, request, serving, session } = arrival;
 	const { account, lane } = current(aim.walk);
 
 	return yield* account.send({ body: aim.send.body, headers: incoming.headers }).pipe(
+		Effect.filterOrFail(
+			(answer) => lane === "clean" || answer.status !== statuses.unauthorized,
+			() => BaaKeyRefused.make({ account: account.name, harness: serving.wire.harness }),
+		),
 		Effect.flatMap((answer): Effect.Effect<Sent, Unrouted, Digest.Digest> => {
 			if (answer.status === statuses.rateLimited || answer.status >= statuses.failed) {
 				const stamps = Effect.succeed(lane === "clean" && answer.status === statuses.rateLimited);

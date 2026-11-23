@@ -114,7 +114,9 @@ const accountFailures = (wire: HarnessWire) =>
 /**
  * One model request of one harness end to end: `Arrive`, then `Dispatch` and each send after it, the answer relayed
  * unbuffered. Every failure is an answer in the vendor's error shape: 400 with no session header or an unreadable body,
- * 500 when the store, the lane log or the 429 stamps fail, 502 when no account up to the last BAA account answered.
+ * or with the line that names the setup command when a BAA account refused its key, since each harness shows a 400's
+ * message as it came and none takes it for its own login, 500 when the store, the lane log or the 429 stamps fail, 502
+ * when no account up to the last BAA account answered.
  * An unreadable body never falls back to the sealed lane.
  *
  * @param {Serving} serving The harness served.
@@ -132,6 +134,7 @@ const answering =
 					Effect.flatMap(dispatched),
 					Effect.catchTags(accountFailures(wire)),
 					Effect.catchTags({
+						BaaKeyRefused: ({ message }) => refusal(wire, statuses.unreadable, message),
 						PlatformError: () => refusal(wire, statuses.failed, "phi-router could not write its state"),
 						SchemaError: () => refusal(wire, statuses.failed, "phi-router could not read its state"),
 						Unreadable: ({ reason }) => refusal(wire, statuses.unreadable, reason),

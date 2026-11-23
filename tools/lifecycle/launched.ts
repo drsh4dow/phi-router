@@ -19,7 +19,7 @@ import { HttpClient, HttpClientRequest, HttpServer } from "effect/http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { mocked } from "#tools/route/mocked-router.ts";
 
-/** Runs a command to its end with `env` beside the caller's own, and returns its exit code and what it printed. */
+/** Runs a command to its end with `env` beside the caller's own, and returns its exit code and what it printed on stdout and stderr. */
 const ran = Effect.fnUntraced(function* ran(
 	command: readonly [string, ...string[]],
 	env: Readonly<Record<string, string>>,
@@ -27,7 +27,7 @@ const ran = Effect.fnUntraced(function* ran(
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const [runtime, ...args] = command;
 	const handle = yield* spawner.spawn(ChildProcess.make(runtime, args, { env, extendEnv: true }));
-	const printed = yield* Stream.mkString(Stream.decodeText(Stream.drainFork(handle.stdout, handle.stderr)));
+	const printed = yield* Stream.mkString(Stream.decodeText(Stream.merge(handle.stdout, handle.stderr)));
 	const exitCode = yield* handle.exitCode;
 
 	return { exitCode: Number(exitCode), printed };

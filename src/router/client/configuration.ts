@@ -1,6 +1,7 @@
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import type { ChildProcessSpawner } from "effect/process";
 import type { KeySource } from "./credentials.ts";
+import { NoConfigFile } from "./no-config-file.ts";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { realFolder } from "./processes.ts";
@@ -65,7 +66,9 @@ const configText = Effect.gen(function* configText() {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* configFile;
 
-	return yield* fs.readFileString(file);
+	return yield* fs
+		.readFileString(file)
+		.pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.fail(NoConfigFile.make({ file }))));
 });
 
 /**
@@ -77,7 +80,7 @@ class Configuration extends Context.Service<Configuration, Configured>()("phi-ro
 		defaults: Defaults,
 	): Layer.Layer<
 		Configuration,
-		PlatformError.PlatformError | Schema.SchemaError,
+		NoConfigFile | PlatformError.PlatformError | Schema.SchemaError,
 		FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
 	> =>
 		Layer.effect(

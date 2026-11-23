@@ -5,7 +5,9 @@ import { secretKept, squatter } from "#tools/lifecycle/squatter.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { folder } from "#tools/claude/configured.ts";
+import { freePort } from "#tools/lifecycle/launched.ts";
 import { packageCopy } from "#tools/plugin/copied.ts";
+import { stopped } from "#tools/route/stopped.ts";
 
 const patient = { timeout: 120_000 };
 
@@ -116,7 +118,7 @@ const blocked = Effect.gen(function* blocked() {
 		until: () => false,
 	});
 
-	assert.include(printed, `pi did not send this prompt, since port ${String(other.port)} does not hold your router.`);
+	assert.include(printed, `--port ${String(other.port)}: the port does not hold your router.`);
 
 	const received = yield* other.received;
 
@@ -141,10 +143,7 @@ const compactionBlocked = Effect.gen(function* compactionBlocked() {
 		Option.getOrElse(() => ""),
 	);
 
-	assert.include(
-		printed,
-		`pi did not send this compaction, since port ${String(other.port)} does not hold your router.`,
-	);
+	assert.include(printed, `--port ${String(other.port)}: the port does not hold your router.`);
 	assert.include(answer, '"error":"Compaction cancelled"');
 
 	const received = yield* other.received;
@@ -152,7 +151,27 @@ const compactionBlocked = Effect.gen(function* compactionBlocked() {
 	onlyAsked(received);
 }).pipe(Effect.scoped);
 
+const keyless = Effect.gen(function* keyless() {
+	const installed = yield* packageCopy;
+	const port = yield* freePort;
+
+	const printed = yield* piRun({
+		args: () => ["-p", `Reply with ok. ${canary}`],
+		commands: [],
+		installed,
+		port,
+		until: () => false,
+	});
+
+	assert.include(printed, stopped.noBaaKey("pi"));
+}).pipe(Effect.scoped);
+
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the pi package", (test) => {
+	test.effect(
+		"stops a prompt to phi with the line that names its setup command when config.json does not exist",
+		() => keyless,
+		patient,
+	);
 	test.effect("blocks a prompt to phi when another user's listener holds the router's port", () => blocked, patient);
 	test.effect(
 		"cancels a compaction on phi when another user's listener holds the router's port",

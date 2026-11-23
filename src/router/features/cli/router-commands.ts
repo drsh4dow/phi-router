@@ -13,12 +13,12 @@ const folder = Flag.String(spelling.start.folder);
 const claude = Flag.Boolean("claude").pipe(Flag.withDefault(false));
 
 /**
- * The commands that need the router's proof: `start`, which leaves a lease and starts a router when none runs, the hooks'
- * `session-start`, which does the same for a harness, and `serve`, the router itself. The last two are unlisted.
+ * The commands that need the router's proof: `start`, which leaves pi's lease and starts a router when none runs, the
+ * hooks' `session-start`, which does the same for a harness, and `serve`, the router itself. The last two are unlisted.
  */
 const routerCommands = [
 	Command.make(spelling.start.name, { folder, pid, port, session }, (flags) =>
-		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port),
+		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port, "pi"),
 	).pipe(Command.provide(Proofs.layer)),
 	Command.make("session-start", { address, claude, pid }, (flags) => sessionStart(flags)).pipe(
 		Command.unlisted,

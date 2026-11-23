@@ -82,4 +82,6 @@ const Router = flow(
 
 export { Router };
 
+export { stopLines } from "./stopped.ts";
+
 export { piWire } from "#shared/pi.ts";

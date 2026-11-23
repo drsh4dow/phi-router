@@ -37,6 +37,9 @@ const providerSwitches = [
 	"CLAUDE_CODE_USE_GATEWAY",
 ] as const;
 
+/** The harness whose hook runs, by whether it passed `--claude`. */
+const hookHarness = { false: "codex", true: "claude" } as const;
+
 /** The values Claude Code reads a switch as on by, once trimmed and lowercased. */
 const switchedOn = ["1", "true", "yes", "on"];
 
@@ -93,8 +96,8 @@ const movedBy = Effect.fnUntraced(function* movedBy(address: string) {
  * The session-start hook's command. `address` is the model address the instance will use. For a Claude Code instance,
  * `claude`, it first fails when the session's settings move a protected instance off the router. When the address names
  * no router, the instance is not protected, and this returns at once and reads nothing. Otherwise it reads the hook's
- * JSON from stdin and runs `start` for the instance's pid with its session id and folder, on the address's port. Like
- * `start`, it prints nothing on success.
+ * JSON from stdin and runs `start` for the instance's pid with its session id and folder, on the address's port, with the
+ * lines Claude Code or Codex shows. Like `start`, it prints nothing on success.
  */
 const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 	readonly pid: typeof Pid.Type;
@@ -119,7 +122,9 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 	const text = yield* standardInput;
 	const input = yield* Schema.decodeEffect(HookInput)(text);
 
-	yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value);
+	const harness = hookHarness[`${hook.claude}`];
+
+	yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
 });
 
 export { portOf, sessionStart };
