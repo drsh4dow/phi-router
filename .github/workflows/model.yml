@@ -1,0 +1,48 @@
+name: model
+
+on:
+   pull_request:
+      paths:
+         - "**/*.tla"
+         - "**/*.cfg"
+         - tools/formal/**
+         - .github/workflows/model.yml
+         - src/router/client/account-state.ts
+         - src/router/client/leases.ts
+         - src/router/client/processes.ts
+         - src/router/client/server.ts
+         - src/router/client/upstream.ts
+         - src/router/client/verdict-store.ts
+         - src/router/features/accounts/walk.ts
+         - src/router/features/border/guard.ts
+         - src/router/features/cli/serve.ts
+         - src/router/features/cli/start.ts
+         - src/router/features/lanes/decide.ts
+         - src/router/features/lanes/pin.ts
+         - src/router/features/lifecycle/lifecycle.ts
+         - src/router/features/parts/pieces.ts
+         - src/router/features/route/failover.ts
+         - src/router/features/route/harness.ts
+         - src/router/features/route/index.ts
+         - src/router/features/route/route.ts
+         - src/router/features/route/send.ts
+         - src/router/features/route/session.ts
+         - src/router/features/route/walked.ts
+         - src/router/features/verdicts/engine.ts
+   push:
+      branches: [main]
+
+jobs:
+   model:
+      runs-on: ubuntu-latest
+      steps:
+         - uses: actions/checkout@v5
+         - uses: actions/setup-java@v6
+           with:
+              distribution: temurin
+              java-version: "21"
+         - name: install
+           run: |
+              npm install --global bun@1.4.5
+              bun install --frozen-lockfile
+         - run: bun run model

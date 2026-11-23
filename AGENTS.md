@@ -18,6 +18,8 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents
 
 `bun run check` runs every gate and the tests. The tests include `tools/corpus/corpus.test.ts`, which plays the default corpus through lane choice and the border with the recorded judge and fails on a leak or an unrecorded judge call; `bun run eval:recorded` prints that replay's full report. It passes before you hand back a change.
 
+`check` leaves out the TLA+ models in `tools/formal`. Run `bun run model` too when a change touches a `.tla` or `.cfg` file, or a file in the coverage table of `.agents/skills/verify-formal-model/SKILL.md`. CI runs it on such a pull request and on every push to main.
+
 Read `CODING_STANDARDS.md` before you write or review code in `src/` or `tools/`, or change a gate's config.
 
 ## Learning more about Effect
