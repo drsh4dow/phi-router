@@ -15,26 +15,49 @@ on:
          - .github/workflows/release.yml
          - tools/plugin/release.sh
 
+permissions:
+   contents: read
+
+env:
+   VERSION: ${{ inputs.version || '0.0.0' }}
+
 jobs:
-   release:
-      if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+   tag:
       runs-on: ubuntu-latest
-      permissions:
-         contents: write
       env:
-         GH_TOKEN: ${{ github.token }}
          GIT_AUTHOR_NAME: github-actions[bot]
          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
          GIT_COMMITTER_NAME: github-actions[bot]
          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
       steps:
          - uses: actions/checkout@v5
+           with:
+              persist-credentials: false
          - name: install
            run: |
               npm install --global bun@1.4.5
               bun install --frozen-lockfile
-         - name: release
-           run: tools/plugin/release.sh "$VERSION" $DRY_RUN
+         - run: tools/plugin/release.sh tag "$VERSION"
+         - run: git bundle create release.bundle "v$VERSION" "^v$VERSION~1"
+         - uses: actions/upload-artifact@v4
+           with:
+              name: release
+              path: release.bundle
+
+   publish:
+      needs: tag
+      if: >-
+         github.repository == 'drsh4dow/phi-router' && github.event_name == 'workflow_dispatch' &&
+         !inputs.dry-run && github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      permissions:
+         contents: write
+      steps:
+         - uses: actions/checkout@v5
+         - uses: actions/download-artifact@v4
+           with:
+              name: release
+         - run: git fetch release.bundle "refs/tags/v$VERSION:refs/tags/v$VERSION"
+         - run: tools/plugin/release.sh publish "$VERSION"
            env:
-              VERSION: ${{ inputs.version || '0.0.0' }}
-              DRY_RUN: ${{ (github.event_name == 'pull_request' || inputs.dry-run) && '--dry-run' || '' }}
+              GH_TOKEN: ${{ github.token }}
