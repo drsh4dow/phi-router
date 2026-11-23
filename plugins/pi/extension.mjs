@@ -12006,10 +12006,35 @@ class Router extends Service()("phi-router/pi/client/router") {
 		);
 }
 
-// src/pi/features/phi/phi.ts
+// src/pi/features/phi/models.ts
 import { getBuiltinModels } from "@earendil-works/pi-ai/providers/all";
-var routedProvider = "phi";
+
+// src/shared/pi.ts
+var piWire = {
+	base: "/pi",
+	models: { auto: "phi/auto", sealed: "phi/sealed" },
+	portVariable: "PHI_ROUTER_PORT",
+	sessionHeader: "x-phi-session",
+};
+
+// src/pi/features/phi/models.ts
 var anthropicCatalog = getBuiltinModels("anthropic");
+var free = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 };
+var phiOwn = (id) => ({ contextWindow: 200000, id, maxTokens: 32000 });
+var phiModel = ({ contextWindow, id, maxTokens }) => ({
+	compat: { forceAdaptiveThinking: true },
+	contextWindow,
+	cost: free,
+	id,
+	input: ["text", "image"],
+	maxTokens,
+	name: `PHI ${id}`,
+	reasoning: true,
+});
+var phiModels = pipe(keys(piWire.models), map2(phiOwn), appendAll(anthropicCatalog), map2(phiModel));
+
+// src/pi/features/phi/phi.ts
+var routedProvider = "phi";
 var unrouted = `phi-router: this session's model is not a ${routedProvider} model, so phi-router does not route it.`;
 var statusKey = "phi";
 var noneSealed = 0;
@@ -12153,16 +12178,6 @@ var observerOn = fnUntraced2(function* observerOn(port) {
 
 // src/pi/features/uploads/index.ts
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
-
-// src/shared/pi.ts
-var piWire = {
-	base: "/pi",
-	models: { auto: "phi/auto", sealed: "phi/sealed" },
-	portVariable: "PHI_ROUTER_PORT",
-	sessionHeader: "x-phi-session",
-};
-
-// src/pi/features/uploads/index.ts
 var uploads = [
 	{
 		command: "/share",
@@ -14189,18 +14204,6 @@ var layer15 = /* @__PURE__ */ provideMerge(layer, /* @__PURE__ */ mergeAll2(laye
 var launcher = decodeURIComponent(new URL("../claude/bin/phi-router", import.meta.url).pathname);
 var loginProvider = "anthropic";
 var placeholderKey = "sk-ant-oat-phi-router";
-var free = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 };
-var phiOwn = (id) => ({ contextWindow: 200000, id, maxTokens: 32000 });
-var phiModel = ({ contextWindow, id, maxTokens }) => ({
-	compat: { forceAdaptiveThinking: true },
-	contextWindow,
-	cost: free,
-	id,
-	input: ["text", "image"],
-	maxTokens,
-	name: `PHI ${id}`,
-	reasoning: true,
-});
 var router = () => {
 	if ("Bun" in globalThis) {
 		return provide2(Router.layer(launcher), layer10);
@@ -14212,7 +14215,7 @@ var provider = (port) => ({
 	apiKey: placeholderKey,
 	baseUrl: `http://${loopback}:${String(port)}${piWire.base}`,
 	headers: { [piWire.sessionHeader]: "" },
-	models: pipe(keys(piWire.models), map2(phiOwn), appendAll(anthropicCatalog), map2(phiModel)),
+	models: phiModels,
 });
 var addedHeaders = (ctx) => (sent) =>
 	gen2(function* added() {
