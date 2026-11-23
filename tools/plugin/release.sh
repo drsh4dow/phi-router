@@ -8,8 +8,8 @@
 # npm publish --dry-run. It pushes and publishes nothing, so it is the dry run.
 #
 # publish: pushes the tag v<version> that tag made to origin, creates its GitHub release, and publishes
-# phi-router-<version>.tgz to npm with provenance. Each step it finds done, as after a run that stopped partway, it
-# skips.
+# phi-router-<version>.tgz to npm with provenance through trusted publishing, which needs npm 11.5.1 or newer. Each
+# step it finds done, as after a run that stopped partway, it skips.
 set -eu
 
 step=${1-}
