@@ -25,6 +25,8 @@ const live = Judge.of({
 				onSome: ([choice]) => Effect.succeed({ kind: choice, usage }),
 			}),
 		),
+	model: "scripted",
+	name: "decisions",
 });
 
 const asked = { context: ["[user] why is this row rejected?"], images: [], piece: "patient Jane Roe" };
@@ -37,7 +39,7 @@ const replay = Effect.gen(function* replay() {
 
 	const contents = yield* recorder.contents;
 
-	return yield* recordedJudge(contents);
+	return yield* recordedJudge(contents, "decisions");
 });
 
 const replaysAnswers = Effect.gen(function* replaysAnswers() {

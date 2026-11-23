@@ -90,6 +90,8 @@ const silenceSeals = Effect.gen(function* silenceSeals() {
 	const watched = Judge.of({
 		identifier: (...asked) => Effect.ensuring(judge.identifier(...asked), fineAnswered.open),
 		kind: judge.kind,
+		model: judge.model,
+		name: judge.name,
 	});
 
 	const running = yield* Effect.forkChild(verdictsOf(watched));

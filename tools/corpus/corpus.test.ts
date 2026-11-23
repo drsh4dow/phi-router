@@ -1,14 +1,15 @@
 import { Context, Effect, FileSystem, Layer } from "effect";
 import { assert, it } from "@effect/vitest";
-import { recordedJudge, recordingsPath } from "./recorded.ts";
+import { recordedJudge, recordingsPaths } from "./recorded.ts";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge.ts";
+import type { JudgeName } from "#router/client/judge.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Report } from "./report.ts";
 import { defaultCorpus } from "./default-corpus.ts";
 import { evaluate } from "./evaluate.ts";
 
-/** The default corpus played once with the recorded judge: its leaks and the judge calls the recordings lack. */
+/** The default corpus played once with a judge's recordings: its leaks and the judge calls the recordings lack. */
 class DefaultCorpusPlay extends Context.Service<
 	DefaultCorpusPlay,
 	{ readonly leaks: Report["leaks"]; readonly unrecorded: number }
@@ -16,19 +17,20 @@ class DefaultCorpusPlay extends Context.Service<
 
 const allRecorded = 0;
 
-const played = Layer.effect(
-	DefaultCorpusPlay,
-	Effect.gen(function* played() {
-		const fs = yield* FileSystem.FileSystem;
-		const contents = yield* fs.readFileString(recordingsPath);
-		const replay = yield* recordedJudge(contents);
-		const { cases, synthetic } = yield* defaultCorpus;
-		const report = yield* Effect.provideService(evaluate({ cases, synthetic }), Judge, replay.judge);
-		const unrecorded = yield* replay.unrecorded;
+const playedWith = (name: JudgeName): Layer.Layer<DefaultCorpusPlay> =>
+	Layer.effect(
+		DefaultCorpusPlay,
+		Effect.gen(function* played() {
+			const fs = yield* FileSystem.FileSystem;
+			const contents = yield* fs.readFileString(recordingsPaths[name]);
+			const replay = yield* recordedJudge(contents, name);
+			const { cases, synthetic } = yield* defaultCorpus;
+			const report = yield* Effect.provideService(evaluate({ cases, synthetic }), Judge, replay.judge);
+			const unrecorded = yield* replay.unrecorded;
 
-		return DefaultCorpusPlay.of({ leaks: report.leaks, unrecorded });
-	}),
-).pipe(Layer.provide(Layer.mergeAll(NodeServices.layer, Digest.layerWebCrypto)));
+			return DefaultCorpusPlay.of({ leaks: report.leaks, unrecorded });
+		}),
+	).pipe(Layer.provide(Layer.mergeAll(NodeServices.layer, Digest.layerWebCrypto)), Layer.orDie);
 
 const covered = Effect.gen(function* covered() {
 	const { unrecorded } = yield* DefaultCorpusPlay;
@@ -42,8 +44,14 @@ const noLeaks = Effect.gen(function* noLeaks() {
 	assert.deepStrictEqual(leaks, []);
 });
 
-it.layer(played, { timeout: "120 seconds" })("the default corpus", (test) => {
-	test.effect("the recorded Decisions answers cover every judge call of the default corpus", () => covered);
+it.layer(playedWith("decisions"), { timeout: "120 seconds" })("the default corpus with the Decisions judge", (test) => {
+	test.effect("the recorded answers cover every judge call of the default corpus", () => covered);
+
+	test.effect("no complete identifier in the default corpus reaches an open account in one message", () => noLeaks);
+});
+
+it.layer(playedWith("claude"), { timeout: "120 seconds" })("the default corpus with the Claude judge", (test) => {
+	test.effect("the recorded answers cover every judge call of the default corpus", () => covered);
 
 	test.effect("no complete identifier in the default corpus reaches an open account in one message", () => noLeaks);
 });

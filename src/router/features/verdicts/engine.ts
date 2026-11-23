@@ -31,10 +31,13 @@ const plus = (sum: typeof Usage.Type, more: typeof Usage.Type): typeof Usage.Typ
 
 const judgeConcurrency = 8;
 
-/** How the judge is asked about a piece: its calls, and the score below which it clears without the kind question. */
+/** How the judge is asked about a piece: its calls, and the scores that ask the kind question and that seal. */
 interface Asking extends Call {
 	readonly kindBar: number;
+	readonly sealAtOrAbove: number;
 }
+
+type Thresholds = (typeof thresholds)[keyof typeof thresholds];
 
 /**
  * A system part goes on to the kind question only at a score that would seal any other piece, and a failed call on it is
@@ -42,52 +45,56 @@ interface Asking extends Call {
  *
  * @param {boolean} system Whether the piece is a system part.
  * @param {Spend} spend Where the calls' cost goes.
+ * @param {Thresholds} thresholds The judge's thresholds.
  * @returns {Asking} How the judge is asked about it.
  */
-const askingOf = (system: boolean, spend: Spend): Asking => {
+const askingOf = (system: boolean, spend: Spend, { clearBelow, sealAtOrAbove }: Thresholds): Asking => {
 	if (system) {
-		return { kindBar: thresholds.sealAtOrAbove, retries: 1, spend };
+		return { kindBar: sealAtOrAbove, retries: 1, sealAtOrAbove, spend };
 	}
 
-	return { kindBar: thresholds.clearBelow, retries: 0, spend };
+	return { kindBar: clearBelow, retries: 0, sealAtOrAbove, spend };
 };
 
 const clearedByJudge = Verdicts.Cleared({ by: "judge" });
 
+/** The identifier question's score, whether the piece is a system part, and the judge's seal threshold. */
+interface Scored {
+	readonly score: number;
+	readonly system: boolean;
+	readonly sealAtOrAbove: number;
+}
+
 /**
  * A high score seals any piece but a system part, and the kind only labels it.
  *
- * @param {number} score The identifier question's score.
- * @param {boolean} system Whether the piece is a system part.
+ * @param {Scored} scored The identifier question's score, whether the piece is a system part, and the threshold.
  * @returns {boolean} Whether the score seals whatever the kind call answers.
  */
-const sealsOnScore = (score: number, system: boolean): boolean => !system && score >= thresholds.sealAtOrAbove;
+const sealsOnScore = ({ score, system, sealAtOrAbove }: Scored): boolean => !system && score >= sealAtOrAbove;
 
 /**
  * The verdict once a score reached the band and the kind call answered. Unless the score seals on its own, the kind
  * decides: a named kind seals, `none` clears.
  *
- * @param {object} root0 The kind call's answer, the score, and whether the piece is a system part.
+ * @param {object} root0 The kind call's answer and the scored piece.
  * @param {string} root0.kind The kind the judge named, or `none`.
- * @param {number} root0.score The identifier question's score.
- * @param {boolean} root0.system Whether the piece is a system part.
+ * @param {Scored} root0.scored The scored piece.
  * @returns {Verdict} The piece's verdict.
  */
 const verdictOfKind = ({
 	kind,
-	score,
-	system,
+	scored,
 }: {
 	readonly kind: IdentifierKind | "none";
-	readonly score: number;
-	readonly system: boolean;
+	readonly scored: Scored;
 }): Verdict => {
 	if (kind !== "none") {
-		return Verdicts.Sealed({ finding: Findings.Judge({ kind, score }) });
+		return Verdicts.Sealed({ finding: Findings.Judge({ kind, score: scored.score }) });
 	}
 
-	if (sealsOnScore(score, system)) {
-		return Verdicts.Sealed({ finding: Findings.Judge({ kind: "unlabelled", score }) });
+	if (sealsOnScore(scored)) {
+		return Verdicts.Sealed({ finding: Findings.Judge({ kind: "unlabelled", score: scored.score }) });
 	}
 
 	return clearedByJudge;
@@ -97,23 +104,20 @@ const verdictOfKind = ({
  * The verdict once a score reached the band and the kind call failed: unlabelled when the score seals on its own, else
  * sealed as the failure.
  *
- * @param {object} root0 Why the kind call failed, the score, and whether the piece is a system part.
+ * @param {object} root0 Why the kind call failed and the scored piece.
  * @param {string} root0.why Why the kind call failed.
- * @param {number} root0.score The identifier question's score.
- * @param {boolean} root0.system Whether the piece is a system part.
+ * @param {Scored} root0.scored The scored piece.
  * @returns {Verdict} The piece's verdict.
  */
 const verdictOfFailedKind = ({
 	why,
-	score,
-	system,
+	scored,
 }: {
 	readonly why: JudgeFailed["why"];
-	readonly score: number;
-	readonly system: boolean;
+	readonly scored: Scored;
 }): Verdict => {
-	if (sealsOnScore(score, system)) {
-		return Verdicts.Sealed({ finding: Findings.Judge({ kind: "unlabelled", score }) });
+	if (sealsOnScore(scored)) {
+		return Verdicts.Sealed({ finding: Findings.Judge({ kind: "unlabelled", score: scored.score }) });
 	}
 
 	return Verdicts.Sealed({ finding: Findings.Failure({ why }) });
@@ -143,9 +147,11 @@ const judged = Effect.fn("judged")(function* judged({
 
 	const label = yield* ask(() => judge.kind(input, kindQuestion), call);
 
+	const scored = { score, sealAtOrAbove: call.sealAtOrAbove, system };
+
 	return Result.match(label, {
-		onFailure: ({ why }) => verdictOfFailedKind({ score, system, why }),
-		onSuccess: ({ kind }) => verdictOfKind({ kind, score, system }),
+		onFailure: ({ why }) => verdictOfFailedKind({ scored, why }),
+		onSuccess: ({ kind }) => verdictOfKind({ kind, scored }),
 	});
 });
 
@@ -221,8 +227,9 @@ const judgedPiece = Effect.fn("judgedPiece")(function* judgedPiece({
 	readonly input: JudgeInput;
 	readonly spend: Spend;
 }) {
+	const judge = yield* Judge;
 	const system = kind === "system";
-	const call = askingOf(system, spend);
+	const call = askingOf(system, spend, thresholds[judge.name]);
 
 	for (const images of imageSetsOf(input.images)) {
 		const verdict = yield* judged({ call, input: { context: input.context, images, piece: input.piece }, system });

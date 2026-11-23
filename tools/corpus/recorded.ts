@@ -11,15 +11,23 @@ import {
 	String as Str,
 	pipe,
 } from "effect";
-import type { ChoiceQuestion, JudgeInput } from "#router/client/judge.ts";
-import { defaultJudgeModel, policyVersion } from "#router/features/policy/index.ts";
+import type { ChoiceQuestion, JudgeInput, JudgeName } from "#router/client/judge.ts";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge.ts";
 import { JudgeFailed } from "#router/client/judge-failed.ts";
 import type { Usage } from "#router/client/judge-failed.ts";
 import { decodeJsonLines } from "./jsonl.ts";
+import { judgeModels } from "#router/client/judge-choice.ts";
+import { policyVersion } from "#router/features/policy/index.ts";
 
-const recordingsPath = `${import.meta.dirname}/recordings.jsonl`;
+/** The recordings kept beside this file, one file per judge. */
+const recordingsPaths = {
+	claude: `${import.meta.dirname}/recordings-claude.jsonl`,
+	decisions: `${import.meta.dirname}/recordings.jsonl`,
+} as const satisfies Record<JudgeName, string>;
+
+/** The judge a recording answers for: its name and the model it runs, which the policy version hashes. */
+type Recorded = Pick<Judge["Service"], "model" | "name">;
 
 /** A recording names the policy version and each digest it holds by the digest's first 32 hex digits. */
 const digestChars = 32;
@@ -32,7 +40,7 @@ const Question = Schema.Literals(["identifier", "kind"]);
 const Answer = Schema.Union([
 	Schema.Struct({ score: Schema.Finite }),
 	Schema.Struct({ kind: Schema.String }),
-	Schema.Struct({ refused: Schema.Literal(true) }),
+	Schema.Struct({ failed: Schema.Literals(["judge-refused", "judge-error"]) }),
 ]);
 
 const Recording = Schema.Struct({
@@ -48,9 +56,9 @@ const Recording = Schema.Struct({
 
 type Asked = Omit<typeof Recording.Type, "answer" | "inputTokens" | "cost">;
 
-/** A recorded call's answer, other than a refusal, and what it cost. */
+/** A recorded call's answer, other than a failure, and what it cost. */
 type Replayed = Effect.Effect<
-	{ readonly answer: Exclude<typeof Answer.Type, { readonly refused: true }>; readonly usage: typeof Usage.Type },
+	{ readonly answer: Exclude<typeof Answer.Type, { readonly failed: string }>; readonly usage: typeof Usage.Type },
 	JudgeFailed
 >;
 
@@ -79,10 +87,13 @@ const lengthPrefixed = (fields: readonly string[]): string =>
 		Array.join(""),
 	);
 
-/** What a recording names a call by: the policy version, the question and digests of what the judge read. */
-const askerOf = Effect.gen(function* askerOf() {
+/**
+ * What a recording names a call by: the policy version under the judge's default model, the question and digests of
+ * what the judge read.
+ */
+const askerOf = Effect.fnUntraced(function* askerOf(name: JudgeName) {
 	const digest = yield* Digest.Digest;
-	const version = yield* policyVersion(defaultJudgeModel);
+	const version = yield* policyVersion({ model: judgeModels[name], name });
 	const policy = Str.takeLeft(version, digestChars);
 
 	const digestOf = (fields: readonly string[]): Effect.Effect<string> => {
@@ -128,7 +139,10 @@ const choiceOf = <Choice extends string>(question: ChoiceQuestion<Choice>, answe
 
 const judgeError = (): Effect.Effect<never, JudgeFailed> => Effect.fail(JudgeFailed.make({ why: "judge-error" }));
 
-const replayingJudge = (recorded: (question: typeof Question.Type, input: JudgeInput) => Replayed): Judge["Service"] =>
+const replayingJudge = (
+	judge: Recorded,
+	recorded: (question: typeof Question.Type, input: JudgeInput) => Replayed,
+): Judge["Service"] =>
 	Judge.of({
 		identifier: (input) =>
 			pipe(
@@ -155,13 +169,16 @@ const replayingJudge = (recorded: (question: typeof Question.Type, input: JudgeI
 					});
 				}),
 			),
+		model: judge.model,
+		name: judge.name,
 	});
 
 /**
- * A judge that answers only from `contents`, a recordings file. A call it has no answer for, including every call
- * recorded under another policy version, fails as a judge error and counts in `unrecorded`.
+ * The judge `name` with its default model, answering only from `contents`, a recordings file. A call it has no answer
+ * for, including every call recorded under another policy version, fails as a judge error and counts in `unrecorded`.
  */
-const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(contents: string) {
+const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(contents: string, name: JudgeName) {
+	const judge = { model: judgeModels[name], name };
 	const lines = yield* decodeJsonLines({ schema: RecordingLine, source: "recordings.jsonl", text: contents });
 
 	const answers = new Map(
@@ -172,7 +189,7 @@ const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(content
 	);
 
 	const unrecorded = yield* Ref.make(noCalls);
-	const askedOf = yield* askerOf;
+	const askedOf = yield* askerOf(name);
 
 	const recorded = Effect.fnUntraced(function* recorded(question: typeof Question.Type, input: JudgeInput) {
 		const asked = yield* askedOf(question, input);
@@ -187,22 +204,22 @@ const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(content
 		const usage = usageOf(found.value);
 		const { answer } = found.value;
 
-		if ("refused" in answer) {
-			return yield* JudgeFailed.make({ usage, why: "judge-refused" });
+		if ("failed" in answer) {
+			return yield* JudgeFailed.make({ usage, why: answer.failed });
 		}
 
 		return { answer, usage };
 	});
 
-	return { judge: replayingJudge(recorded), unrecorded: Ref.get(unrecorded) };
+	return { judge: replayingJudge(judge, recorded), unrecorded: Ref.get(unrecorded) };
 });
 
-const refusalKept = (keep: Keep, why: JudgeFailed["why"], usage: JudgeFailed["usage"]): Effect.Effect<void> => {
-	if (why === "judge-refused" && Predicate.isNotUndefined(usage)) {
-		return keep({ refused: true }, usage);
+const failureKept = (keep: Keep, { why, usage }: Pick<JudgeFailed, "why" | "usage">): Effect.Effect<void> => {
+	if (why === "judge-timeout" || Predicate.isUndefined(usage)) {
+		return Effect.void;
 	}
 
-	return Effect.void;
+	return keep({ failed: why }, usage);
 };
 
 const lineOf = (recording: typeof Recording.Type): Effect.Effect<string, Schema.SchemaError> => {
@@ -224,7 +241,7 @@ const keepingJudge = (
 
 			return live.identifier(input, question).pipe(
 				Effect.tap(({ score, usage }) => keep({ score }, usage)),
-				Effect.tapError(({ why, usage }) => refusalKept(keep, why, usage)),
+				Effect.tapError((failed) => failureKept(keep, failed)),
 			);
 		},
 		kind: (input, question) => {
@@ -232,15 +249,17 @@ const keepingJudge = (
 
 			return live.kind(input, question).pipe(
 				Effect.tap(({ kind, usage }) => keep({ kind }, usage)),
-				Effect.tapError(({ why, usage }) => refusalKept(keep, why, usage)),
+				Effect.tapError((failed) => failureKept(keep, failed)),
 			);
 		},
+		model: live.model,
+		name: live.name,
 	});
 
-/** `live` with every answer and refusal it gives kept, and `contents`, the kept calls as a recordings file. */
+/** `live` with every answer and billed failure it gives kept, and `contents`, the kept calls as a recordings file. */
 const recording = Effect.fn("recording")(function* recording(live: Judge["Service"]) {
 	const kept = new Map<string, typeof Recording.Type>();
-	const askedOf = yield* askerOf;
+	const askedOf = yield* askerOf(live.name);
 
 	const keeper =
 		(question: typeof Question.Type, input: JudgeInput): Keep =>
@@ -272,4 +291,4 @@ const recording = Effect.fn("recording")(function* recording(live: Judge["Servic
 	return { contents, judge: keepingJudge(live, keeper) };
 });
 
-export { recordedJudge, recording, recordingsPath };
+export { recordedJudge, recording, recordingsPaths };

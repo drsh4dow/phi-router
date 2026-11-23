@@ -1,12 +1,15 @@
 import { Array, Duration, Effect, Option, Record, Schema, pipe } from "effect";
-import type { ChoiceQuestion, Judge, JudgeInput, ScoreQuestion } from "./judge.ts";
+import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./judge.ts";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import type { ChosenJudge } from "./judge-choice.ts";
 import { JudgeFailed } from "./judge-failed.ts";
-import type { NamedJudge } from "./configuration.ts";
 import type { Usage } from "./judge-failed.ts";
 import { readKey } from "./credentials.ts";
 
 const names = { identifier: "identifier", kind: "kind" } as const;
+
+/** The model the Decisions judge runs when its `judge` block names none. */
+const decisionsModel = "gpt-6-luna";
 
 /**
  * What a call on `gpt-6-luna` costs in US dollars per million input tokens. A call above `tierTokens` pays the higher
@@ -90,20 +93,32 @@ interface Asked {
 }
 
 /**
- * What the judge reads, as Decisions takes it: the JSON text of `piece` then `context`, the order the original judge
- * sent, where `sort-keys` would reorder a literal. Images follow the text in one user message.
+ * What the judge reads as text: the JSON of `piece` then `context`, the order the original judge sent, where
+ * `sort-keys` would reorder a literal.
+ *
+ * @param {JudgeInput} input The piece and its context.
+ * @returns {Effect.Effect} The text.
+ */
+const textOf = ({ piece, context }: JudgeInput): Effect.Effect<string> =>
+	Effect.orDie(
+		jsonOf(
+			Record.fromEntries([
+				["piece", piece],
+				["context", context],
+			]),
+		),
+	);
+
+/**
+ * What the judge reads, as Decisions takes it: `textOf` the input, and its images after the text in one user message.
  *
  * @param {JudgeInput} input The piece, its context and its images.
  * @returns {Effect.Effect} The request's `input`.
  */
-const inputOf = ({ piece, context, images }: JudgeInput): Effect.Effect<(typeof Request.Type)["input"]> => {
-	const state = Record.fromEntries([
-		["piece", piece],
-		["context", context],
-	]);
+const inputOf = (input: JudgeInput): Effect.Effect<(typeof Request.Type)["input"]> => {
+	const { images } = input;
 
-	return jsonOf(state).pipe(
-		Effect.orDie,
+	return textOf(input).pipe(
 		Effect.map((text) => {
 			if (!Array.isReadonlyArrayNonEmpty(images)) {
 				return text;
@@ -179,7 +194,7 @@ const kindOf =
  * reads the key once, here, and sends it as a bearer token. It adds no timeout and no retry, which the engine owns, so
  * an interrupted call aborts its request.
  */
-const decisions = Effect.fnUntraced(function* decisions(judge: NamedJudge) {
+const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJudge, { readonly name: "decisions" }>) {
 	const key = yield* readKey(judge.key);
 	const http = yield* HttpClient.HttpClient;
 	const endpoint = HttpClientRequest.post(`${judge.endpoint}/decisions`).pipe(HttpClientRequest.bearerToken(key));
@@ -221,7 +236,7 @@ const decisions = Effect.fnUntraced(function* decisions(judge: NamedJudge) {
 			}),
 		);
 
-	const asking: Judge["Service"] = {
+	const asking: Asking = {
 		identifier: (input, question) => Effect.flatMap(ask(input, predicateOf(question)), scoreOf),
 		kind: (input, question) => Effect.flatMap(ask(input, choiceOf(question)), kindOf(question)),
 	};
@@ -229,4 +244,4 @@ const decisions = Effect.fnUntraced(function* decisions(judge: NamedJudge) {
 	return asking;
 });
 
-export { decisions };
+export { decisions, decisionsModel, textOf };

@@ -131,10 +131,17 @@ const kindQuestion = {
 } as const;
 
 /**
- * `p < clearBelow` clears and `p >= sealAtOrAbove` seals. In between, the kind question decides. A system part seals
- * only at or above `sealAtOrAbove` with a named kind.
+ * Each judge's thresholds, from its own calibration on the default corpus (ADR 0009). `p < clearBelow` clears and
+ * `p >= sealAtOrAbove` seals. In between, the kind question decides. A system part seals only at or above
+ * `sealAtOrAbove` with a named kind.
  */
-const thresholds = { clearBelow: 0.2, sealAtOrAbove: 0.5 } as const;
+const thresholds = {
+	claude: { clearBelow: 0.05, sealAtOrAbove: 0.5 },
+	decisions: { clearBelow: 0.2, sealAtOrAbove: 0.5 },
+} as const;
+
+/** The judges the policy holds thresholds for: OpenAI Decisions, and Claude. */
+type JudgeName = keyof typeof thresholds;
 
 /** The shortest line, trimmed, that counts as a BAA account's reply repeating sealed content. */
 const quoteMinChars = 16;
@@ -151,16 +158,12 @@ const window = 0;
 /** Decisions' limits: characters per call, images per call, and how long one call may take. */
 const judgeLimits = { maxChars: 2_000_000, maxImages: 128, timeoutMs: 20_000 } as const;
 
-/** The default judge model. The configuration names the one a router runs. */
-const defaultJudgeModel = "gpt-6-luna";
-
 /**
  * The PHI policy: the one written source for what seals a message. `policyVersion` hashes all of it with the rules and
  * the judge model, so an edit here retires every stored verdict without a hand-bumped number.
  */
 export {
 	counterExamples,
-	defaultJudgeModel,
 	defaults,
 	identifierKind,
 	identifierKindNames,
@@ -177,4 +180,4 @@ export {
 	window,
 };
 
-export type { IdentifierKind, SyntheticIdentities };
+export type { IdentifierKind, JudgeName, SyntheticIdentities };

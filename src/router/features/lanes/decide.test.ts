@@ -33,11 +33,15 @@ const answering = Judge.of({
 		return Effect.succeed({ score: 0, usage });
 	},
 	kind: () => Effect.fail(JudgeFailed.make({ why: "judge-refused" })),
+	model: "scripted",
+	name: "decisions",
 });
 
 const failing = Judge.of({
 	identifier: () => Effect.fail(JudgeFailed.make({ why: "judge-error" })),
 	kind: () => Effect.fail(JudgeFailed.make({ why: "judge-error" })),
+	model: "scripted",
+	name: "decisions",
 });
 
 const system: Message = { content: "You are a coding agent.", role: "system", sections: [], tools: [] };

@@ -14,6 +14,8 @@ const usage = { calls: 1, cost: 0, inputTokens: 1, ms: 0 };
 const clears = Judge.of({
 	identifier: () => Effect.succeed({ score: 0, usage }),
 	kind: () => Effect.die("a score of 0 asks no kind"),
+	model: "scripted",
+	name: "decisions",
 });
 
 /** A canary whose halves reach an open account in two user messages, with a reply between them. */

@@ -1,12 +1,13 @@
 import type { AccountMock, Asked, Json, Said } from "#router/client/mock-accounts.ts";
 import { Array, Effect, Option, Record, Schema, String as Str, Stream, Struct, pipe } from "effect";
+import { judgingOn, sealingWhen } from "#router/client/mock-upstreams.ts";
 import { responseEvents, serveAnthropic, serveOpenAi, textEvents } from "#router/client/mock-accounts.ts";
 import { HttpClientRequest } from "effect/http";
 import type { HttpServer } from "effect/http";
+import type { JudgeName } from "#router/client/judge.ts";
 import type { Reply } from "#router/client/mock-upstreams.ts";
 import type { Scope } from "effect";
 import { fakes } from "./fake-credentials.ts";
-import { sealingWhen } from "#router/client/mock-upstreams.ts";
 
 /** The `anthropic-beta` a test request carries: the subscription login's flag beside one other. */
 const beta = "oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14";
@@ -30,6 +31,12 @@ interface Scripts {
 	readonly baas?: Array.NonEmptyReadonlyArray<Lined>;
 	readonly catalog?: () => Said;
 	readonly judge?: (piece: string) => Reply;
+	/**
+	 * The judge the router picks: Decisions on the judge mock by the file's `judge` block, unless it names `claude`, the
+	 * Claude judge on the first BAA account with no `judge` block. Its calls reach the first BAA mock, which answers them
+	 * by `holdsPhi`.
+	 */
+	readonly judgeName?: JudgeName;
 	/** What the configuration file lists beside the lanes and the judge, such as `fixtures` or `baaRepos`. */
 	readonly configured?: Readonly<Record<string, Json>>;
 	/** More of the router's environment, such as a `PATH` that finds stand-in vendor CLIs. */
@@ -232,7 +239,26 @@ const lacksOf =
 
 const judgeOf = (scripts: Scripts): ((piece: string) => Reply) => scripts.judge ?? sealingWhen(scripts.holdsPhi);
 
+/**
+ * The scripts the BAA lane answers by: with the Claude judge, the first BAA account also answers its calls.
+ *
+ * @param {object} run The run.
+ * @param {Harness} run.harness Its harness.
+ * @param {Scripts} run.scripts Its scripts.
+ * @returns {Scripts} The BAA lane's scripts.
+ */
+const baaScriptsOf = ({ harness, scripts }: { readonly harness: Harness; readonly scripts: Scripts }): Scripts => {
+	if (scripts.judgeName !== "claude") {
+		return scripts;
+	}
+
+	return Struct.assign(scripts, {
+		baa: judgingOn({ holdsPhi: scripts.holdsPhi, script: scripts.baa ?? harness.answersOk.baa }),
+	});
+};
+
 export {
+	baaScriptsOf,
 	beta,
 	claudeRequest,
 	codexBodyOf,

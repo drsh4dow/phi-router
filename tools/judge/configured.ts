@@ -1,5 +1,6 @@
 import { ConfigProvider, Context, Effect, FileSystem, Layer, Path, Schema, Struct } from "effect";
 import { Configuration } from "#router/client/configuration.ts";
+import type { Json } from "#router/client/mock-accounts.ts";
 import { Judge } from "#router/client/judge.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams.ts";
@@ -9,30 +10,39 @@ type Named = Readonly<Partial<Record<"keyCommand" | "keyEnv" | "model", string>>
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/**
- * The environment of a temporary config folder whose `config.json` names `endpoint` and these fields, with
- * `PHI_TEST_KEY=env-key`.
- */
-const configuredEnv = Effect.fnUntraced(function* configuredEnv(endpoint: string, named: Named) {
+/** The environment of a temporary config folder whose `config.json` is `file`, with `PHI_TEST_KEY=env-key`. */
+const envOf = Effect.fnUntraced(function* envOf(file: Json) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });
-	const file = yield* jsonOf({ judge: Struct.assign({ endpoint }, named) });
+
+	const text = yield* jsonOf(file);
 
 	yield* fs.makeDirectory(path.join(home, "phi-router"));
-	yield* fs.writeFileString(path.join(home, "phi-router", "config.json"), file);
+	yield* fs.writeFileString(path.join(home, "phi-router", "config.json"), text);
 
 	return { PHI_TEST_KEY: "env-key", XDG_CONFIG_HOME: home };
 });
 
-/** The live judge, built from `configuredEnv`, with the default model `the-default`. */
-const configuredJudge = Effect.fnUntraced(function* configuredJudge(endpoint: string, named: Named) {
-	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: yield* configuredEnv(endpoint, named) }));
+/**
+ * The environment of a temporary config folder whose `config.json` names a judge block at `endpoint` with these fields.
+ */
+const configuredEnv = Effect.fnUntraced(function* configuredEnv(endpoint: string, named: Named) {
+	return yield* envOf({ judge: Struct.assign({ endpoint }, named) });
+});
 
-	const configured = Judge.layer.pipe(Layer.provide(Configuration.layer({ judgeModel: "the-default" })));
+/** The judge the router picks from a `config.json` that is `file`. */
+const judgeFrom = Effect.fnUntraced(function* judgeFrom(file: Json) {
+	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: yield* envOf(file) }));
+	const configured = Judge.layer.pipe(Layer.provide(Configuration.layer));
 	const built = yield* Layer.build(Layer.provide(configured, env));
 
 	return Context.get(built, Judge);
+});
+
+/** The live judge from a `config.json` whose judge block names `endpoint` and these fields. */
+const configuredJudge = Effect.fnUntraced(function* configuredJudge(endpoint: string, named: Named) {
+	return yield* judgeFrom({ judge: Struct.assign({ endpoint }, named) });
 });
 
 /** A judge mock on its own loopback port that answers by `script`. */
@@ -50,6 +60,6 @@ const mockedJudge = Effect.fnUntraced(function* mockedJudge(script: (piece: stri
 	return { judge, mock };
 });
 
-export { configuredEnv, configuredJudge, mockOn, mockedJudge };
+export { configuredEnv, configuredJudge, judgeFrom, mockOn, mockedJudge };
 
 export type { Named };

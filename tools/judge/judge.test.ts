@@ -107,7 +107,7 @@ const configurations = [
 		field: "[0].body.model",
 		name: "a file with no model sends the default",
 		named: { keyEnv: "PHI_TEST_KEY" },
-		value: "the-default",
+		value: "gpt-6-luna",
 	},
 	{
 		field: "[0].bearer",

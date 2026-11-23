@@ -1,0 +1,248 @@
+import { Array, Effect, Layer, String as Str, Struct, pipe } from "effect";
+import type { Asked, Json, Said } from "#router/client/mock-accounts.ts";
+import type { ChoiceQuestion, JudgeInput, ScoreQuestion } from "#router/client/judge.ts";
+import { Findings, Verdicts, verdictsFor } from "#router/features/verdicts/index.ts";
+import { NodeHttpServer, NodeServices } from "@effect/platform-node";
+import { assert, it } from "@effect/vitest";
+import { judgeFrom, mockOn } from "./configured.ts";
+import { judgingOn, sealingWhen } from "#router/client/mock-upstreams.ts";
+import { Judge } from "#router/client/judge.ts";
+import type { Piece } from "#router/features/policy/index.ts";
+import { serveAnthropic } from "#router/client/mock-accounts.ts";
+
+const scoreQuestion: ScoreQuestion = { criteria: { false: "F", true: "T" }, instructions: "Is it so?", type: "bool" };
+
+const choices: ChoiceQuestion<"zebra" | "apple"> = {
+	criteria: [
+		["zebra", "Z"],
+		["apple", "A"],
+	],
+	instructions: "Which one?",
+	type: "choice",
+};
+
+const input: JudgeInput = { context: ["c"], images: [], piece: "p" };
+
+const ok = 200;
+
+const failing: Said = { body: "{}", kind: "status", status: 500 };
+
+/** An Anthropic account mock on its own loopback port that answers by `script`. */
+const anthropicOn = Effect.fnUntraced(function* anthropicOn(script: (asked: Asked) => Said) {
+	const server = yield* Layer.build(NodeHttpServer.layerTest);
+
+	return yield* Effect.provideContext(serveAnthropic(script), server);
+});
+
+const sealingClaude = judgingOn({ holdsPhi: () => true, script: () => failing });
+
+const keyed = (vendor: "anthropic" | "openai", name: string, endpoint: string): Json => ({
+	endpoint,
+	keyEnv: "PHI_TEST_KEY",
+	name,
+	scheme: "apiKey",
+	vendor,
+});
+
+const forwarded: Json = { forwarded: true, name: "forwarded", vendor: "anthropic" };
+
+const openaiFolder: Json = { loginFolder: "/nonexistent", name: "openai-folder", vendor: "openai" };
+
+/**
+ * A `config.json` with one open account on each vendor, these BAA accounts, of both vendors, on `sealed`, and `beside`.
+ *
+ * @param {Json[]} sealed The BAA accounts.
+ * @param {object} beside The rest of the file.
+ * @returns {Json} The file.
+ */
+const lanes = (sealed: readonly Json[], beside: Readonly<Record<string, Json>> = {}): Json =>
+	Struct.assign(beside, {
+		clean: [
+			{ forwarded: true, name: "open", vendor: "anthropic" },
+			{ forwarded: true, name: "open-openai", vendor: "openai" },
+		],
+		sealed,
+		targetModel: { anthropic: "target", openai: "target" },
+	});
+
+/** Two Anthropic account mocks and a Decisions mock, and how many calls each received once the judge asked one. */
+const choiceOf = Effect.fnUntraced(function* choiceOf(
+	file: (endpoints: { readonly first: string; readonly second: string; readonly decisions: string }) => Json,
+) {
+	const first = yield* anthropicOn(sealingClaude);
+	const second = yield* anthropicOn(sealingClaude);
+	const decisions = yield* mockOn(sealingWhen(() => true));
+
+	const judge = yield* judgeFrom(
+		file({ decisions: decisions.endpoint, first: first.endpoint, second: second.endpoint }),
+	);
+
+	yield* judge.identifier(input, scoreQuestion);
+
+	const received = yield* Effect.all([first.received, second.received, decisions.received], { concurrency: 1 });
+
+	const [firstCalls, secondCalls, decisionsCalls] = pipe(
+		received,
+		Array.map((calls) => calls.length),
+	);
+
+	return { decisions: decisionsCalls, first: firstCalls, name: judge.name, second: secondCalls };
+});
+
+const picks = [
+	{
+		expected: { decisions: 1, first: 0, name: "decisions" as const, second: 0 },
+		file: ({ first, decisions }: Record<"first" | "decisions", string>): Json =>
+			lanes([keyed("anthropic", "a", first), keyed("openai", "o", decisions)]),
+		name: "an OpenAI API-key account on sealed asks Decisions, though an Anthropic account comes first",
+	},
+	{
+		expected: { decisions: 0, first: 1, name: "claude" as const, second: 0 },
+		file: ({ first, second }: Record<"first" | "second", string>): Json =>
+			lanes([forwarded, openaiFolder, keyed("anthropic", "a", first), keyed("anthropic", "b", second)]),
+		name: "with no OpenAI API key, the first Anthropic account with its own credential asks the Claude judge",
+	},
+	{
+		expected: { decisions: 1, first: 0, name: "decisions" as const, second: 0 },
+		file: ({ first, decisions }: Record<"first" | "decisions", string>): Json =>
+			lanes([keyed("anthropic", "a", first), openaiFolder], {
+				judge: { endpoint: decisions, keyEnv: "PHI_TEST_KEY" },
+			}),
+		name: "a judge block asks Decisions with its own key",
+	},
+];
+
+const refused = Effect.gen(function* refused() {
+	const failed = yield* Effect.flip(judgeFrom(lanes([forwarded, openaiFolder])));
+
+	assert.deepStrictEqual(
+		failed.message,
+		"phi-router: config.json names no judge, and sealed holds no account the judge can run on. Add an OpenAI API-key account, or an Anthropic account with its own key or login folder, to sealed, or add a judge block.",
+	);
+});
+
+/** The Claude judge on one Anthropic API-key account whose mock answers by `script`. */
+const claudeAnswering = Effect.fnUntraced(function* claudeAnswering(script: (asked: Asked) => Said) {
+	const mock = yield* anthropicOn(script);
+	const judge = yield* judgeFrom(lanes([keyed("anthropic", "baa", mock.endpoint), openaiFolder]));
+
+	return { judge, mock };
+});
+
+const replied = (body: string): Said => ({ body, kind: "status", status: ok });
+
+const toolUse = (name: string, answer: string, stop = "tool_use"): Said =>
+	replied(
+		`{"content":[{"id":"toolu_1","input":${answer},"name":"${name}","type":"tool_use"}],"stop_reason":"${stop}","usage":{"input_tokens":1000,"output_tokens":2}}`,
+	);
+
+/** What 1000 input and 2 output tokens cost on the Claude judge's model. */
+const billed = { calls: 1, cost: 0.000101, inputTokens: 1000 };
+
+const threeQuarters = 0.75;
+
+const eachQuestion = Effect.gen(function* eachQuestion() {
+	const scored = yield* claudeAnswering(() => toolUse("identifier", `{"probability":${String(threeQuarters)}}`));
+	const kinded = yield* claudeAnswering(() => toolUse("kind", '{"kind":"apple"}'));
+	const score = yield* scored.judge.identifier(input, scoreQuestion);
+	const kind = yield* kinded.judge.kind(input, choices);
+
+	assert.deepStrictEqual([Struct.omit(score.usage, ["ms"]), Struct.omit(kind.usage, ["ms"])], [billed, billed]);
+	assert.deepStrictEqual([score.score, kind.kind], [threeQuarters, "apple"]);
+});
+
+const ownKey = Effect.gen(function* ownKey() {
+	const { judge, mock } = yield* claudeAnswering(() => toolUse("identifier", '{"probability":0}'));
+
+	yield* judge.identifier(input, scoreQuestion);
+
+	const received = yield* mock.received;
+	const sent = yield* Effect.fromOption(Array.head(received));
+
+	assert.deepStrictEqual([sent.path, sent.headers["x-api-key"]], ["/v1/messages", "env-key"]);
+	assert.notProperty(sent.headers, "authorization");
+	assert.notProperty(sent.headers, "anthropic-beta");
+});
+
+const trouble = "the piece in trouble";
+
+const pieceOf = (text: string): Piece<string> => ({
+	context: [],
+	images: [],
+	key: text,
+	kind: "user",
+	seam: "",
+	texts: [text],
+});
+
+const clearing = judgingOn({ holdsPhi: () => false, script: () => failing });
+
+const failures = [
+	{
+		name: "a refusal",
+		said: replied('{"content":[],"stop_reason":"refusal","usage":{"input_tokens":1000,"output_tokens":2}}'),
+		why: "judge-refused",
+	},
+	{ name: "an answer cut off", said: toolUse("identifier", '{"probability":1}', "max_tokens"), why: "judge-error" },
+	{ name: "a probability above 1", said: toolUse("identifier", '{"probability":95}'), why: "judge-error" },
+	{ name: "a kind call to the score question", said: toolUse("kind", '{"kind":"apple"}'), why: "judge-error" },
+	{ name: "an error status", said: failing, why: "judge-error" },
+] as const;
+
+/**
+ * The verdicts of two pieces when the Claude judge's account answers `said` about the one in trouble and clears the
+ * other.
+ */
+const sealedBy = Effect.fnUntraced(function* sealedBy(answer: () => Said) {
+	const { judge } = yield* claudeAnswering((asked) => {
+		if (Str.includes(trouble)(asked.body)) {
+			return answer();
+		}
+
+		return clearing(asked);
+	});
+
+	const { found } = yield* Effect.provideService(
+		verdictsFor([pieceOf(trouble), pieceOf("the fine piece")], () => false),
+		Judge,
+		judge,
+	);
+
+	return found;
+});
+
+it.layer(NodeServices.layer)("the Claude judge", (test) => {
+	test.effect.each(picks)("$name", ({ expected, file }) =>
+		Effect.map(choiceOf(file), (got) => {
+			assert.deepStrictEqual(got, expected);
+		}),
+	);
+
+	test.effect(
+		"with no judge block and no account the judge can run on, the file is refused with the reason",
+		() => refused,
+	);
+	test.effect("reads each question's answer from its forced tool call, with what it billed", () => eachQuestion);
+	test.effect("calls the Messages API with the account's own key and no login flag", () => ownKey);
+
+	test.effect.each(failures)("$name seals the piece as $why", ({ said, why }) =>
+		Effect.map(
+			sealedBy(() => said),
+			(found) => {
+				assert.deepStrictEqual(found, [
+					[trouble, Verdicts.Sealed({ finding: Findings.Failure({ why }) })],
+					["the fine piece", Verdicts.Cleared({ by: "judge" })],
+				]);
+			},
+		),
+	);
+
+	test.effect("a kind the question does not list fails the call as judge-error", () =>
+		Effect.gen(function* offList() {
+			const { judge } = yield* claudeAnswering(() => toolUse("kind", '{"kind":"phone"}'));
+			const failure = yield* Effect.flip(judge.kind(input, choices));
+
+			assert.strictEqual(failure.why, "judge-error");
+		}),
+	);
+});
