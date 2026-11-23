@@ -2,19 +2,12 @@ import { Array, Effect, Option, Record, Ref, String as Str, pipe } from "effect"
 import type { CommandFailed, Status } from "#shared/cli.ts";
 import { SessionId, phiCommand } from "#shared/cli.ts";
 import { Router } from "#pi/client/router.ts";
-import { getBuiltinModels } from "@earendil-works/pi-ai/providers/all";
 
 /** What `phi-router status` reports about a session. */
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
 /** The provider the pi package adds, whose requests go through the router. */
 const routedProvider = "phi";
-
-/**
- * Each Anthropic model of the catalog of the pi that loads the package. The provider offers each one with the limits
- * that catalog gives it, and the router routes it as its own target model.
- */
-const anthropicCatalog = getBuiltinModels("anthropic");
 
 /** What `/phi` answers when the session's model is another provider's, whose requests never reach the router. */
 const unrouted = `phi-router: this session's model is not a ${routedProvider} model, so phi-router does not route it.`;
@@ -273,6 +266,8 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 	return { afterTurn: observe(true), atStart: observe(false) };
 });
 
-export { answered, anthropicCatalog, observerOn, routed, routedProvider, usage };
+export { answered, observerOn, routed, routedProvider, usage };
+
+export { phiModels } from "./models.ts";
 
 export type { Observe, ShownContext };

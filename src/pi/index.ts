@@ -16,7 +16,7 @@ import type {
 	TurnEndEvent,
 	TurnEndEventResult,
 } from "@earendil-works/pi-coding-agent";
-import { answered, anthropicCatalog, observerOn, routedProvider, usage } from "#pi/features/phi/phi.ts";
+import { answered, observerOn, phiModels, routedProvider, usage } from "#pi/features/phi/phi.ts";
 import { blockUploads, recordUse } from "#pi/features/uploads/index.ts";
 import { compactionSent, promptSent } from "#pi/features/phi/proof.ts";
 import { loopback, phiCommand, productPort } from "#shared/cli.ts";
@@ -37,41 +37,6 @@ const loginProvider = "anthropic";
  * login needs, and each request carries pi's own login in its place.
  */
 const placeholderKey = "sk-ant-oat-phi-router";
-
-const free = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 };
-
-/** A model's id inside the provider `phi`, and the context and output limits pi holds it to. */
-interface Limits {
-	readonly id: string;
-	readonly contextWindow: number;
-	readonly maxTokens: number;
-}
-
-/**
- * The limits of one of phi's own models: `auto` routes each request, `sealed` pins it. pi has no subagent tool, so the
- * adapter ships none, and `/model phi/sealed` pins every request of the session while it is selected.
- *
- * @param {string} id The model's id inside the provider `phi`.
- * @returns {Limits} Its limits.
- */
-const phiOwn = (id: string): Limits => ({ contextWindow: 200_000, id, maxTokens: 32_000 });
-
-/**
- * A model of the provider `phi`.
- *
- * @param {Limits} limits Its id and limits.
- * @returns {object} The model.
- */
-const phiModel = ({ contextWindow, id, maxTokens }: Limits): NonNullable<ProviderConfig["models"]>[number] => ({
-	compat: { forceAdaptiveThinking: true },
-	contextWindow,
-	cost: free,
-	id,
-	input: ["text", "image"],
-	maxTokens,
-	name: `PHI ${id}`,
-	reasoning: true,
-});
 
 /**
  * The router client on the platform of the runtime pi runs on, which the entry file picks.
@@ -98,7 +63,7 @@ const provider = (port: number): ProviderConfig => ({
 	apiKey: placeholderKey,
 	baseUrl: `http://${loopback}:${String(port)}${piWire.base}`,
 	headers: { [piWire.sessionHeader]: "" },
-	models: pipe(Record.keys(piWire.models), Array.map(phiOwn), Array.appendAll(anthropicCatalog), Array.map(phiModel)),
+	models: phiModels,
 });
 
 /** What the header hook reads of pi's context: the session, and pi's logins. */
