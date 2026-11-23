@@ -8,6 +8,12 @@ const judge = { endpoint: "http://127.0.0.1:9/v1", keyEnv: "PHI_TEST_JUDGE_KEY" 
 
 const accounts = {
 	anthropicBaa: { keyEnv: "PHI_TEST_BAA_KEY", name: "anthropic-baa", scheme: "apiKey", vendor: "anthropic" },
+	anthropicFile: {
+		keyFile: "/home/u/.config/phi-router/keys/anthropic",
+		name: "anthropic-baa",
+		scheme: "apiKey",
+		vendor: "anthropic",
+	},
 	anthropicOpen: { forwarded: true, name: "claude-max", vendor: "anthropic" },
 	claudeFolder: { loginFolder: "/home/u/.local/share/phi-logins/claude-2", name: "claude-2", vendor: "anthropic" },
 	codexFolder: { loginFolder: "/home/u/.local/share/phi-logins/codex-2", name: "codex-2", vendor: "openai" },
@@ -77,10 +83,20 @@ const sideBySide = Effect.gen(function* sideBySide() {
 
 	const folders = yield* Effect.flatMap(jsonOf(foldersFile), configured);
 
+	const defaultedFile = Struct.assign(Struct.omit(both, ["targetModel"]), {
+		sealed: [accounts.anthropicFile, accounts.openaiBaa],
+	});
+
+	const defaulted = yield* Effect.flatMap(jsonOf(defaultedFile), configured);
+
 	assert.deepStrictEqual(
-		{ alone, folders, lanes },
+		{ alone, defaulted, folders, lanes },
 		{
 			alone: Option.some({ anthropic: Option.some(anthropicLanes), openai: Option.none() }),
+			defaulted: Option.some({
+				anthropic: Option.some(["claude-max", anthropicApi, "anthropic-baa", anthropicApi, "claude-opus-5-5"]),
+				openai: Option.some([...Array.take(openaiLanes, 4), "gpt-6.1-sol"]),
+			}),
 			folders: Option.some({
 				anthropic: Option.some([
 					"claude-max",
@@ -112,10 +128,15 @@ const lackingSealed = Struct.assign(accounts.anthropicBaa, { lacks: ["claude-sea
 
 const lackingTarget = Struct.assign(accounts.openaiBaa, { lacks: ["gpt-target"] });
 
+const lackingDefault = Struct.assign(accounts.openaiBaa, { lacks: ["gpt-6.1-sol"] });
+
+const relativeKeyFile = Struct.assign(accounts.anthropicFile, { keyFile: "keys/anthropic" });
+
 const refused = Effect.gen(function* refused() {
 	const files = [
 		Struct.assign(both, { sealed: [accounts.anthropicBaa] }),
-		Struct.assign(both, { targetModel: { anthropic: "claude-target" } }),
+		Struct.assign(Struct.omit(both, ["targetModel"]), { sealed: [accounts.anthropicBaa, lackingDefault] }),
+		Struct.assign(both, { sealed: [relativeKeyFile, accounts.openaiBaa] }),
 		Struct.assign(both, { clean: [accounts.anthropicOpen, sameName] }),
 		Struct.assign(both, { clean: [accounts.anthropicOpen, accounts.openaiOpen, relativeFolder] }),
 		Struct.assign(both, { sealed: [accounts.anthropicBaa, oauthBaa] }),
@@ -166,11 +187,11 @@ const substitutes = Effect.gen(function* substitutes() {
 
 it.layer(NodeServices.layer)("the lanes in config.json", (test) => {
 	test.effect(
-		"hold both vendors side by side, or one alone, each lane a list in file order with its own endpoints",
+		"hold both vendors side by side, or one alone, each lane a list in file order with its own endpoints, and each vendor's default target model when the file names none",
 		() => sideBySide,
 	);
 	test.effect(
-		"refuse a vendor missing from a lane or from targetModel, two accounts of one name, a relative login folder, an OpenAI OAuth key, an open account of either vendor that lacks a model and a BAA account that lacks its sealedModel or, with none, its targetModel",
+		"refuse a vendor missing from a lane, two accounts of one name, a relative login folder or key file, an OpenAI OAuth key, an open account of either vendor that lacks a model and a BAA account that lacks its sealedModel or, with none, its target model",
 		() => refused,
 	);
 	test.effect(

@@ -6,10 +6,27 @@ import { configFile } from "./configuration.ts";
 import { realFolder } from "./processes.ts";
 import { writePrivately } from "./private-file.ts";
 
-/** An account `accounts add` puts on a lane: a login folder, or a command that prints a key. Never the key. */
+/**
+ * An account `accounts add` or `setup` puts on a lane: a login folder, a command that prints a key, the login the
+ * harness forwards, or a key file `setup` saved. Never the key.
+ */
 type NewAccount =
 	| { readonly vendor: Vendor; readonly loginFolder: string }
-	| { readonly vendor: Vendor; readonly keyCommand: string; readonly scheme: "apiKey" | "oauth" };
+	| { readonly vendor: Vendor; readonly keyCommand: string; readonly scheme: "apiKey" | "oauth" }
+	| { readonly vendor: Vendor; readonly forwarded: true }
+	| { readonly vendor: Vendor; readonly keyFile: string; readonly scheme: "apiKey" };
+
+/** One account an edit puts on one lane. */
+interface Wanted {
+	readonly lane: Lane;
+	readonly account: NewAccount;
+}
+
+/** What one edit adds: accounts, each on its lane, and the judge `setup` names when the file names none. */
+interface Additions {
+	readonly accounts: Array.NonEmptyReadonlyArray<Wanted>;
+	readonly judge?: { readonly endpoint: string; readonly keyFile: string };
+}
 
 /** Where an add put an account: its name, whether it is new, and the account of its vendor before it on the lane. */
 interface Placed {
@@ -31,7 +48,9 @@ const Editable = Schema.fromJsonString(
 
 const Listed = Schema.Array(
 	Schema.Struct({
+		forwarded: Schema.optionalKey(Schema.Boolean),
 		keyCommand: Schema.optionalKey(Schema.String),
+		keyFile: Schema.optionalKey(Schema.String),
 		loginFolder: Schema.optionalKey(Schema.String),
 		name: Schema.String,
 		vendor: Schema.String,
@@ -67,7 +86,7 @@ const wordOf = (account: NewAccount): string => {
 		return "claude";
 	}
 
-	if ("loginFolder" in account) {
+	if ("loginFolder" in account || "forwarded" in account) {
 		return "codex";
 	}
 
@@ -77,6 +96,14 @@ const wordOf = (account: NewAccount): string => {
 const sameSource = (entry: Entry, account: NewAccount): boolean => {
 	if ("loginFolder" in account) {
 		return entry.loginFolder === account.loginFolder;
+	}
+
+	if ("forwarded" in account) {
+		return entry.forwarded === true && entry.vendor === account.vendor;
+	}
+
+	if ("keyFile" in account) {
+		return entry.keyFile === account.keyFile;
 	}
 
 	return entry.keyCommand === account.keyCommand;
@@ -120,7 +147,7 @@ const realLanes = Effect.fnUntraced(function* realLanes(lanes: typeof Lanes.Type
 
 const bothLanes: readonly Lane[] = ["clean", "sealed"];
 
-const placedIn = (lanes: typeof Lanes.Type, lane: Lane, account: NewAccount): Placed => {
+const placedIn = (lanes: Editing["lanes"], lane: Lane, account: NewAccount): Placed => {
 	const listed = lanes[lane] ?? [];
 
 	const same = pipe(
@@ -152,31 +179,64 @@ const placedIn = (lanes: typeof Lanes.Type, lane: Lane, account: NewAccount): Pl
 	return { added: true, after, lane, name: freeName(wordOf(account), names) };
 };
 
+/** The file as an edit goes: as written, and its lanes as the edit reads them. */
+interface Editing {
+	readonly edited: typeof Editable.Type;
+	readonly lanes: Readonly<Partial<Record<Lane, readonly Entry[]>>>;
+}
+
 /**
- * Appends `account` to `lane` in `config.json` under the XDG config folder, a missing file read as `{}`, and keeps
- * every other field as it was. The account is named after its vendor, `claude-<n>`, `codex-<n>` or `openai-<n>`, with
- * the first number no account uses. An entry on either lane with the same command, or the same folder by real path,
- * leaves the file as it was. A file the router would refuse fails with the decoder's error and is not written. The one
+ * Appends each of `additions.accounts` to its lane in `config.json` under the XDG config folder, a missing file read as
+ * `{}`, names its judge when the file names none, and keeps every other field as it was, in one write. An account is
+ * named after its vendor, `claude-<n>`, `codex-<n>` or `openai-<n>`, with the first number no account uses. An entry on
+ * either lane with the same command, key file, forwarded vendor, or folder by real path, keeps the account out. With
+ * nothing to add, it writes nothing. A file the router would refuse fails with the decoder's error and is not written. The one
  * writer of `config.json`.
  */
-const addAccount = Effect.fn("addAccount")(function* addAccount(lane: Lane, account: NewAccount) {
+const addAccounts = Effect.fn("addAccounts")(function* addAccounts(additions: Additions) {
 	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
-	const edited = yield* Effect.flatMap(textOf(file), Schema.decodeEffect(Editable));
-	const lanes = yield* Effect.flatMap(Schema.decodeUnknownEffect(Lanes)(edited), realLanes);
-	const placed = placedIn(lanes, lane, account);
+	const read = yield* Effect.flatMap(textOf(file), Schema.decodeEffect(Editable));
+	const lanes = yield* Effect.flatMap(Schema.decodeUnknownEffect(Lanes)(read), realLanes);
 
-	if (!placed.added) {
-		return placed;
+	const [added, placed] = pipe(
+		additions.accounts,
+		Array.mapAccum({ edited: read, lanes }, (editing, { account, lane }): readonly [Editing, Placed] => {
+			const place = placedIn(editing.lanes, lane, account);
+
+			if (!place.added) {
+				return [editing, place];
+			}
+
+			const entry = Struct.assign({ name: place.name }, account);
+
+			const next = {
+				edited: Struct.assign(editing.edited, { [lane]: [...(editing.edited[lane] ?? []), entry] }),
+				lanes: Struct.assign(editing.lanes, { [lane]: [...(editing.lanes[lane] ?? []), entry] }),
+			};
+
+			return [next, place];
+		}),
+	);
+
+	const judge = pipe(
+		Option.fromUndefinedOr(additions.judge),
+		Option.filter(() => !("judge" in read)),
+	);
+
+	const anyAdded = Array.findFirst(placed, ({ added: isNew }) => isNew);
+
+	if (Option.isSome(judge) || Option.isSome(anyAdded)) {
+		const edited = Option.match(judge, {
+			onNone: () => added.edited,
+			onSome: (named) => Struct.assign(added.edited, { judge: named }),
+		});
+
+		yield* Effect.flatMap(Schema.encodeEffect(Editable)(edited), (text) => saved(file, text));
 	}
-
-	const entries = [...(edited[lane] ?? []), Struct.assign({ name: placed.name }, account)];
-	const text = yield* Schema.encodeEffect(Editable)(Struct.assign(edited, { [lane]: entries }));
-
-	yield* saved(file, text);
 
 	return placed;
 });
 
-export { addAccount };
+export { addAccounts };
 
-export type { NewAccount };
+export type { NewAccount, Placed };

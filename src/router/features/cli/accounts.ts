@@ -60,6 +60,10 @@ const kindOf = (account: NamedAccount): string => {
 		return "key env";
 	}
 
+	if ("keyFile" in credential.source) {
+		return "key file";
+	}
+
 	return { apiKey: "key command", oauth: "token" }[credential.scheme];
 };
 

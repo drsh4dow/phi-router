@@ -13742,10 +13742,25 @@ function transformEffect(f) {
 		transform: f,
 	});
 }
+function transformOptional(f) {
+	return makeGetter({
+		_tag: "TransformOptional",
+		transform: f,
+	});
+}
 function transformOptionalEffect(f) {
 	return makeGetter({
 		_tag: "TransformOptionalEffect",
 		transform: f,
+	});
+}
+function omit() {
+	return transformOptional(() => none2());
+}
+function withDefault(defaultValue) {
+	return transformOptionalEffect((o) => {
+		const filtered = filter(o, isNotUndefined);
+		return isSome2(filtered) ? succeed6(filtered) : mapEager2(defaultValue, some2);
 	});
 }
 function String5() {
@@ -18810,7 +18825,7 @@ function makeConstructorParser(descriptor, compile) {
 		return transform(result, input, options);
 	};
 }
-function withDefault(ast, parser) {
+function withDefault2(ast, parser) {
 	const defaultValue = ast.context.constructorDefault;
 	return (input, options) => {
 		if (input !== missing && input !== undefined) return parser(input, options);
@@ -18827,7 +18842,7 @@ function withDefault(ast, parser) {
 }
 function compileField(ast, compile) {
 	const parser = compile(ast);
-	return ast.context?.constructorDefault === undefined ? parser : withDefault(ast, parser);
+	return ast.context?.constructorDefault === undefined ? parser : withDefault2(ast, parser);
 }
 function compile2(ast, compile, compileField, base, specialize) {
 	if (ast._tag === "Declaration") {
@@ -19719,7 +19734,7 @@ function causeEquivalence(error, defect) {
 var pick2 = /* @__PURE__ */ dual(2, (self, keys) => {
 	return buildStruct(self, (k, v) => (hasPropertyKey(keys, k) ? [k, v] : undefined));
 });
-var omit = /* @__PURE__ */ dual(2, (self, keys) => {
+var omit2 = /* @__PURE__ */ dual(2, (self, keys) => {
 	return buildStruct(self, (k, v) => (!hasPropertyKey(keys, k) ? [k, v] : undefined));
 });
 var assign = /* @__PURE__ */ dual(2, (self, that) => {
@@ -20223,6 +20238,11 @@ var toType2 = /* @__PURE__ */ lambda((schema) =>
 		schema,
 	}),
 );
+var toEncoded2 = /* @__PURE__ */ lambda((schema) =>
+	make31(toEncoded(schema.ast), {
+		schema,
+	}),
+);
 function Literal2(literal) {
 	const out = make31(new Literal(literal), {
 		literal,
@@ -20367,6 +20387,23 @@ function withConstructorDefault2(defaultValue) {
 		make31(withConstructorDefault(schema.ast, defaultValue), {
 			schema,
 		});
+}
+function toIssueEffect(self) {
+	if (effectIsExit(self) && self._tag === "Success") {
+		return self;
+	}
+	return catchCause2(self, (cause) => failCauseSync2(() => map6(cause, (error) => error.issue)));
+}
+function withDecodingDefaultKey(defaultValue, options) {
+	const encode = options?.encodingStrategy === "omit" ? omit() : passthrough2();
+	return (self) => {
+		return optionalKey2(toEncoded2(self)).pipe(
+			decodeTo2(self, {
+				decode: withDefault(toIssueEffect(defaultValue)),
+				encode,
+			}),
+		);
+	};
 }
 function tag(literal) {
 	return Literal2(literal).pipe(withConstructorDefault2(succeed6(literal)));
@@ -35599,15 +35636,29 @@ class Processes extends Service()("phi-router/router/client/processes") {
 // src/router/client/configuration.ts
 var absent = optionalKey2(Never2);
 var model = optionalKey2(String7);
-var KeyedByEnv = Struct({ endpoint: String7, keyCommand: absent, keyEnv: NonEmptyString, model });
+var AbsolutePath = String7.check(isPattern2(/^\//u));
+var KeyedByEnv = Struct({
+	endpoint: String7,
+	keyCommand: absent,
+	keyEnv: NonEmptyString,
+	keyFile: absent,
+	model,
+});
 var KeyedByCommand = Struct({
 	endpoint: String7,
 	keyCommand: NonEmptyString,
 	keyEnv: absent,
+	keyFile: absent,
 	model,
 });
-var Named = Union2([KeyedByEnv, KeyedByCommand]);
-var AbsolutePath = String7.check(isPattern2(/^\//u));
+var KeyedByFile = Struct({
+	endpoint: String7,
+	keyCommand: absent,
+	keyEnv: absent,
+	keyFile: AbsolutePath,
+	model,
+});
+var Named = Union2([KeyedByEnv, KeyedByCommand, KeyedByFile]);
 var BaaRepos = optionalKey2(ArraySchema(AbsolutePath));
 var Fixtures = optionalKey2(ArraySchema(NonEmptyString));
 var File3 = fromJsonString2(Struct({ baaRepos: BaaRepos, fixtures: Fixtures, judge: Named, mode: absent }));
@@ -35665,30 +35716,17 @@ var perVendor = Struct({
 	anthropic: optionalKey2(NonEmptyString),
 	openai: optionalKey2(NonEmptyString),
 });
-var byEnv = { forwarded: absent, keyCommand: absent, keyEnv: NonEmptyString, loginFolder: absent };
-var byCommand = { forwarded: absent, keyCommand: NonEmptyString, keyEnv: absent, loginFolder: absent };
+var absolutePath = NonEmptyString.check(isPattern2(/^\//u));
+var noCredential = { forwarded: absent, keyCommand: absent, keyEnv: absent, keyFile: absent, loginFolder: absent };
+var byEnv = assign(noCredential, { keyEnv: NonEmptyString });
+var byCommand = assign(noCredential, { keyCommand: NonEmptyString });
+var byFile = assign(noCredential, { keyFile: absolutePath });
 var anthropicKey = { scheme: Literals(["apiKey", "oauth"]), vendor: Literal2("anthropic") };
 var openaiKey = { scheme: Literal2("apiKey"), vendor: Literal2("openai") };
-var Forwarded = Struct(
-	assign(named, {
-		forwarded: Literal2(true),
-		keyCommand: absent,
-		keyEnv: absent,
-		loginFolder: absent,
-		scheme: absent,
-		vendor: Vendors,
-	}),
-);
-var absolutePath = NonEmptyString.check(isPattern2(/^\//u));
+var forwarded = assign(noCredential, { forwarded: Literal2(true), scheme: absent, vendor: Vendors });
+var Forwarded = Struct(assign(named, forwarded));
 var LoginFolder = Struct(
-	assign(named, {
-		forwarded: absent,
-		keyCommand: absent,
-		keyEnv: absent,
-		loginFolder: absolutePath,
-		scheme: absent,
-		vendor: Vendors,
-	}),
+	assign(named, assign(noCredential, { loginFolder: absolutePath, scheme: absent, vendor: Vendors })),
 );
 var anthropicKeyed = assign(named, anthropicKey);
 var openaiKeyed = assign(named, openaiKey);
@@ -35697,14 +35735,20 @@ var Account2 = Union2([
 	LoginFolder,
 	Struct(assign(anthropicKeyed, byEnv)),
 	Struct(assign(anthropicKeyed, byCommand)),
+	Struct(assign(anthropicKeyed, byFile)),
 	Struct(assign(openaiKeyed, byEnv)),
 	Struct(assign(openaiKeyed, byCommand)),
+	Struct(assign(openaiKeyed, byFile)),
 ]);
+var modelOr = (model) => NonEmptyString.pipe(withDecodingDefaultKey(succeed6(model)));
+var TargetModels = Struct({ anthropic: modelOr("claude-opus-5-5"), openai: modelOr("gpt-6.1-sol") }).pipe(
+	withDecodingDefaultKey(succeed6({})),
+);
 var Lanes = Struct({
 	clean: NonEmptyArray(Account2),
 	sealed: NonEmptyArray(Account2),
 	sealedModel: optionalKey2(perVendor),
-	targetModel: perVendor,
+	targetModel: TargetModels,
 });
 var countOf = (lane, vendor) => countBy(lane, (entry) => entry.vendor === vendor);
 var unnamed = 0;
@@ -35712,14 +35756,14 @@ var sealedModelOf = (lanes) => (vendor) =>
 	pipe(
 		fromUndefinedOr(lanes.sealedModel),
 		flatMapNullishOr((models) => models[vendor]),
-		orElse(() => fromUndefinedOr(lanes.targetModel[vendor])),
+		getOrElse(() => lanes.targetModel[vendor]),
 	);
 var lackingSubstitute = (lanes) =>
 	pipe(
 		lanes.sealed,
 		flatMap3((entry) =>
 			pipe(
-				sealedModelOf(lanes)(entry.vendor),
+				some2(sealedModelOf(lanes)(entry.vendor)),
 				filter((model) => contains2(entry.lacks ?? [], model)),
 				map((model) => `account ${entry.name} lacks ${model}, the sealed model that runs what it lacks`),
 				toArray,
@@ -35731,15 +35775,11 @@ var problemsOf = (lanes) => {
 	const vendors = pipe(
 		Vendors.literals,
 		flatMap3((vendor) => {
-			const places = [
-				countOf(lanes.clean, vendor) > unnamed,
-				countOf(lanes.sealed, vendor) > unnamed,
-				isSome2(fromUndefinedOr(lanes.targetModel[vendor])),
-			];
-			if (pipe(places, every(Boolean)) || !pipe(places, some3(Boolean))) {
+			const inClean = countOf(lanes.clean, vendor) > unnamed;
+			if (inClean === countOf(lanes.sealed, vendor) > unnamed) {
 				return [];
 			}
-			return [`vendor ${vendor} needs an account in clean, an account in sealed and a targetModel, or none of them`];
+			return [`vendor ${vendor} needs an account in clean and an account in sealed, or none in either`];
 		}),
 	);
 	const names = map4([...lanes.clean, ...lanes.sealed], (entry) => entry.name);
@@ -35781,8 +35821,8 @@ var lanesOf = (lanes) => (vendor) => {
 	return all({
 		clean: of(lanes.clean),
 		sealed: of(lanes.sealed),
-		sealedModel: sealedModelOf(lanes)(vendor),
-		targetModel: fromUndefinedOr(lanes.targetModel[vendor]),
+		sealedModel: some2(sealedModelOf(lanes)(vendor)),
+		targetModel: some2(lanes.targetModel[vendor]),
 	});
 };
 var byVendor = (lanes) => {
@@ -35817,7 +35857,9 @@ var Editable = fromJsonString2(StructWithRest(Struct({ clean: Written, sealed: W
 });
 var Listed = ArraySchema(
 	Struct({
+		forwarded: optionalKey2(Boolean4),
 		keyCommand: optionalKey2(String7),
+		keyFile: optionalKey2(String7),
 		loginFolder: optionalKey2(String7),
 		name: String7,
 		vendor: String7,
@@ -35836,7 +35878,7 @@ var wordOf = (account) => {
 	if (account.vendor === "anthropic") {
 		return "claude";
 	}
-	if ("loginFolder" in account) {
+	if ("loginFolder" in account || "forwarded" in account) {
 		return "codex";
 	}
 	return "openai";
@@ -35844,6 +35886,12 @@ var wordOf = (account) => {
 var sameSource = (entry, account) => {
 	if ("loginFolder" in account) {
 		return entry.loginFolder === account.loginFolder;
+	}
+	if ("forwarded" in account) {
+		return entry.forwarded === true && entry.vendor === account.vendor;
+	}
+	if ("keyFile" in account) {
+		return entry.keyFile === account.keyFile;
 	}
 	return entry.keyCommand === account.keyCommand;
 };
@@ -35902,17 +35950,37 @@ var placedIn = (lanes, lane, account) => {
 	);
 	return { added: true, after, lane, name: freeName(wordOf(account), names) };
 };
-var addAccount = fn2("addAccount")(function* addAccount(lane, account) {
+var addAccounts = fn2("addAccounts")(function* addAccounts(additions) {
 	const file = yield* provideService2(configFile, UserDirectories, make57());
-	const edited = yield* flatMap6(textOf(file), decodeEffect2(Editable));
-	const lanes = yield* flatMap6(decodeUnknownEffect2(Lanes2)(edited), realLanes);
-	const placed = placedIn(lanes, lane, account);
-	if (!placed.added) {
-		return placed;
+	const read = yield* flatMap6(textOf(file), decodeEffect2(Editable));
+	const lanes = yield* flatMap6(decodeUnknownEffect2(Lanes2)(read), realLanes);
+	const [added, placed] = pipe(
+		additions.accounts,
+		mapAccum({ edited: read, lanes }, (editing, { account, lane }) => {
+			const place = placedIn(editing.lanes, lane, account);
+			if (!place.added) {
+				return [editing, place];
+			}
+			const entry = assign({ name: place.name }, account);
+			const next = {
+				edited: assign(editing.edited, { [lane]: [...(editing.edited[lane] ?? []), entry] }),
+				lanes: assign(editing.lanes, { [lane]: [...(editing.lanes[lane] ?? []), entry] }),
+			};
+			return [next, place];
+		}),
+	);
+	const judge = pipe(
+		fromUndefinedOr(additions.judge),
+		filter(() => !("judge" in read)),
+	);
+	const anyAdded = findFirst2(placed, ({ added: isNew }) => isNew);
+	if (isSome2(judge) || isSome2(anyAdded)) {
+		const edited = match(judge, {
+			onNone: () => added.edited,
+			onSome: (named) => assign(added.edited, { judge: named }),
+		});
+		yield* flatMap6(encodeEffect(Editable)(edited), (text) => saved(file, text));
 	}
-	const entries = [...(edited[lane] ?? []), assign({ name: placed.name }, account)];
-	const text = yield* encodeEffect(Editable)(assign(edited, { [lane]: entries }));
-	yield* saved(file, text);
 	return placed;
 });
 
@@ -35940,10 +36008,24 @@ var printedBy = fnUntraced2(function* printedBy(command) {
 	}
 	return make23(key);
 }, scoped2);
+var fileKey = fnUntraced2(function* fileKey(file) {
+	const fs = yield* FileSystem;
+	const text = yield* fs.readFileString(file);
+	const key = trim(text);
+	if (isEmpty(key)) {
+		return yield* KeyUnreadable.make({ cause: "holds nothing", source: `keyFile ${file}` });
+	}
+	return make23(key);
+});
 var readKey = fn2("readKey")(function* readKey(source) {
 	if ("keyEnv" in source) {
 		return yield* mapError2(Redacted2(source.keyEnv), (cause) =>
 			KeyUnreadable.make({ cause, source: `keyEnv ${source.keyEnv}` }),
+		);
+	}
+	if ("keyFile" in source) {
+		return yield* catchTag2(fileKey(source.keyFile), "PlatformError", (cause) =>
+			fail7(KeyUnreadable.make({ cause, source: `keyFile ${source.keyFile}` })),
 		);
 	}
 	return yield* catchTag2(printedBy(source.keyCommand), "PlatformError", (cause) =>
@@ -36123,7 +36205,7 @@ var foundBy = fnUntraced2(function* foundBy(request) {
 var accountsAdd = fn2("accountsAdd")(function* accountsAdd(request) {
 	const lane = laneOf(request.sealed);
 	const found = yield* foundBy(request);
-	const placed = yield* addAccount(lane, found.account).pipe(
+	const [placed] = yield* addAccounts({ accounts: [{ account: found.account, lane }] }).pipe(
 		catchTags2({
 			PlatformError: (error) => fail7(refused(`config.json could not be read or written. ${error.message}`)),
 			SchemaError: (error) =>
@@ -36172,6 +36254,9 @@ var kindOf = (account) => {
 	}
 	if ("keyEnv" in credential.source) {
 		return "key env";
+	}
+	if ("keyFile" in credential.source) {
+		return "key file";
 	}
 	return { apiKey: "key command", oauth: "token" }[credential.scheme];
 };
@@ -40500,7 +40585,7 @@ var Metadata = Unknown2;
 var JsonObject2 = Record(String7, Unknown2);
 var flag = optionalKey2(Boolean4);
 var Effort = Literals(["low", "medium", "high", "xhigh", "max"]);
-var forwarded = {
+var forwarded2 = {
 	cache_control: Struct({
 		ttl: optionalKey2(Literals(["5m", "1h"])),
 		type: Literal2("ephemeral"),
@@ -40509,9 +40594,9 @@ var forwarded = {
 	is_error: Boolean4,
 	output_config: Struct({ effort: Effort }),
 };
-var forwardedKeys = new Set(keys(forwarded));
+var forwardedKeys = new Set(keys(forwarded2));
 var isForwarded = (key) => forwardedKeys.has(key);
-var cacheControl = optionalKey2(forwarded.cache_control);
+var cacheControl = optionalKey2(forwarded2.cache_control);
 var ThinkingDisplay = Literals(["omitted", "updates", "summarized"]);
 var ThinkingConfig = Union2([
 	Struct({ display: optionalKey2(ThinkingDisplay), type: Literal2("adaptive") }),
@@ -40540,7 +40625,7 @@ var Thinking = Struct({ signature: String7, thinking: String7, type: Literal2("t
 var RedactedThinking = Struct({ data: String7, type: Literal2("redacted_thinking") });
 var ToolUse = Struct({
 	cache_control: cacheControl,
-	caller: optionalKey2(forwarded.caller),
+	caller: optionalKey2(forwarded2.caller),
 	id: String7,
 	input: Judged,
 	name: String7,
@@ -40564,7 +40649,7 @@ var noteContent = Union2([String7, ArraySchema(Union2([Text2, Unreadable]))]);
 var AssistantTurn = Struct({ content: ArraySchema(AssistantBlock), role: Literal2("assistant") });
 var SystemNote = Struct({
 	content: noteContent,
-	output_config: optionalKey2(forwarded.output_config),
+	output_config: optionalKey2(forwarded2.output_config),
 	role: Literal2("system"),
 });
 var Tool = Struct({
@@ -40755,7 +40840,7 @@ var required = fnUntraced2(function* required(object, key) {
 // src/router/features/anthropic-messages/refusal.ts
 class CleanLaneRefused2 extends TaggedError3()("CleanLaneRefused", { reason: String7 }) {}
 var fits = (key, text) => {
-	const decode = decodeOption2(fromJsonString2(forwarded[key]));
+	const decode = decodeOption2(fromJsonString2(forwarded2[key]));
 	return isSome2(decode(text, { onExcessProperty: "error" }));
 };
 var carriersOf = (body) => {
@@ -41884,7 +41969,7 @@ var resendOf = fnUntraced2(function* resendOf(arrival, aim, text) {
 	if (isUndefined(withoutReasoning) || !reasoningRejected(text)) {
 		return none2();
 	}
-	const request = assign(omit(arrival.request, ["withoutReasoning"]), { encode: withoutReasoning });
+	const request = assign(omit2(arrival.request, ["withoutReasoning"]), { encode: withoutReasoning });
 	const again = assign(arrival, { request });
 	const next = yield* aimed(again, aim.walk);
 	return liftPredicate(
@@ -42258,7 +42343,7 @@ var servedBy = fnUntraced2(function* servedBy(text) {
 	return {
 		anthropic: pipe(
 			anthropic,
-			map((accounts) => omit(accounts, ["catalog"])),
+			map((accounts) => omit2(accounts, ["catalog"])),
 		),
 		openai,
 	};
