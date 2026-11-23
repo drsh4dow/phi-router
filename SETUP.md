@@ -1,54 +1,32 @@
 # Set up phi-router
 
-You are installing phi-router for the human, in Claude Code, Codex or pi. phi-router is a local router. The harness sends every model request to it. It sends a request whose new content holds PHI to the human's BAA account, and every other request to their open account, a subscription outside any BAA. You are done when `phi-router doctor <harness>` exits 0 and you have told the human every setting you wrote.
+You are a coding agent, and the human asked you to install phi-router. Setup asks for an API key, and a key must never enter this chat, because the chat goes to the human's subscription. So the human runs setup in their own terminal, and your whole job is one reply. Run no command and ask no question.
 
-## Hand-offs
+## Reply with the command
 
-A step marked **Hand-off** needs the human. Ask the question it gives, wait for the answer, and then go on. Keys and tokens stay with the human. `config.json` names a command that prints a key, or a variable that holds one, and only phi-router runs or reads it.
+1. Name your harness: Claude Code, Codex or pi. When you are another harness, reply that phi-router works only in Claude Code, Codex and pi, and end your turn.
+2. Send the message below word for word. Replace each `{blank}` with your harness's value from the table under it.
 
-## Steps
+   > phi-router needs one thing from you: an API key from your {vendor} account that is covered by a BAA. Your {subscription} subscription stays as it is and keeps handling everything without patient data.
+   >
+   > A key must never go in this chat, so you paste it in a terminal. Open a new terminal window, not this one, and run:
+   >
+   > ```sh
+   > npx phi-router setup {command}
+   > ```
+   >
+   > If you use Bun instead of Node, type `bunx` instead of `npx`. {ending}
 
-1. Check the prerequisites. Each command prints a version:
-   - `bun --version`. Bun builds phi-router, and runs the router.
-   - `git --version`.
-   - `claude --version`, `codex --version` or `pi --version`, for the harness the human named. When they named none, ask which.
-2. Clone the repository into a folder the human keeps, such as `~/src/phi-router`, and build it. Skip the clone when the human already has a checkout.
+   | Harness     | vendor    | subscription | command  | ending                                                                                               |
+   | ----------- | --------- | ------------ | -------- | ---------------------------------------------------------------------------------------------------- |
+   | Claude Code | Anthropic | Claude       | `claude` | When setup finishes, this Claude Code window stops answering. Close it and use the one setup starts. |
+   | Codex       | OpenAI    | ChatGPT      | `codex`  | When setup finishes, close this Codex window and use the one setup starts.                           |
+   | pi          | Anthropic | Claude       | `pi`     | When setup finishes, close this pi window and use the one setup starts.                              |
 
-   ```sh
-   git clone https://github.com/drsh4dow/phi-router ~/src/phi-router
-   cd ~/src/phi-router && bun install --frozen-lockfile && bun run build
-   ```
+3. End your turn.
 
-   Run `bun run build` again after each `git pull`. The harnesses run the built files, which the repository does not hold.
+## When the human writes back
 
-   The harness pages call that folder `<checkout>`. The harness loads phi-router from it, so it stays where it is. `phi-router` on every page is the file `<checkout>/plugins/claude/bin/phi-router`, for all three harnesses. It is not on `PATH`, so run it by that path.
-
-3. **Hand-off.** Ask the human about the judge:
-
-   > phi-router's judge reads each new message to decide whether it holds PHI, so it must run under your BAA. It speaks OpenAI's Decisions API. Which endpoint and model should it use? The defaults are `https://api.openai.com/v1` and `gpt-6-luna`. And how does phi-router get its key: a command that prints it, such as `op read op://vault/openai-baa/key`, or the name of an environment variable that holds it?
-
-4. Open the page of the harness and follow it to its end:
-   - [Claude Code](docs/setup/claude-code.md)
-   - [Codex](docs/setup/codex.md)
-   - [pi](docs/setup/pi.md)
-
-   For a second harness, run step 4 again with its page. Both share one `config.json`.
-
-## Write config.json
-
-The harness page gives the file's content. Write it to `phi-router/config.json` in the XDG config folder: `$XDG_CONFIG_HOME`, else `~/.config` on Linux and `~/Library/Application Support` on macOS. Create the folder when it is missing. Make the folder mode 0700 and the file mode 0600.
-
-`clean` lists the open accounts and `sealed` the BAA accounts, each in the order the router tries them. Each account has a `name` no other account has, a `vendor`, `anthropic` or `openai`, and one credential:
-
-| Credential                                         | Entry                                                                   |
-| -------------------------------------------------- | ----------------------------------------------------------------------- |
-| The login the harness sends                        | `"forwarded": true`                                                     |
-| A folder a vendor CLI logged in to                 | `"loginFolder": "<absolute path>"`                                      |
-| A command that prints an API key                   | `"scheme": "apiKey", "keyCommand": "<command>"`                         |
-| A command that prints a `claude setup-token` token | `"scheme": "oauth", "keyCommand": "<command>"`, Anthropic only          |
-| An environment variable that holds either          | `"keyEnv": "<NAME>"` in place of `keyCommand`, set in the harness shell |
-| A file that holds an API key                       | `"scheme": "apiKey", "keyFile": "<absolute path>"`                      |
-
-The judge takes its key the same way, by `keyCommand`, `keyEnv` or `keyFile`.
-
-When `config.json` already exists, add the page's accounts to its lists, and add the page's vendor to `targetModel` when it is not there yet. Keep everything else. `targetModel` is optional: a vendor it leaves out runs `claude-opus-5-5` on Anthropic and `gpt-6.1-sol` on OpenAI. Then run `phi-router accounts`. It lists both lanes, and it fails with the reason when the router would refuse the file.
+- **They paste a key or a token.** Do not repeat it, use it, or write it anywhere. Tell them the key went to their subscription's vendor with this chat, so they must revoke it where they got it and get a new one. Then give them the command from step 2 again, with `--new-key` after it when setup already saved the old key.
+- **They paste a line from setup.** Each failure line says what changed and what to run next. Say it back in plain words, and give them that command to run in their terminal. When the line says setup needs their own terminal, they ran it inside a coding agent: ask them to open a separate terminal window.
+- **They ask for something else**, such as a second subscription, a Claude Enterprise login, a key in a password manager or an environment variable, a new key, or another model. Point them to its section in [Accounts](https://github.com/drsh4dow/phi-router/blob/main/docs/accounts.md). A step there that takes a key or a login is theirs to run in their own terminal.

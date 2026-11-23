@@ -16,11 +16,11 @@ phi-router is a local router. Your harness sends every model request to it, and 
 
 ## Get started
 
-You need Claude Code, Codex or pi, Bun, a subscription, and an account under a BAA for the sealed requests and the judge. Tell your coding agent:
+You need a coding agent (Claude Code, Codex or pi) logged in to your subscription, and Node or Bun. You also need one API key from an account your organization has under a BAA: an Anthropic key for Claude Code and pi, an OpenAI key for Codex.
 
-> Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md
+Tell your coding agent: "Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md". It gives you one command to run in a terminal. Or run it yourself: `npx phi-router setup claude`, with `codex` or `pi` in place of `claude`.
 
-It asks you for each login and key it needs, and never reads a key itself. It ends by telling you each setting it wrote. Then start a new session and pick the model `phi/auto`. In Codex, start it with `codex -m phi/auto`.
+phi-router checks each message for patient data before it is sent. The check runs on your BAA account. Messages it flags, or cannot clear, go to your BAA account, which bills per use like any API key. Everything else goes to your subscription as before. You only set up the BAA account. For a second subscription, a Claude Enterprise login, or a key in a password manager, see [Accounts](docs/accounts.md).
 
 ## Disclaimer
 
