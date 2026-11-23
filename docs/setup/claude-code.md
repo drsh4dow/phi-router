@@ -2,7 +2,7 @@
 
 Start from [SETUP.md](../../SETUP.md). You need its `<checkout>` and the judge's endpoint, model and key source. When `CLAUDE_CONFIG_DIR` is set in your shell, keep it set for every command on this page. Claude Code's user settings are `~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR/settings.json`.
 
-Or hand the human one command to run in a terminal of their own, never in this chat: `<checkout>/plugins/claude/bin/phi-router setup claude --source <checkout>`. It asks at hidden prompts for the BAA account's Anthropic API key and the judge's OpenAI key, checks each with its vendor, saves them in files only the human can read, writes `config.json`, installs the plugin, tests it with a fake patient record, turns it on, and starts Claude Code. The steps below do the same by hand.
+Or hand the human one command to run in a terminal of their own, never in this chat: `<checkout>/plugins/claude/bin/phi-router setup claude --source <checkout>`. It asks at hidden prompts for the BAA account's Anthropic API key and the judge's OpenAI key, checks each with its vendor, saves them in files only the human can read, writes `config.json`, tests phi-router with a fake patient record, then installs the plugin and turns it on, and starts Claude Code. The steps below do the same by hand.
 
 1. Install the plugin. It starts the router with each session, answers `/phi`, and ships the pinned subagent `phi-router:phi-sealed`. The two commands write `extraKnownMarketplaces.phi-router`, naming the checkout, and `enabledPlugins."phi-router@phi-router"` into the user settings.
 
