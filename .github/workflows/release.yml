@@ -1,0 +1,40 @@
+name: release
+
+on:
+   workflow_dispatch:
+      inputs:
+         version:
+            description: The version to release, such as 0.2.0
+            required: true
+         dry-run:
+            description: Build, commit and tag on the runner, print what the tag holds, and push nothing
+            type: boolean
+            default: false
+   pull_request:
+      paths:
+         - .github/workflows/release.yml
+         - tools/plugin/release.sh
+
+jobs:
+   release:
+      if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      permissions:
+         contents: write
+      env:
+         GH_TOKEN: ${{ github.token }}
+         GIT_AUTHOR_NAME: github-actions[bot]
+         GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+         GIT_COMMITTER_NAME: github-actions[bot]
+         GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      steps:
+         - uses: actions/checkout@v5
+         - name: install
+           run: |
+              npm install --global bun@1.4.5
+              bun install --frozen-lockfile
+         - name: release
+           run: tools/plugin/release.sh "$VERSION" $DRY_RUN
+           env:
+              VERSION: ${{ inputs.version || '0.0.0' }}
+              DRY_RUN: ${{ (github.event_name == 'pull_request' || inputs.dry-run) && '--dry-run' || '' }}
