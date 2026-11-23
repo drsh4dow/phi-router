@@ -18,7 +18,7 @@ phi-router is a local router. Your harness sends every model request to it, and 
 
 You need Claude Code, Codex or pi, Bun or Node, a subscription, and an account under a BAA for the sealed requests and the judge. Tell your coding agent:
 
-> Install phi-router for Claude Code by following SETUP.md in https://github.com/drsh4dow/phi-router.
+> Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md
 
 It asks you for each login and key it needs, and never reads a key itself. It ends by telling you each setting it wrote. Then start a new session and pick the model `phi/auto`. In Codex, start it with `codex -m phi/auto`.
 
