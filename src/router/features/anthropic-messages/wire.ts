@@ -39,12 +39,15 @@ const isForwarded = (key: string): key is ForwardedKey => forwardedKeys.has(key)
 
 const cacheControl = Schema.optionalKey(forwarded.cache_control);
 
+const ThinkingDisplay = Schema.Literals(["omitted", "updates", "summarized"]);
+
 /**
  * Top-level fields in their recorded closed shapes. A value outside one fails the request, as ADR 0001 says. pi 1.6.0
- * asks for `summarized` thinking, or turns it off.
+ * asks for `summarized` thinking, or turns it off. Claude Code 2.1.330 drops `display` when it sends a request again
+ * after a 400.
  */
 const ThinkingConfig = Schema.Union([
-	Schema.Struct({ display: Schema.Literals(["omitted", "updates", "summarized"]), type: Schema.Literal("adaptive") }),
+	Schema.Struct({ display: Schema.optionalKey(ThinkingDisplay), type: Schema.Literal("adaptive") }),
 	Schema.Struct({ type: Schema.Literal("disabled") }),
 ]);
 

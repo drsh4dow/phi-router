@@ -27,6 +27,16 @@ const unknownField = Effect.gen(function* unknownField() {
 	assert.notInclude(failure.reason, "PATIENT-SECRET");
 });
 
+const retried = Effect.gen(function* retried() {
+	const body = Str.replace(
+		'"thinking":{"type":"adaptive","display":"updates"}',
+		'"thinking":{"type":"adaptive"}',
+	)(toolResult);
+
+	assert.notStrictEqual(body, toolResult);
+	yield* decodeRequest(body, nobodyWrote, "claude");
+});
+
 const openThinking = '{"type":"thinking","thinking":"","signature":"signature-placeholder"}';
 
 /**
@@ -108,6 +118,7 @@ const cutReply = Effect.gen(function* cutReply() {
 it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	test.effect("every captured request decodes", () => everyCapture);
 
+	test.effect("Claude Code's retry after a 400, which drops thinking's display, decodes", () => retried);
 	test.effect("an unknown top-level field fails the request and names the field, not its value", () => unknownField);
 
 	test.effect(

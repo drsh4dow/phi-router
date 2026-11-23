@@ -40729,8 +40729,9 @@ var forwarded = {
 var forwardedKeys = new Set(keys(forwarded));
 var isForwarded = (key) => forwardedKeys.has(key);
 var cacheControl = optionalKey2(forwarded.cache_control);
+var ThinkingDisplay = Literals(["omitted", "updates", "summarized"]);
 var ThinkingConfig = Union2([
-	Struct({ display: Literals(["omitted", "updates", "summarized"]), type: Literal2("adaptive") }),
+	Struct({ display: optionalKey2(ThinkingDisplay), type: Literal2("adaptive") }),
 	Struct({ type: Literal2("disabled") }),
 ]);
 var ClearThinking = Struct({ keep: Literal2("all"), type: Literal2("clear_thinking_20251015") });
