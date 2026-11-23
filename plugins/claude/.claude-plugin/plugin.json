@@ -1,5 +1,5 @@
 {
 	"name": "phi-router",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Starts the PHI router with each session. Run `phi-router on claude` for the settings a plugin cannot set."
 }
