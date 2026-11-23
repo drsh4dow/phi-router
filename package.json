@@ -1,8 +1,21 @@
 {
 	"name": "phi-router",
-	"private": true,
+	"version": "0.1.0",
+	"description": "Sends each model request from Claude Code, Codex or pi to an open account or a BAA account, by whether it holds PHI.",
 	"keywords": [
 		"pi-package"
+	],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/drsh4dow/phi-router.git"
+	},
+	"bin": {
+		"phi-router": "plugins/claude/bin/phi-router"
+	},
+	"files": [
+		"plugins",
+		".claude-plugin"
 	],
 	"type": "module",
 	"imports": {
@@ -13,6 +26,7 @@
 	},
 	"scripts": {
 		"prepare": "[ -x node_modules/.bin/effect-tsgo ] || exit 0; effect-tsgo patch --oxlint && bun tools/formal/install.ts",
+		"prepack": "bun run build",
 		"fmt": "oxfmt",
 		"lint": "oxlint --format default src tools",
 		"boundaries": "depcruise src tools --output-type err-long",

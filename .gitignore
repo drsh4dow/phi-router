@@ -2,3 +2,4 @@ node_modules
 dist
 plugins/claude/phi-router.mjs
 plugins/pi/extension.mjs
+phi-router-*.tgz
