@@ -7,7 +7,7 @@ on:
             description: The version to release, such as 0.2.0
             required: true
          dry-run:
-            description: Build, commit and tag on the runner, print what the tag holds, and push nothing
+            description: Build, commit and tag on the runner, print what the tag and the npm package hold, and push and publish nothing
             type: boolean
             default: false
    pull_request:
@@ -42,7 +42,9 @@ jobs:
          - uses: actions/upload-artifact@v4
            with:
               name: release
-              path: release.bundle
+              path: |
+                 release.bundle
+                 phi-router-${{ env.VERSION }}.tgz
 
    publish:
       needs: tag
@@ -52,8 +54,13 @@ jobs:
       runs-on: ubuntu-latest
       permissions:
          contents: write
+         id-token: write
       steps:
          - uses: actions/checkout@v5
+         - uses: actions/setup-node@v4
+           with:
+              node-version: 24
+              registry-url: https://registry.npmjs.org
          - uses: actions/download-artifact@v4
            with:
               name: release
@@ -61,3 +68,4 @@ jobs:
          - run: tools/plugin/release.sh publish "$VERSION"
            env:
               GH_TOKEN: ${{ github.token }}
+              NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
