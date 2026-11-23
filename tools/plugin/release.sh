@@ -46,7 +46,7 @@ tag)
 		echo "$manifest version: $(git show "$tag:$manifest" | jq -r .version)"
 	done
 	npm pack
-	npm publish --dry-run "$tarball"
+	npm publish --dry-run --access public "$tarball"
 	echo "Pushed and published nothing."
 	;;
 publish)
@@ -61,7 +61,7 @@ publish)
 	if npm view "phi-router@$version" version >/dev/null 2>&1; then
 		echo "npm already holds phi-router@$version."
 	else
-		npm publish --provenance "$tarball"
+		npm publish --provenance --access public "$tarball"
 	fi
 	;;
 *)
