@@ -2,6 +2,8 @@
 
 Start from [SETUP.md](../../SETUP.md). You need its `<checkout>` and the judge's endpoint, model and key source. When `CODEX_HOME` is set in your shell, keep it set for every command on this page. Codex's configuration is `~/.codex/config.toml`, or `$CODEX_HOME/config.toml`.
 
+Or hand the human one command to run in a terminal of their own, never in this chat: `<checkout>/plugins/claude/bin/phi-router setup codex --source <checkout>`. It asks at a hidden prompt for the BAA account's OpenAI API key, which also serves the judge, checks it with OpenAI, saves it in a file only the human can read, writes `config.json`, installs the plugin, tests it with a fake patient record, turns it on, and starts Codex. The steps below do the same by hand.
+
 1. Add the plugin. Its hooks start the router with each session and answer `phi`, `phi pin` and `phi unpin`. The two commands write `[marketplaces.phi-router]`, naming the checkout, and `[plugins."phi-router@phi-router"]` into `config.toml`.
 
    ```sh

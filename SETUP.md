@@ -44,7 +44,8 @@ The harness page gives the file's content. Write it to `phi-router/config.json` 
 | A command that prints an API key                   | `"scheme": "apiKey", "keyCommand": "<command>"`                         |
 | A command that prints a `claude setup-token` token | `"scheme": "oauth", "keyCommand": "<command>"`, Anthropic only          |
 | An environment variable that holds either          | `"keyEnv": "<NAME>"` in place of `keyCommand`, set in the harness shell |
+| A file that holds an API key                       | `"scheme": "apiKey", "keyFile": "<absolute path>"`                      |
 
-The judge takes its key the same way, by `keyCommand` or `keyEnv`.
+The judge takes its key the same way, by `keyCommand`, `keyEnv` or `keyFile`.
 
-When `config.json` already exists, add the page's accounts to its lists, and add the page's vendor to `targetModel` when it is not there yet. Keep everything else. Then run `phi-router accounts`. It lists both lanes, and it fails with the reason when the router would refuse the file.
+When `config.json` already exists, add the page's accounts to its lists, and add the page's vendor to `targetModel` when it is not there yet. Keep everything else. `targetModel` is optional: a vendor it leaves out runs `claude-opus-5-5` on Anthropic and `gpt-6.1-sol` on OpenAI. Then run `phi-router accounts`. It lists both lanes, and it fails with the reason when the router would refuse the file.
