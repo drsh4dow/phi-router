@@ -19,6 +19,7 @@
 	],
 	"type": "module",
 	"imports": {
+		"#package.json": "./package.json",
 		"#shared/*": "./src/shared/*",
 		"#pi/*": "./src/pi/*",
 		"#router/*": "./src/router/*",

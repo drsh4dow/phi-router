@@ -3,6 +3,10 @@ import type { Typed, World } from "./world.ts";
 import { keys, snapshot, typedRun } from "./world.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
+import manifest from "#package.json" with { type: "json" };
+
+/** The version in `package.json`, whose release setup installs. */
+const { version } = manifest;
 
 const patient = { timeout: 120_000 };
 
@@ -25,15 +29,13 @@ const Json = Schema.fromJsonString(Schema.Json);
 
 const layer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
 
-/** Runs `phi-router setup <harness>` from the world's copy, typing `answers`. */
+/** Runs `phi-router setup <harness>`, typing `answers`. */
 const setUp = Effect.fnUntraced(function* setUp(
 	of: World,
 	harness: "claude" | "codex" | "pi",
 	answers: readonly Typed[],
 ) {
-	const source = { claude: of.copies.plugin, codex: of.copies.plugin, pi: of.copies.pkg }[harness];
-
-	return yield* typedRun(of, ["setup", harness, "--source", source], answers);
+	return yield* typedRun(of, ["setup", harness], answers);
 });
 
 /** Claude Code's folder with its own settings. */
@@ -173,4 +175,5 @@ export {
 	patient,
 	setUp,
 	settled,
+	version,
 };

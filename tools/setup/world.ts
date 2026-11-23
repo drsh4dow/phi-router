@@ -67,7 +67,7 @@ const piCli = decodeURIComponent(
 	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
 );
 
-/** The copies of `plugins/claude` and the pi package that setup installs from with `--source`. */
+/** The copies of `plugins/claude` and the pi package that the fake installers install. */
 interface Copies {
 	readonly pkg: string;
 	readonly plugin: string;
@@ -76,7 +76,8 @@ interface Copies {
 /**
  * The fake harnesses. Each appends the arguments it gets to `<name>-args` beside it. Its installer commands write what
  * the real ones write: Claude Code's turns the plugin on in its settings and records the marketplace, Codex's adds the
- * marketplace and the enabled plugin to `config.toml`, and pi's is the pinned pi. Its canary turn runs the stand-in, or
+ * marketplace and the enabled plugin to `config.toml`, and pi's is the pinned pi, which installs the package copy for an
+ * npm package. Its canary turn runs the stand-in, or
  * the pinned pi, and a bare start prints `<name> started`. While `hang` exists beside it, its canary turn says so in
  * `canary-ran` and waits. While `fail` exists, its canary turn fails.
  *
@@ -109,6 +110,7 @@ exec "$here/bun" '${codexStandIn}' "$@"`,
 		pi: `case "$*" in
 "--model phi/auto") echo "pi started"; exit 0;;
 "-p "*) ${hang};;
+"install npm:"*) exec "$here/bun" '${piCli}' install '${copies.pkg}';;
 esac
 exec "$here/bun" '${piCli}' "$@"`,
 	};
@@ -160,8 +162,8 @@ const rootFolders = Effect.gen(function* rootFolders() {
 
 /**
  * One test's world: a root folder that holds the home, each harness's folder and the XDG folders, a `bin` beside it
- * with the fake harnesses and `bun`, the key mock, the environment that names them all, and the copies setup installs
- * from with `--source`.
+ * with the fake harnesses and `bun`, the key mock, the environment that names them all, and the copies the fake
+ * installers install.
  */
 interface World {
 	readonly bin: string;

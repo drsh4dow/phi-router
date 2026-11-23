@@ -9,10 +9,14 @@ import { piCanary } from "./doctor-pi.ts";
 import { plugin } from "./claude-settings.ts";
 import { switchedOn } from "./on.ts";
 
-/** Where setup installs phi-router from, as each installer takes it: a marketplace, and a pi package. */
+/**
+ * Where setup installs phi-router from, as each installer takes it: Claude Code's marketplace, what
+ * `codex plugin marketplace add` takes, and pi's package.
+ */
 interface Source {
-	readonly marketplace: string;
-	readonly package: string;
+	readonly claude: string;
+	readonly codex: readonly string[];
+	readonly pi: string;
 }
 
 /** One command line: the program and its arguments. */
@@ -41,7 +45,7 @@ const harnesses = {
 			"Press Enter to start Claude Code with phi-router.",
 		],
 		install: (source: Source): readonly Argv[] => [
-			["claude", "plugin", "install", "phi-router", "--marketplace", source.marketplace, "--scope", "user"],
+			["claude", "plugin", "install", "phi-router", "--marketplace", source.claude, "--scope", "user"],
 		],
 		installed: installedPlugin("", plugin),
 		start: ["claude"] satisfies Argv,
@@ -60,7 +64,7 @@ const harnesses = {
 			'Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.',
 		],
 		install: (source: Source): readonly Argv[] => [
-			["codex", "plugin", "marketplace", "add", source.marketplace],
+			["codex", "plugin", "marketplace", "add", ...source.codex],
 			["codex", "plugin", "add", plugin],
 		],
 		installed: Effect.gen(function* codexInstalled() {
@@ -83,11 +87,11 @@ const harnesses = {
 	pi: {
 		end: (source: Source): readonly string[] => [
 			"Done. Close any pi window that was already open, and use the one setup starts.",
-			`Undo any time with: pi remove ${source.package}`,
+			`Undo any time with: pi remove ${source.pi}`,
 			"",
 			"Press Enter to start pi on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.",
 		],
-		install: (source: Source): readonly Argv[] => [["pi", "install", source.package]],
+		install: (source: Source): readonly Argv[] => [["pi", "install", source.pi]],
 		installed: Effect.map(
 			installedPackage(""),
 			Option.map(({ folder }) => folder),

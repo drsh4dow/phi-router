@@ -4,13 +4,13 @@ import type { HarnessName, Source } from "./setup-harnesses.ts";
 import { addAccounts, judgeNamed } from "#router/client/config-writer.ts";
 import { baaAsk, judgeAsk, pasted, savedKeys, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
+import { packageOf, versionOf } from "#router/client/own-package.ts";
 import type { HeldKey } from "./setup-keys.ts";
 import { KeyChecks } from "#router/client/key-check.ts";
 import { Platform } from "./platform.ts";
 import type { Turn } from "#router/client/harness-turn.ts";
 import { harnesses } from "./setup-harnesses.ts";
 import { installRun } from "#router/client/harness-turn.ts";
-import { packageOf } from "#router/client/own-package.ts";
 
 /** The repository setup installs from unless `--source` names a checkout. */
 const repository = "drsh4dow/phi-router";
@@ -206,18 +206,28 @@ const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
 });
 
 /**
- * What each installer takes: the repository, or the checkout `--source` names.
- *
- * @param {string | undefined} checkout The checkout, if one is named.
- * @returns {Source} The source.
+ * What each installer takes: the checkout `--source` names, else the release of the version of the phi-router package
+ * setup runs from, which is the repository at the tag `v<version>` and the npm package of that version.
  */
-const sourceOf = (checkout: string | undefined): Source => {
-	if (Predicate.isUndefined(checkout)) {
-		return { marketplace: repository, package: `git:github.com/${repository}` };
+const sourceOf = Effect.fnUntraced(function* sourceOf(checkout: string | undefined) {
+	if (Predicate.isNotUndefined(checkout)) {
+		return { claude: checkout, codex: [checkout], pi: checkout } satisfies Source;
 	}
 
-	return { marketplace: checkout, package: checkout };
-};
+	const { entry } = yield* Platform;
+	const version = yield* versionOf(entry);
+	const tag = `v${version}`;
+
+	return {
+		claude: `${repository}@${tag}`,
+		codex: [repository, "--ref", tag],
+		pi: `npm:phi-router@${version}`,
+	} satisfies Source;
+});
+
+const noVersion = stopped(
+	"Setup could not read the version of phi-router, so it cannot tell which release to install. Nothing was changed.",
+);
 
 const noTerminal = stopped(
 	"phi-router setup asks for a key, so it needs your own terminal. Run it yourself, outside your coding agent. Nothing was changed.",
@@ -232,7 +242,7 @@ const noTerminal = stopped(
  */
 const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: string | undefined, fresh: boolean) {
 	const { end, start } = harnesses[name];
-	const source = sourceOf(checkout);
+	const source = yield* Effect.mapError(sourceOf(checkout), () => noVersion);
 
 	yield* Effect.filterOrFail(isTerminal, Boolean, () => noTerminal);
 	yield* Effect.flatMap(keysOf(name, fresh), (keys) => configured(name, keys));
