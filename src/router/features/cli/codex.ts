@@ -67,12 +67,19 @@ const trustLine = (config: string): string => {
 	return 'Trust the plugin\'s hooks: start codex and pick "Trust all and continue" at "Hooks need review". Until you do, no hook starts the router, so every prompt ends in a connection error, and no hook blocks a prompt of a session that sends to another provider. A plugin update asks again.';
 };
 
+/** Writes `after` over `file`, which holds `before`, unless the two are the same. */
+const changed = Effect.fnUntraced(function* changed(file: string, before: string, after: string) {
+	if (after !== before) {
+		yield* rewritePrivately(file, after);
+	}
+});
+
 /**
  * Writes the settings a plugin cannot set into Codex's `config.toml`, keeping every other line, the router's exemption
- * from the developer's proxy into `.env`, and the pinned subagent's role into `agents/phi-sealed.toml`. It prints each
- * setting with its reason, and whether the human must still trust the plugin's hook.
+ * from the developer's proxy into `.env`, and the pinned subagent's role into `agents/phi-sealed.toml`. A file that
+ * holds what it would write already is not written. It gives the files and the new `config.toml`.
  */
-const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
+const codexSwitchedOn = Effect.fnUntraced(function* codexSwitchedOn(named: string) {
 	const files = yield* filesOf(named);
 	const before = yield* textOf(files.config);
 	const owner = inlineOwner(before);
@@ -82,10 +89,22 @@ const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
 	}
 
 	const after = switchedOn(before);
+	const [dotenv, role] = yield* Effect.all([textOf(files.dotenv), textOf(files.role)], { concurrency: 1 });
 
-	yield* rewritePrivately(files.config, after);
-	yield* Effect.flatMap(textOf(files.dotenv), (dotenv) => rewritePrivately(files.dotenv, withExemption(dotenv)));
-	yield* rewritePrivately(files.role, sealedRole);
+	const writes = [
+		[files.config, before, after],
+		[files.dotenv, dotenv, withExemption(dotenv)],
+		[files.role, role, sealedRole],
+	] as const;
+
+	yield* Effect.forEach(writes, ([file, was, now]) => changed(file, was, now), { concurrency: 1, discard: true });
+
+	return { after, files };
+});
+
+/** Writes what `codexSwitchedOn` writes, and prints each setting with its reason, and whether the human must still trust the plugin's hook. */
+const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
+	const { after, files } = yield* codexSwitchedOn(named);
 
 	return yield* Console.log(
 		Array.join(
@@ -146,4 +165,4 @@ const offCodex = Effect.fn("off codex")(function* offCodex(named: string) {
 	);
 });
 
-export { offCodex, onCodex };
+export { codexSwitchedOn, offCodex, onCodex };

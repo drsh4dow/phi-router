@@ -6,10 +6,12 @@ import { ChildProcess } from "effect/process";
 /**
  * One headless turn: its prompt, the `config.toml` and `.env` it runs with, the user's Codex home and the plugin folder
  * installed in it, which the turn's own home gets a copy of at the same place, and the environment the turn and its
- * hooks get beside `PATH`.
+ * hooks get beside `PATH`. Its hooks run on the trust `config.toml` holds, or, `bypassed`, on none, as before the
+ * human first starts Codex with the plugin.
  */
 interface Asked {
 	readonly prompt: string;
+	readonly hookTrust: "persisted" | "bypassed";
 	readonly config: string;
 	readonly dotenv: string;
 	readonly home: string;
@@ -120,7 +122,16 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	yield* writePrivately(path.join(codex, "config.toml"), asked.config);
 	yield* writePrivately(path.join(codex, ".env"), asked.dotenv);
 
-	const args = ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", asked.prompt];
+	const args = [
+		"exec",
+		...{ bypassed: ["--dangerously-bypass-hook-trust"], persisted: [] }[asked.hookTrust],
+		"--skip-git-repo-check",
+		"--sandbox",
+		"read-only",
+		"--color",
+		"never",
+		asked.prompt,
+	];
 
 	return ChildProcess.make("codex", args, {
 		cwd: home,

@@ -1,0 +1,102 @@
+import { Effect, Option, Path } from "effect";
+import { codexHome, installedPlugin as codexPlugin } from "#router/client/codex.ts";
+import { claudeCanary } from "./doctor.ts";
+import { codexCanary } from "./doctor-codex.ts";
+import { codexSwitchedOn } from "./codex.ts";
+import { installedPackage } from "#router/client/pi.ts";
+import { installedPlugin } from "#router/client/claude-code.ts";
+import { piCanary } from "./doctor-pi.ts";
+import { plugin } from "./claude-settings.ts";
+import { switchedOn } from "./on.ts";
+
+/** Where setup installs phi-router from, as each installer takes it: a marketplace, and a pi package. */
+interface Source {
+	readonly marketplace: string;
+	readonly package: string;
+}
+
+/** One command line: the program and its arguments. */
+type Argv = readonly [string, ...string[]];
+
+/**
+ * What setup does in each harness: its name and the subscription it logs in to, as the human reads them, the vendor of
+ * its BAA account, the installer's commands, where the install landed, the canary test through it, the harness's own
+ * settings, written last with the line that says so, and how setup starts it and ends its screen. pi writes no settings,
+ * since its package is its whole switch.
+ */
+const harnesses = {
+	claude: {
+		end: (): readonly string[] => [
+			"Done. Claude Code windows that were already open, including the one you",
+			"started from, stop answering. Close them.",
+			"Undo any time with: npx phi-router off claude",
+			"",
+			"Press Enter to start Claude Code with phi-router.",
+		],
+		install: (source: Source): readonly Argv[] => [
+			["claude", "plugin", "install", "phi-router", "--marketplace", source.marketplace, "--scope", "user"],
+		],
+		installed: installedPlugin("", plugin),
+		start: ["claude"] satisfies Argv,
+		subscription: "Claude",
+		switched: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
+		test: claudeCanary,
+		title: "Claude Code",
+		vendor: "anthropic",
+	},
+	codex: {
+		end: (): readonly string[] => [
+			"Done. Close any Codex window that was already open, and use the one setup starts.",
+			"Undo any time with: npx phi-router off codex",
+			"",
+			"Press Enter to start Codex. It asks once to review phi-router's hooks.",
+			'Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.',
+		],
+		install: (source: Source): readonly Argv[] => [
+			["codex", "plugin", "marketplace", "add", source.marketplace],
+			["codex", "plugin", "add", plugin],
+		],
+		installed: Effect.gen(function* codexInstalled() {
+			const path = yield* Path.Path;
+			const home = yield* codexHome("");
+
+			return yield* codexPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
+		}),
+		start: ["codex"] satisfies Argv,
+		subscription: "ChatGPT",
+		switched: Effect.as(codexSwitchedOn(""), Option.some("Codex now sends its requests through phi-router")),
+		test: Effect.fnUntraced(function* codexTest(folder: string) {
+			const home = yield* codexHome("");
+
+			return yield* codexCanary({ folder, home, trust: "" });
+		}),
+		title: "Codex",
+		vendor: "openai",
+	},
+	pi: {
+		end: (source: Source): readonly string[] => [
+			"Done. Close any pi window that was already open, and use the one setup starts.",
+			`Undo any time with: pi remove ${source.package}`,
+			"",
+			"Press Enter to start pi on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.",
+		],
+		install: (source: Source): readonly Argv[] => [["pi", "install", source.package]],
+		installed: Effect.map(
+			installedPackage(""),
+			Option.map(({ folder }) => folder),
+		),
+		start: ["pi", "--model", "phi/auto"] satisfies Argv,
+		subscription: "Claude",
+		switched: Effect.succeed(Option.none<string>()),
+		test: piCanary,
+		title: "pi",
+		vendor: "anthropic",
+	},
+} as const;
+
+/** A harness setup knows, by the name its command takes. */
+type HarnessName = keyof typeof harnesses;
+
+export { harnesses };
+
+export type { HarnessName, Source };

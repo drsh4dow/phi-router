@@ -207,6 +207,27 @@ const canaryRun = Effect.fnUntraced(function* canaryRun<Failure, Needs>(
 }, Effect.scoped);
 
 /**
+ * The canary run of `claude -p` through the plugin Claude Code installed in `folder`, with the settings `on claude`
+ * writes and the router at the run's own address.
+ */
+const claudeCanary = Effect.fnUntraced(function* claudeCanary(folder: string) {
+	return yield* canaryRun(
+		{ binary: "claude", headless: "claude -p", vendor: "anthropic" },
+		({ address, env, prompt }) =>
+			claudeTurn({
+				env,
+				model: auto,
+				plugin: folder,
+				prompt,
+				settingsEnv: Struct.assign(
+					Struct.assign(claudeEnv, { [modelAddress]: address }),
+					exempted(address)({ settings: {}, shell: {} }).set,
+				),
+			}),
+	);
+});
+
+/**
  * Checks the settings and the plugin's install first, and stops there when one fails, since Claude Code would only
  * retry a refused connection for three minutes. Then it runs the canary through the installed plugin, and passes only
  * when `claude` exited 0, the canary arrived at the BAA mock, and it arrived at no open mock. It changes no setting, and
@@ -223,22 +244,7 @@ const doctor = Effect.fn("doctor claude")(function* doctor(configDir: string) {
 		`Run phi-router on claude for a missing setting, and claude plugin install ${plugin} for the plugin.`,
 	);
 
-	const checks = yield* Option.match(installed, {
-		onNone: () => Effect.succeed([]),
-		onSome: (folder) =>
-			canaryRun({ binary: "claude", headless: "claude -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
-				claudeTurn({
-					env,
-					model: auto,
-					plugin: folder,
-					prompt,
-					settingsEnv: Struct.assign(
-						Struct.assign(claudeEnv, { [modelAddress]: address }),
-						exempted(address)({ settings: {}, shell: {} }).set,
-					),
-				}),
-			),
-	});
+	const checks = yield* Option.match(installed, { onNone: () => Effect.succeed([]), onSome: claudeCanary });
 
 	yield* reported(
 		"claude",
@@ -247,6 +253,6 @@ const doctor = Effect.fn("doctor claude")(function* doctor(configDir: string) {
 	);
 });
 
-export { canaryChecks, canaryRun, doctor, reported };
+export { canaryChecks, canaryRun, claudeCanary, doctor, reported };
 
 export type { Check };

@@ -7,6 +7,7 @@ import { doctorCodex } from "./doctor-codex.ts";
 import { doctorPi } from "./doctor-pi.ts";
 import { off } from "./off.ts";
 import { on } from "./on.ts";
+import { setupCommand } from "./setup.ts";
 
 /** The model address a hook read from its harness. An empty value means none. */
 const address = Flag.String("address");
@@ -37,7 +38,7 @@ const agentDir = Flag.String("agent-dir").pipe(Flag.withDefault(""));
 const piDoctor = Command.make("pi", { agentDir }, (flags) => doctorPi(flags.agentDir));
 
 /**
- * The commands of the harness adapters: the hook's `codex-prompt`, and `on`, `off` and `doctor`
+ * The commands of the harness adapters: the hook's `codex-prompt`, and `setup`, `on`, `off` and `doctor`
  * with one subcommand per harness and its own flags. A harness adds its subcommand to each group.
  */
 const adapterCommands = [
@@ -45,6 +46,7 @@ const adapterCommands = [
 	Command.make("on").pipe(Command.withSubcommands([claudeOn, codexOn])),
 	Command.make("off").pipe(Command.withSubcommands([claudeOff, codexOff])),
 	Command.make("doctor").pipe(Command.withSubcommands([claudeDoctor, codexDoctor, piDoctor])),
+	setupCommand,
 ] as const;
 
 export { address, adapterCommands, pid };

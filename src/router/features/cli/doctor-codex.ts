@@ -83,6 +83,33 @@ const turnConfig = (turn: { readonly address: string; readonly trust: string }):
 	);
 
 /**
+ * The canary run of `codex exec` through the plugin installed in `folder` of Codex's home `home`, on the hook trust
+ * `trust` from the user's `config.toml`, or with no trust needed when it is empty.
+ */
+const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
+	readonly home: string;
+	readonly folder: string;
+	readonly trust: string;
+}) {
+	const trusted = Option.match(Option.liftPredicate(install.trust, Str.isNonEmpty), {
+		onNone: () => "bypassed" as const,
+		onSome: () => "persisted" as const,
+	});
+
+	return yield* canaryRun({ binary: "codex", headless: "codex exec", vendor: "openai" }, ({ address, env, prompt }) =>
+		codexTurn({
+			config: turnConfig({ address, trust: install.trust }),
+			dotenv: exemptionLine,
+			env: Struct.assign(env, { [addressEnv]: address }),
+			home: install.home,
+			hookTrust: trusted,
+			installed: install.folder,
+			prompt,
+		}),
+	);
+});
+
+/**
  * Checks the settings, the role, and the plugin's install and trust first, and stops there when one fails, since an
  * untrusted hook looks like a network failure. Then it runs the canary through the installed plugin, and passes only
  * when `codex exec` exited 0, the canary arrived at the BAA mock, and it arrived at no open mock. It changes no setting,
@@ -104,17 +131,7 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 
 	const checks = yield* Option.match(installed, {
 		onNone: () => Effect.succeed([]),
-		onSome: (folder) =>
-			canaryRun({ binary: "codex", headless: "codex exec", vendor: "openai" }, ({ address, env, prompt }) =>
-				codexTurn({
-					config: turnConfig({ address, trust: hookTrust(config) }),
-					dotenv: exemptionLine,
-					env: Struct.assign(env, { [addressEnv]: address }),
-					home,
-					installed: folder,
-					prompt,
-				}),
-			),
+		onSome: (folder) => codexCanary({ folder, home, trust: hookTrust(config) }),
 	});
 
 	yield* reported(
@@ -124,4 +141,4 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 	);
 });
 
-export { doctorCodex };
+export { codexCanary, doctorCodex };

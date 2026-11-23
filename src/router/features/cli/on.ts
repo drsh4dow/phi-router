@@ -27,16 +27,23 @@ const reasonOf = (name: string): string => {
 };
 
 /**
- * Writes the settings a plugin cannot set into Claude Code's user settings, and prints each with its reason. When the
- * developer's own lists would send Claude Code's requests to the router through a proxy, it also writes `no_proxy`, with
- * a record of what it wrote and what it replaced for `off`.
+ * Writes the settings a plugin cannot set into Claude Code's user settings, and, when the developer's own lists would
+ * send Claude Code's requests to the router through a proxy, `no_proxy` with a record of what it wrote and what it
+ * replaced for `off`. It writes nothing when every setting holds already, and gives the exemption and the file.
  */
-const on = Effect.fn("on claude")(function* on(configDir: string) {
+const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 	const settings = yield* userSettings(configDir);
 	const shell = yield* shellLists;
 	const exempt = exempted(routerAddress)({ settings: settings.env, shell });
 
 	yield* rewriteEnv(configDir, Struct.assign(claudeEnv, exempt.set), exempt.unset);
+
+	return { exempt, path: settings.path };
+});
+
+/** Writes what `switchedOn` writes, and prints each setting with its reason. */
+const on = Effect.fn("on claude")(function* on(configDir: string) {
+	const { exempt, path } = yield* switchedOn(configDir);
 
 	const lines = pipe(
 		claudeSettings,
@@ -49,7 +56,7 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 		Array.match({ onEmpty: () => [keptReason], onNonEmpty: (written) => written }),
 	);
 
-	const wrote = `phi-router wrote ${String(claudeSettings.length + Record.size(exempt.set))} settings to ${settings.path}`;
+	const wrote = `phi-router wrote ${String(claudeSettings.length + Record.size(exempt.set))} settings to ${path}`;
 
 	const restart =
 		"Restart each open Claude Code session: it now sends to the router, which only a new session starts.";
@@ -59,4 +66,4 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 	);
 });
 
-export { on };
+export { on, switchedOn };

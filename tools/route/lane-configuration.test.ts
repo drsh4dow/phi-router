@@ -95,7 +95,7 @@ const sideBySide = Effect.gen(function* sideBySide() {
 			alone: Option.some({ anthropic: Option.some(anthropicLanes), openai: Option.none() }),
 			defaulted: Option.some({
 				anthropic: Option.some(["claude-max", anthropicApi, "anthropic-baa", anthropicApi, "claude-opus-5-5"]),
-				openai: Option.some([...Array.take(openaiLanes, 4), "gpt-6.1-sol"]),
+				openai: Option.some(["chatgpt", codexApi, "openai-baa", "https://api.openai.com/v1", "gpt-6.1-sol"]),
 			}),
 			folders: Option.some({
 				anthropic: Option.some([
