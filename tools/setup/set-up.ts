@@ -119,7 +119,7 @@ const owned = Effect.fnUntraced(function* owned(of: World) {
 	return Array.flatten(snapshots);
 });
 
-const pasted = [keys.anthropic, keys.openai, "phi-test-baa", "phi-test-openai"];
+const pasted = [keys.anthropic, keys.openai, keys.refused, "phi-test-baa", "phi-test-openai", "phi-test-refused"];
 
 /**
  * Whether `text` holds a pasted key or a piece of one.
@@ -133,13 +133,24 @@ const holdsKey = (text: string): boolean =>
 		Array.some((key) => Str.includes(key)(text)),
 	);
 
-/** Every file under the world's root and what setup printed, none of which may hold a key outside its key file. */
+/**
+ * The file pi stores its logins and keys in.
+ *
+ * @param {World} of The world.
+ * @returns {string} Its path.
+ */
+const piAuthOf = (of: World): string => `${of.folders.PI_CODING_AGENT_DIR}/auth.json`;
+
+/**
+ * Every file under the world's root and what setup printed, none of which may hold a key outside its key file and the
+ * `auth.json` a test gives pi.
+ */
 const leaks = Effect.fnUntraced(function* leaks(of: World, printed: readonly string[]) {
 	const files = yield* snapshot(of.root);
 
 	const outsideKeys = pipe(
 		files,
-		Array.filter(([name]) => !Str.includes("phi-router/keys/")(name)),
+		Array.filter(([name]) => !Str.includes("phi-router/keys/")(name) && name !== piAuthOf(of)),
 		Array.map(([name, text]) => `${name}\n${text}`),
 	);
 
@@ -171,6 +182,7 @@ export {
 	ownSettings,
 	owned,
 	patient,
+	piAuthOf,
 	setUp,
 	settled,
 };
