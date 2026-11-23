@@ -1,4 +1,6 @@
-import { Array, Effect, FileSystem, Option, Path } from "effect";
+import { Array, Effect, FileSystem, Option, Path, Schema } from "effect";
+
+const Manifest = Schema.fromJsonString(Schema.Struct({ version: Schema.String }));
 
 /**
  * The phi-router package `file` belongs to: the nearest folder above it that holds `plugins/claude/phi-router.mjs`, as
@@ -21,4 +23,15 @@ const packageOf = Effect.fnUntraced(function* packageOf(file: string) {
 	return Array.head(roots);
 });
 
-export { packageOf };
+/** The version in the `package.json` of the phi-router package `file` belongs to. */
+const versionOf = Effect.fnUntraced(function* versionOf(file: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const root = yield* Effect.flatMap(packageOf(file), Effect.fromOption);
+	const text = yield* fs.readFileString(path.join(root, "package.json"));
+	const { version } = yield* Schema.decodeEffect(Manifest)(text);
+
+	return version;
+});
+
+export { packageOf, versionOf };

@@ -15,6 +15,7 @@ import {
 	patient,
 	setUp,
 	settled,
+	version,
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
@@ -77,7 +78,7 @@ const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World)
 	const claudeArgs = yield* argsOf(of, "claude");
 	const calls = yield* callsOf(of, "claude");
 
-	assert.include(claudeArgs, `plugin install phi-router --marketplace ${of.copies.plugin} --scope user`);
+	assert.include(claudeArgs, `plugin install phi-router --marketplace drsh4dow/phi-router@v${version} --scope user`);
 	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 });
 
