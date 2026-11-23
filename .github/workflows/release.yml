@@ -19,7 +19,7 @@ permissions:
    contents: read
 
 env:
-   VERSION: ${{ inputs.version || '0.0.0' }}
+   VERSION: ${{ inputs.version || '999.0.0' }}
 
 jobs:
    tag:
