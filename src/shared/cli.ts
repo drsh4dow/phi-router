@@ -38,6 +38,13 @@ const Status = Schema.Struct({
 /** The one line `status` prints on stdout. */
 const StatusJson = Schema.fromJsonString(Status);
 
+const RoutedModels = Schema.Struct({ auto: Schema.NonEmptyString, sealed: Schema.NonEmptyString });
+
+/** The one line `models` prints on stdout: the models of each vendor `config.json` names, `{}` when there is none. */
+const ModelsJson = Schema.fromJsonString(
+	Schema.Struct({ anthropic: Schema.optionalKey(RoutedModels), openai: Schema.optionalKey(RoutedModels) }),
+);
+
 /** The address ADR 0002 names: the literal, never `localhost`, since another user can bind `[::1]`. */
 const loopback = "127.0.0.1";
 
@@ -46,6 +53,7 @@ const productPort = 47_411;
 
 /** How the commands pi calls are spelled on the command line. */
 const spelling = {
+	models: { name: "models" },
 	pin: { name: "pin", session: "session" },
 	program: "phi-router",
 	start: { folder: "folder", name: "start", pid: "pid", port: "port", session: "session" },
@@ -56,4 +64,4 @@ const spelling = {
 /** The command each harness adapter adds, `/phi`, and the two words it takes. */
 const phiCommand = { name: "phi", pin: "pin", unpin: "unpin" } as const;
 
-export { CommandFailed, Pid, SessionId, Status, StatusJson, loopback, phiCommand, productPort, spelling };
+export { CommandFailed, ModelsJson, Pid, SessionId, Status, StatusJson, loopback, phiCommand, productPort, spelling };

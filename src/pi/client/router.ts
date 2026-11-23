@@ -1,5 +1,5 @@
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { CommandFailed, StatusJson, spelling } from "#shared/cli.ts";
+import { CommandFailed, ModelsJson, StatusJson, spelling } from "#shared/cli.ts";
 import { Context, Effect, Layer, Result, Schema, Stream } from "effect";
 import type { SessionId, Status } from "#shared/cli.ts";
 
@@ -48,6 +48,20 @@ const printed = Effect.fn("Router.printed")(function* printed(name: string, comm
 	return ran.success.output;
 }, Effect.scoped);
 
+/**
+ * Decodes what the command `name` printed, a failure as `CommandFailed` naming `name`.
+ *
+ * @param {string} name The command.
+ * @param {Function} decode The contract's decoder of what it prints.
+ * @returns {Function} The decoder.
+ */
+const decodedAs =
+	<Decoded>(name: string, decode: (output: string) => Effect.Effect<Decoded, Schema.SchemaError>) =>
+	(output: string): Effect.Effect<Decoded, CommandFailed> =>
+		Effect.mapError(decode(output), (cause) => CommandFailed.make({ cause, command: name }));
+
+const decodedModels = decodedAs(spelling.models.name, Schema.decodeEffect(ModelsJson));
+
 /** Asks the router on `port` about `session`. */
 type Asking<Answer> = (session: typeof SessionId.Type, port: number) => Effect.Effect<Answer, CommandFailed>;
 
@@ -60,6 +74,8 @@ class Router extends Context.Service<
 		readonly status: Asking<typeof Status.Type>;
 		readonly pin: Asking<void>;
 		readonly unpin: Asking<void>;
+		/** The models `phi/auto` and `phi/sealed` run for each vendor `config.json` names, without asking a router. */
+		readonly models: Effect.Effect<typeof ModelsJson.Type, CommandFailed>;
 	}
 >()("phi-router/pi/client/router") {
 	public static readonly layer = (
@@ -96,20 +112,19 @@ class Router extends Context.Service<
 				const status = Effect.fn("Router.status")(function* status(session: typeof SessionId.Type, port: number) {
 					const command = spelling.status.name;
 					const output = yield* asked(command, session, port);
-					const decoded = yield* Effect.result(Schema.decodeEffect(StatusJson)(output));
 
-					if (Result.isFailure(decoded)) {
-						return yield* CommandFailed.make({ cause: decoded.failure, command });
-					}
-
-					return decoded.success;
+					return yield* decodedAs(command, Schema.decodeEffect(StatusJson))(output);
 				});
+
+				const models = spawning(printed(spelling.models.name, program, [spelling.models.name])).pipe(
+					Effect.flatMap(decodedModels),
+				);
 
 				const pin: Asking<void> = (session, port) => Effect.asVoid(asked(spelling.pin.name, session, port));
 
 				const unpin: Asking<void> = (session, port) => Effect.asVoid(asked(spelling.unpin.name, session, port));
 
-				return Router.of({ pin, start, status, unpin });
+				return Router.of({ models, pin, start, status, unpin });
 			}),
 		);
 }

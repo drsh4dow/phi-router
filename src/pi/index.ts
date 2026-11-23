@@ -21,6 +21,7 @@ import { blockUploads, recordUse } from "#pi/features/uploads/index.ts";
 import { compactionSent, promptSent } from "#pi/features/phi/proof.ts";
 import { loopback, phiCommand, productPort } from "#shared/cli.ts";
 import { BunServices } from "@effect/platform-bun";
+import type { ModelsJson } from "#shared/cli.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Observe } from "#pi/features/phi/phi.ts";
 import { Router } from "#pi/client/router.ts";
@@ -55,15 +56,15 @@ const router = (): Layer.Layer<Router> => {
  * The provider `phi` at the router on `port`. The empty session header marks a request of this provider for the header
  * hook, which fills it.
  *
- * @param {number} port The router's port.
+ * @param {object} served The router's port, and the models `config.json` names for each vendor.
  * @returns {ProviderConfig} The provider.
  */
-const provider = (port: number): ProviderConfig => ({
+const provider = (served: { readonly port: number; readonly models: typeof ModelsJson.Type }): ProviderConfig => ({
 	api: "anthropic-messages",
 	apiKey: placeholderKey,
-	baseUrl: `http://${loopback}:${String(port)}${piWire.base}`,
+	baseUrl: `http://${loopback}:${String(served.port)}${piWire.base}`,
 	headers: { [piWire.sessionHeader]: "" },
-	models: phiModels,
+	models: phiModels(served.models),
 });
 
 /** What the header hook reads of pi's context: the session, and pi's logins. */
@@ -206,8 +207,23 @@ const bypassProxies = Effect.forEach(
 );
 
 /**
+ * The router's port, the product port unless `PHI_ROUTER_PORT` names another, and the models `config.json` names for
+ * each vendor, none when `phi-router models` fails, as on a file the router refuses.
+ */
+const configured = Effect.all(
+	{
+		models: Effect.orElseSucceed(
+			Router.use((client) => client.models),
+			() => ({}),
+		),
+		port: Config.Port(piWire.portVariable).pipe(Config.withDefault(productPort)),
+	},
+	{ concurrency: 1 },
+);
+
+/**
  * The pi package. It adds the provider `phi` at the router's address, the product port unless `PHI_ROUTER_PORT` names
- * another, keeps it off any proxy, starts the router for each session, checks the router before each of the provider's
+ * another, with `auto` and `sealed` at the limits of the models they run, keeps it off any proxy, starts the router for each session, checks the router before each of the provider's
  * prompts and compactions and fills in each of its requests. It adds `/phi`, shows the last request in the status bar
  * after each turn, and a notice for a turn that sealed, and keeps a session that used it from `/share` and `/bug`.
  *
@@ -216,20 +232,23 @@ const bypassProxies = Effect.forEach(
  */
 const extension: ExtensionFactory = (pi) =>
 	Effect.runPromise(
-		Effect.gen(function* registered() {
-			const port = yield* Config.Port(piWire.portVariable).pipe(Config.withDefault(productPort));
+		Effect.provide(
+			Effect.gen(function* registered() {
+				const { models, port } = yield* configured;
 
-			const { afterTurn, atStart } = yield* observerOn(port);
+				const { afterTurn, atStart } = yield* observerOn(port);
 
-			yield* bypassProxies;
-			pi.registerProvider(routedProvider, provider(port));
-			pi.on("session_start", blockUploads(routedProvider));
-			onRouter(pi, port, atStart);
-			pi.on("before_provider_headers", recordUse({ pi, provider: routedProvider }));
-			pi.on("before_provider_headers", headed);
-			pi.on("turn_end", turnEnded(afterTurn));
-			pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
-		}),
+				yield* bypassProxies;
+				pi.registerProvider(routedProvider, provider({ models, port }));
+				pi.on("session_start", blockUploads(routedProvider));
+				onRouter(pi, port, atStart);
+				pi.on("before_provider_headers", recordUse({ pi, provider: routedProvider }));
+				pi.on("before_provider_headers", headed);
+				pi.on("turn_end", turnEnded(afterTurn));
+				pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
+			}),
+			router(),
+		),
 	);
 
 export default extension;

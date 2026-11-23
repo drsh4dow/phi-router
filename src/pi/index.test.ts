@@ -62,7 +62,11 @@ it.effect(
 	"offers phi's own models and each Anthropic model of pi's catalog, with the limits the catalog gives it",
 	() =>
 		Effect.sync(() => {
-			const offered = pipe(Option.fromNullishOr(provider(productPort).models), Option.map(Array.map(listed)));
+			const offered = pipe(
+				Option.fromNullishOr(provider({ models: {}, port: productPort }).models),
+				Option.map(Array.map(listed)),
+			);
+
 			const catalog = pipe(getBuiltinModels("anthropic"), Array.map(listed));
 
 			const ids = pipe(
