@@ -52,6 +52,18 @@ const nearExpiry = Effect.gen(function* nearExpiry() {
 	return { bin, folder };
 });
 
+/** Waits, on the real clock, until the stand-in in `bin` has started. */
+const started = Effect.fnUntraced(function* started(bin: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+
+	yield* fs.exists(path.join(bin, "started")).pipe(
+		Effect.filterOrFail((marked) => marked),
+		Effect.retry(waiting),
+		TestClock.withLive,
+	);
+});
+
 /** Moves the test clock a second at a time, with a real pause between, then fails: the request outlived every tick. */
 const ticking = Effect.andThen(
 	Effect.forEach(
@@ -65,7 +77,7 @@ const ticking = Effect.andThen(
 /**
  * A token a minute from expiry runs the vendor CLI, and that CLI ignores SIGTERM and never exits. Once the refresh limit
  * passes, the router kills it, finds the token still near expiry, and fails over to the BAA account, so the request
- * ends.
+ * ends. The clock moves only once the CLI runs, so it cannot outrun the router's check of the caller before it.
  */
 const boundedByLimit = Effect.gen(function* boundedByLimit() {
 	yield* TestClock.setTime(start);
@@ -78,11 +90,13 @@ const boundedByLimit = Effect.gen(function* boundedByLimit() {
 		openFolder: login.folder,
 	});
 
-	const request = post({ body, session: "hung-cli" }).pipe(
-		Effect.flatMap((response) => Effect.as(response.text, response.status)),
+	const request = yield* Effect.forkChild(
+		post({ body, session: "hung-cli" }).pipe(Effect.flatMap((response) => Effect.as(response.text, response.status))),
 	);
 
-	const status = yield* Effect.raceFirst(request, ticking);
+	yield* started(login.bin);
+
+	const status = yield* Effect.raceFirst(Fiber.join(request), ticking);
 	const [opened = [], sealed = []] = yield* mocks.accounts;
 
 	assert.deepStrictEqual(
@@ -95,8 +109,6 @@ const boundedByLimit = Effect.gen(function* boundedByLimit() {
 const hungUpInRefresh = Effect.gen(function* hungUpInRefresh() {
 	yield* TestClock.setTime(start);
 
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
 	const login = yield* nearExpiry;
 
 	const { post, state } = yield* routed({
@@ -107,11 +119,7 @@ const hungUpInRefresh = Effect.gen(function* hungUpInRefresh() {
 
 	const request = yield* Effect.forkChild(post({ body, session: "hung-up-in-refresh" }));
 
-	yield* fs.exists(path.join(login.bin, "started")).pipe(
-		Effect.filterOrFail((started) => started),
-		Effect.retry(waiting),
-		TestClock.withLive,
-	);
+	yield* started(login.bin);
 	yield* Fiber.interrupt(request);
 
 	const lines = yield* laneLines(state).pipe(
