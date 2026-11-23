@@ -7,6 +7,9 @@ import { routerProcess } from "../../../../tools/route/router-process.ts";
 const [harness = "claude", port = "0"] = process.argv.slice(2);
 const canary = process.env.CANARY ?? "PHI-RECIPE-CANARY-29";
 const holding = (sent: readonly unknown[]): boolean => JSON.stringify(sent).includes(canary);
+const baaStatus = Number(process.env.BAA_STATUS ?? "200");
+const refusing = { body: '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}' };
+const baa = baaStatus === 200 ? {} : { baa: () => ({ ...refusing, kind: "status" as const, status: baaStatus }) };
 
 const routerCommand =
 	port === "0"
@@ -15,7 +18,11 @@ const routerCommand =
 
 const program = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
-	const { env, mocks, state } = yield* mocked({ harness, holdsPhi: (piece: string) => piece.includes(canary) });
+	const { env, mocks, state } = yield* mocked({
+		...baa,
+		harness,
+		holdsPhi: (piece: string) => piece.includes(canary),
+	});
 
 	const received = Effect.gen(function* () {
 		const open = yield* mocks.open.received;
