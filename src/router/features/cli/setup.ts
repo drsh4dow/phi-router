@@ -2,7 +2,7 @@ import { Array, Console, Effect, Option, Predicate, String as Str, pipe } from "
 import { Command, Flag } from "effect/cli";
 import type { HarnessName, Source } from "./setup-harnesses.ts";
 import { addAccounts, judgeNamed } from "#router/client/config-writer.ts";
-import { baaAsk, judgeAsk, pasted, savedKeys, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
+import { baaAsk, judgeAsk, keyFor, savedKeys, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
 import type { HeldKey } from "./setup-keys.ts";
@@ -76,7 +76,7 @@ const keysOf = Effect.fnUntraced(function* keysOf(name: HarnessName, fresh: bool
 
 	const keys = yield* Effect.forEach(
 		needed,
-		({ ask, saved }) => Option.match(saved, { onNone: () => pasted(ask), onSome: Effect.succeed }),
+		({ ask, saved }) => Option.match(saved, { onNone: () => keyFor(ask), onSome: Effect.succeed }),
 		{ concurrency: 1 },
 	);
 

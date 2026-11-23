@@ -1,5 +1,5 @@
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { Effect, Option, Redacted, Stream } from "effect";
+import { Effect, Option, Redacted, Stream, pipe } from "effect";
 
 const succeeded = 0;
 
@@ -24,19 +24,40 @@ const isTerminal = Effect.gen(function* isTerminal() {
 /** Turns echo off, prints `$1`, reads one line, and gives echo back however the shell ends. */
 const hiddenRead = String.raw`trap 'stty echo' EXIT; trap 'exit 130' HUP INT TERM; stty -echo || exit 1; printf '%s' "$1" >&2; IFS= read -r line || exit 1; printf '\n' >&2; printf '%s' "$line"`;
 
+/** Prints `$1`, and reads one line with echo on. */
+const typedRead = String.raw`printf '%s' "$1" >&2; IFS= read -r line || exit 1; printf '%s' "$line"`;
+
+/** Runs `script`, which prints `prompt` and reads one line, and gives the line. None when the input ends first. */
+const lineRead = Effect.fnUntraced(function* lineRead(script: string, prompt: string) {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const handle = yield* spawner.spawn(inTerminal(script, [prompt]));
+	const line = yield* Stream.mkString(Stream.decodeText(handle.stdout));
+	const code = yield* handle.exitCode;
+
+	return Option.liftPredicate(line, () => code === succeeded);
+}, Effect.scoped);
+
 /**
  * Prints `prompt` on the terminal and reads one line with echo off, so nothing the human types or pastes shows. None
  * when the input ends first. The line passes through a pipe from the shell, and never through an argument, a file or
  * the environment.
  */
 const hiddenLine = Effect.fnUntraced(function* hiddenLine(prompt: string) {
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const handle = yield* spawner.spawn(inTerminal(hiddenRead, [prompt]));
-	const line = yield* Stream.mkString(Stream.decodeText(handle.stdout));
-	const code = yield* handle.exitCode;
+	const line = yield* lineRead(hiddenRead, prompt);
 
-	return Option.liftPredicate(Redacted.make(line), () => code === succeeded);
-}, Effect.scoped);
+	return pipe(
+		line,
+		Option.map((text) => Redacted.make(text)),
+	);
+});
+
+/**
+ * Prints `prompt` on the terminal and reads one line the human types. None when the input ends first.
+ *
+ * @param {string} prompt The prompt.
+ * @returns {Effect.Effect} The line.
+ */
+const typedLine = (prompt: string): ReturnType<typeof lineRead> => lineRead(typedRead, prompt);
 
 /** Whether the human pressed Enter, false when the input ends first. */
 const enterPressed = Effect.gen(function* enterPressed() {
@@ -56,4 +77,4 @@ const handedOver = Effect.fnUntraced(function* handedOver(argv: readonly [string
 	);
 });
 
-export { enterPressed, handedOver, hiddenLine, isTerminal };
+export { enterPressed, handedOver, hiddenLine, isTerminal, typedLine };

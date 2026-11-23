@@ -1,9 +1,10 @@
 import { Array, Console, Effect, Option, Redacted, Schema, String as Str, pipe } from "effect";
+import { hiddenLine, typedLine } from "#router/client/terminal.ts";
 import { keyFileOf, saveKey, savedKey } from "#router/client/key-files.ts";
 import { CliError } from "effect/cli";
 import { KeyChecks } from "#router/client/key-check.ts";
 import type { Vendor } from "#router/client/lane-configuration.ts";
-import { hiddenLine } from "#router/client/terminal.ts";
+import { storedAnthropicKey } from "#router/client/pi.ts";
 import { tokenKinds } from "./accounts-add.ts";
 
 /** Setup stopped, and changed only what `copy` says. `copy` is the whole of what the human reads, and holds no key. */
@@ -63,6 +64,19 @@ const judgeAsk: KeyAsk = {
 };
 
 /**
+ * What a key's prefix says it is. None when no known prefix fits.
+ *
+ * @param {string} key The key.
+ * @returns {Option.Option<object>} Its vendor and scheme.
+ */
+const kindOf = (key: string): Option.Option<{ readonly scheme: "apiKey" | "oauth"; readonly vendor: Vendor }> =>
+	pipe(
+		tokenKinds,
+		Array.findFirst(([prefix]) => Str.startsWith(prefix)(key)),
+		Option.flatMap(([, known]) => known),
+	);
+
+/**
  * Why a pasted key cannot be what `ask` asks for, by its prefix: a key of the other vendor, or a Claude subscription
  * token. None when its prefix fits, or says nothing, so the vendor decides.
  *
@@ -73,14 +87,8 @@ const judgeAsk: KeyAsk = {
 const misfitOf = (ask: KeyAsk, key: string): Option.Option<string> => {
 	const wanted = vendorWords[ask.vendor];
 
-	const kind = pipe(
-		tokenKinds,
-		Array.findFirst(([prefix]) => Str.startsWith(prefix)(key)),
-		Option.flatMap(([, known]) => known),
-	);
-
 	return pipe(
-		kind,
+		kindOf(key),
 		Option.flatMap(({ scheme, vendor }) => {
 			if (vendor !== ask.vendor) {
 				return Option.some(
@@ -109,13 +117,24 @@ const unaccepted = {
 
 const endedEarly = stopped("Setup ended before it got a key. Nothing was saved or changed.");
 
-/** Asks the vendor about `key`, and stops setup unless it accepts it. */
-const accepted = Effect.fnUntraced(function* accepted(vendor: Vendor, key: Readonly<Redacted.Redacted>) {
+/** Asks the vendor about `key`. None when it accepts it, else the copy that says it did not. */
+const refusalOf = Effect.fnUntraced(function* refusalOf(vendor: Vendor, key: Readonly<Redacted.Redacted>) {
 	const checks = yield* KeyChecks;
 	const answer = yield* checks.check(vendor, key);
 
-	if (answer !== "accepted") {
-		return yield* stopped(unaccepted[answer](vendorWords[vendor].name));
+	if (answer === "accepted") {
+		return Option.none<string>();
+	}
+
+	return Option.some(unaccepted[answer](vendorWords[vendor].name));
+});
+
+/** Asks the vendor about `key`, and stops setup unless it accepts it. */
+const accepted = Effect.fnUntraced(function* accepted(vendor: Vendor, key: Readonly<Redacted.Redacted>) {
+	const refusal = yield* refusalOf(vendor, key);
+
+	if (Option.isSome(refusal)) {
+		return yield* stopped(refusal.value);
 	}
 
 	return { key, vendor } satisfies HeldKey;
@@ -139,6 +158,82 @@ const pasted = Effect.fnUntraced(function* pasted(ask: KeyAsk) {
 	yield* Console.log("");
 
 	return yield* accepted(ask.vendor, Redacted.make(key));
+});
+
+const yesAnswers: ReadonlySet<string> = new Set(["y", "yes"]);
+
+/** Whether the human answers yes to `question`. Anything else, Enter and the input's end included, is No. */
+const saidYes = Effect.fnUntraced(function* saidYes(question: string) {
+	const answer = yield* typedLine(question);
+
+	yield* Console.log("");
+
+	return Option.exists(answer, (said) => yesAnswers.has(Str.toLowerCase(Str.trim(said))));
+});
+
+const piOffer = "pi already has an Anthropic API key. Use it? Say yes only if it is from your BAA account. [y/N] ";
+
+/**
+ * The Anthropic API key pi stored, once the human says yes to it. None when `ask` is for another vendor, pi prints
+ * anything but an Anthropic API key, such as a subscription token, or the human says anything but yes. No part of the
+ * key shows.
+ */
+const takenFromPi = Effect.fnUntraced(function* takenFromPi(ask: KeyAsk) {
+	if (ask.vendor !== "anthropic") {
+		return Option.none<Redacted.Redacted>();
+	}
+
+	const stored = yield* storedAnthropicKey();
+
+	const offered = pipe(
+		stored,
+		Option.filter((key) =>
+			Option.exists(
+				kindOf(Redacted.value(key)),
+				({ scheme, vendor }) => scheme === "apiKey" && vendor === ask.vendor,
+			),
+		),
+	);
+
+	if (Option.isNone(offered)) {
+		return offered;
+	}
+
+	const yes = yield* saidYes(piOffer);
+
+	return pipe(
+		offered,
+		Option.filter(() => yes),
+	);
+});
+
+/**
+ * The Anthropic API key pi stored, once the human takes it and Anthropic accepts it. None, so setup asks for a paste,
+ * otherwise. When Anthropic does not accept it, setup says so first.
+ */
+const fromPi = Effect.fnUntraced(function* fromPi(ask: KeyAsk) {
+	const taken = yield* takenFromPi(ask);
+
+	if (Option.isNone(taken)) {
+		return Option.none<HeldKey>();
+	}
+
+	const refusal = yield* refusalOf(ask.vendor, taken.value);
+
+	if (Option.isSome(refusal)) {
+		yield* Console.log(`${refusal.value}\n`);
+
+		return Option.none<HeldKey>();
+	}
+
+	return Option.some({ key: taken.value, vendor: ask.vendor } satisfies HeldKey);
+});
+
+/** The key the human gives for `ask`: the one pi stored, when they take it, else a pasted one. */
+const keyFor = Effect.fnUntraced(function* keyFor(ask: KeyAsk) {
+	const taken = yield* fromPi(ask);
+
+	return yield* Option.match(taken, { onNone: () => pasted(ask), onSome: Effect.succeed });
 });
 
 /** The key saved for `vendor` when its vendor still accepts it. None when there is none, or `fresh` asks for a new one. */
@@ -167,6 +262,6 @@ const savedKeys = Effect.fnUntraced(function* savedKeys(keys: readonly HeldKey[]
 	return yield* Effect.all({ anthropic: keyFileOf("anthropic"), openai: keyFileOf("openai") }, { concurrency: 1 });
 });
 
-export { baaAsk, judgeAsk, pasted, savedKeys, stillHeld, stopped, vendorWords };
+export { baaAsk, keyFor, judgeAsk, savedKeys, stillHeld, stopped, vendorWords };
 
 export type { HeldKey };

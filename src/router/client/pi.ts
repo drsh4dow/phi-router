@@ -1,4 +1,17 @@
-import { Array, Config, Effect, FileSystem, Option, Path, Schema, String as Str, Stream, Struct, pipe } from "effect";
+import {
+	Array,
+	Config,
+	Effect,
+	FileSystem,
+	Option,
+	Path,
+	Redacted,
+	Schema,
+	String as Str,
+	Stream,
+	Struct,
+	pipe,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { behindDeadProxy, harnessFolder, harnessTurn } from "./harness-turn.ts";
 
@@ -149,4 +162,60 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 /** Runs the installed `pi -p` once in a fresh home and agent folder, and ends the turn after 2 minutes. */
 const piTurn = harnessTurn(commandOf);
 
-export { installedPackage, piTurn };
+const printPatience = "30 seconds";
+
+const succeeded = 0;
+
+/**
+ * The key `pi auth print-api-key --provider anthropic` prints for the agent folder `agent`. None when pi is not on
+ * `PATH`, exits non-zero, as it does for a subscription login, or takes over 30 seconds. pi gets nothing of the
+ * caller's environment but `PATH` and the home folder, so it prints no key an environment variable holds. The key
+ * comes through a pipe, and nothing pi prints reaches the terminal.
+ */
+const printedKey = Effect.fnUntraced(
+	function* printedKey(agent: string) {
+		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+		const searchPath = yield* Config.String("PATH");
+		const home = yield* Config.String("HOME");
+
+		const command = ChildProcess.make("pi", ["auth", "print-api-key", "--provider", "anthropic"], {
+			env: Struct.assign(offline, { HOME: home, PATH: searchPath, PI_CODING_AGENT_DIR: agent }),
+			extendEnv: false,
+			stderr: "ignore",
+			stdin: "ignore",
+		});
+
+		const started = yield* Effect.option(spawner.spawn(command));
+
+		if (Option.isNone(started)) {
+			return Option.none<Redacted.Redacted>();
+		}
+
+		const printed = yield* Stream.mkString(Stream.decodeText(started.value.stdout));
+		const code = yield* started.value.exitCode;
+
+		return Option.liftPredicate(Redacted.make(Str.trim(printed)), () => code === succeeded);
+	},
+	Effect.timeoutOption(printPatience),
+	Effect.map(Option.flatten),
+	Effect.scoped,
+);
+
+/**
+ * The Anthropic key pi stored, as pi prints it. None when pi's agent folder holds no `auth.json`, so pi, which would
+ * make one, does not run.
+ */
+const storedAnthropicKey = Effect.fnUntraced(function* storedAnthropicKey() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const agent = yield* agentFolder("");
+	const stored = yield* fs.exists(path.join(agent, "auth.json"));
+
+	if (!stored) {
+		return Option.none<Redacted.Redacted>();
+	}
+
+	return yield* printedKey(agent);
+});
+
+export { installedPackage, piTurn, storedAnthropicKey };
