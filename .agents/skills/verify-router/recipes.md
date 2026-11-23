@@ -29,7 +29,7 @@ wrong-method 404
 
 ## 2. The router's exit paths
 
-`serve` with no lease stops after one lease check; the router stops once the leased pid dies; `start` for a dead pid fails naming it; a missing `config.json` fails `start` after 10 s, and `serve` names the file.
+`serve` with no lease stops after one lease check; the router stops once the leased pid dies; `start` for a dead pid fails naming it; a missing `config.json` fails `start` at once with the line for a missing BAA key, and `serve` names the file and exits 3.
 
 ```sh
 recipes/iso.sh exits exits.sh
@@ -41,11 +41,11 @@ start exited 0
 router answers on 47411
 lease ended: port closed 5 s after the holder died
 dead pid: start exited 1
-no config: start exited 1 after 10 s
-no config: serve exited 1
+no config: start exited 1 after 0 s
+no config: serve exited 3
 ```
 
-The times vary with load: 5 to 6 s and 10 to 11 s in three runs, against the 5 s lease interval and `start`'s 10 s wait. The script exits 130, from its last `wait` on the mocks it stops.
+Each command's own line comes before its result. The times vary with load: 5 to 6 s in three runs, against the 5 s lease interval. The script exits 130, from its last `wait` on the mocks it stops.
 
 ### 2b. pi when its router cannot start
 
@@ -54,9 +54,36 @@ recipes/iso.sh pi-failed-start pi-failed-start.sh
 ```
 
 ```
-pi with no config.json exited 1
+pi with no config.json exited 0
+phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup pi
 lines holding the login: 0
 ```
+
+pi's input hook stops the prompt, so `pi -p` exits 0.
+
+### 2c. What each harness shows when phi-router stops a message
+
+For HARNESS `claude`, `codex` or `pi`: with no `config.json`, with a `config.json` whose BAA key file is missing, with a `config.json` the router cannot read, and with a BAA mock that answers 401, a canary prompt is stopped and the harness shows the line `src/router/features/route/stopped.ts` holds for it. Claude Code and pi run in print mode, Codex in its TUI in tmux.
+
+```sh
+recipes/iso.sh refusals-claude refusals.sh claude
+recipes/iso.sh refusals-codex refusals.sh codex
+recipes/iso.sh refusals-pi refusals.sh pi
+```
+
+```
+== no config.json
+[".../plugins/claude/bin/phi-router" session-start --claude --pid "$PPID" --address "$ANTHROPIC_BASE_URL" 1>&2 || exit 2]: phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup claude
+== a config.json whose key file is missing
+[...]: phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup claude
+== a router that cannot start
+[...]: phi-router could not start, so this message was not sent. Nothing left your computer. Send it again. If it repeats, run: npx phi-router doctor claude
+== a BAA account that answers 401
+API Error: 400 phi-router stopped this message. Your BAA account refused its key, so nothing was sent, and nothing reached your subscription. Run in a terminal: npx phi-router setup claude --new-key
+{"received":{"open":0,"baa":6,"judge":8},"canaryAt":{"open":false,"baa":true},"lanes":["sealed/baa/sealed new content",...]}
+```
+
+Codex shows each hook line under `Blocked by hook` and the 401 line in its error JSON; pi shows the hook lines alone and the 401 line as `400 {"error":{"message":"..."}}`. Each names its own harness in the command. Claude Code sends a request answered 400 five more times, the last ones with `thinking` and no `display`, so the BAA mock counts 6. The router cannot start because its `config.json` is `{`, so that case waits out `start`'s 10 s, twice for Claude Code and Codex, whose session-start hook tries first. Each case's full output is in `$ROOT/work/<case>.out`.
 
 ## 3. The empty-/tmp doctor for Claude Code and Codex
 
