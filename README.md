@@ -1,4 +1,4 @@
-# phi-router
+# phi-router 
 
 phi-router lets you run Claude Code, Codex or pi on a flat-rate subscription when your work touches patient data, without that subscription ever reading PHI.
 
