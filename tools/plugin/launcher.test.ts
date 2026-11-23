@@ -32,6 +32,21 @@ const launched = Effect.gen(function* launched() {
 	);
 }).pipe(Effect.scoped);
 
+/** The launcher of a copy that holds no bundle, as a checkout that was never built leaves it, with its stderr. */
+const unbuilt = Effect.gen(function* unbuilt() {
+	const fs = yield* FileSystem.FileSystem;
+	const copy = yield* pluginCopy;
+
+	yield* fs.remove(`${copy}/phi-router.mjs`);
+
+	const launcher = yield* ran(["sh", "-c", '"$0" doctor claude 2>&1', `${copy}/bin/phi-router`], {});
+
+	assert.deepStrictEqual(launcher, {
+		exitCode: 1,
+		printed: "This copy of phi-router is not built. Run bun run build in it, or install a release.\n",
+	});
+}).pipe(Effect.scoped);
+
 /** `doctor` through the launcher under bun, with a fresh home folder, and what the home folder holds after it. */
 const doctorHome = Effect.gen(function* doctorHome() {
 	const fs = yield* FileSystem.FileSystem;
@@ -87,6 +102,7 @@ it.layer(NodeServices.layer)("the plugin's launcher", (test) => {
 		() => launched,
 		patient,
 	);
+	test.effect("stops with how to build it when the copy holds no bundle", () => unbuilt, patient);
 	test.effect(
 		"runs doctor with no runtime cache, so doctor leaves nothing in the home folder",
 		() => doctorHome,

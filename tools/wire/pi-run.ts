@@ -14,6 +14,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { freePort, ran } from "#tools/lifecycle/launched.ts";
+import { bundles } from "#tools/plugin/bundles.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { succeeded } from "./checks.ts";
 
@@ -56,8 +57,9 @@ const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], whe
 });
 
 /**
- * The tree under test, tracked and untracked files alike but none that `.gitignore` names, committed into a fresh
- * repository under the folder `git daemon` serves, so `pi install` installs what is on disk rather than `HEAD`.
+ * The tree under test, tracked and untracked files alike but none that `.gitignore` names save the built bundles, which
+ * a release adds the same way, committed into a fresh repository under the folder `git daemon` serves, so `pi install`
+ * installs what is on disk rather than `HEAD`.
  */
 const snapshot = Effect.fnUntraced(function* snapshot(where: Folders) {
 	const path = yield* Path.Path;
@@ -65,8 +67,14 @@ const snapshot = Effect.fnUntraced(function* snapshot(where: Folders) {
 	const tree = ["--git-dir", path.join(repo, ".git"), "--work-tree", checkout];
 	const author = ["-c", "user.name=phi-wire", "-c", "user.email=phi-wire@127.0.0.1"];
 
+	const built = pipe(
+		bundles,
+		Array.map(({ out }) => out),
+	);
+
 	yield* gitAsks(["init", "--quiet", repo], where);
 	yield* gitAsks([...tree, "add", "--all"], where);
+	yield* gitAsks([...tree, "add", "--force", ...built], where);
 	yield* gitAsks([...author, ...tree, "commit", "--quiet", "--no-verify", "-m", "the tree under test"], where);
 });
 
