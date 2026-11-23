@@ -34,7 +34,11 @@ const decisionsOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
 };
 
 const claudeOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
-	if (account.vendor !== "anthropic" || account.credential.kind === "forwarded") {
+	if (
+		account.vendor !== "anthropic" ||
+		account.credential.kind === "forwarded" ||
+		Array.contains(account.lacks, judgeModels.claude)
+	) {
 		return Option.none();
 	}
 
@@ -55,7 +59,7 @@ const onSealed = Effect.fnUntraced(function* onSealed(
 	if (Option.isNone(chosen)) {
 		return yield* NoJudge.make({
 			message:
-				"phi-router: config.json names no judge, and sealed holds no account the judge can run on. Add an OpenAI API-key account, or an Anthropic account with its own key or login folder, to sealed, or add a judge block.",
+				"config.json names no judge, and sealed holds no account the judge can run on. Add an OpenAI API-key account, or an Anthropic account with its own key or login folder, to sealed, or add a judge block.",
 		});
 	}
 

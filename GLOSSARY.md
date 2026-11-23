@@ -104,7 +104,7 @@ The rules and the judge's questions that say what is PHI, versioned as one unit.
 A deterministic pattern for an unambiguous direct identifier. A rule seals and never clears.
 
 **Judge**:
-The decision model that scores whether a piece holds PHI when no rule sealed it. It runs under a BAA: **Decisions**, OpenAI's Decisions API, by the file's `judge` block or the first OpenAI API-key account on `sealed`, else the **Claude judge**, the Messages API on the first Anthropic account on `sealed` (ADR 0009).
+The decision model that scores whether a piece holds PHI when no rule sealed it. It runs under a BAA. The file's `judge` block runs **Decisions**, OpenAI's Decisions API. With no `judge` block, the first OpenAI API-key account on `sealed` runs Decisions, else the first Anthropic account on `sealed` with its own credential, not forwarded, runs the **Claude judge** on the Messages API (ADR 0009).
 _Avoid_: classifier, scanner
 
 **Part**:
@@ -129,7 +129,7 @@ The end of the previous message of the same role, read in front of a message tha
 A part whose exact text the configuration lists, so the policy skips it.
 
 **Policy version**:
-A hash of the policy and the judge model. A verdict stored under another policy version is ignored and its part judged again.
+A hash of the policy, the judge, its thresholds and its model. A verdict stored under another policy version is ignored and its part judged again.
 
 **Verdict store**:
 One file per session id that holds the session's content keys with their verdicts, its reply keys, its pin and the policy version. It never holds content.
