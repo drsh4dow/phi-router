@@ -126,13 +126,17 @@ const headed: ExtensionHandler<BeforeProviderHeadersEvent> = (event, ctx) =>
  * @param {Observe} atStart Shows the session's status.
  * @returns {ExtensionHandler<SessionStartEvent>} A hook that leaves a lease for pi's process and the session with the
  *   router, starting the router when none runs, and that pi awaits before the session's first request. It then shows
- *   the session's status.
+ *   the session's status. When it cannot leave the lease it says nothing, since no message is stopped yet, and the
+ *   input hook tells why once a prompt would go.
  */
 const leased =
 	(port: number, atStart: Observe): ExtensionHandler<SessionStartEvent> =>
 	(_event, ctx) => {
 		const lease = Router.use((client) => client.start(ctx.sessionManager.getSessionId(), ctx.cwd, port));
-		const leasedThenShown = Effect.andThen(lease, atStart(ctx));
+
+		const leasedThenShown = Effect.andThen(lease, atStart(ctx)).pipe(
+			Effect.catchTag("CommandFailed", () => Effect.void),
+		);
 
 		return Effect.runPromise(Effect.provide(leasedThenShown, router()));
 	};

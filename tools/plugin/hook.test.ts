@@ -7,6 +7,7 @@ import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 import { squatter } from "#tools/lifecycle/squatter.ts";
+import { stopped } from "#tools/route/stopped.ts";
 
 const patient = { timeout: 60_000 };
 
@@ -98,6 +99,28 @@ const squatted = Effect.fnUntraced(function* squatted([harness, event]: readonly
 	);
 }, Effect.scoped);
 
+const keyless = Effect.fnUntraced(function* keyless(harness: Harness) {
+	const fs = yield* FileSystem.FileSystem;
+	const config = yield* fs.makeTempDirectoryScoped({ prefix: "phi-hook-config-" });
+	const event = "UserPromptSubmit";
+
+	const hook = yield* hooked({
+		addressed: loopback,
+		env: { XDG_CONFIG_HOME: config },
+		event,
+		harness,
+		stdin: hookInputs[event],
+	});
+
+	const [, stderr] = hook.printed;
+
+	assert.deepStrictEqual(
+		{ blocked: blockedBy({ event, harness, hook: hook.hook, printed: hook.printed }), stderr },
+		{ blocked: true, stderr: `${stopped.noBaaKey(harness)}\n` },
+		"the harness blocks the prompt, and its block reason is the line alone",
+	);
+}, Effect.scoped);
+
 const unreadable = Effect.gen(function* unreadable() {
 	const hook = yield* hooked({ addressed: loopback, event: "SessionStart", harness: "claude", stdin: "not json" });
 	const [stdout, , exitCode] = hook.printed;
@@ -124,6 +147,11 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's h
 		["claude", "PreCompact"],
 		["codex", "PreCompact"],
 	] as const)("for %s, the %s hook blocks when another user's listener holds the port", squatted, patient);
+	test.effect.each(["claude", "codex"] as const)(
+		"for %s, the UserPromptSubmit hook blocks with the line that names its setup command when config.json does not exist",
+		keyless,
+		patient,
+	);
 	test.effect(
 		"for claude's UserPromptSubmit hook, with the model address Claude Code's user settings hold, leases the instance",
 		() => leased("claude", "UserPromptSubmit", loopback),

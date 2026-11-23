@@ -1,14 +1,18 @@
-import { Array, Effect, FileSystem, Layer, pipe } from "effect";
+import { Array, Clock, Effect, FileSystem, Layer, Record, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import type { PlatformError, Scope } from "effect";
 import { answers, bundled, instance, leasedPids, ran, refusedWithin, world } from "./launched.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest } from "#tools/route/mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
+import { stopped } from "#tools/route/stopped.ts";
 
 const patient = { timeout: 60_000 };
 const leaseIntervalAndAHalf = "7 seconds";
 const tenSeconds = 10_000;
+const fiveSeconds = 5000;
+const fifteenSeconds = 15_000;
 const done = { exitCode: 0, printed: "" };
 const none = 0;
 const oneRouter = 1;
@@ -168,6 +172,66 @@ const ended = Effect.fnUntraced(function* ended() {
 	assert.include(refused.printed, "the process is not running");
 }, Effect.scoped);
 
+/** The environment of a world whose config folder holds a `phi-router` folder with `files` alone. */
+const configHolding = Effect.fnUntraced(function* configHolding(files: Readonly<Record<string, string>>) {
+	const fs = yield* FileSystem.FileSystem;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });
+
+	yield* fs.makeDirectory(`${folder}/phi-router`);
+	yield* Effect.forEach(
+		Record.toEntries(files),
+		([name, text]) => fs.writeFileString(`${folder}/phi-router/${name}`, text),
+		{ concurrency: 1 },
+	);
+
+	return { XDG_CONFIG_HOME: folder };
+});
+
+interface Unstartable {
+	readonly what: string;
+	readonly env: () => Effect.Effect<
+		Readonly<Record<string, string>>,
+		PlatformError.PlatformError,
+		FileSystem.FileSystem | Scope.Scope
+	>;
+	readonly line: string;
+	readonly within: number;
+}
+
+const unstartable: readonly Unstartable[] = [
+	{ env: () => configHolding({}), line: stopped.noBaaKey("pi"), what: "no config.json", within: fiveSeconds },
+	{
+		env: () => Effect.succeed({ PHI_TEST_BAA_KEY: "" }),
+		line: stopped.noBaaKey("pi"),
+		what: "a BAA key that cannot be read",
+		within: fiveSeconds,
+	},
+	{
+		env: () => configHolding({ "config.json": "{" }),
+		line: stopped.notStarted("pi"),
+		what: "a config.json the router cannot read",
+		within: fifteenSeconds,
+	},
+];
+
+const stoppedBy = Effect.fnUntraced(function* stoppedBy({ env, line, within }: Unstartable) {
+	const entry = yield* bundled();
+	const more = yield* env();
+	const here = yield* world(entry, more);
+	const holder = yield* instance();
+	const started = yield* TestClock.withLive(Clock.currentTimeMillis);
+	const refused = yield* here.start(holder.pid);
+	const finished = yield* TestClock.withLive(Clock.currentTimeMillis);
+	const routers = yield* here.routers;
+
+	assert.deepStrictEqual(
+		{ exitCode: refused.exitCode, printed: refused.printed, routers },
+		{ exitCode: 1, printed: `${line}\n`, routers: [] },
+		"start prints the line alone, and no router runs",
+	);
+	assert.isBelow(finished - started, within);
+}, Effect.scoped);
+
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("phi-router start", (test) => {
 	test.effect(
 		"the first start brings one router up, a second joins it, and the router is gone within 10 s of the last end",
@@ -182,4 +246,6 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("phi-router sta
 	);
 
 	test.effect("start for a pid with no process fails and leaves no lease", () => ended(), patient);
+
+	test.effect.each(unstartable)("start with $what prints the line pi shows for it", stoppedBy, patient);
 });

@@ -15,7 +15,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\" 1>&2",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\" 1>&2 || exit 2",
 						"onFailure": "block"
 					},
 					{

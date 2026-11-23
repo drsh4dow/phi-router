@@ -35476,6 +35476,15 @@ class AccountState extends Service()("phi-router/router/client/account-state/Acc
 	).pipe(provide2(layer21));
 }
 
+// src/router/client/no-config-file.ts
+class NoConfigFile extends TaggedError3()("NoConfigFile", {
+	file: String7,
+}) {
+	get message() {
+		return `${this.file} does not exist`;
+	}
+}
+
 // src/router/client/processes.ts
 var Started = NonEmptyString;
 var psPatience = "2 seconds";
@@ -35578,7 +35587,10 @@ class Processes extends Service()("phi-router/router/client/processes") {
 				const options = { detached: true, stderr: "ignore", stdin: "ignore", stdout: "ignore" };
 				const handle = yield* spawner.spawn(make24(command, args, options));
 				yield* asVoid2(handle.unref);
-			}, scoped2);
+				const ended = handle.isRunning.pipe(map7((alive) => !alive));
+				const exited = when2(handle.exitCode.pipe(map7(Number)), ended).pipe(orElseSucceed2(none2));
+				return { exited };
+			});
 			return Processes.of({ launched, running });
 		}),
 	);
@@ -35608,7 +35620,9 @@ var configFile = gen3(function* configFile() {
 var configText = gen3(function* configText() {
 	const fs = yield* FileSystem;
 	const file = yield* configFile;
-	return yield* fs.readFileString(file);
+	return yield* fs
+		.readFileString(file)
+		.pipe(catchReason2("PlatformError", "NotFound", () => fail7(NoConfigFile.make({ file }))));
 });
 
 class Configuration extends Service()("phi-router/router/client/configuration") {
@@ -39396,248 +39410,17 @@ class Proofs extends Service()("phi-router/router/client/proof/Proofs") {
 	).pipe(provide2(mergeAll2(layer12, layer21, layerWebCrypto)));
 }
 
-// src/router/features/cli/start.ts
-var patience2 = "10 seconds";
-var pause = "50 millis";
-var notRunning = "the process is not running";
-var noRouter2 = "no router took the lease within 10 s";
-var notYours = "the port does not hold your router";
-var next = {
-	[noRouter2]: "phi-router serve with the same --port prints why a router does not start.",
-	[notRunning]: "Pass the pid of the harness process.",
-	[notYours]: "Another user's program may listen there, or your router's secret is gone. Nothing more was sent to it.",
-};
+// src/router/features/cli/no-baa-key.ts
+var noBaaKeyExit = 3;
 
-class StartFailed extends TaggedError3()("StartFailed", {
-	pid: Pid,
-	port: Int,
-	reason: Literals([notRunning, noRouter2, notYours]),
+class NoBaaKey extends TaggedError3()("NoBaaKey", {
+	why: String7,
 }) {
 	get message() {
-		return `phi-router start --pid ${String(this.pid)} --port ${String(this.port)}: ${this.reason}. ${next[this.reason]}`;
+		return `phi-router serve: ${this.why}`;
 	}
 }
-var settled = (answered) => answered === "accepted" || answered === "ended";
-var start = fn2("start")(function* start(request, port) {
-	const platform = yield* Platform;
-	const requests = yield* LeaseRequests;
-	const processes = yield* Processes;
-	const proofs = yield* Proofs;
-	const failed = (reason) => StartFailed.make({ pid: request.pid, port, reason });
-	const launch = yield* cached2(processes.launched([platform.name, platform.entry, "serve", "--port", String(port)]));
-	const posted = gen3(function* posted() {
-		const proven = yield* proofs.ask(port);
-		if (proven === "refuted") {
-			return yield* failed(notYours);
-		}
-		if (proven === "proved") {
-			return yield* requests.post(port, request);
-		}
-		return proven;
-	});
-	const asked = tap2(posted, (answered) => when2(launch, succeed6(answered === "unanswered")));
-	const answered = yield* asked.pipe(
-		repeat2({ schedule: spaced(pause), until: settled }),
-		timeoutOrElse2({
-			duration: patience2,
-			orElse: () => fail7(failed(noRouter2)),
-		}),
-	);
-	yield* when2(fail7(failed(notRunning)), succeed6(answered === "ended"));
-});
-
-// src/router/features/cli/session-start.ts
-var HookInput2 = fromJsonString2(Struct({ cwd: String7, session_id: SessionId }));
-var routerAddress2 = /^http:\/\/127\.0\.0\.1:(?<port>\d+)\/?$/u;
-var portOf = (address) =>
-	pipe(
-		fromNullishOr(routerAddress2.exec(address)),
-		flatMap(({ groups }) => fromNullishOr(groups)),
-		map(({ port = "" }) => Number(port)),
-	);
-var providerSwitches = [
-	"CLAUDE_CODE_USE_BEDROCK",
-	"CLAUDE_CODE_USE_VERTEX",
-	"CLAUDE_CODE_USE_FOUNDRY",
-	"CLAUDE_CODE_USE_ANTHROPIC_AWS",
-	"CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD",
-	"CLAUDE_CODE_USE_MANTLE",
-	"CLAUDE_CODE_USE_GATEWAY",
-];
-var switchedOn2 = ["1", "true", "yes", "on"];
-
-class MovedOff extends TaggedError3()("MovedOff", {
-	setting: String7,
-}) {
-	get message() {
-		return `phi-router: ${this.setting} moves this Claude Code session off the router, so the hook stopped it. A repository's .claude/settings.json or .claude/settings.local.json can set it. Remove it there, or run phi-router off claude.`;
-	}
-}
-var movedBy = fnUntraced2(function* movedBy(address) {
-	const settings = yield* userSettings("");
-	const installed = pipe(
-		get2(settings.env, modelAddress),
-		filter((value) => isSome2(portOf(value))),
-	);
-	const values = yield* forEach2(
-		providerSwitches,
-		(name) => map7(String8(name).pipe(withDefault3("")), (value) => ({ name, value })),
-		{ concurrency: 1 },
-	);
-	const switched = pipe(
-		values,
-		findFirst2(({ value }) => contains2(switchedOn2, toLowerCase(trim(value)))),
-		map(({ name }) => name),
-	);
-	return match(installed, {
-		onNone: () =>
-			pipe(
-				switched,
-				filter(() => isSome2(portOf(address))),
-			),
-		onSome: (value) =>
-			pipe(
-				some2(modelAddress),
-				filter(() => value !== address),
-				orElse(() => switched),
-			),
-	});
-});
-var sessionStart = fn2("session-start")(function* sessionStart(hook) {
-	if (hook.claude) {
-		const moved = yield* movedBy(hook.address);
-		yield* match(moved, {
-			onNone: () => void_3,
-			onSome: (setting) => fail7(MovedOff.make({ setting })),
-		});
-	}
-	const port = portOf(hook.address);
-	if (isNone2(port)) {
-		return;
-	}
-	const text = yield* standardInput;
-	const input = yield* decodeEffect2(HookInput2)(text);
-	yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value);
-});
-
-// src/router/features/cli/prompt-submit.ts
-var HookInput3 = fromJsonString2(Struct({ prompt: String7, session_id: SessionId }));
-var Blocked = fromJsonString2(Struct({ decision: Literal2("block"), reason: String7 }));
-var slashed = /^\/(?:phi-router:)?phi(?:\s+(?<words>[\s\S]*))?$/u;
-var bare2 = new RegExp(`^${phiCommand.name}(?:\\s+(?<words>${phiCommand.pin}|${phiCommand.unpin}))?$`, "u");
-var wordsOf = (prompt) => {
-	const typed = trim(prompt);
-	return pipe(
-		fromNullishOr(slashed.exec(typed)),
-		orElse(() => fromNullishOr(bare2.exec(typed))),
-		flatMap(({ groups }) => fromNullishOr(groups)),
-		map(({ words = "" }) => words),
-	);
-};
-var answerOf = fnUntraced2(function* answerOf(words, session, port) {
-	const word = trim(words);
-	const requests = yield* SessionRequests;
-	if (word === phiCommand.pin) {
-		yield* pin(session, port);
-	} else if (word === phiCommand.unpin) {
-		yield* unpin(session, port);
-	} else if (isNonEmpty(word)) {
-		return usage;
-	}
-	const status = yield* mapError2(requests.status(port, session), failedAs({ command: "status", port }));
-	return statusText(status);
-});
-var unprotected = "phi-router: this instance's model address names no router, so phi-router does not route it.";
-var promptSubmit = fn2("prompt-submit")(function* promptSubmit(hook) {
-	const text = yield* standardInput;
-	const input = yield* decodeEffect2(HookInput3)(text);
-	const words = wordsOf(input.prompt);
-	if (isNone2(words)) {
-		return;
-	}
-	const reason = yield* match(portOf(hook.address), {
-		onNone: () => succeed6(unprotected),
-		onSome: (port) =>
-			answerOf(words.value, input.session_id, port).pipe(
-				catchTag2("RouterUnanswered", (failed) => succeed6(failed.message)),
-			),
-	});
-	const blocked = yield* encodeEffect(Blocked)({ decision: "block", reason });
-	yield* log2(blocked);
-});
-
-// src/router/features/cli/turn-end.ts
-var HookInput4 = fromJsonString2(Struct({ session_id: SessionId }));
-var Notice = fromJsonString2(Struct({ systemMessage: String7 }));
-var noneSealed = 0;
-var sealedSince = fnUntraced2(function* sealedSince(session, port) {
-	const requests = yield* SessionRequests;
-	const notices = yield* SealNotices;
-	const status = yield* mapError2(requests.status(port, session), failedAs({ command: "status", port }));
-	const before = yield* notices.swap(session, status.sealed);
-	return { count: status.sealed - getOrElse(before, () => noneSealed), status };
-});
-var turnEnd = fn2("turn-end")(function* turnEnd(hook) {
-	const port = portOf(hook.address);
-	if (isNone2(port)) {
-		return;
-	}
-	const text = yield* standardInput;
-	const input = yield* decodeEffect2(HookInput4)(text);
-	const notice = yield* sealedSince(input.session_id, port.value).pipe(
-		map7((sealed) => liftPredicate(sealed, ({ count }) => count > noneSealed).pipe(map(sealNotice))),
-		catchTag2("RouterUnanswered", (failed) => succeedSome2(failed.message)),
-	);
-	if (isSome2(notice)) {
-		const printed = yield* encodeEffect(Notice)({ systemMessage: notice.value });
-		yield* log2(printed);
-	}
-});
-
-// src/router/features/cli/hooks.ts
-var hookCommands = [
-	make56("prompt-submit", { address }, (flags) => promptSubmit(flags)).pipe(provide6(SessionRequests.layer), unlisted),
-	make56("turn-end", { address }, (flags) => turnEnd(flags)).pipe(
-		provide6(merge2(SessionRequests.layer, SealNotices.layer)),
-		unlisted,
-	),
-];
-
-// src/router/features/cli/models.ts
-var models = make56(spelling.models.name, {}, () =>
-	gen3(function* printed() {
-		const lanes = yield* configuredLanes;
-		const routed = pipe(
-			lanes,
-			map(getSomes),
-			map(map3(({ sealedModel, targetModel }) => ({ auto: targetModel, sealed: sealedModel }))),
-			getOrElse(() => ({})),
-		);
-		const line = yield* orDie2(encodeEffect(ModelsJson)(routed));
-		yield* log2(line);
-	}),
-).pipe(unlisted);
-
-// src/router/features/cli/status.ts
-var status = fn2("status")(function* status(session, port) {
-	const requests = yield* SessionRequests;
-	const reported = yield* mapError2(requests.status(port, session), failedAs({ command: "status", port }));
-	const line = yield* orDie2(encodeEffect(StatusJson)(reported));
-	yield* log2(line);
-});
-
-// src/router/features/cli/sessions.ts
-var session = String12(spelling.status.session).pipe(withSchema2(SessionId));
-var port = Int5(spelling.start.port).pipe(withDefault5(productPort));
-var asked = { port, session };
-var sessionCommands = pipe(
-	[
-		make56(spelling.status.name, asked, (flags) => status(flags.session, flags.port)),
-		make56(spelling.pin.name, asked, (flags) => pin(flags.session, flags.port)),
-		make56(spelling.unpin.name, asked, (flags) => unpin(flags.session, flags.port)),
-	],
-	map4(provide6(SessionRequests.layer)),
-);
+var keyless = (failure) => fail7(NoBaaKey.make({ why: failure.message }));
 
 // src/router/features/codex/wire.ts
 var Opaque = ArraySchema(Unknown2);
@@ -42014,13 +41797,36 @@ var lineOf2 = (of) => {
 	return assign(line, { reason: "failover" });
 };
 
+// src/router/features/route/stopped.ts
+var stopLines = {
+	baaKeyRefused: (harness) =>
+		`phi-router stopped this message. Your BAA account refused its key, so nothing was sent, and nothing reached your subscription. Run in a terminal: npx phi-router setup ${harness} --new-key`,
+	noBaaKey: (harness) =>
+		`phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup ${harness}`,
+	notStarted: (harness) =>
+		`phi-router could not start, so this message was not sent. Nothing left your computer. Send it again. If it repeats, run: npx phi-router doctor ${harness}`,
+};
+
 // src/router/features/route/failover.ts
-var statuses2 = { failed: 500, ok: 200, rateLimited: 429, unreadable: 400 };
+var statuses2 = { failed: 500, ok: 200, rateLimited: 429, unauthorized: 401, unreadable: 400 };
+
+class BaaKeyRefused extends TaggedError3()("BaaKeyRefused", {
+	account: String7,
+	harness: Literals(["claude", "codex", "pi"]),
+}) {
+	get message() {
+		return stopLines.baaKeyRefused(this.harness);
+	}
+}
 var relaying = { kind: "relayed" };
 var sentTo = fnUntraced2(function* sentTo(arrival, aim) {
 	const { incoming, request, serving, session } = arrival;
 	const { account, lane } = current(aim.walk);
 	return yield* account.send({ body: aim.send.body, headers: incoming.headers }).pipe(
+		filterOrFail2(
+			(answer) => lane === "clean" || answer.status !== statuses2.unauthorized,
+			() => BaaKeyRefused.make({ account: account.name, harness: serving.wire.harness }),
+		),
 		flatMap6((answer) => {
 			if (answer.status === statuses2.rateLimited || answer.status >= statuses2.failed) {
 				const stamps = succeed6(lane === "clean" && answer.status === statuses2.rateLimited);
@@ -42195,6 +42001,7 @@ var answering = (serving) => (incoming) => {
 				flatMap6(dispatched),
 				catchTags2(accountFailures(wire)),
 				catchTags2({
+					BaaKeyRefused: ({ message }) => refusal(wire, statuses3.unreadable, message),
 					PlatformError: () => refusal(wire, statuses3.failed, "phi-router could not write its state"),
 					SchemaError: () => refusal(wire, statuses3.failed, "phi-router could not read its state"),
 					Unreadable: ({ reason }) => refusal(wire, statuses3.unreadable, reason),
@@ -42214,7 +42021,7 @@ var listedWith = fnUntraced2(function* listedWith(accounts, incoming, query) {
 		onSome: (body) => succeed6({ body, kind: "whole", status: statuses3.ok }),
 	});
 });
-var models2 = (accounts) => (incoming) => {
+var models = (accounts) => (incoming) => {
 	if (!fromCodex(incoming.headers)) {
 		return succeed6(notFound4);
 	}
@@ -42701,7 +42508,7 @@ var Router = flow(
 				method: "POST",
 				path: "/v1/responses",
 			},
-			{ answer: openai(models2), method: "GET", path: "/v1/models" },
+			{ answer: openai(models), method: "GET", path: "/v1/models" },
 			{ answer: hello, method: "GET", path: "/api/hello" },
 			...sessionRows({ routing: shared, served: () => served }),
 			...others,
@@ -42709,6 +42516,264 @@ var Router = flow(
 	}),
 	unwrap,
 	provide2(mergeAll2(services, LeaseRegistry.layer, AccountState.layer)),
+);
+
+// src/router/features/cli/start.ts
+var patience2 = "10 seconds";
+var pause = "50 millis";
+var Reason = Literals(["noBaaKey", "notRunning", "notStarted", "notYours"]);
+var said = {
+	noBaaKey: ({ harness }) => stopLines.noBaaKey(harness),
+	notRunning: ({ pid, port }) =>
+		`phi-router start --pid ${String(pid)} --port ${String(port)}: the process is not running. Pass the pid of the harness process.`,
+	notStarted: ({ harness }) => stopLines.notStarted(harness),
+	notYours: ({ pid, port }) =>
+		`phi-router start --pid ${String(pid)} --port ${String(port)}: the port does not hold your router. Another user's program may listen there, or your router's secret is gone. Nothing more was sent to it.`,
+};
+
+class StartFailed extends TaggedError3()("StartFailed", {
+	harness: Literals(["claude", "codex", "pi"]),
+	pid: Pid,
+	port: Int,
+	reason: Reason,
+}) {
+	get message() {
+		return said[this.reason](this);
+	}
+}
+var settled = (answered) => answered === "accepted" || answered === "ended";
+var start = fn2("start")(function* start(request, port, harness) {
+	const platform = yield* Platform;
+	const requests = yield* LeaseRequests;
+	const processes = yield* Processes;
+	const proofs = yield* Proofs;
+	const failed = (reason) => StartFailed.make({ harness, pid: request.pid, port, reason });
+	const launch = yield* cached2(
+		processes
+			.launched([platform.name, platform.entry, "serve", "--port", String(port)])
+			.pipe(mapError2(() => failed("notStarted"))),
+	);
+	const unanswered = launch.pipe(
+		flatMap6(({ exited }) => exited),
+		filterOrFail2(
+			(exited) => !contains(exited, noBaaKeyExit),
+			() => failed("noBaaKey"),
+		),
+	);
+	const posted = gen3(function* posted() {
+		const proven = yield* proofs.ask(port);
+		if (proven === "refuted") {
+			return yield* failed("notYours");
+		}
+		if (proven === "proved") {
+			return yield* requests.post(port, request);
+		}
+		return proven;
+	});
+	const answered = yield* posted.pipe(
+		tap2((asked) => when2(unanswered, succeed6(asked === "unanswered"))),
+		repeat2({ schedule: spaced(pause), until: settled }),
+		timeoutOrElse2({
+			duration: patience2,
+			orElse: () => fail7(failed("notStarted")),
+		}),
+	);
+	yield* when2(fail7(failed("notRunning")), succeed6(answered === "ended"));
+}, scoped2);
+
+// src/router/features/cli/session-start.ts
+var HookInput2 = fromJsonString2(Struct({ cwd: String7, session_id: SessionId }));
+var routerAddress2 = /^http:\/\/127\.0\.0\.1:(?<port>\d+)\/?$/u;
+var portOf = (address) =>
+	pipe(
+		fromNullishOr(routerAddress2.exec(address)),
+		flatMap(({ groups }) => fromNullishOr(groups)),
+		map(({ port = "" }) => Number(port)),
+	);
+var providerSwitches = [
+	"CLAUDE_CODE_USE_BEDROCK",
+	"CLAUDE_CODE_USE_VERTEX",
+	"CLAUDE_CODE_USE_FOUNDRY",
+	"CLAUDE_CODE_USE_ANTHROPIC_AWS",
+	"CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD",
+	"CLAUDE_CODE_USE_MANTLE",
+	"CLAUDE_CODE_USE_GATEWAY",
+];
+var hookHarness = { false: "codex", true: "claude" };
+var switchedOn2 = ["1", "true", "yes", "on"];
+
+class MovedOff extends TaggedError3()("MovedOff", {
+	setting: String7,
+}) {
+	get message() {
+		return `phi-router: ${this.setting} moves this Claude Code session off the router, so the hook stopped it. A repository's .claude/settings.json or .claude/settings.local.json can set it. Remove it there, or run phi-router off claude.`;
+	}
+}
+var movedBy = fnUntraced2(function* movedBy(address) {
+	const settings = yield* userSettings("");
+	const installed = pipe(
+		get2(settings.env, modelAddress),
+		filter((value) => isSome2(portOf(value))),
+	);
+	const values = yield* forEach2(
+		providerSwitches,
+		(name) => map7(String8(name).pipe(withDefault3("")), (value) => ({ name, value })),
+		{ concurrency: 1 },
+	);
+	const switched = pipe(
+		values,
+		findFirst2(({ value }) => contains2(switchedOn2, toLowerCase(trim(value)))),
+		map(({ name }) => name),
+	);
+	return match(installed, {
+		onNone: () =>
+			pipe(
+				switched,
+				filter(() => isSome2(portOf(address))),
+			),
+		onSome: (value) =>
+			pipe(
+				some2(modelAddress),
+				filter(() => value !== address),
+				orElse(() => switched),
+			),
+	});
+});
+var sessionStart = fn2("session-start")(function* sessionStart(hook) {
+	if (hook.claude) {
+		const moved = yield* movedBy(hook.address);
+		yield* match(moved, {
+			onNone: () => void_3,
+			onSome: (setting) => fail7(MovedOff.make({ setting })),
+		});
+	}
+	const port = portOf(hook.address);
+	if (isNone2(port)) {
+		return;
+	}
+	const text = yield* standardInput;
+	const input = yield* decodeEffect2(HookInput2)(text);
+	const harness = hookHarness[`${hook.claude}`];
+	yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
+});
+
+// src/router/features/cli/prompt-submit.ts
+var HookInput3 = fromJsonString2(Struct({ prompt: String7, session_id: SessionId }));
+var Blocked = fromJsonString2(Struct({ decision: Literal2("block"), reason: String7 }));
+var slashed = /^\/(?:phi-router:)?phi(?:\s+(?<words>[\s\S]*))?$/u;
+var bare2 = new RegExp(`^${phiCommand.name}(?:\\s+(?<words>${phiCommand.pin}|${phiCommand.unpin}))?$`, "u");
+var wordsOf = (prompt) => {
+	const typed = trim(prompt);
+	return pipe(
+		fromNullishOr(slashed.exec(typed)),
+		orElse(() => fromNullishOr(bare2.exec(typed))),
+		flatMap(({ groups }) => fromNullishOr(groups)),
+		map(({ words = "" }) => words),
+	);
+};
+var answerOf = fnUntraced2(function* answerOf(words, session, port) {
+	const word = trim(words);
+	const requests = yield* SessionRequests;
+	if (word === phiCommand.pin) {
+		yield* pin(session, port);
+	} else if (word === phiCommand.unpin) {
+		yield* unpin(session, port);
+	} else if (isNonEmpty(word)) {
+		return usage;
+	}
+	const status = yield* mapError2(requests.status(port, session), failedAs({ command: "status", port }));
+	return statusText(status);
+});
+var unprotected = "phi-router: this instance's model address names no router, so phi-router does not route it.";
+var promptSubmit = fn2("prompt-submit")(function* promptSubmit(hook) {
+	const text = yield* standardInput;
+	const input = yield* decodeEffect2(HookInput3)(text);
+	const words = wordsOf(input.prompt);
+	if (isNone2(words)) {
+		return;
+	}
+	const reason = yield* match(portOf(hook.address), {
+		onNone: () => succeed6(unprotected),
+		onSome: (port) =>
+			answerOf(words.value, input.session_id, port).pipe(
+				catchTag2("RouterUnanswered", (failed) => succeed6(failed.message)),
+			),
+	});
+	const blocked = yield* encodeEffect(Blocked)({ decision: "block", reason });
+	yield* log2(blocked);
+});
+
+// src/router/features/cli/turn-end.ts
+var HookInput4 = fromJsonString2(Struct({ session_id: SessionId }));
+var Notice = fromJsonString2(Struct({ systemMessage: String7 }));
+var noneSealed = 0;
+var sealedSince = fnUntraced2(function* sealedSince(session, port) {
+	const requests = yield* SessionRequests;
+	const notices = yield* SealNotices;
+	const status = yield* mapError2(requests.status(port, session), failedAs({ command: "status", port }));
+	const before = yield* notices.swap(session, status.sealed);
+	return { count: status.sealed - getOrElse(before, () => noneSealed), status };
+});
+var turnEnd = fn2("turn-end")(function* turnEnd(hook) {
+	const port = portOf(hook.address);
+	if (isNone2(port)) {
+		return;
+	}
+	const text = yield* standardInput;
+	const input = yield* decodeEffect2(HookInput4)(text);
+	const notice = yield* sealedSince(input.session_id, port.value).pipe(
+		map7((sealed) => liftPredicate(sealed, ({ count }) => count > noneSealed).pipe(map(sealNotice))),
+		catchTag2("RouterUnanswered", (failed) => succeedSome2(failed.message)),
+	);
+	if (isSome2(notice)) {
+		const printed = yield* encodeEffect(Notice)({ systemMessage: notice.value });
+		yield* log2(printed);
+	}
+});
+
+// src/router/features/cli/hooks.ts
+var hookCommands = [
+	make56("prompt-submit", { address }, (flags) => promptSubmit(flags)).pipe(provide6(SessionRequests.layer), unlisted),
+	make56("turn-end", { address }, (flags) => turnEnd(flags)).pipe(
+		provide6(merge2(SessionRequests.layer, SealNotices.layer)),
+		unlisted,
+	),
+];
+
+// src/router/features/cli/models.ts
+var models2 = make56(spelling.models.name, {}, () =>
+	gen3(function* printed() {
+		const lanes = yield* configuredLanes;
+		const routed = pipe(
+			lanes,
+			map(getSomes),
+			map(map3(({ sealedModel, targetModel }) => ({ auto: targetModel, sealed: sealedModel }))),
+			getOrElse(() => ({})),
+		);
+		const line = yield* orDie2(encodeEffect(ModelsJson)(routed));
+		yield* log2(line);
+	}),
+).pipe(unlisted);
+
+// src/router/features/cli/status.ts
+var status = fn2("status")(function* status(session, port) {
+	const requests = yield* SessionRequests;
+	const reported = yield* mapError2(requests.status(port, session), failedAs({ command: "status", port }));
+	const line = yield* orDie2(encodeEffect(StatusJson)(reported));
+	yield* log2(line);
+});
+
+// src/router/features/cli/sessions.ts
+var session = String12(spelling.status.session).pipe(withSchema2(SessionId));
+var port = Int5(spelling.start.port).pipe(withDefault5(productPort));
+var asked = { port, session };
+var sessionCommands = pipe(
+	[
+		make56(spelling.status.name, asked, (flags) => status(flags.session, flags.port)),
+		make56(spelling.pin.name, asked, (flags) => pin(flags.session, flags.port)),
+		make56(spelling.unpin.name, asked, (flags) => unpin(flags.session, flags.port)),
+	],
+	map4(provide6(SessionRequests.layer)),
 );
 
 // src/router/features/lifecycle/lifecycle.ts
@@ -42819,7 +42884,7 @@ var serve4 = fnUntraced2(function* serve(port) {
 		provide2(Callers.layer),
 		provide2(succeedContext(server)),
 	);
-	yield* buildWithScope(routes, scope);
+	yield* buildWithScope(routes, scope).pipe(catchTags2({ KeyUnreadable: keyless, NoConfigFile: keyless }));
 	yield* watching;
 	return yield* NoLeaseHolds.make({ port });
 });
@@ -42829,7 +42894,7 @@ var folder = String12(spelling.start.folder);
 var claude2 = Boolean8("claude").pipe(withDefault5(false));
 var routerCommands = [
 	make56(spelling.start.name, { folder, pid, port, session }, (flags) =>
-		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port),
+		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port, "pi"),
 	).pipe(provide6(Proofs.layer)),
 	make56("session-start", { address, claude: claude2, pid }, (flags) => sessionStart(flags)).pipe(
 		unlisted,
@@ -42848,7 +42913,7 @@ var root = make56(
 	}),
 );
 var cli = root.pipe(
-	withSubcommands([...sessionCommands, ...routerCommands, ...hookCommands, ...adapterCommands, accounts, models]),
+	withSubcommands([...sessionCommands, ...routerCommands, ...hookCommands, ...adapterCommands, accounts, models2]),
 	run5({ version: "0.0.0" }),
 );
 
@@ -42859,8 +42924,21 @@ var platform = (name) => succeed5(Platform, Platform.of({ entry: import.meta.fil
 var bun = merge2(layer10, platform("bun"));
 var node = merge2(layer19, platform("node"));
 var clients = mergeAll2(VerdictStore.layer, LeaseRegistry.layer, LeaseRequests.layer, Processes.layer, listener);
+
+class Told extends TaggedError3()("Told", { code: Int }) {
+	[errorReported] = false;
+	get [errorExitCode]() {
+		return this.code;
+	}
+}
+var failedExit = 1;
+var told = (line, code) => andThen2(error(line), fail7(Told.make({ code })));
+var program = catchTags2(cli, {
+	NoBaaKey: ({ message }) => told(message, noBaaKeyExit),
+	StartFailed: ({ message }) => told(message, failedExit),
+});
 if ("Bun" in globalThis) {
-	runMain2(provide4(cli, provideMerge(clients, bun)));
+	runMain2(provide4(program, provideMerge(clients, bun)));
 } else {
-	runMain3(provide4(cli, provideMerge(clients, node)));
+	runMain3(provide4(program, provideMerge(clients, node)));
 }

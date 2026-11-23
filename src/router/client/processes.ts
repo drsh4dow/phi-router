@@ -13,8 +13,8 @@ import {
 	pipe,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import type { PlatformError, Scope } from "effect";
 import type { Pid } from "#shared/cli.ts";
-import type { PlatformError } from "effect";
 
 /** When a process started, as `ps` prints it under `LC_ALL=C TZ=UTC`. Only ever compared for equality. */
 const Started = Schema.NonEmptyString;
@@ -158,8 +158,18 @@ class Processes extends Context.Service<
 		 * does not parse, or took longer than 2 s. Then nothing is known of the processes.
 		 */
 		readonly running: (pids: readonly (typeof Pid.Type)[]) => Effect.Effect<Option.Option<readonly Running[]>>;
-		/** Starts `command` in its own session with no stdio and lets go of it, so it outlives the caller. */
-		readonly launched: (command: readonly [string, ...string[]]) => Effect.Effect<void, PlatformError.PlatformError>;
+		/**
+		 * Starts `command` in its own session with no stdio and lets go of it, so it outlives the caller. While the
+		 * caller's scope is open, `exited` reads, without waiting, the code the process exited with: none while it runs,
+		 * and none when a signal ended it.
+		 */
+		readonly launched: (
+			command: readonly [string, ...string[]],
+		) => Effect.Effect<
+			{ readonly exited: Effect.Effect<Option.Option<number>> },
+			PlatformError.PlatformError,
+			Scope.Scope
+		>;
 	}
 >()("phi-router/router/client/processes") {
 	public static readonly layer = Layer.effect(
@@ -195,7 +205,15 @@ class Processes extends Context.Service<
 				const handle = yield* spawner.spawn(ChildProcess.make(command, args, options));
 
 				yield* Effect.asVoid(handle.unref);
-			}, Effect.scoped);
+
+				const ended = handle.isRunning.pipe(Effect.map((alive) => !alive));
+
+				const exited = Effect.when(handle.exitCode.pipe(Effect.map(Number)), ended).pipe(
+					Effect.orElseSucceed(Option.none<number>),
+				);
+
+				return { exited };
+			});
 
 			return Processes.of({ launched, running });
 		}),

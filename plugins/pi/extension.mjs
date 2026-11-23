@@ -12124,8 +12124,8 @@ var messagesIn = (count) => {
 };
 var sealNotice = (sealed) =>
 	`phi-router: ${messagesIn(sealed.count)} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
-var failureText = (failed) => {
-	const why = pipe(
+var printedLine = (failed) =>
+	pipe(
 		split(
 			String(failed.cause),
 			`
@@ -12135,8 +12135,7 @@ var failureText = (failed) => {
 		findFirst2(isNonEmpty),
 		getOrElse(() => "it printed nothing"),
 	);
-	return `phi-router ${failed.command} failed: ${why}`;
-};
+var failureText = (failed) => `phi-router ${failed.command} failed: ${printedLine(failed)}`;
 var sessionOf = (ctx) => SessionId.make(ctx.sessionManager.getSessionId());
 var askedOf = fnUntraced2(function* askedOf(asked, session, port) {
 	const client = yield* Router;
@@ -12276,29 +12275,31 @@ var blockUploads = (provider) => (_event, ctx) => {
 };
 
 // src/pi/features/phi/proof.ts
-var cleared = (port, what, ctx) => {
+var cleared = (port, ctx) => {
 	if (!routed(ctx)) {
 		return succeed6(true);
 	}
-	const line = `phi-router: pi did not send ${what}, since port ${String(port)} does not hold your router.`;
-	const told = suspend2(() => {
+	const told = (line) => {
 		if (ctx.hasUI) {
 			return sync2(() => {
 				ctx.ui.notify(line, "error");
 			});
 		}
 		return error(line);
-	});
+	};
 	return Router.use((client) => client.start(ctx.sessionManager.getSessionId(), ctx.cwd, port)).pipe(
-		matchEffect3({ onFailure: () => as2(told, false), onSuccess: () => succeed6(true) }),
+		matchEffect3({
+			onFailure: (failed) => failed.pipe(printedLine, told, as2(false)),
+			onSuccess: () => succeed6(true),
+		}),
 	);
 };
 var actions = {
 	false: { action: "handled" },
 	true: { action: "continue" },
 };
-var promptSent = (port) => (ctx) => map5(cleared(port, "this prompt", ctx), (may) => actions[`${may}`]);
-var compactionSent = (port) => (ctx) => map5(cleared(port, "this compaction", ctx), (may) => ({ cancel: !may }));
+var promptSent = (port) => (ctx) => map5(cleared(port, ctx), (may) => actions[`${may}`]);
+var compactionSent = (port) => (ctx) => map5(cleared(port, ctx), (may) => ({ cancel: !may }));
 // node_modules/@effect/platform-node-shared/dist/NodeChildProcessSpawner.js
 import * as NodeChildProcess from "node:child_process";
 import { PassThrough } from "node:stream";
@@ -14272,7 +14273,7 @@ var headed = (event, ctx) =>
 	);
 var leased = (port, atStart) => (_event, ctx) => {
 	const lease = Router.use((client) => client.start(ctx.sessionManager.getSessionId(), ctx.cwd, port));
-	const leasedThenShown = andThen2(lease, atStart(ctx));
+	const leasedThenShown = andThen2(lease, atStart(ctx)).pipe(catchTag2("CommandFailed", () => void_3));
 	return runPromise2(provide4(leasedThenShown, router()));
 };
 var turnEnded = (afterTurn) => (_event, ctx) => runPromise2(provide4(afterTurn(ctx), router()));
