@@ -203,7 +203,11 @@ const failures = [
 	{ name: "an answer cut off", said: toolUse("identifier", '{"probability":1}', "max_tokens"), why: "judge-error" },
 	{ name: "a probability above 1", said: toolUse("identifier", '{"probability":95}'), why: "judge-error" },
 	{ name: "a kind call to the score question", said: toolUse("kind", '{"kind":"apple"}'), why: "judge-error" },
-	{ name: "an error status", said: failing, why: "judge-error" },
+	{
+		name: "an error status, though its body clears the piece",
+		said: Struct.assign(toolUse("identifier", '{"probability":0}'), { status: failing.status }),
+		why: "judge-error",
+	},
 ] as const;
 
 /**

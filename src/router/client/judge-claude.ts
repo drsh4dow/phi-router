@@ -20,6 +20,9 @@ const messagesHeaders = { "anthropic-beta": "oauth-2025-04-20", "anthropic-versi
 /** The model the Claude judge runs, the cheapest that held the leak bar in its calibration (ADR 0009). */
 const claudeModel = "claude-haiku-5-5";
 
+/** The statuses of an answer the judge reads. */
+const okStatus = { below: 300, from: 200 } as const;
+
 /** Room for one tool call's answer. A call cut off here fails as `judge-error`. */
 const maxTokens = 256;
 
@@ -159,8 +162,9 @@ const costOf = ({ input_tokens, output_tokens }: Replied["usage"]): number => {
 };
 
 /**
- * Sends one request to the account, its login made fit first, and reads the reply. A failed call, or a reply that does
- * not read, fails as `judge-error` with a warning that names the account and never the key.
+ * Sends one request to the account, its login made fit first, and reads the reply. A failed call, a status outside 2xx
+ * whatever its body says, or a reply that does not read, fails as `judge-error` with a warning that names the account
+ * and never the key.
  *
  * @param {NamedAccount} named The BAA account.
  * @returns {Function} Sends a request's JSON text.
@@ -177,6 +181,10 @@ const senderOn = Effect.fnUntraced(function* senderOn(named: NamedAccount) {
 					HttpClientRequest.bodyText(body, "application/json"),
 				),
 			);
+
+			if (answered.status < okStatus.from || answered.status >= okStatus.below) {
+				return yield* Effect.fail({ message: `status ${String(answered.status)}` });
+			}
 
 			const text = yield* Stream.mkString(Stream.decodeText(answered.body));
 
