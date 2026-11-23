@@ -15,6 +15,9 @@ const unrouted = `phi-router: this session's model is not a ${routedProvider} mo
 /** The status bar entry pi shows for the router. */
 const statusKey = "phi";
 
+/** What `setStatus` takes to clear the router's entry. */
+const noLine = Option.getOrUndefined(Option.none<string>());
+
 /** The fewest sealed messages, before a session's first seal. */
 const noneSealed = 0;
 
@@ -236,8 +239,9 @@ type Observe = (ctx: ShownContext) => Effect.Effect<void, never, Router>;
 /**
  * The status refreshes of a router on `port`, which share the sealed count of each session pi last showed. Each shows
  * the session's last request in the status bar, when pi has a UI, and a router that does not answer there, with why.
- * `afterTurn` also shows a notice when the count grew, counting a session pi has not shown from none. `atStart` only
- * sets the count, so a resumed session does not announce its old seals.
+ * On another provider's model it asks the router nothing and clears the status bar's entry. `afterTurn` also shows a
+ * notice when the count grew, counting a session pi has not shown from none. `atStart`, also run on a model switch,
+ * only sets the count, so a resumed session does not announce its old seals.
  */
 const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 	const seen = yield* Ref.make<Readonly<Record<string, number>>>({});
@@ -246,6 +250,12 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 		(announce: boolean): Observe =>
 		(ctx) =>
 			Effect.gen(function* refreshed() {
+				if (!routed(ctx)) {
+					ctx.ui.setStatus(statusKey, noLine);
+
+					return;
+				}
+
 				const session = sessionOf(ctx);
 				const status = yield* askedOf("status", session, port);
 				const shown = yield* Ref.getAndUpdate(seen, Record.set(session, status.sealed));

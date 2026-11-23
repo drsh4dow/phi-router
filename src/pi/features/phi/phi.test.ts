@@ -64,6 +64,9 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	return { asked, sealed, service };
 });
 
+/** What the fake records when pi clears the status bar's entry. */
+const noEntry = "no entry";
+
 type Shown = readonly (readonly [kind: string, text: string])[];
 
 /** The context pi gives the handlers, and each notice and status bar text it showed, in order. */
@@ -91,7 +94,7 @@ const contextOf = (hasUI: boolean, provider = "phi"): Shows => {
 				shown.push([kind, text]);
 			},
 			setStatus: (_key, text): void => {
-				shown.push(["status", text ?? ""]);
+				shown.push(["status", text ?? noEntry]);
 			},
 		},
 	};
@@ -199,27 +202,33 @@ it.effect("/phi with a word it does not know shows its usage and asks the router
 
 const refused = "phi-router: this session's model is not a phi model, so phi-router does not route it.";
 
-it.effect("/phi on another provider's model pins nothing and says phi-router does not route the session", () =>
-	Effect.gen(function* unrouted() {
-		const router = yield* routerOf(false);
-		const { ctx, shown } = contextOf(true, "anthropic");
-		const phi = answered(routerPort);
+it.effect(
+	"on another provider's model /phi pins nothing and says why, the status bar shows no phi line, and the router is asked nothing",
+	() =>
+		Effect.gen(function* unrouted() {
+			const router = yield* routerOf(false);
+			const { ctx, shown } = contextOf(true, "anthropic");
+			const phi = answered(routerPort);
+			const { afterTurn, atStart } = yield* observerOn(routerPort);
+			const all = Effect.all([phi("pin", ctx), phi("", ctx), atStart(ctx), afterTurn(ctx)], { concurrency: 1 });
 
-		yield* Effect.provideService(Effect.andThen(phi("pin", ctx), phi("", ctx)), Router, router.service);
+			yield* Effect.provideService(all, Router, router.service);
 
-		const asked = yield* Ref.get(router.asked);
+			const asked = yield* Ref.get(router.asked);
 
-		assert.deepStrictEqual(
-			{ asked, shown },
-			{
-				asked: [],
-				shown: [
-					["warning", refused],
-					["warning", refused],
-				],
-			},
-		);
-	}),
+			assert.deepStrictEqual(
+				{ asked, shown },
+				{
+					asked: [],
+					shown: [
+						["warning", refused],
+						["warning", refused],
+						["status", noEntry],
+						["status", noEntry],
+					],
+				},
+			);
+		}),
 );
 
 const sealedBefore = 3;

@@ -13,8 +13,6 @@ import type {
 	SessionBeforeCompactResult,
 	SessionManager,
 	SessionStartEvent,
-	TurnEndEvent,
-	TurnEndEventResult,
 } from "@earendil-works/pi-coding-agent";
 import { answered, observerOn, phiModels, routedProvider, usage } from "#pi/features/phi/phi.ts";
 import { blockUploads, recordUse } from "#pi/features/uploads/index.ts";
@@ -142,15 +140,15 @@ const leased =
 	};
 
 /**
- * The turn hook: shows the session's routing once a turn ends.
+ * A hook that shows the session's routing, such as once a turn ends or the model changes.
  *
- * @param {Observe} afterTurn Shows it.
- * @returns {ExtensionHandler<TurnEndEvent>} The hook.
+ * @param {Observe} observe Shows it.
+ * @returns {ExtensionHandler} The hook.
  */
-const turnEnded =
-	(afterTurn: Observe): ExtensionHandler<TurnEndEvent, TurnEndEventResult> =>
+const observed =
+	<Event, Result>(observe: Observe): ExtensionHandler<Event, Result> =>
 	(_event, ctx) =>
-		Effect.runPromise(Effect.provide(afterTurn(ctx), router()));
+		Effect.runPromise(Effect.provide(observe(ctx), router()));
 
 /**
  * The handler of `/phi` for a router on `port`.
@@ -184,17 +182,24 @@ const compacted =
 		Effect.runPromise(Effect.provide(compactionSent(port)(ctx), router()));
 
 /**
- * Hooks pi to the router on `port`: the session's lease once it starts, and the router's proof before each prompt and
- * each compaction on `phi`.
+ * Hooks pi to the router on `port`: the session's lease once it starts, the router's proof before each prompt and each
+ * compaction on `phi`, and the session's status after each turn and each model switch.
  *
  * @param {ExtensionAPI} pi What pi gives an extension.
  * @param {number} port The router's port.
- * @param {Observe} atStart Shows the session's status once it holds its lease.
+ * @param {object} shows `atStart` shows the session's status once it holds its lease and after a model switch,
+ *   `afterTurn` after each turn.
  */
-const onRouter = (pi: Readonly<Pick<ExtensionAPI, "on">>, port: number, atStart: Observe): void => {
-	pi.on("session_start", leased(port, atStart));
+const onRouter = (
+	pi: Readonly<Pick<ExtensionAPI, "on">>,
+	port: number,
+	shows: { readonly afterTurn: Observe; readonly atStart: Observe },
+): void => {
+	pi.on("session_start", leased(port, shows.atStart));
 	pi.on("input", checked(port));
 	pi.on("session_before_compact", compacted(port));
+	pi.on("turn_end", observed(shows.afterTurn));
+	pi.on("model_select", observed(shows.atStart));
 };
 
 /**
@@ -229,7 +234,7 @@ const configured = Effect.all(
  * The pi package. It adds the provider `phi` at the router's address, the product port unless `PHI_ROUTER_PORT` names
  * another, with `auto` and `sealed` at the limits of the models they run, keeps it off any proxy, starts the router for each session, checks the router before each of the provider's
  * prompts and compactions and fills in each of its requests. It adds `/phi`, shows the last request in the status bar
- * after each turn, and a notice for a turn that sealed, and keeps a session that used it from `/share` and `/bug`.
+ * on a `phi` model after each turn and each model switch, and a notice for a turn that sealed, and keeps a session that used it from `/share` and `/bug`.
  *
  * @param {ExtensionAPI} pi What pi gives an extension.
  * @returns {Promise<void>} Done once the provider and the hooks are in place.
@@ -240,15 +245,14 @@ const extension: ExtensionFactory = (pi) =>
 			Effect.gen(function* registered() {
 				const { models, port } = yield* configured;
 
-				const { afterTurn, atStart } = yield* observerOn(port);
+				const shows = yield* observerOn(port);
 
 				yield* bypassProxies;
 				pi.registerProvider(routedProvider, provider({ models, port }));
 				pi.on("session_start", blockUploads(routedProvider));
-				onRouter(pi, port, atStart);
+				onRouter(pi, port, shows);
 				pi.on("before_provider_headers", recordUse({ pi, provider: routedProvider }));
 				pi.on("before_provider_headers", headed);
-				pi.on("turn_end", turnEnded(afterTurn));
 				pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
 			}),
 			router(),
