@@ -2,17 +2,20 @@
 # Usage: tools/plugin/release.sh tag <version>
 #        tools/plugin/release.sh publish <version>
 #
-# tag: in a clone made for it, as the release workflow's runner is, builds the bundles, sets <version> in the three
-# manifests, commits them with the bundles on top of the commit checked out, tags that commit v<version>, and prints
-# what the tag holds. It pushes nothing, so it is the dry run.
+# tag: in a clone made for it, as the release workflow's runner is, sets <version> in the three manifests, builds the
+# bundles, commits them with the manifests on top of the commit checked out, tags that commit v<version>, and prints
+# what the tag holds. It then packs the npm package phi-router-<version>.tgz from the tag and lists its files with
+# npm publish --dry-run. It pushes and publishes nothing, so it is the dry run.
 #
-# publish: pushes the tag v<version> that tag made to origin and creates its GitHub release. When origin already holds
-# the tag, as after a run that stopped before the release, it only creates the release if it is missing.
+# publish: pushes the tag v<version> that tag made to origin, creates its GitHub release, and publishes
+# phi-router-<version>.tgz to npm with provenance. Each step it finds done, as after a run that stopped partway, it
+# skips.
 set -eu
 
 step=${1-}
 version=${2-}
 tag=v$version
+tarball=phi-router-$version.tgz
 manifests="package.json plugins/claude/.claude-plugin/plugin.json plugins/claude/.codex-plugin/plugin.json"
 bundles="plugins/claude/phi-router.mjs plugins/pi/extension.mjs"
 
@@ -25,11 +28,11 @@ cd "$(dirname "$0")/../.."
 
 case $step in
 tag)
-	bun run build
 	for manifest in $manifests; do
 		jq --tab --arg version "$version" '.version = $version' "$manifest" >"$manifest.new"
 		mv "$manifest.new" "$manifest"
 	done
+	bun run build
 
 	git checkout --quiet --detach
 	git add $manifests
@@ -42,7 +45,9 @@ tag)
 	for manifest in $manifests; do
 		echo "$manifest version: $(git show "$tag:$manifest" | jq -r .version)"
 	done
-	echo "Pushed nothing."
+	npm pack
+	npm publish --dry-run "$tarball"
+	echo "Pushed and published nothing."
 	;;
 publish)
 	if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
@@ -52,6 +57,11 @@ publish)
 	fi
 	if ! gh release view "$tag" >/dev/null 2>&1; then
 		gh release create "$tag" --verify-tag --title "$tag" --generate-notes
+	fi
+	if npm view "phi-router@$version" version >/dev/null 2>&1; then
+		echo "npm already holds phi-router@$version."
+	else
+		npm publish --provenance "$tarball"
 	fi
 	;;
 *)
