@@ -268,6 +268,6 @@ const servedBy = Effect.fnUntraced(function* servedBy(text: string) {
 	} satisfies Served;
 });
 
-export { servedBy };
+export { askingOf, servedBy };
 
 export type { Served };

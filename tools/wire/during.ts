@@ -1,6 +1,8 @@
-import { Array, Effect, String as Str, Struct } from "effect";
+import { Array, Effect, String as Str, Struct, pipe } from "effect";
 import type { Check } from "./checks.ts";
 import type { Sent } from "#router/client/mock-accounts.ts";
+import { fakes } from "#tools/route/fake-credentials.ts";
+import { isClaudeJudgeCall } from "#router/client/mock-upstreams.ts";
 import { shownIn } from "./phi-checks.ts";
 
 /** How much of what a harness printed the report keeps. */
@@ -15,7 +17,7 @@ const followUp = "Thanks. Now say the same in one short line.";
  * what the three have received so far.
  */
 const during = Effect.fnUntraced(function* during<Ran extends { readonly printed: string }, Failure, Needs>(
-	received: () => Effect.Effect<readonly [readonly Sent[], readonly Sent[], readonly unknown[]]>,
+	received: () => Effect.Effect<Received>,
 	run: () => Effect.Effect<Ran, Failure, Needs>,
 ) {
 	const [openBefore, baaBefore, judgedBefore] = yield* received();
@@ -45,4 +47,54 @@ const withCredentialRule = Effect.fnUntraced(function* withCredentialRule(
 	return [...checks, { name: rule, ok: !Array.isReadonlyArrayNonEmpty(found) }];
 });
 
-export { during, followUp, withCredentialRule };
+/** What the open, BAA and judge mocks received, as the run's mocks hand it over. */
+type Received = readonly [readonly Sent[], readonly Sent[], readonly unknown[]];
+
+/**
+ * What the mocks received, with each Claude judge call on the BAA mock counted as the judge's, so the BAA mock's list
+ * holds only model requests.
+ *
+ * @param {Received} received What the open, BAA and judge mocks received.
+ * @returns {Received} The same, the judge calls moved.
+ */
+const judgeCallsApart = ([open, baa, judged]: Received): Received => [
+	open,
+	pipe(
+		baa,
+		Array.filter((sent) => !isClaudeJudgeCall(sent)),
+	),
+	[
+		...pipe(
+			baa,
+			Array.filter((sent) => isClaudeJudgeCall(sent)),
+		),
+		...judged,
+	],
+];
+
+/**
+ * The check that the Claude judge ran on the BAA account: the BAA mock received judge calls, each with its key, and
+ * the Decisions mock received none.
+ *
+ * @param {Received} received What the open, BAA and judge mocks received.
+ * @returns {Check} The check.
+ */
+const claudeJudgeCheck = ([, baa, decided]: Received): Check => {
+	const calls = pipe(
+		baa,
+		Array.filter((sent) => isClaudeJudgeCall(sent)),
+	);
+
+	return {
+		name: "with no judge block, every judge call reaches the BAA mock with its key, and none the Decisions mock",
+		ok:
+			Array.isReadonlyArrayNonEmpty(calls) &&
+			pipe(
+				calls,
+				Array.every(({ headers }) => headers["x-api-key"] === fakes.baaKey),
+			) &&
+			!Array.isReadonlyArrayNonEmpty(decided),
+	};
+};
+
+export { claudeJudgeCheck, during, followUp, judgeCallsApart, withCredentialRule };

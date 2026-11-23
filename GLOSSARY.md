@@ -104,7 +104,7 @@ The rules and the judge's questions that say what is PHI, versioned as one unit.
 A deterministic pattern for an unambiguous direct identifier. A rule seals and never clears.
 
 **Judge**:
-The decision model that scores whether a piece holds PHI when no rule sealed it.
+The decision model that scores whether a piece holds PHI when no rule sealed it. It runs under a BAA: **Decisions**, OpenAI's Decisions API, by the file's `judge` block or the first OpenAI API-key account on `sealed`, else the **Claude judge**, the Messages API on the first Anthropic account on `sealed` (ADR 0009).
 _Avoid_: classifier, scanner
 
 **Part**:

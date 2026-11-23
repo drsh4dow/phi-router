@@ -84,6 +84,8 @@ const scripted = ({ score, kind = (): Answer<IdentifierKind | "none"> => "none" 
 
 			return Effect.flatMap(answered(kind(input)), (found) => choiceOf(question, found));
 		},
+		model: "scripted",
+		name: "decisions",
 	});
 
 	return { asked, judge };

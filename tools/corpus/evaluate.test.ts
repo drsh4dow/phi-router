@@ -46,6 +46,8 @@ const judge = Judge.of({
 				onSome: ([choice]) => Effect.succeed({ kind: choice, usage }),
 			}),
 		),
+	model: "scripted",
+	name: "decisions",
 });
 
 const strata = {

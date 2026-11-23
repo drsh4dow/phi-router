@@ -3,7 +3,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Config, Effect, FileSystem, Path, String as Str, Stream, Struct } from "effect";
 import type { Outcome, Run } from "./checks.ts";
 import { checksOf, leftOf } from "./checks.ts";
-import { during, followUp, withCredentialRule } from "./during.ts";
+import { claudeJudgeCheck, during, followUp, judgeCallsApart, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
 	handOff,
@@ -162,6 +162,7 @@ const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => b
 		baa: baaScript,
 		configured: { sealedModel: fakes.sealedModel },
 		holdsPhi: judgeSeals,
+		judgeName: "claude",
 		open: openScript(file),
 	});
 
@@ -170,12 +171,12 @@ const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => b
 
 	const turn = Effect.fnUntraced(function* turn(prompt: string, flags: readonly string[]) {
 		return yield* during(
-			() => received,
+			() => received.pipe(Effect.map(judgeCallsApart)),
 			() => claudeTurn({ folders, place: where, prompt, router: router.url, session: flags }),
 		);
 	});
 
-	return { breaches, roots, state, turn };
+	return { breaches, judging: received.pipe(Effect.map(claudeJudgeCheck)), roots, state, turn };
 });
 
 /**
@@ -200,7 +201,7 @@ const resumedEvents = [...resumed, ...events];
  * and the checks of what the mocks and the state folder hold after them.
  */
 const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
-	const { breaches, roots, state, turn } = yield* setUp(run.judgeSeals);
+	const { breaches, judging, roots, state, turn } = yield* setUp(run.judgeSeals);
 
 	const [clean, canary, followed, tool, handedOff, after] = yield* Effect.all(
 		[
@@ -237,7 +238,10 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });
 
 	return {
-		checks: yield* withCredentialRule([...checksOf(left), ...phiChecks, sealed, ...handing], () => breaches),
+		checks: yield* withCredentialRule(
+			[...checksOf(left), ...phiChecks, sealed, ...handing, yield* judging],
+			() => breaches,
+		),
 		stored,
 		turns: all,
 	} satisfies Outcome;

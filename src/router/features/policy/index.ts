@@ -1,5 +1,4 @@
 export {
-	defaultJudgeModel,
 	identifierKind,
 	identifierKindNames,
 	identifierQuestion,

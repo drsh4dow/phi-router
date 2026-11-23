@@ -16,7 +16,16 @@ import { FetchHttpClient, HttpClient, HttpServer } from "effect/http";
 import type { Harness, Json, Lined, Scripts, Sent } from "./harnesses.ts";
 import type { HttpClientError, HttpClientResponse } from "effect/http";
 import { LaneChoice, decide } from "#router/features/lanes/index.ts";
-import { codexBodyOf, credentialBreaches, fakes, harnesses, jsonText, judgeOf, lacksOf } from "./harnesses.ts";
+import {
+	baaScriptsOf,
+	codexBodyOf,
+	credentialBreaches,
+	fakes,
+	harnesses,
+	jsonText,
+	judgeOf,
+	lacksOf,
+} from "./harnesses.ts";
 import { Callers } from "#router/client/callers.ts";
 import { LeaseRequests } from "#router/client/lease-request.ts";
 import { NodeHttpServer } from "@effect/platform-node";
@@ -103,7 +112,11 @@ const laneOn = Effect.fnUntraced(function* laneOn(harness: Harness, scripts: Scr
 
 const configured = Effect.fnUntraced(function* configured(
 	vendor: Harness["vendor"],
-	lanes: { readonly clean: readonly Json[]; readonly sealed: readonly Json[]; readonly judge: string },
+	lanes: {
+		readonly clean: readonly Json[];
+		readonly sealed: readonly Json[];
+		readonly judge: { readonly name: NonNullable<Scripts["judgeName"]>; readonly endpoint: string };
+	},
 	beside: Scripts["configured"],
 ) {
 	const fs = yield* FileSystem.FileSystem;
@@ -111,10 +124,14 @@ const configured = Effect.fnUntraced(function* configured(
 	const config = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });
 	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-state-" });
 
+	const judged: Readonly<Record<NonNullable<Scripts["judgeName"]>, Readonly<Record<string, Json>>>> = {
+		claude: {},
+		decisions: { judge: { endpoint: lanes.judge.endpoint, keyEnv: "PHI_TEST_JUDGE_KEY" } },
+	};
+
 	const file = yield* jsonText(
-		Struct.assign(beside ?? {}, {
+		Struct.assign(Struct.assign(beside ?? {}, judged[lanes.judge.name]), {
 			clean: lanes.clean,
-			judge: { endpoint: lanes.judge, keyEnv: "PHI_TEST_JUDGE_KEY" },
 			sealed: lanes.sealed,
 			targetModel: { [vendor]: fakes.targetModel },
 		}),
@@ -145,14 +162,18 @@ const configured = Effect.fnUntraced(function* configured(
 const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 	const harness = harnesses[scripts.harness ?? "claude"];
 	const opens = yield* laneOn(harness, scripts, "open");
-	const baas = yield* laneOn(harness, scripts, "baa");
+	const baas = yield* laneOn(harness, baaScriptsOf({ harness, scripts }), "baa");
 	const judge = yield* mockOn(judgeOf(scripts));
 	const [open] = opens.mocks;
 	const [baa] = baas.mocks;
 
 	const { env, roots, state } = yield* configured(
 		harness.vendor,
-		{ clean: opens.entries, judge: judge.endpoint, sealed: baas.entries },
+		{
+			clean: opens.entries,
+			judge: { endpoint: judge.endpoint, name: scripts.judgeName ?? "decisions" },
+			sealed: baas.entries,
+		},
 		scripts.configured,
 	);
 

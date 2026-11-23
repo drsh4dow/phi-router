@@ -124,13 +124,13 @@ const recordThenReplay = Effect.gen(function* recordThenReplay() {
 	const asked = (yield* mock.received).length;
 	const replay = yield* evalOf(["--corpus", manifest, "--recordings", recordings], env);
 
-	return { asked, began, ended, endpoint: mock.endpoint, live, received: mock.received, replay };
+	return { asked, began, ended, live, received: mock.received, replay };
 });
 
 const recordedRun = Effect.gen(function* recordedRun() {
-	const { asked, began, ended, endpoint, live, received, replay } = yield* recordThenReplay;
+	const { asked, began, ended, live, received, replay } = yield* recordThenReplay;
 	const [first] = Str.split(live.stdout, "\n");
-	const prefix = `live judge ${endpoint}, model judge-under-test, started `;
+	const prefix = `live judge decisions, model judge-under-test, started `;
 	const started = DateTime.make(Str.slice(prefix.length)(first));
 	const after = yield* received;
 
@@ -146,7 +146,7 @@ const recordedRun = Effect.gen(function* recordedRun() {
 
 it.layer(NodeServices.layer, { excludeTestServices: true })("eval.ts --judge live", (test) => {
 	test.effect(
-		"--record writes answers that replay the run with no unrecorded call, and prints the endpoint, model and start time",
+		"--record writes answers that replay the run with no unrecorded call, and prints the judge, its model and the start time",
 		() => recordedRun,
 		{ timeout: 60_000 },
 	);

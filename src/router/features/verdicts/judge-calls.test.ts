@@ -104,7 +104,13 @@ const tooLarge = Effect.gen(function* tooLarge() {
 });
 
 const interrupted = Effect.gen(function* interrupted() {
-	const judge = Judge.of({ identifier: () => Effect.interrupt, kind: () => Effect.interrupt });
+	const judge = Judge.of({
+		identifier: () => Effect.interrupt,
+		kind: () => Effect.interrupt,
+		model: "scripted",
+		name: "decisions",
+	});
+
 	const piece = yield* pieceOf("a message");
 
 	const exit = yield* Effect.exit(

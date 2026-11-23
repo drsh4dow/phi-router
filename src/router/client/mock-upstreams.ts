@@ -1,4 +1,5 @@
-import { Effect, Latch, Match, Option, Ref, Schema, String as Str, pipe } from "effect";
+import type { Said as Answered, Asked } from "./mock-accounts.ts";
+import { Boolean, Effect, Latch, Match, Option, Ref, Schema, String as Str, pipe } from "effect";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Scope } from "effect";
 
@@ -146,6 +147,75 @@ const sealingWhen =
 		kind: "body",
 	});
 
-export { sealingWhen, serveJudge };
+const JudgeTool = Schema.Struct({ name: Schema.Literals(["identifier", "kind"]) });
+
+/** A Claude judge call as an account mock reads it: the forced tool, and the piece in its one user message. */
+const ClaudeJudgeCall = Schema.fromJsonString(
+	Schema.Struct({ messages: Schema.Tuple([Message]), tool_choice: JudgeTool }),
+);
+
+const decodeClaudeJudgeCall = Schema.decodeOption(ClaudeJudgeCall);
+
+const ok = 200;
+
+/** Each judge tool's input as the mock answers it: a sealing score, a clearing score, and no kind. */
+const toolInputs = { clearing: '{"probability":0}', kind: '{"kind":"none"}', sealing: '{"probability":1}' } as const;
+
+const toolReply = (name: string, input: string): string =>
+	`{"content":[{"id":"toolu_mock","input":${input},"name":"${name}","type":"tool_use"}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}`;
+
+/**
+ * Whether a request an Anthropic account mock received is a Claude judge call.
+ *
+ * @param {object} sent The request.
+ * @param {string} sent.body Its body.
+ * @returns {boolean} Whether it is one.
+ */
+const isClaudeJudgeCall = ({ body }: { readonly body: string }): boolean => Option.isSome(decodeClaudeJudgeCall(body));
+
+/**
+ * An Anthropic account script that answers each Claude judge call the way `sealingWhen` does, a sealing piece with 1 and
+ * no kind, and every other request by `script`.
+ *
+ * @param {object} of How the account answers.
+ * @param {Function} of.holdsPhi Whether a piece holds PHI.
+ * @param {Function} of.script How the account answers a model request.
+ * @returns {Function} The account's script.
+ */
+const judgingOn =
+	({
+		holdsPhi,
+		script,
+	}: {
+		readonly holdsPhi: (piece: string) => boolean;
+		readonly script: (asked: Asked) => Answered;
+	}) =>
+	(asked: Asked): Answered =>
+		Option.match(decodeClaudeJudgeCall(asked.body), {
+			onNone: () => script(asked),
+			onSome: ({
+				messages: [
+					{
+						content: [first],
+					},
+				],
+				tool_choice: { name },
+			}) => {
+				const inputs: Record<typeof name, () => string> = {
+					identifier: () =>
+						Boolean.match(holdsPhi(first.text.piece), {
+							onFalse: () => toolInputs.clearing,
+							onTrue: () => toolInputs.sealing,
+						}),
+					kind: () => toolInputs.kind,
+				};
+
+				const input = inputs[name]();
+
+				return { body: toolReply(name, input), kind: "status", status: ok };
+			},
+		});
+
+export { isClaudeJudgeCall, judgingOn, sealingWhen, serveJudge };
 
 export type { Reply };

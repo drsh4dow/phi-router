@@ -1,6 +1,9 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Struct } from "effect";
 import type { JudgeFailed, Usage } from "./judge-failed.ts";
-import { Configuration } from "./configuration.ts";
+import { chosenJudge, claudeOnSealed } from "./judge-choice.ts";
+import type { ChosenJudge } from "./judge-choice.ts";
+import { UserDirectories } from "effect/persistence";
+import { claude } from "./judge-claude.ts";
 import { decisions } from "./judge-decisions.ts";
 import { upstreamHttp } from "./upstream-http.ts";
 
@@ -26,35 +29,58 @@ interface ChoiceQuestion<Choice extends string> {
 	readonly criteria: readonly (readonly [Choice, string])[];
 }
 
-/**
- * The transport-free judge. `identifier` asks the policy's one question, `kind` the kind question. The engine owns the
- * thresholds and the timeout, so every adapter seals the same way. An adapter checks each answer against the question
- * it was handed: a score outside 0 to 1, or a choice the question does not list, fails as `judge-error`.
- */
-class Judge extends Context.Service<
-	Judge,
-	{
-		readonly identifier: (
-			input: JudgeInput,
-			question: ScoreQuestion,
-		) => Effect.Effect<{ readonly score: number; readonly usage: typeof Usage.Type }, JudgeFailed>;
-		readonly kind: <Choice extends string>(
-			input: JudgeInput,
-			question: ChoiceQuestion<Choice>,
-		) => Effect.Effect<{ readonly kind: Choice; readonly usage: typeof Usage.Type }, JudgeFailed>;
-	}
->()("phi-router/router/client/judge") {
-	public static readonly layer = Layer.effect(
-		Judge,
-		Effect.gen(function* make() {
-			const { judge } = yield* Configuration;
-			const asking = yield* decisions(judge);
+/** The two judges: OpenAI Decisions, and Claude through a BAA account's Messages API. */
+type JudgeName = "claude" | "decisions";
 
-			return Judge.of(asking);
-		}),
-	).pipe(Layer.provide(upstreamHttp));
+/** The transport-free judge's two questions. */
+interface Asking {
+	readonly identifier: (
+		input: JudgeInput,
+		question: ScoreQuestion,
+	) => Effect.Effect<{ readonly score: number; readonly usage: typeof Usage.Type }, JudgeFailed>;
+	readonly kind: <Choice extends string>(
+		input: JudgeInput,
+		question: ChoiceQuestion<Choice>,
+	) => Effect.Effect<{ readonly kind: Choice; readonly usage: typeof Usage.Type }, JudgeFailed>;
+}
+
+/** The chosen judge's client, with its name and model. */
+const askingOf = Effect.fnUntraced(function* askingOf(chosen: ChosenJudge) {
+	const named = { model: chosen.model, name: chosen.name };
+
+	if (chosen.name === "claude") {
+		const asking = yield* claude(chosen);
+
+		return Struct.assign(asking, named);
+	}
+
+	const asking = yield* decisions(chosen);
+
+	return Struct.assign(asking, named);
+});
+
+const judgeHttp = Layer.merge(upstreamHttp, UserDirectories.layer);
+
+/**
+ * The transport-free judge, with its name and the model it runs. `identifier` asks the policy's one question, `kind`
+ * the kind question. The engine owns the thresholds, one set per judge, and the timeout, so every adapter seals the
+ * same way. An adapter checks each answer against the question it was handed: a score outside 0 to 1, or a choice the
+ * question does not list, fails as `judge-error`.
+ */
+class Judge extends Context.Service<Judge, Asking & { readonly name: JudgeName; readonly model: string }>()(
+	"phi-router/router/client/judge",
+) {
+	/** The judge the configuration picks. */
+	public static readonly layer = Layer.effect(Judge, chosenJudge.pipe(Effect.flatMap(askingOf))).pipe(
+		Layer.provide(judgeHttp),
+	);
+
+	/** The Claude judge on the configuration's first Anthropic BAA account, whatever else it names. */
+	public static readonly claudeLayer = Layer.effect(Judge, claudeOnSealed.pipe(Effect.flatMap(askingOf))).pipe(
+		Layer.provide(judgeHttp),
+	);
 }
 
 export { Judge };
 
-export type { ChoiceQuestion, JudgeInput, ScoreQuestion };
+export type { Asking, ChoiceQuestion, JudgeInput, JudgeName, ScoreQuestion };
