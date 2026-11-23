@@ -1,4 +1,4 @@
-import { Config, Effect, FileSystem, String as Str } from "effect";
+import { Config, Effect, FileSystem, Path, String as Str } from "effect";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 import { pluginCopy } from "./copied.ts";
@@ -30,6 +30,21 @@ const launched = Effect.gen(function* launched() {
 			{ exitCode: 0, printed: "phi-router runs on the node platform layer\n" },
 		],
 	);
+}).pipe(Effect.scoped);
+
+/** The launcher run through a relative link in another folder, as npm links a package's bin into `node_modules/.bin`. */
+const linked = Effect.gen(function* linked() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const copy = yield* pluginCopy;
+	const bin = yield* fs.makeTempDirectoryScoped({ prefix: "phi-npm-bin-" });
+	const searchPath = yield* Config.String("PATH");
+
+	yield* fs.symlink(path.relative(bin, `${copy}/bin/phi-router`), `${bin}/phi-router`);
+
+	const launcher = yield* ran([`${bin}/phi-router`], { PATH: searchPath });
+
+	assert.deepStrictEqual(launcher, { exitCode: 0, printed: "phi-router runs on the bun platform layer\n" });
 }).pipe(Effect.scoped);
 
 /** The launcher of a copy that holds no bundle, as a checkout that was never built leaves it, with its stderr. */
@@ -102,6 +117,7 @@ it.layer(NodeServices.layer)("the plugin's launcher", (test) => {
 		() => launched,
 		patient,
 	);
+	test.effect("runs the bundle beside it when started through a link, as npm starts it", () => linked, patient);
 	test.effect("stops with how to build it when the copy holds no bundle", () => unbuilt, patient);
 	test.effect(
 		"runs doctor with no runtime cache, so doctor leaves nothing in the home folder",
