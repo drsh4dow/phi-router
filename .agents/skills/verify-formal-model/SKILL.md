@@ -26,7 +26,7 @@ Run this skill when the diff touches a file in the coverage table below, a `.tla
 
 ## Run the check
 
-`bun run model` runs every configuration. `bun run check` runs it too, as part of `vitest run`. It needs Java 11 or later on PATH and the pinned jar, which `bun install` downloads into `node_modules/.cache/tlaplus/` and checks against its sha256 in `tools/formal/tla2tools.ts`. The check itself makes no network call.
+`bun run model` runs every configuration. `bun run check` leaves it out. CI's `model` workflow runs it on a pull request that touches a `.tla` or `.cfg` file, `tools/formal/` or a file in the coverage table, and on every push to main. Its path list copies the coverage table, so a row that names a new file adds that file to `.github/workflows/model.yml` in the same commit. It needs Java 11 or later on PATH and the pinned jar, which `bun install` downloads into `node_modules/.cache/tlaplus/` and checks against its sha256 in `tools/formal/tla2tools.ts`. The check itself makes no network call.
 
 The test passes when:
 
