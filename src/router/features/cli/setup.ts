@@ -6,9 +6,11 @@ import { baaAsk, judgeAsk, pasted, savedKeys, stillHeld, stopped, vendorWords } 
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
 import type { HeldKey } from "./setup-keys.ts";
 import { KeyChecks } from "#router/client/key-check.ts";
+import { Platform } from "./platform.ts";
 import type { Turn } from "#router/client/harness-turn.ts";
 import { harnesses } from "./setup-harnesses.ts";
 import { installRun } from "#router/client/harness-turn.ts";
+import { packageOf } from "#router/client/own-package.ts";
 
 /** The repository setup installs from unless `--source` names a checkout. */
 const repository = "drsh4dow/phi-router";
@@ -129,7 +131,7 @@ const installFailure = (name: HarnessName, turn: Turn): Option.Option<string> =>
 	return Option.liftPredicate(`The install in ${title} failed:\n${turn.printed}`, () => turn.exitCode !== succeeded);
 };
 
-/** Runs the harness's installer when it has not installed phi-router yet, and gives the folder it installed it in. */
+/** Runs the harness's installer when it has not installed phi-router yet, and checks that it did. */
 const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, source: Source) {
 	const { install, installed, title } = harnesses[name];
 	const before = yield* installed;
@@ -148,37 +150,41 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, s
 		{ concurrency: 1, discard: true },
 	);
 
-	const folder = yield* pipe(
+	yield* pipe(
 		installed,
 		Effect.flatMap(Effect.fromOption),
 		Effect.mapError(() => stopped(`${title} did not install phi-router. Your key is saved.`)),
 	);
 
 	yield* Console.log(`✓ Installed phi-router in ${title}`);
-
-	return folder;
 });
 
-/** Runs the canary through the install in `folder`, and stops setup unless it reached the BAA mock alone. */
-const tested = Effect.fnUntraced(function* tested(name: HarnessName, folder: string) {
+/**
+ * Runs the canary through the plugin of the phi-router package setup runs from, before the harness has anything
+ * installed, and stops setup unless the canary reached the BAA mock alone.
+ */
+const tested = Effect.fnUntraced(function* tested(name: HarnessName) {
 	const { test, title } = harnesses[name];
 
 	const failed = stopped(
 		`The test failed, so ${title} was left as it was. Your key is saved. For details, run: npx phi-router doctor ${name}`,
 	);
 
-	const checks = yield* Effect.mapError(test(folder), () => failed);
+	const { entry } = yield* Platform;
+
+	const checks = yield* pipe(
+		packageOf(entry),
+		Effect.flatMap(Effect.fromOption),
+		Effect.flatMap(test),
+		Effect.mapError(() => failed),
+	);
 
 	const passed = pipe(
 		checks,
 		Array.every((check) => check.passed),
 	);
 
-	if (!passed) {
-		return yield* failed;
-	}
-
-	return yield* Console.log("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
+	return yield* Effect.when(failed, Effect.succeed(!passed));
 });
 
 /** Writes the harness's own settings, the last change setup makes, and prints the line that says so. */
@@ -219,8 +225,9 @@ const noTerminal = stopped(
 
 /**
  * `phi-router setup <harness>`: asks for the BAA account's key at a hidden prompt, checks it with its vendor, saves it,
- * names it in `config.json`, installs phi-router with the harness's own installer, runs the canary test through it,
- * writes the harness's settings last, and starts the harness on Enter. It needs a terminal. Each step changes only what
+ * names it in `config.json`, runs the canary test through its own plugin, and only then installs phi-router with the
+ * harness's own installer and writes the harness's settings, so a failed or stopped test leaves the harness as it was.
+ * It starts the harness on Enter. It needs a terminal. Each step changes only what
  * differs, so a rerun with a saved key that still works asks nothing and changes no file.
  */
 const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: string | undefined, fresh: boolean) {
@@ -230,9 +237,9 @@ const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: st
 	yield* Effect.filterOrFail(isTerminal, Boolean, () => noTerminal);
 	yield* Effect.flatMap(keysOf(name, fresh), (keys) => configured(name, keys));
 
-	const folder = yield* installedIn(name, source);
-
-	yield* tested(name, folder);
+	yield* tested(name);
+	yield* installedIn(name, source);
+	yield* Console.log("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
 	yield* switched(name);
 	yield* Console.log(Array.join(["", ...end(source)], "\n"));
 	yield* Effect.when(Effect.asVoid(handedOver(start)), enterPressed);

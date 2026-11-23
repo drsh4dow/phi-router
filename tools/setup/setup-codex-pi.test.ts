@@ -1,6 +1,6 @@
-import { Array, Effect, FileSystem, Formatter, Option, Path, String as Str } from "effect";
+import { Array, Effect, FileSystem, Formatter, Path, String as Str, pipe } from "effect";
 import type { TypedRan, World } from "./world.ts";
-import { argsOf, configOf, enter, keyFiles, layer, leaks, ok, patient, setUp } from "./set-up.ts";
+import { argsOf, callsOf, configOf, enter, keyFiles, layer, leaks, ok, patient, setUp } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
 
@@ -28,7 +28,7 @@ const assertCodexScreens = (run: TypedRan): void => {
 	assert.include(run.shown, "codex started");
 };
 
-/** Checks the config.json `setup codex` wrote, that it installed with codex first and started codex last. */
+/** Checks the config.json `setup codex` wrote, and that it ran the test, then codex's installers, then codex. */
 const configuredCodex = Effect.fnUntraced(function* configuredCodex(of: World) {
 	const config = yield* configOf(of);
 	const { openai } = keyFiles(of);
@@ -40,13 +40,11 @@ const configuredCodex = Effect.fnUntraced(function* configuredCodex(of: World) {
 	});
 
 	const codexArgs = yield* argsOf(of, "codex");
-	const [marketplace, add] = codexArgs;
+	const calls = yield* callsOf(of, "codex");
+	const installs = pipe(codexArgs, Array.filter(Str.startsWith("plugin ")));
 
-	assert.deepStrictEqual(
-		[marketplace, add],
-		[`plugin marketplace add ${of.copies.plugin}`, "plugin add phi-router@phi-router"],
-	);
-	assert.deepStrictEqual(Array.last(codexArgs), Option.some(""));
+	assert.deepStrictEqual(installs, [`plugin marketplace add ${of.copies.plugin}`, "plugin add phi-router@phi-router"]);
+	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 });
 
 const codexSetUp = Effect.gen(function* codexSetUp() {
@@ -97,9 +95,10 @@ const piSetUp = Effect.gen(function* piSetUp() {
 	assertPiScreens(run);
 
 	const piArgs = yield* argsOf(of, "pi");
+	const calls = yield* callsOf(of, "pi");
 
 	assert.include(piArgs, `install ${of.copies.pkg}`);
-	assert.deepStrictEqual(Array.last(piArgs), Option.some("--model phi/auto"));
+	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 }).pipe(Effect.scoped);
 
 it.layer(layer)("setup codex and setup pi", (test) => {

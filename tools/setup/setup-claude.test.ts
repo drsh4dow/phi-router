@@ -1,7 +1,8 @@
-import { Array, Effect, FileSystem, Option, Path, String as Str } from "effect";
+import { Array, Effect, FileSystem, Path, String as Str } from "effect";
 import type { TypedRan, World } from "./world.ts";
 import {
 	argsOf,
+	callsOf,
 	claudeAnswers,
 	configOf,
 	enter,
@@ -63,7 +64,7 @@ const assertClaudeScreens = (run: TypedRan): void => {
 	assert.notInclude(run.shown, "phi-test", "no key shows as it is typed");
 };
 
-/** Checks the config.json setup wrote, and that it installed the plugin first and started claude last. */
+/** Checks the config.json setup wrote, and that it ran the test, then the spec's install, then claude. */
 const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World) {
 	const config = yield* configOf(of);
 
@@ -74,14 +75,10 @@ const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World)
 	});
 
 	const claudeArgs = yield* argsOf(of, "claude");
-	const [install] = claudeArgs;
+	const calls = yield* callsOf(of, "claude");
 
-	assert.strictEqual(
-		install,
-		`plugin install phi-router --marketplace ${of.copies.plugin} --scope user`,
-		"the spec's install command, first",
-	);
-	assert.deepStrictEqual(Array.last(claudeArgs), Option.some(""));
+	assert.include(claudeArgs, `plugin install phi-router --marketplace ${of.copies.plugin} --scope user`);
+	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 });
 
 /** Checks Claude Code's settings send it to the router and keep its own model. */

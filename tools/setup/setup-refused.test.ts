@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Schedule } from "effect";
-import { argsOf, keyAnswers, layer, ok, ownSettings, owned, patient, setUp, settled } from "./set-up.ts";
+import { argsOf, callsOf, keyAnswers, layer, ok, ownSettings, owned, patient, setUp, settled } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
-import { keys, world } from "./world.ts";
+import { keys, snapshot, world } from "./world.ts";
 import type { World } from "./world.ts";
 import { phiRouter } from "#tools/cli/accounts-run.ts";
 
@@ -62,19 +62,47 @@ const noTerminal = Effect.gen(function* noTerminal() {
 	assert.deepStrictEqual(after, before);
 }).pipe(Effect.scoped);
 
-/** Claude Code's own settings, with every fake harness's canary turn set to hang. */
-const hanging = Effect.fnUntraced(function* hanging(of: World) {
+/** Claude Code's own settings, with every fake harness's canary turn set to `hang` or to `fail`. */
+const broken = Effect.fnUntraced(function* broken(of: World, how: "hang" | "fail") {
 	const fs = yield* FileSystem.FileSystem;
 
 	yield* settled(of);
-	yield* fs.writeFileString(`${of.bin}/hang`, "");
+	yield* fs.writeFileString(`${of.bin}/${how}`, "");
 });
+
+/** Checks setup ran the fake harness's test and nothing after it, and left Claude Code's settings byte for byte. */
+const untouched = Effect.fnUntraced(function* untouched(of: World) {
+	const fs = yield* FileSystem.FileSystem;
+	const calls = yield* callsOf(of, "claude");
+	const settings = yield* fs.readFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`);
+
+	assert.deepStrictEqual(calls, ["test"], "nothing installed");
+	assert.strictEqual(settings, ownSettings);
+});
+
+const failedTest = Effect.gen(function* failedTest() {
+	const of = yield* world;
+
+	yield* broken(of, "fail");
+
+	const before = yield* snapshot(of.folders.CLAUDE_CONFIG_DIR);
+	const run = yield* setUp(of, "claude", keyAnswers);
+	const after = yield* snapshot(of.folders.CLAUDE_CONFIG_DIR);
+
+	assert.notStrictEqual(run.exitCode, ok, run.shown);
+	assert.include(
+		run.shown,
+		"The test failed, so Claude Code was left as it was. Your key is saved. For details, run: npx phi-router doctor claude",
+	);
+	assert.deepStrictEqual(after, before, "Claude Code's folder as it was");
+	yield* untouched(of);
+}).pipe(Effect.scoped);
 
 const stopped = Effect.gen(function* stopped() {
 	const fs = yield* FileSystem.FileSystem;
 	const of = yield* world;
 
-	yield* hanging(of);
+	yield* broken(of, "hang");
 
 	const canaryRan = fs
 		.exists(`${of.bin}/canary-ran`)
@@ -85,15 +113,14 @@ const stopped = Effect.gen(function* stopped() {
 
 	yield* Effect.sleep("1 second");
 
-	const settings = yield* fs.readFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`);
-
 	assert.strictEqual(ended, "killed", "setup was killed while its test ran");
-	assert.strictEqual(settings, ownSettings);
+	yield* untouched(of);
 }).pipe(Effect.scoped);
 
 it.layer(layer)("setup refused", (test) => {
 	test.effect.each(badKeys)("a bad key changes nothing: $kind", badKey, patient);
 	test.effect("setup with no terminal says so and changes nothing", () => noTerminal, patient);
+	test.effect("a failed test installs nothing and leaves Claude Code's folder as it was", () => failedTest, patient);
 });
 
 it.layer(layer, { excludeTestServices: true })("setup stopped, on the real clock", (test) => {

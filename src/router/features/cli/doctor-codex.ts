@@ -83,12 +83,12 @@ const turnConfig = (turn: { readonly address: string; readonly trust: string }):
 	);
 
 /**
- * The canary run of `codex exec` through the plugin installed in `folder` of Codex's home `home`, on the hook trust
- * `trust` from the user's `config.toml`, or with no trust needed when it is empty.
+ * The canary run of `codex exec` through the plugin in `folder`, copied to `place` in the turn's Codex home, on the hook
+ * trust `trust` from the user's `config.toml`, or with no trust needed when it is empty.
  */
 const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
-	readonly home: string;
 	readonly folder: string;
+	readonly place: string;
 	readonly trust: string;
 }) {
 	const trusted = Option.match(Option.liftPredicate(install.trust, Str.isNonEmpty), {
@@ -101,9 +101,9 @@ const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
 			config: turnConfig({ address, trust: install.trust }),
 			dotenv: exemptionLine,
 			env: Struct.assign(env, { [addressEnv]: address }),
-			home: install.home,
 			hookTrust: trusted,
 			installed: install.folder,
+			place: install.place,
 			prompt,
 		}),
 	);
@@ -131,7 +131,7 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 
 	const checks = yield* Option.match(installed, {
 		onNone: () => Effect.succeed([]),
-		onSome: (folder) => codexCanary({ folder, home, trust: hookTrust(config) }),
+		onSome: (folder) => codexCanary({ folder, place: path.relative(home, folder), trust: hookTrust(config) }),
 	});
 
 	yield* reported(

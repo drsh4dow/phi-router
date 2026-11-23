@@ -4,8 +4,8 @@ import { copyPrivately, writePrivately } from "./private-file.ts";
 import { ChildProcess } from "effect/process";
 
 /**
- * One headless turn: its prompt, the `config.toml` and `.env` it runs with, the user's Codex home and the plugin folder
- * installed in it, which the turn's own home gets a copy of at the same place, and the environment the turn and its
+ * One headless turn: its prompt, the `config.toml` and `.env` it runs with, a plugin folder and the `place` under the
+ * turn's own Codex home its copy goes, as Codex's plugin cache lays it out, and the environment the turn and its
  * hooks get beside `PATH`. Its hooks run on the trust `config.toml` holds, or, `bypassed`, on none, as before the
  * human first starts Codex with the plugin.
  */
@@ -14,8 +14,8 @@ interface Asked {
 	readonly hookTrust: "persisted" | "bypassed";
 	readonly config: string;
 	readonly dotenv: string;
-	readonly home: string;
 	readonly installed: string;
+	readonly place: string;
 	readonly env: Readonly<Record<string, string>>;
 }
 
@@ -118,7 +118,7 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-home-" });
 	const codex = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-codex-" });
 
-	yield* copyPrivately(asked.installed, path.join(codex, path.relative(asked.home, asked.installed)));
+	yield* copyPrivately(asked.installed, path.join(codex, asked.place));
 	yield* writePrivately(path.join(codex, "config.toml"), asked.config);
 	yield* writePrivately(path.join(codex, ".env"), asked.dotenv);
 

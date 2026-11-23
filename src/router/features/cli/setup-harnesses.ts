@@ -18,11 +18,18 @@ interface Source {
 /** One command line: the program and its arguments. */
 type Argv = readonly [string, ...string[]];
 
+/** The Claude Code and Codex plugin in the phi-router package at `root`. */
+const pluginIn = Effect.fnUntraced(function* pluginIn(root: string) {
+	const path = yield* Path.Path;
+
+	return path.join(root, "plugins", "claude");
+});
+
 /**
  * What setup does in each harness: its name and the subscription it logs in to, as the human reads them, the vendor of
- * its BAA account, the installer's commands, where the install landed, the canary test through it, the harness's own
- * settings, written last with the line that says so, and how setup starts it and ends its screen. pi writes no settings,
- * since its package is its whole switch.
+ * its BAA account, the installer's commands, where the install landed, the canary test through the phi-router package
+ * setup runs from, before anything is installed, the harness's own settings, written last with the line that says so,
+ * and how setup starts it and ends its screen. pi writes no settings, since its package is its whole switch.
  */
 const harnesses = {
 	claude: {
@@ -40,7 +47,7 @@ const harnesses = {
 		start: ["claude"] satisfies Argv,
 		subscription: "Claude",
 		switched: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
-		test: claudeCanary,
+		test: (root: string) => Effect.flatMap(pluginIn(root), claudeCanary),
 		title: "Claude Code",
 		vendor: "anthropic",
 	},
@@ -65,10 +72,10 @@ const harnesses = {
 		start: ["codex"] satisfies Argv,
 		subscription: "ChatGPT",
 		switched: Effect.as(codexSwitchedOn(""), Option.some("Codex now sends its requests through phi-router")),
-		test: Effect.fnUntraced(function* codexTest(folder: string) {
-			const home = yield* codexHome("");
+		test: Effect.fnUntraced(function* codexTest(root: string) {
+			const folder = yield* pluginIn(root);
 
-			return yield* codexCanary({ folder, home, trust: "" });
+			return yield* codexCanary({ folder, place: "plugins/cache/phi-router/phi-router/setup", trust: "" });
 		}),
 		title: "Codex",
 		vendor: "openai",
