@@ -23,8 +23,8 @@ const bindRetry = { schedule: Schedule.spaced("50 millis"), times: 40 } as const
  * http://127.0.0.1:<port>` once its routes answer. A caller that passed port 0 reads the port from that line. It binds
  * the port first, so a second `serve` on the port fails before it reads or writes any state, then reads its secret,
  * writing a fresh one when the state folder holds none, then adopts the lease registry, then builds the routes, which
- * read `config.json` and run the key commands. A missing `config.json` or a key source that gives no key fails the
- * command with `NoBaaKey`. An unreadable `config.json` or a port still in use after 2 s fails it with that error.
+ * read `config.json` and run the key commands. A missing `config.json`, a key source that gives no key, or no account
+ * the judge can run on fails the command with `NoBaaKey`. An unreadable `config.json` or a port still in use after 2 s fails it with that error.
  *
  * The router's scope is never closed. Once the check stops accepting, `serve` fails with `NoLeaseHolds`, the runtime
  * ends the process at once, and the port is free only then. A graceful close would free the port first and could
@@ -44,7 +44,9 @@ const serve = Effect.fnUntraced(function* serve(port: number) {
 		Layer.provide(Layer.succeedContext(server)),
 	);
 
-	yield* Layer.buildWithScope(routes, scope).pipe(Effect.catchTags({ KeyUnreadable: keyless, NoConfigFile: keyless }));
+	yield* Layer.buildWithScope(routes, scope).pipe(
+		Effect.catchTags({ KeyUnreadable: keyless, NoConfigFile: keyless, NoJudge: keyless }),
+	);
 	yield* watching;
 
 	return yield* NoLeaseHolds.make({ port });
