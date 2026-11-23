@@ -51,6 +51,41 @@ const argsOf = Effect.fnUntraced(function* argsOf(of: World, harness: string) {
 	return Array.initNonEmpty(Str.split(text, "\n"));
 });
 
+/**
+ * What each call of a fake harness was: `install` for an installer command, `start` for setup's last call, `test`
+ * for the canary turn, and `look` for `pi list`, which reads what pi installed.
+ *
+ * @param {string} line The arguments of one call.
+ * @returns {string} What the call was.
+ */
+const callOf = (line: string): string => {
+	if (Str.startsWith("plugin ")(line) || Str.startsWith("install ")(line)) {
+		return "install";
+	}
+
+	if (line === "" || line === "--model phi/auto") {
+		return "start";
+	}
+
+	if (line === "list") {
+		return "look";
+	}
+
+	return "test";
+};
+
+/** The order of the fake `harness`'s calls by kind, each run of one kind once, `pi list` left out. */
+const callsOf = Effect.fnUntraced(function* callsOf(of: World, harness: string) {
+	const lines = yield* argsOf(of, harness);
+
+	return pipe(
+		lines,
+		Array.map(callOf),
+		Array.filter((call) => call !== "look"),
+		Array.dedupeAdjacent,
+	);
+});
+
 /** The `config.json` setup wrote, decoded. */
 const configOf = Effect.fnUntraced(function* configOf(of: World) {
 	const fs = yield* FileSystem.FileSystem;
@@ -123,6 +158,7 @@ const modeOf = Effect.fnUntraced(function* modeOf(file: string) {
 
 export {
 	argsOf,
+	callsOf,
 	claudeAnswers,
 	configOf,
 	enter,

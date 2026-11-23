@@ -5220,6 +5220,20 @@ var filter3 = /* @__PURE__ */ dual(2, (self, predicate) => {
 var reduce = /* @__PURE__ */ dual(3, (self, b, f) => fromIterable(self).reduce((b, a, i) => f(b, a, i), b));
 var every = /* @__PURE__ */ dual(2, (self, refinement) => self.every(refinement));
 var some3 = /* @__PURE__ */ dual(2, (self, predicate) => self.some(predicate));
+var unfold = (b, f) => {
+	const out = [];
+	let next = b;
+	while (true) {
+		const o = f(next);
+		if (isNone2(o)) {
+			break;
+		}
+		const [a, b] = o.value;
+		out.push(a);
+		next = b;
+	}
+	return out;
+};
 var makeEquivalence3 = Array_;
 var dedupe = (self) => {
 	const input = fromIterable(self);
@@ -36505,7 +36519,7 @@ var commandOf = fnUntraced2(function* commandOf(asked) {
 	const searchPath = yield* String8("PATH");
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-home-" });
 	const codex = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-codex-" });
-	yield* copyPrivately(asked.installed, path.join(codex, path.relative(asked.home, asked.installed)));
+	yield* copyPrivately(asked.installed, path.join(codex, asked.place));
 	yield* writePrivately(path.join(codex, "config.toml"), asked.config);
 	yield* writePrivately(path.join(codex, ".env"), asked.dotenv);
 	const args = [
@@ -39008,9 +39022,9 @@ var codexCanary = fnUntraced2(function* codexCanary(install) {
 			config: turnConfig({ address, trust: install.trust }),
 			dotenv: exemptionLine,
 			env: assign(env, { [addressEnv]: address }),
-			home: install.home,
 			hookTrust: trusted,
 			installed: install.folder,
+			place: install.place,
 			prompt,
 		}),
 	);
@@ -39029,7 +39043,7 @@ var doctorCodex = fn2("doctor codex")(function* doctorCodex(named) {
 	);
 	const checks = yield* match(installed, {
 		onNone: () => succeed6([]),
-		onSome: (folder) => codexCanary({ folder, home, trust: hookTrust(config) }),
+		onSome: (folder) => codexCanary({ folder, place: path.relative(home, folder), trust: hookTrust(config) }),
 	});
 	yield* reported(
 		"codex",
@@ -39430,6 +39444,10 @@ var savedKeys = fnUntraced2(function* savedKeys(keys) {
 });
 
 // src/router/features/cli/setup-harnesses.ts
+var pluginIn = fnUntraced2(function* pluginIn(root) {
+	const path = yield* Path;
+	return path.join(root, "plugins", "claude");
+});
 var harnesses = {
 	claude: {
 		end: () => [
@@ -39446,7 +39464,7 @@ var harnesses = {
 		start: ["claude"],
 		subscription: "Claude",
 		switched: as2(switchedOn2(""), some2("Claude Code now sends its requests through phi-router")),
-		test: claudeCanary,
+		test: (root) => flatMap6(pluginIn(root), claudeCanary),
 		title: "Claude Code",
 		vendor: "anthropic",
 	},
@@ -39470,9 +39488,9 @@ var harnesses = {
 		start: ["codex"],
 		subscription: "ChatGPT",
 		switched: as2(codexSwitchedOn(""), some2("Codex now sends its requests through phi-router")),
-		test: fnUntraced2(function* codexTest(folder) {
-			const home = yield* codexHome("");
-			return yield* codexCanary({ folder, home, trust: "" });
+		test: fnUntraced2(function* codexTest(root) {
+			const folder = yield* pluginIn(root);
+			return yield* codexCanary({ folder, place: "plugins/cache/phi-router/phi-router/setup", trust: "" });
 		}),
 		title: "Codex",
 		vendor: "openai",
@@ -39497,6 +39515,21 @@ var harnesses = {
 		vendor: "anthropic",
 	},
 };
+
+// src/router/client/own-package.ts
+var packageOf = fnUntraced2(function* packageOf(file) {
+	const fs = yield* FileSystem;
+	const path = yield* Path;
+	const folders = unfold(path.dirname(file), (folder) =>
+		liftPredicate([folder, path.dirname(folder)], ([, above]) => above !== folder),
+	);
+	const roots = yield* filter5(
+		folders,
+		(folder) => fs.exists(path.join(folder, "plugins", "claude", "phi-router.mjs")),
+		{ concurrency: 1 },
+	);
+	return head(roots);
+});
 
 // src/router/features/cli/setup.ts
 var repository = "drsh4dow/phi-router";
@@ -39597,28 +39630,30 @@ ${title} was left as it was. Your key is saved.`),
 			),
 		{ concurrency: 1, discard: true },
 	);
-	const folder = yield* pipe(
+	yield* pipe(
 		installed,
 		flatMap6(fromOption3),
 		mapError2(() => stopped(`${title} did not install phi-router. Your key is saved.`)),
 	);
 	yield* log2(`✓ Installed phi-router in ${title}`);
-	return folder;
 });
-var tested = fnUntraced2(function* tested(name, folder) {
+var tested = fnUntraced2(function* tested(name) {
 	const { test, title } = harnesses[name];
 	const failed = stopped(
 		`The test failed, so ${title} was left as it was. Your key is saved. For details, run: npx phi-router doctor ${name}`,
 	);
-	const checks = yield* mapError2(test(folder), () => failed);
+	const { entry } = yield* Platform;
+	const checks = yield* pipe(
+		packageOf(entry),
+		flatMap6(fromOption3),
+		flatMap6(test),
+		mapError2(() => failed),
+	);
 	const passed = pipe(
 		checks,
 		every((check) => check.passed),
 	);
-	if (!passed) {
-		return yield* failed;
-	}
-	return yield* log2("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
+	return yield* when2(failed, succeed6(!passed));
 });
 var switched = fnUntraced2(function* switched(name) {
 	const { title } = harnesses[name];
@@ -39647,8 +39682,9 @@ var setup = fn2("setup")(function* setup(name, checkout, fresh) {
 	const source = sourceOf(checkout);
 	yield* filterOrFail2(isTerminal, Boolean, () => noTerminal);
 	yield* flatMap6(keysOf(name, fresh), (keys) => configured(name, keys));
-	const folder = yield* installedIn(name, source);
-	yield* tested(name, folder);
+	yield* tested(name);
+	yield* installedIn(name, source);
+	yield* log2("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
 	yield* switched(name);
 	yield* log2(
 		join(

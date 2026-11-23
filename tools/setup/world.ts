@@ -74,9 +74,11 @@ interface Copies {
 }
 
 /**
- * The fake harnesses. Each appends the arguments it gets to `<name>-args` beside it. Its installer commands put a copy
- * of the plugin where the real one does, its canary turn runs the stand-in, or the pinned pi, and a bare start prints
- * `<name> started`. While `hang` exists beside it, its canary turn says so in `canary-ran` and waits.
+ * The fake harnesses. Each appends the arguments it gets to `<name>-args` beside it. Its installer commands write what
+ * the real ones write: Claude Code's turns the plugin on in its settings and records the marketplace, Codex's adds the
+ * marketplace and the enabled plugin to `config.toml`, and pi's is the pinned pi. Its canary turn runs the stand-in, or
+ * the pinned pi, and a bare start prints `<name> started`. While `hang` exists beside it, its canary turn says so in
+ * `canary-ran` and waits. While `fail` exists, its canary turn fails.
  *
  * @param {Copies} copies What the installer commands copy.
  * @returns {Readonly<Record<string, string>>} Each harness's script body, by name.
@@ -84,17 +86,20 @@ interface Copies {
 const fakes = (copies: Copies): Readonly<Record<string, string>> => {
 	const installedPlugins = `{"version":2,"plugins":{"phi-router@phi-router":[{"installPath":"${copies.plugin}","scope":"user"}]}}`;
 	const cache = '"$CODEX_HOME/plugins/cache/phi-router/phi-router"';
-	const hang = '[ -e "$here/hang" ] && { : > "$here/canary-ran"; exec sleep 30; }';
+	const hang = '[ -e "$here/hang" ] && { : > "$here/canary-ran"; exec sleep 30; }; [ -e "$here/fail" ] && exit 1';
+
+	const enable =
+		'const f = process.env.CLAUDE_CONFIG_DIR + "/settings.json"; const fs = require("fs"); const s = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {}; s.extraKnownMarketplaces = { "phi-router": { source: { source: "directory", path: process.env.PHI_SOURCE } } }; s.enabledPlugins = Object.assign({}, s.enabledPlugins, { "phi-router@phi-router": true }); fs.writeFileSync(f, JSON.stringify(s, null, 2))';
 
 	return {
 		claude: `case "$*" in
-"plugin "*) mkdir -p "$CLAUDE_CONFIG_DIR/plugins"; printf '%s' '${installedPlugins}' > "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"; exit 0;;
+"plugin "*) mkdir -p "$CLAUDE_CONFIG_DIR/plugins"; printf '%s' '${installedPlugins}' > "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"; PHI_SOURCE="$5" "$here/bun" -e '${enable}'; exit 0;;
 "") echo "claude started"; exit 0;;
 esac
 ${hang}
 exec "$here/bun" '${claudeStandIn}' "$@"`,
 		codex: `case "$*" in
-"plugin marketplace "*) exit 0;;
+"plugin marketplace "*) printf '\n[marketplaces.phi-router]\nsource_type = "local"\nsource = "%s"\n' "$4" >> "$CODEX_HOME/config.toml"; exit 0;;
 "plugin add "*) mkdir -p ${cache}; cp -R '${copies.plugin}' ${cache}/0.1.0; printf '%s' '${enabled}' >> "$CODEX_HOME/config.toml"; exit 0;;
 "") echo "codex started"; exit 0;;
 esac
