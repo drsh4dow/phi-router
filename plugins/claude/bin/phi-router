@@ -1,0 +1,19 @@
+#!/bin/sh
+case $0 in
+*/*) here=${0%/*} ;;
+*) here=. ;;
+esac
+PHI_ROUTER_LAUNCHED=1
+PHI_ROUTER_GIVEN_NO_PROXY=${NO_PROXY-}
+PHI_ROUTER_GIVEN_no_proxy=${no_proxy-}
+NO_PROXY="127.0.0.1${NO_PROXY:+,$NO_PROXY}"
+no_proxy="127.0.0.1${no_proxy:+,$no_proxy}"
+export NO_PROXY no_proxy PHI_ROUTER_LAUNCHED PHI_ROUTER_GIVEN_NO_PROXY PHI_ROUTER_GIVEN_no_proxy
+if [ "${1-}" = doctor ]; then
+	BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
+	export BUN_RUNTIME_TRANSPILER_CACHE_PATH
+fi
+if command -v bun >/dev/null 2>&1; then
+	exec bun "$here/../phi-router.mjs" "$@"
+fi
+exec node "$here/../phi-router.mjs" "$@"

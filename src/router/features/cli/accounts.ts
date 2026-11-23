@@ -1,0 +1,231 @@
+import { Argument, Command, Flag } from "effect/cli";
+import { Array, Clock, Console, DateTime, Effect, Option, String as Str, flow, pipe } from "effect";
+import type { Lane, NamedAccount } from "#router/client/lane-configuration.ts";
+import { loginFolders, loginIn } from "#router/client/login-folders.ts";
+import { AccountState } from "#router/client/account-state.ts";
+import { accountsAdd } from "./accounts-add.ts";
+import { configuredAccounts } from "#router/client/lane-configuration.ts";
+
+interface AccountRow {
+	readonly lane: Lane;
+	readonly name: string;
+	readonly vendor: "Claude" | "Codex" | "OpenAI";
+	readonly kind: string;
+	readonly state: string;
+}
+
+/** A login that ends within this many days carries its renew command. */
+const renewWithinDays = 3;
+
+const millisPerDay = 86_400_000;
+
+const gap = 2;
+
+const twoDigits = Str.padStart(gap, "0");
+
+/** A day in the human's time zone, `YYYY-MM-DD`. */
+const dayOf = flow(DateTime.setZoneCurrent, Effect.map(DateTime.formatIsoDate));
+
+/** A time of day in the human's time zone, `HH:MM`. */
+const clockOf = flow(
+	DateTime.setZoneCurrent,
+	Effect.map(DateTime.toParts),
+	Effect.map(({ hour, minute }) => `${twoDigits(String(hour))}:${twoDigits(String(minute))}`),
+);
+
+const vendorOf = (account: NamedAccount): AccountRow["vendor"] => {
+	if (account.vendor === "anthropic") {
+		return "Claude";
+	}
+
+	if (account.credential.kind === "key") {
+		return "OpenAI";
+	}
+
+	return "Codex";
+};
+
+const kindOf = (account: NamedAccount): string => {
+	const { credential } = account;
+
+	if (credential.kind === "forwarded") {
+		return "forwarded";
+	}
+
+	if (credential.kind === "loginFolder") {
+		return { anthropic: "login folder", openai: "home folder" }[account.vendor];
+	}
+
+	if ("keyEnv" in credential.source) {
+		return "key env";
+	}
+
+	return { apiKey: "key command", oauth: "token" }[credential.scheme];
+};
+
+/** The time a 429 stamp on `name` runs out, as the line says it. */
+const stampOf = Effect.fnUntraced(function* stampOf(name: string) {
+	const state = yield* AccountState;
+	const stamps = yield* state.stamps([name]);
+	const back = Option.fromUndefinedOr(stamps.get(name));
+	const clock = yield* Effect.transposeOption(pipe(back, Option.map(clockOf)));
+
+	return pipe(
+		clock,
+		Option.map((at) => `rate-limited. Back at ${at}.`),
+	);
+});
+
+/** A Claude login's end, at `end` in epoch milliseconds: ended, ending within 3 days, or later. */
+const endOf = Effect.fnUntraced(function* endOf(end: number, fix: string) {
+	const now = yield* Clock.currentTimeMillis;
+	const day = yield* dayOf(DateTime.makeUnsafe(end));
+	const days = Math.ceil((end - now) / millisPerDay);
+
+	if (end <= now) {
+		return { ending: Option.none(), gone: Option.some(`login ended ${day}. Fix: ${fix}`) };
+	}
+
+	if (end - now <= millisPerDay) {
+		return { ending: Option.some(`Login ends in under a day. Renew: ${fix}`), gone: Option.none() };
+	}
+
+	if (end - now <= renewWithinDays * millisPerDay) {
+		return { ending: Option.some(`Login ends in ${String(days)} days. Renew: ${fix}`), gone: Option.none() };
+	}
+
+	return { ending: Option.some(`ok. Login ends ${day}.`), gone: Option.none() };
+});
+
+/**
+ * What a login folder says about its login, read without its token: `gone` when it holds none or it ended, `ending`
+ * when it ends on a known day. Nothing for an account with no login folder.
+ */
+const loginOf = Effect.fnUntraced(function* loginOf(account: NamedAccount) {
+	const nothing = { ending: Option.none<string>(), gone: Option.none<string>() };
+
+	if (account.credential.kind !== "loginFolder") {
+		return nothing;
+	}
+
+	const fix = loginFolders[account.vendor].fix(account.credential.folder);
+	const seen = yield* loginIn(account.credential.folder);
+
+	const login = pipe(
+		seen,
+		Option.filter(({ vendor }) => vendor === account.vendor),
+	);
+
+	if (Option.isNone(login)) {
+		return { ending: Option.none<string>(), gone: Option.some(`no login. Fix: ${fix}`) };
+	}
+
+	return yield* Option.match(login.value.ends, {
+		onNone: () => Effect.succeed(nothing),
+		onSome: (end) => endOf(DateTime.toEpochMillis(end), fix),
+	});
+});
+
+/** One account's row: a login gone first, then a 429 stamp, then a login's end, else `ok.`, and what it lacks. */
+const rowOf = Effect.fnUntraced(function* rowOf(lane: Lane, account: NamedAccount) {
+	const login = yield* loginOf(account);
+	const stamp = yield* stampOf(account.name);
+
+	const state = pipe(
+		Option.firstSomeOf([login.gone, stamp, login.ending]),
+		Option.getOrElse(() => "ok."),
+	);
+
+	const lacking = Array.match(account.lacks, {
+		onEmpty: () => "",
+		onNonEmpty: (models) => ` Lacks ${Array.join(models, ", ")}.`,
+	});
+
+	return {
+		kind: kindOf(account),
+		lane,
+		name: account.name,
+		state: `${state}${lacking}`,
+		vendor: vendorOf(account),
+	} satisfies AccountRow;
+});
+
+/** Each lane's rows in the file's order, the clean lane first, or none when there is no `config.json`. */
+const accountRows = Effect.gen(function* accountRows() {
+	const configured = yield* configuredAccounts;
+
+	if (Option.isNone(configured)) {
+		return [];
+	}
+
+	const { clean, sealed } = configured.value;
+	const cleanRows = yield* Effect.forEach(clean, (account) => rowOf("clean", account), { concurrency: 1 });
+	const sealedRows = yield* Effect.forEach(sealed, (account) => rowOf("sealed", account), { concurrency: 1 });
+
+	return [...cleanRows, ...sealedRows];
+});
+
+const headers = { clean: "Clean lane", sealed: "Sealed lane" } as const;
+
+const widthOf = (rows: readonly AccountRow[], column: "name" | "vendor" | "kind"): number =>
+	Math.max(
+		...pipe(
+			rows,
+			Array.map((row) => row[column].length + gap),
+		),
+	);
+
+const listed = Effect.gen(function* listed() {
+	const rows = yield* accountRows;
+
+	if (!Array.isReadonlyArrayNonEmpty(rows)) {
+		return yield* Console.log(
+			"No accounts yet. The install for your harness writes the first ones, and phi-router accounts add adds more.",
+		);
+	}
+
+	const name = Str.padEnd(widthOf(rows, "name"));
+	const vendor = Str.padEnd(widthOf(rows, "vendor"));
+	const kind = Str.padEnd(widthOf(rows, "kind"));
+
+	const lines = pipe(
+		["clean", "sealed"] as const,
+		Array.flatMap((lane) => [
+			headers[lane],
+			...pipe(
+				rows,
+				Array.filter((row) => row.lane === lane),
+				Array.map((row) => `  ${name(row.name)}${vendor(row.vendor)}${kind(row.kind)}${row.state}`),
+			),
+		]),
+	);
+
+	return yield* Console.log(Array.join(lines, "\n"));
+}).pipe(DateTime.withCurrentZoneLocal);
+
+/** `phi-router accounts add [folder] [--command <command>] [--sealed]`. */
+const add = Command.make(
+	"add",
+	{
+		command: Flag.optional(Flag.String("command")),
+		folder: Argument.optional(Argument.Directory("folder", { mustExist: true })),
+		sealed: Flag.Boolean("sealed").pipe(Flag.withDefault(false)),
+	},
+	(flags) =>
+		accountsAdd({
+			command: Option.getOrUndefined(flags.command),
+			folder: Option.getOrUndefined(flags.folder),
+			sealed: flags.sealed,
+		}),
+);
+
+/**
+ * `phi-router accounts`: prints each lane's accounts in the file's order, a line each: name, vendor, kind and state. It
+ * runs no vendor CLI and no key command, and reads no token. Its `add` adds one.
+ */
+const accounts = Command.make("accounts", {}, () => listed).pipe(
+	Command.provide(AccountState.layer),
+	Command.withSubcommands([add]),
+);
+
+export { accounts };

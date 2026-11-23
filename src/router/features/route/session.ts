@@ -1,0 +1,103 @@
+import { Array, Effect, Option, Schema, pipe } from "effect";
+import type { Outgoing, Path } from "#router/client/server.ts";
+import { PinRequestJson, sessionPaths } from "#router/client/session-request.ts";
+import { SessionId, StatusJson } from "#shared/cli.ts";
+import type { Accounts } from "#router/client/upstream-accounts.ts";
+import type { Routing } from "./routing.ts";
+import type { Served } from "#router/client/upstream.ts";
+import type { Status } from "#shared/cli.ts";
+
+/** The name and vendor of each account on one lane. */
+type LaneAccounts = (typeof Status.Type)["accounts"]["clean"];
+
+const namesOn =
+	(lane: "clean" | "sealed", vendor: "anthropic" | "openai") =>
+	(accounts: Accounts): LaneAccounts =>
+		pipe(
+			accounts[lane],
+			Array.map(({ name }) => ({ name, vendor })),
+		);
+
+/**
+ * Each lane's accounts the router serves now, named without their credentials.
+ *
+ * @param {Function} served The accounts the router serves.
+ * @returns {Effect.Effect} Each lane's names and vendors, in the file's order.
+ */
+const listed = (served: () => Effect.Effect<Served>): Effect.Effect<(typeof Status.Type)["accounts"]> =>
+	Effect.map(served(), (now) => {
+		const on = (lane: "clean" | "sealed"): LaneAccounts => [
+			...Option.match(now.anthropic, { onNone: () => [], onSome: namesOn(lane, "anthropic") }),
+			...Option.match(now.openai, { onNone: () => [], onSome: namesOn(lane, "openai") }),
+		];
+
+		return { clean: on("clean"), sealed: on("sealed") };
+	});
+
+const statuses = { failed: 500, ok: 200, unreadable: 400 } as const;
+
+const answered = (status: number, body: string): Outgoing => ({ body, kind: "whole", status });
+
+const unreadable = answered(statuses.unreadable, '{"error":"unreadable"}');
+
+const failed = answered(statuses.failed, '{"error":"phi-router could not use its state"}');
+
+/**
+ * The rows `pin`, `unpin` and `status` reach, so the router stays the one writer of the verdict store. `POST
+ * /phi-router/pin` takes `{session, pinned}` and answers once the pin is stored. `GET /phi-router/status?session=<id>`
+ * answers the contract's status: the pin and the counts under the router's policy version, `accounts`, and the last
+ * line the lane log holds for the session.
+ *
+ * @param {object} serving What every harness shares, and the accounts the router serves.
+ * @param {Routing} serving.routing What every harness shares.
+ * @param {Function} serving.served The accounts the router serves now.
+ * @returns {readonly Path[]} The two rows.
+ */
+const sessionRows = ({
+	routing,
+	served,
+}: {
+	readonly routing: Routing;
+	readonly served: () => Effect.Effect<Served>;
+}): readonly Path[] => {
+	const pin: Path["answer"] = (incoming) =>
+		Schema.decodeEffect(PinRequestJson)(incoming.body).pipe(
+			Effect.matchEffect({
+				onFailure: () => Effect.succeed(unreadable),
+				onSuccess: ({ pinned, session }) =>
+					routing.store.pin(session, routing.policy, pinned).pipe(
+						Effect.as(answered(statuses.ok, "{}")),
+						Effect.orElseSucceed(() => failed),
+					),
+			}),
+		);
+
+	const status: Path["answer"] = (incoming) =>
+		Option.match(Schema.decodeUnknownOption(SessionId)(incoming.query["session"]), {
+			onNone: () => Effect.succeed(unreadable),
+			onSome: (session) =>
+				Effect.gen(function* reported() {
+					const summary = yield* routing.store.summary(session, routing.policy);
+					const last = yield* routing.laneLog.last(session);
+					const accounts = yield* listed(served);
+
+					const body = yield* Schema.encodeEffect(StatusJson)({
+						accounts,
+						cleared: summary.cleared,
+						last: Option.getOrNull(last),
+						pinned: summary.pinned,
+						sealed: summary.sealed,
+						session,
+					});
+
+					return answered(statuses.ok, body);
+				}).pipe(Effect.orElseSucceed(() => failed)),
+		});
+
+	return [
+		{ answer: pin, method: "POST", path: sessionPaths.pin },
+		{ answer: status, method: "GET", path: sessionPaths.status },
+	];
+};
+
+export { sessionRows };

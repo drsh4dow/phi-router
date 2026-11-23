@@ -1,0 +1,15 @@
+id: identifier-kinds
+language: TypeScript
+severity: error
+message: What counts as PHI lives in src/router/features/policy/. Import its index.ts.
+ignores:
+   - src/router/features/policy/**
+   - tools/oxlint/anti-slop/**
+   - tools/gates/fixtures/**
+rule:
+   regex: "^(patient-name|ssn|birth-date|street-address|personal-phone|personal-email|member-number|medicare-medicaid-number|mrn|driver-license|passport|face-photo)$"
+   any:
+      - kind: string_fragment
+      - kind: property_identifier
+      - kind: shorthand_property_identifier
+      - kind: shorthand_property_identifier_pattern

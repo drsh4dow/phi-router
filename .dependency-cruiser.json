@@ -1,0 +1,334 @@
+{
+	"forbidden": [
+		{
+			"name": "runtime-to-runtime",
+			"severity": "error",
+			"comment": "src/router/ and src/pi/ never import each other, types included. Put what both need in src/shared/, and reach the router from pi through src/pi/client/router.ts.",
+			"from": {
+				"path": "^src/(router|pi)/"
+			},
+			"to": {
+				"path": "^src/(router|pi)/",
+				"pathNot": "^src/$1/"
+			}
+		},
+		{
+			"name": "shared-imports",
+			"severity": "error",
+			"comment": "A src/shared/ file holds contract schemas and imports only Schema from effect. Move logic into the runtime folder that runs it.",
+			"from": {
+				"path": "^src/shared/"
+			},
+			"to": {
+				"pathNot": [
+					"^src/shared/",
+					"^node_modules/effect/dist/(index|Schema)\\.js$",
+					"^node_modules/@effect/vitest/"
+				]
+			}
+		},
+		{
+			"name": "router-entry-imports",
+			"severity": "error",
+			"comment": "src/router/main.ts imports src/router/, src/shared/, effect, the two platform packages, and node:http for createServer, which NodeHttpServer.layer takes.",
+			"from": {
+				"path": "^src/router/main(\\.test)?\\.ts$"
+			},
+			"to": {
+				"pathNot": [
+					"^src/(router|shared)/",
+					"^node_modules/(effect|@effect/platform-(bun|node))/",
+					"^node_modules/@effect/vitest/",
+					"^http$"
+				]
+			}
+		},
+		{
+			"name": "pi-entry-imports",
+			"severity": "error",
+			"comment": "src/pi/index.ts imports src/pi/, src/shared/, effect, the two platform packages and pi's types.",
+			"from": {
+				"path": "^src/pi/index(\\.test)?\\.ts$"
+			},
+			"to": {
+				"pathNot": [
+					"^src/(pi|shared)/",
+					"^node_modules/(effect|@effect/platform-(bun|node)|@earendil-works/[^/]+)/",
+					"^node_modules/@effect/vitest/"
+				]
+			}
+		},
+		{
+			"name": "feature-imports",
+			"severity": "error",
+			"comment": "A feature imports its own files, another feature's index.ts, client/, primitives/, src/shared/ and effect. Export what another feature needs from index.ts, and reach an outside system through a client/ file.",
+			"from": {
+				"path": "^src/([^/]+)/features/([^/]+)/"
+			},
+			"to": {
+				"pathNot": [
+					"^src/$1/features/$2/",
+					"^src/$1/features/[^/]+/index\\.ts$",
+					"^src/$1/(client|primitives)/",
+					"^src/shared/",
+					"^node_modules/(effect|@earendil-works/[^/]+)/",
+					"^node_modules/@effect/vitest/"
+				]
+			}
+		},
+		{
+			"name": "cli-writes-through-the-router",
+			"severity": "error",
+			"comment": "A command never imports the verdict store or the lease registry, so it cannot write them. Only the router writes them; a command asks the running router through client/session-request.ts or client/lease-request.ts (ADRs 0005 and 0007).",
+			"from": {
+				"path": "^src/router/features/cli/"
+			},
+			"to": {
+				"path": "^src/router/client/(verdict-store|leases)\\.ts$"
+			}
+		},
+		{
+			"name": "policy-imports",
+			"severity": "error",
+			"comment": "The policy imports its own files and effect, nothing else. Hand it a Piece from features/verdicts/ and keep every call out of it.",
+			"from": {
+				"path": "^src/router/features/policy/"
+			},
+			"to": {
+				"pathNot": ["^src/router/features/policy/", "^node_modules/effect/", "^node_modules/@effect/vitest/"]
+			}
+		},
+		{
+			"name": "client-imports",
+			"severity": "error",
+			"comment": "A client/ file imports other client/ files, primitives/, src/shared/ and effect. Call client/ from a feature, never a feature from client/.",
+			"from": {
+				"path": "^src/([^/]+)/client/"
+			},
+			"to": {
+				"pathNot": [
+					"^src/$1/(client|primitives)/",
+					"^src/shared/",
+					"^node_modules/effect/",
+					"^node_modules/@effect/vitest/"
+				]
+			}
+		},
+		{
+			"name": "primitives-imports",
+			"severity": "error",
+			"comment": "primitives/ knows no feature and no client, and imports only its own files and effect. Move code that needs more into that feature or client/ file.",
+			"from": {
+				"path": "^src/([^/]+)/primitives/"
+			},
+			"to": {
+				"pathNot": ["^src/$1/primitives/", "^node_modules/effect/", "^node_modules/@effect/vitest/"]
+			}
+		},
+		{
+			"name": "production-imports-test",
+			"severity": "error",
+			"comment": "Production code never imports a test. Move what both need into a file beside them.",
+			"from": {
+				"path": "^src/",
+				"pathNot": "\\.test\\.ts$"
+			},
+			"to": {
+				"path": "\\.test\\.ts$"
+			}
+		},
+		{
+			"name": "vitest-in-tests",
+			"severity": "error",
+			"comment": "Only a test imports @effect/vitest.",
+			"from": {
+				"path": "^src/",
+				"pathNot": "\\.test\\.ts$"
+			},
+			"to": {
+				"path": "^node_modules/(@effect/)?vitest/"
+			}
+		},
+		{
+			"name": "http-owner",
+			"severity": "error",
+			"comment": "HTTP belongs to src/router/client/. Features call its functions, and pi reaches the router through src/pi/client/router.ts.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/router/client/"]
+			},
+			"to": {
+				"path": "^node_modules/effect/dist/http(-api)?/"
+			}
+		},
+		{
+			"name": "process-owner",
+			"severity": "error",
+			"comment": "Processes belong to src/router/client/, and in pi to src/pi/client/router.ts. Call their functions.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/router/client/", "^src/pi/client/router(\\.test)?\\.ts$"]
+			},
+			"to": {
+				"path": "^node_modules/effect/dist/process/"
+			}
+		},
+		{
+			"name": "disk-owner",
+			"severity": "error",
+			"comment": "Disk belongs to src/router/client/. Call the client/ file that owns the value. pi asks the router through src/pi/client/router.ts.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/router/client/"]
+			},
+			"to": {
+				"path": "^node_modules/effect/dist/(FileSystem\\.js$|persistence/)"
+			}
+		},
+		{
+			"name": "config-writer",
+			"severity": "error",
+			"comment": "Only the CLI writes config.json. Run phi-router accounts add, whose command lives in src/router/features/cli/.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/router/features/cli/", "^src/router/client/config-writer\\.ts$"]
+			},
+			"to": {
+				"path": "^src/router/client/config-writer\\.ts$"
+			}
+		},
+		{
+			"name": "runtime-owner",
+			"severity": "error",
+			"comment": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/(router/main|pi/index)\\.ts$"]
+			},
+			"to": {
+				"path": "^node_modules/effect/dist/Runtime\\.js$"
+			}
+		},
+		{
+			"name": "platform-owner",
+			"severity": "error",
+			"comment": "Depend on the service from effect. The entry file, src/router/main.ts or src/pi/index.ts, provides the platform layer.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/(router/main|pi/index)\\.ts$"]
+			},
+			"to": {
+				"path": "^node_modules/@effect/platform-(bun|node)/"
+			}
+		},
+		{
+			"name": "builtins",
+			"severity": "error",
+			"comment": "Use the Effect service. FileSystem, Path, ChildProcess, Stdio, or Digest from effect/crypto.",
+			"from": {
+				"path": "^src/",
+				"pathNot": "^src/router/main\\.ts$"
+			},
+			"to": {
+				"dependencyTypes": ["core"]
+			}
+		},
+		{
+			"name": "entry-builtins",
+			"severity": "error",
+			"comment": "Use the Effect service. src/router/main.ts imports one builtin, node:http, because NodeHttpServer.layer takes Node's createServer and only the entry file may provide a platform layer.",
+			"from": {
+				"path": "^src/router/main\\.ts$"
+			},
+			"to": {
+				"dependencyTypes": ["core"],
+				"pathNot": "^http$"
+			}
+		},
+		{
+			"name": "vendor-sdk",
+			"severity": "error",
+			"comment": "Decode the wire with Schema in a router codec feature. No vendor SDK enters this repository.",
+			"from": {
+				"path": "^src/"
+			},
+			"to": {
+				"path": "(^|node_modules/)(@anthropic-ai|@openai|openai)(/|$)"
+			}
+		},
+		{
+			"name": "package-reexport",
+			"severity": "error",
+			"comment": "Export this file's own functions, never a package's API. A re-export hands an owner's API to the files the map keeps it from.",
+			"from": {
+				"path": "^src/"
+			},
+			"to": {
+				"path": "^node_modules/",
+				"dependencyTypes": ["export"]
+			}
+		},
+		{
+			"name": "tools-imports",
+			"severity": "error",
+			"comment": "tools/ imports the router only through a feature's index.ts, client/ and primitives/.",
+			"from": {
+				"path": "^tools/"
+			},
+			"to": {
+				"path": "^src/",
+				"pathNot": ["^src/router/features/[^/]+/index\\.ts$", "^src/router/(client|primitives)/"]
+			}
+		},
+		{
+			"name": "pi-types",
+			"severity": "error",
+			"comment": "Only src/pi/ sees pi types. The router reads the wire through a codec.",
+			"from": {
+				"pathNot": "^src/pi/"
+			},
+			"to": {
+				"path": "@earendil-works/"
+			}
+		}
+	],
+	"required": [
+		{
+			"name": "unmapped-source",
+			"severity": "error",
+			"comment": "This file fits no row of the layout map in docs/adr/0003. A file under src/ is a .ts file: router/main.ts, pi/index.ts, <runtime>/features/<name>/..., <runtime>/client/<file>.ts, router/primitives/... or shared/<contract>.ts, with its test beside it. Move it into the row whose job it does.",
+			"module": {
+				"path": "^src/",
+				"pathNot": [
+					"^src/router/main(\\.test)?\\.ts$",
+					"^src/pi/index(\\.test)?\\.ts$",
+					"^src/(router|pi)/features/[^/]+/.+\\.ts$",
+					"^src/(router|pi)/client/[^/]+\\.ts$",
+					"^src/router/primitives/.+\\.ts$",
+					"^src/shared/[^/]+\\.ts$"
+				]
+			},
+			"to": {
+				"path": "^a path no module has$"
+			}
+		}
+	],
+	"options": {
+		"parser": "swc",
+		"tsPreCompilationDeps": true,
+		"tsConfig": {
+			"fileName": "tsconfig.json"
+		},
+		"doNotFollow": {
+			"path": "node_modules"
+		},
+		"exclude": {
+			"path": "^tools/(oxlint/anti-slop|gates/fixtures)/"
+		},
+		"enhancedResolveOptions": {
+			"conditionNames": ["import", "default"],
+			"exportsFields": ["exports"]
+		},
+		"preserveSymlinks": true
+	}
+}

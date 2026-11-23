@@ -1,0 +1,225 @@
+import { Effect, FileSystem, Formatter, Layer, String as Str, Struct, pipe } from "effect";
+import { answers, ran } from "#tools/lifecycle/launched.ts";
+import { assert, it } from "@effect/vitest";
+import { claudeFolders, claudeIn, folder, phiRouter, routed, settle, written } from "./configured.ts";
+import type { ClaudeSettings } from "./configured.ts";
+import { FetchHttpClient } from "effect/http";
+import { NodeServices } from "@effect/platform-node";
+import { pluginCopy } from "#tools/plugin/copied.ts";
+
+const patient = { timeout: 60_000 };
+
+const ok = 0;
+
+const standIn = new URL("stand-in.ts", import.meta.url).pathname;
+
+type Claude = "posts" | "silent" | "absent";
+
+/** What a test does to the installed plugin's files before `doctor` runs. */
+type Install = "whole" | "none" | "launcherNotExecutable" | "noBundle";
+
+const notExecutable = 0o644;
+
+const enabled = { enabledPlugins: { "phi-router@phi-router": true }, env: written };
+
+/**
+ * The line a test's `claude` runs first: it writes to `marker` the modes of the mocks' config folder and
+ * `config.json`, the proxy and the hosts kept off it that it was given, then the model address of its `--settings`.
+ *
+ * @param {string} marker The file.
+ * @returns {string} The line.
+ */
+const seenBy = (marker: string): string => {
+	const config = '"$XDG_CONFIG_HOME/phi-router" "$XDG_CONFIG_HOME/phi-router/config.json"';
+
+	const proxy = 'echo "$HTTP_PROXY $HTTPS_PROXY $http_proxy $https_proxy $NO_PROXY $no_proxy"';
+
+	return `{ stat -c %a ${config}; ${proxy}; printf '%s\\n' "$@" | grep -o 'http://127.0.0.1:[0-9]*'; } > '${marker}'`;
+};
+
+const searchPath = Effect.fnUntraced(function* searchPath(claude: Claude) {
+	const fs = yield* FileSystem.FileSystem;
+	const bin = yield* folder("phi-claude-bin-");
+	const marker = `${bin}/claude-ran`;
+	const found = yield* ran(["bun", "-e", "process.stdout.write(process.execPath)"], {});
+	const bun = found.printed;
+
+	yield* fs.symlink(bun, `${bin}/bun`);
+
+	const runs = { absent: "", posts: `exec '${bun}' '${standIn}' "$@"\n`, silent: "" };
+
+	if (claude !== "absent") {
+		yield* fs.writeFileString(`${bin}/claude`, `#!/bin/sh\n${seenBy(marker)}\n${runs[claude]}`, { mode: 0o755 });
+	}
+
+	return { bun, marker, searchPath: `${bin}:/usr/bin:/bin` };
+});
+
+/** Breaks the plugin's copy as `install` says. */
+const broken = Effect.fnUntraced(function* broken(copy: string, install: Install) {
+	const fs = yield* FileSystem.FileSystem;
+
+	if (install === "launcherNotExecutable") {
+		yield* fs.chmod(`${copy}/bin/phi-router`, notExecutable);
+	}
+
+	if (install === "noBundle") {
+		yield* fs.remove(`${copy}/phi-router.mjs`);
+	}
+});
+
+/** Installs a copy of `plugins/claude` in `dir` as Claude Code records it, then breaks it as `install` says. */
+const installed = Effect.fnUntraced(function* installed(dir: string, install: Install) {
+	const fs = yield* FileSystem.FileSystem;
+
+	if (install === "none") {
+		return;
+	}
+
+	const copy = yield* pluginCopy;
+	const record = { plugins: { "phi-router@phi-router": [{ installPath: copy, scope: "user" }] }, version: 2 };
+
+	yield* fs.makeDirectory(`${dir}/plugins`);
+	yield* fs.writeFileString(`${dir}/plugins/installed_plugins.json`, Formatter.formatJson(record));
+	yield* broken(copy, install);
+});
+
+const doctored = Effect.fnUntraced(function* doctored(claude: Claude, settings: ClaudeSettings, install: Install) {
+	const fs = yield* FileSystem.FileSystem;
+	const { dir, env } = yield* claudeFolders;
+	const { bun, marker, searchPath: PATH } = yield* searchPath(claude);
+
+	yield* settle(dir, settings);
+	yield* installed(dir, install);
+
+	const doctor = yield* phiRouter(claudeIn(dir).doctor, Struct.assign(env, { PATH }), bun);
+	const claudeRan = yield* fs.exists(marker);
+	const seen = yield* fs.readFileString(marker).pipe(Effect.orElseSucceed(() => ""));
+
+	return { claudeRan, doctor, seen: pipe(seen, Str.trim, Str.split("\n")) };
+}, Effect.scoped);
+
+const dead = "http://127.0.0.1:9";
+
+const passes = Effect.gen(function* passes() {
+	const { doctor, seen } = yield* doctored("posts", enabled, "whole");
+	const [folderMode, fileMode, proxy, address = ""] = seen;
+
+	assert.strictEqual(doctor.exitCode, ok, doctor.printed);
+	assert.deepStrictEqual(
+		[folderMode, fileMode, proxy],
+		["700", "600", `${dead} ${dead} ${dead} ${dead} localhost localhost`],
+		"the mocks' config.json is private while claude runs, behind a dead proxy that localhost alone does not avoid",
+	);
+	const port = Number(new URL(address).port);
+	const routerAnswers = yield* answers(port);
+
+	assert.isFalse(routerAnswers, "the plugin's router is gone once doctor returns");
+	assert.include(doctor.printed, "pass the plugin phi-router@phi-router is installed");
+	assert.include(doctor.printed, "pass the canary arrived at the BAA mock");
+	assert.include(doctor.printed, "pass the canary arrived at no open mock");
+});
+
+const direct = "no_proxy or NO_PROXY takes Claude Code to http://127.0.0.1:47411 without a proxy";
+
+interface Static {
+	readonly named: string;
+	readonly settings: ClaudeSettings;
+	readonly install: Install;
+}
+
+const statics: readonly Static[] = [
+	{
+		install: "whole",
+		named: "ANTHROPIC_BASE_URL",
+		settings: Struct.assign(enabled, { env: Struct.omit(written, ["ANTHROPIC_BASE_URL"]) }),
+	},
+	{
+		install: "whole",
+		named: direct,
+		settings: Struct.assign(enabled, { env: Struct.assign(written, { no_proxy: "localhost" }) }),
+	},
+	{
+		install: "whole",
+		named: direct,
+		settings: Struct.assign(enabled, { env: Struct.assign(routed, { NO_PROXY: "127.0.0.1:47412" }) }),
+	},
+	{
+		install: "whole",
+		named: "phi-router@phi-router is enabled",
+		settings: Struct.assign(enabled, { enabledPlugins: { "phi-router@phi-router": false } }),
+	},
+	{ install: "none", named: "phi-router@phi-router is installed", settings: enabled },
+];
+
+const failsStatic = Effect.fnUntraced(function* failsStatic(failing: Static) {
+	const { claudeRan, doctor } = yield* doctored("posts", failing.settings, failing.install);
+
+	assert.notStrictEqual(doctor.exitCode, ok);
+	assert.match(doctor.printed, new RegExp(`^FAIL [^\n]*${failing.named}`, "mu"));
+	assert.isFalse(claudeRan, "claude ran although a static check failed");
+});
+
+/** Lists that take Claude Code to the router without a proxy although `on` wrote no `no_proxy`. */
+const keptLists: readonly Lists[] = [
+	{ env: Struct.assign(routed, { no_proxy: "*" }), named: "* in the settings", shell: {} },
+	{ env: routed, named: "127.0.0.0/8 in the shell's NO_PROXY", shell: { NO_PROXY: "corp.example,127.0.0.0/8" } },
+];
+
+interface Lists {
+	readonly env: Readonly<Record<string, string>>;
+	readonly named: string;
+	readonly shell: Readonly<Record<string, string>>;
+}
+
+const passesKept = Effect.fnUntraced(function* passesKept({ env, shell }: Lists) {
+	const folders = yield* claudeFolders;
+
+	yield* settle(folders.dir, { env });
+
+	const doctor = yield* phiRouter(claudeIn(folders.dir).doctor, Struct.assign(folders.env, shell));
+
+	assert.match(doctor.printed, new RegExp(`^pass ${direct}$`, "mu"));
+}, Effect.scoped);
+
+const breaks: readonly { readonly install: Install }[] = [
+	{ install: "launcherNotExecutable" },
+	{ install: "noBundle" },
+];
+
+const failsBroken = Effect.fnUntraced(function* failsBroken({ install }: { readonly install: Install }) {
+	const { claudeRan, doctor } = yield* doctored("posts", enabled, install);
+
+	assert.isTrue(claudeRan);
+	assert.notStrictEqual(doctor.exitCode, ok);
+	assert.include(doctor.printed, "pass the plugin phi-router@phi-router is installed");
+	assert.include(doctor.printed, "FAIL the canary arrived at the BAA mock");
+});
+
+const silent = Effect.gen(function* silent() {
+	const { claudeRan, doctor } = yield* doctored("silent", enabled, "whole");
+
+	assert.isTrue(claudeRan);
+	assert.notStrictEqual(doctor.exitCode, ok);
+	assert.include(doctor.printed, "FAIL the canary arrived at the BAA mock");
+});
+
+const absent = Effect.gen(function* absent() {
+	const { doctor } = yield* doctored("absent", enabled, "whole");
+
+	assert.notStrictEqual(doctor.exitCode, ok);
+	assert.include(doctor.printed, "FAIL claude is on PATH");
+});
+
+it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("doctor claude", (test) => {
+	test.effect(
+		"passes when the installed plugin's router takes the canary to the BAA mock alone",
+		() => passes,
+		patient,
+	);
+	test.effect.each(statics)("fails naming $named without running claude when its check fails", failsStatic, patient);
+	test.effect.each(keptLists)("passes the proxy check for the developer's own $named", passesKept, patient);
+	test.effect.each(breaks)("fails on the canary when the installed plugin is $install", failsBroken, patient);
+	test.effect("fails naming the BAA check when claude sends nothing", () => silent, patient);
+	test.effect("fails naming claude when no claude is on PATH", () => absent, patient);
+});

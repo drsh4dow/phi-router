@@ -1,0 +1,387 @@
+{
+	"$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+	"extends": ["./oxlint-effect.json"],
+	"plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node", "jsdoc"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error",
+		"pedantic": "error",
+		"perf": "error",
+		"style": "error",
+		"restriction": "error",
+	},
+	"options": { "typeAware": true, "typeCheck": true, "denyWarnings": true, "reportUnusedDisableDirectives": "error" },
+	"ignorePatterns": ["tools/oxlint/anti-slop/**", "tools/gates/fixtures/**"],
+	"jsPlugins": [
+		{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" },
+		{ "name": "anti-slop-effect", "specifier": "./tools/oxlint/anti-slop/effect/index.ts" },
+	],
+	"rules": {
+		"oxc/no-accumulating-spread": "error",
+		"anti-slop/no-array-filter-map": "error",
+		"anti-slop/no-reduce-accumulator-copy": "error",
+		"anti-slop/no-chained-type-assertions": "error",
+		"anti-slop/no-conditional-empty-object-spread": "error",
+		"anti-slop/no-known-value-widening": "error",
+		"anti-slop/no-module-mocking": "error",
+		"anti-slop/no-object-parameters": "error",
+		"anti-slop/no-reflect-apply": "error",
+		"anti-slop/no-reflect-get": "error",
+		"anti-slop/no-runtime-typeof": "error",
+		"anti-slop/no-shape-in-symbol-names": "error",
+		"anti-slop/no-unknown-parameters": "error",
+		"anti-slop/no-unknown-returns": "error",
+		"anti-slop/no-unknown-type-aliases": "error",
+		"anti-slop/no-unsafe-dictionary-type": "error",
+		"anti-slop/no-widen-then-assert": "error",
+		"anti-slop/require-readable-spacing": "error",
+		"anti-slop/require-safety-comment-for-type-assertion": "error",
+		"anti-slop-effect/no-manual-effect-error-tag": "error",
+		"anti-slop-effect/no-manual-tag-comparison": "error",
+		"anti-slop-effect/no-manual-tagged-construction": "error",
+		"anti-slop-effect/no-service-constructor-imports": "error",
+		"anti-slop-effect/prefer-effect-match": "error",
+		// The ledger. Each rule that is off or narrowed names the rules it collides with, or waits on the owner.
+		// collides with import/no-default-export: a module that exports by name fails this one, and a default export fails that one
+		"import/no-named-export": "off",
+		// collides with import/no-default-export: a module with one named export fails this one, and a default export fails that one
+		"import/prefer-default-export": "off",
+		// collides with import/consistent-type-specifier-style: a type and a value from one module fail that rule inline and this one split
+		"eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
+		// collides with eslint/sort-vars and TS2448: two consts where the first by name reads the second fail one of the three in every order
+		"eslint/one-var": "off",
+		// approved by the owner: Effect's constructors, such as Schema.Struct and Context.Service, are capitalized calls without new
+		"eslint/new-cap": ["error", { "capIsNew": false }],
+		// approved off by the owner: it reads Schema.TaggedError<X>()(...) as an error built without new
+		"unicorn/throw-new-error": "off",
+		// approved by the owner: ignores callback parameters whose types Effect and vitest declare, the CLI handler's flags, it.layer's test object and the fake spawner's command
+		"typescript/prefer-readonly-parameter-types": ["error", { "ignoreInferredTypes": true }],
+		// approved off by the owner: it flags every export whose type names an unstable Effect module, such as a layer that needs FileSystem
+		"effecttsgo/api-stability-leak": "off",
+		// approved by the owner: allowedUnstableApis in tsconfig.json adds eight modules to the four approved first
+		"effecttsgo/unstable-api-usage": "error",
+	},
+	"overrides": [
+		{
+			"files": ["**/*.test.ts"],
+			"plugins": ["vitest"],
+			"rules": {
+				// collides with vitest/prefer-importing-vitest-globals and TS2593: it.effect exists only on the imported it
+				"vitest/no-importing-vitest-globals": "off",
+			},
+		},
+		{
+			"files": ["src/**"],
+			"rules": {
+				"eslint/no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "effect",
+								"importNames": ["FileSystem"],
+								"message": "Disk belongs to src/router/client/. Call the client/ file that owns the value. pi asks the router through src/pi/client/router.ts.",
+							},
+							{
+								"name": "effect",
+								"importNames": ["Runtime"],
+								"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+							},
+							{
+								"name": "effect/Effect",
+								"importNames": [
+									"runPromise",
+									"runPromiseExit",
+									"runPromiseWith",
+									"runPromiseExitWith",
+									"runFork",
+									"runForkWith",
+									"runSync",
+									"runSyncExit",
+									"runSyncWith",
+									"runSyncExitWith",
+									"runCallback",
+									"runCallbackWith",
+									"runMain",
+								],
+								"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+							},
+						],
+					},
+				],
+				"eslint/no-restricted-globals": [
+					"error",
+					{
+						"name": "globalThis",
+						"message": "The entry file, src/router/main.ts or src/pi/index.ts, detects the runtime. Use the Effect service it provides.",
+					},
+					{
+						"name": "global",
+						"message": "The entry file, src/router/main.ts or src/pi/index.ts, detects the runtime. Use the Effect service it provides.",
+					},
+					{
+						"name": "Bun",
+						"message": "The entry file, src/router/main.ts or src/pi/index.ts, detects the runtime. Use the Effect service it provides.",
+					},
+					{
+						"name": "process",
+						"message": "effect/cli reads the arguments, and Config reads the environment.",
+					},
+					{
+						"name": "crypto",
+						"message": "Hash with Digest from effect/crypto.",
+					},
+					{
+						"name": "console",
+						"message": "Use Console from effect, or Effect.log.",
+					},
+					{
+						"name": "JSON",
+						"message": "Decode and encode with Schema.fromJsonString.",
+					},
+					{
+						"name": "Date",
+						"message": "Use Clock.currentTimeMillis or DateTime.now.",
+					},
+					{
+						"name": "performance",
+						"message": "Use Clock.currentTimeMillis or DateTime.now.",
+					},
+					{
+						"name": "fetch",
+						"message": "HTTP belongs to src/router/client/. pi reaches the router through src/pi/client/router.ts.",
+					},
+					{
+						"name": "setTimeout",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "setInterval",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "setImmediate",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "clearTimeout",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "clearInterval",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "clearImmediate",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "queueMicrotask",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+				],
+				"eslint/no-restricted-properties": [
+					"error",
+					{
+						"property": "runPromise",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runPromiseExit",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runPromiseWith",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runPromiseExitWith",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runFork",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runForkWith",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runSync",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runSyncExit",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runSyncWith",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runSyncExitWith",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runCallback",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runCallbackWith",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+					{
+						"property": "runMain",
+						"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+					},
+				],
+			},
+		},
+		{
+			"files": ["src/router/main.ts", "src/pi/index.ts"],
+			"rules": {
+				// lifted for the entry files, the owners approved of Effect's runners
+				"eslint/no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "effect",
+								"importNames": ["FileSystem"],
+								"message": "Disk belongs to src/router/client/. Call the client/ file that owns the value. pi asks the router through src/pi/client/router.ts.",
+							},
+						],
+					},
+				],
+				// lifted for the entry files, the owners approved of globalThis and Bun, to detect the runtime
+				"eslint/no-restricted-globals": [
+					"error",
+					{
+						"name": "global",
+						"message": "The entry file, src/router/main.ts or src/pi/index.ts, detects the runtime. Use the Effect service it provides.",
+					},
+					{
+						"name": "process",
+						"message": "effect/cli reads the arguments, and Config reads the environment.",
+					},
+					{
+						"name": "crypto",
+						"message": "Hash with Digest from effect/crypto.",
+					},
+					{
+						"name": "console",
+						"message": "Use Console from effect, or Effect.log.",
+					},
+					{
+						"name": "JSON",
+						"message": "Decode and encode with Schema.fromJsonString.",
+					},
+					{
+						"name": "Date",
+						"message": "Use Clock.currentTimeMillis or DateTime.now.",
+					},
+					{
+						"name": "performance",
+						"message": "Use Clock.currentTimeMillis or DateTime.now.",
+					},
+					{
+						"name": "fetch",
+						"message": "HTTP belongs to src/router/client/. pi reaches the router through src/pi/client/router.ts.",
+					},
+					{
+						"name": "setTimeout",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "setInterval",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "setImmediate",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "clearTimeout",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "clearInterval",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "clearImmediate",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+					{
+						"name": "queueMicrotask",
+						"message": "Use Effect.sleep or Schedule. Tests move time with TestClock.",
+					},
+				],
+				// lifted for the entry files, the owners approved of Effect's runners
+				"eslint/no-restricted-properties": "off",
+			},
+		},
+		{
+			"files": ["src/pi/index.ts"],
+			"rules": {
+				// lifted for pi's entry file: pi's loader takes an extension's default export (pi-coding-agent dist/core/extensions/loader.js:507), and no other file has one
+				"import/no-default-export": "off",
+				// lifted for pi's entry file: pi's proxy agent reads NO_PROXY from pi's own process.env before each request (undici EnvHttpProxyAgent), so only a write there keeps the provider phi's requests, with their prompts and pi's login, off a proxy the user's shell or pi's httpProxy setting names
+				"effecttsgo/process-env": "off",
+			},
+		},
+		{
+			"files": ["src/pi/index.ts", "src/pi/index.test.ts"],
+			"rules": {
+				// lifted for pi's entry file and its test, colliding with oxc/no-async-await: pi awaits the promise each extension hook returns, and its test stands in for pi's model registry, which returns one; a function that returns one fails this rule without async and that one with it
+				"typescript/promise-function-async": "off",
+			},
+		},
+		{
+			"files": ["src/router/main.ts"],
+			"rules": {
+				// lifted for the router's entry file: NodeHttpServer.layer takes node:http's createServer, and only the entry file picks the platform
+				"import/no-nodejs-modules": ["error", { "allow": ["node:http"] }],
+				// lifted for the router's entry file: NodeHttpServer.layer takes node:http's createServer, and Effect has no server of its own to use instead
+				"effecttsgo/node-builtin-import": "off",
+			},
+		},
+		{
+			"files": ["src/router/client/**"],
+			"rules": {
+				// lifted for src/router/client/, the owner approved of FileSystem
+				"eslint/no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "effect",
+								"importNames": ["Runtime"],
+								"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+							},
+							{
+								"name": "effect/Effect",
+								"importNames": [
+									"runPromise",
+									"runPromiseExit",
+									"runPromiseWith",
+									"runPromiseExitWith",
+									"runFork",
+									"runForkWith",
+									"runSync",
+									"runSyncExit",
+									"runSyncWith",
+									"runSyncExitWith",
+									"runCallback",
+									"runCallbackWith",
+									"runMain",
+								],
+								"message": "Return the Effect. The entry file, src/router/main.ts or src/pi/index.ts, runs it.",
+							},
+						],
+					},
+				],
+			},
+		},
+	],
+}

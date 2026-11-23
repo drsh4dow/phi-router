@@ -1,0 +1,12 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": ["src/router/main.ts", "src/pi/index.ts", "tools/corpus/generate.ts"],
+	"project": ["src/**/*.ts", "tools/**/*.ts"],
+	"ignore": ["tools/oxlint/anti-slop/**", "tools/gates/fixtures/**"],
+	"ignoreDependencies": [
+		// the plugin name in tsconfig.json that @effect/tsgo answers to; no package has that name
+		"@effect/language-service",
+		// dependency-cruiser loads it for "parser": "swc"
+		"@swc/core",
+	],
+}

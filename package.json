@@ -1,0 +1,60 @@
+{
+	"name": "phi-router",
+	"private": true,
+	"keywords": [
+		"pi-package"
+	],
+	"type": "module",
+	"imports": {
+		"#shared/*": "./src/shared/*",
+		"#pi/*": "./src/pi/*",
+		"#router/*": "./src/router/*",
+		"#tools/*": "./tools/*"
+	},
+	"scripts": {
+		"prepare": "[ -x node_modules/.bin/effect-tsgo ] || exit 0; effect-tsgo patch --oxlint && bun tools/formal/install.ts",
+		"fmt": "oxfmt",
+		"lint": "oxlint --format default src tools",
+		"boundaries": "depcruise src tools --output-type err-long",
+		"comments": "ast-grep scan src tools",
+		"suppressions": "grep -rnE 'ast-grep-ignore|(oxlint|eslint)-(disable|enable)|oxfmt-ignore|@ts-(expect-error|ignore|nocheck)|@effect-diagnostics' src tools --exclude-dir=fixtures --exclude-dir=anti-slop && echo 'Fix the code the rule caught. A rule that is wrong for this repo goes to the owner, and its off line goes in .oxlintrc.jsonc with the reason.' && exit 1 || true",
+		"unused": "knip",
+		"test": "vitest run src tools --exclude 'tools/gates/fixtures/**' --exclude '.worktrees/**'",
+		"model": "vitest run tools/formal",
+		"eval:recorded": "bun tools/corpus/eval.ts",
+		"eval:live": "bun tools/corpus/eval.ts --judge live",
+		"build": "bun tools/plugin/build.ts",
+		"judge:probe": "bun tools/judge/probe.ts",
+		"wire": "bun tools/wire/run.ts",
+		"wire:accounts": "bun tools/wire/accounts.ts",
+		"check": "oxfmt --check && bun run lint && bun run boundaries && bun run comments && bun run suppressions && bun run unused && bun run test"
+	},
+	"devDependencies": {
+		"@ast-grep/cli": "0.51.3",
+		"@earendil-works/pi-ai": "1.6.0",
+		"@earendil-works/pi-coding-agent": "1.6.0",
+		"@effect/platform-bun": "4.1.5",
+		"@effect/platform-node": "4.1.5",
+		"@effect/tsgo": "0.73.2",
+		"@effect/vitest": "4.1.5",
+		"@oxlint/plugins": "1.94.0",
+		"@swc/core": "1.16.22",
+		"dependency-cruiser": "18.8.0",
+		"effect": "4.1.5",
+		"knip": "6.47.0",
+		"oxfmt": "0.79.0",
+		"oxlint": "1.94.0",
+		"oxlint-tsgolint": "7.0.2007",
+		"typescript": "7.0.2",
+		"vitest": "5.1.1"
+	},
+	"pi": {
+		"extensions": [
+			"./plugins/pi/extension.mjs"
+		]
+	},
+	"trustedDependencies": [
+		"@ast-grep/cli",
+		"@swc/core"
+	]
+}

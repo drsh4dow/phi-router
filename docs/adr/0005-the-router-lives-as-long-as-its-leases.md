@@ -1,0 +1,22 @@
+# The router lives as long as its leases
+
+No service manager runs the router. Each harness instance runs `phi-router start --pid <pid> --session <id> --folder <dir>` when a session starts. `start` posts a lease to `POST /phi-router/leases` on the product port and launches `phi-router serve` when nothing answers there. It returns only once the router stored the lease. The router checks its leases every 5 s with one `ps` call, and the check that finds none left stops accepting leases in the same step and ends the process.
+
+We chose this because the router installs no system service and must stop on its own once the last instance ends, `kill -9` included. A process cannot be told about another's `kill -9`, so the router polls. A pid alone can be reused by an unrelated process, so a lease is a pid plus the start time `ps` reports for it (`lstart`, read under `LC_ALL=C TZ=UTC`). A zombie counts as ended. The pid is the harness's own process: `$PPID` in the Claude Code and Codex hooks, `process.pid` in pi. In the Codex TUI the hook's parent is the shared background `codex app-server`, and the repo owner ruled that the router stays up while it lives.
+
+## Considered options
+
+- A systemd user unit or a launchd agent. Rejected because nothing is installed as a service.
+- A lock file beside the state folder to keep two routers apart. Rejected because the product port already does it: a second router fails to bind before it reads or writes any state, and a closing router holds the port until its process ends. The model in `tools/formal/Lifecycle.tla` assumes exactly this.
+- Each instance reading its own start time and sending it with the lease. Rejected because then two programs would read one fact. Only the router runs `ps`.
+
+## Consequences
+
+- The lease registry, `phi-router/leases.json` under the XDG state folder, is written by temp file, sync and rename before the router answers, so `start` returns only once the lease is on disk. A router launched after a crash adopts it and checks it like its own leases.
+- Taking a lease and the lease check each hold one permit across their `ps` call and their write, so a lease taken during a check is never lost, and a closing router answers `503` to every later lease.
+- A check drops a lease only on a read that proved it worked. `ps` lists its own pid beside the leased ones, so a read that worked always exits 0. A read is trusted only when all three hold: `ps` exited 0, every line of its output parsed whole with a start time that names a real second, and its own row is among them. A blank line counts as a line. Anything else is unread: `ps` missing or not spawned, killed, a non-zero exit, output that does not parse, or no answer in 2 s. No one sign settles it. `ps -p` exits 1 both when no pid matched and when it failed, and a `ps` killed after it printed its own row printed a true row. A `ps` that exits 0 with only well-formed rows and leaves out a live process, or reports a wrong one, is trusted: the router does not defend against a `ps` that lies. An unread check keeps every lease, and a lease request during it gets `503`, so `start` asks again. A failed registry write keeps the router up, and the dropped lease stays on disk until a later check drops it again. A router never ends while a check cannot read its processes, so the 10 s bound holds only while `ps` reads them.
+- The router stops by failing `serve` with `NoLeaseHolds`. The runtime ends the process at once, which frees the port. A graceful close is not used, because a request whose headers never finish keeps the process alive and the port bound.
+- Two `start` calls that race with no router up can launch two `serve` processes. The one that loses the bind retries it for 2 s, then exits having read no state. Both leases land on the router that bound.
+- A router down fails closed. A harness request gets a connection error and nothing reaches an account.
+- `start` prints nothing on success, because a session-start hook's output can reach the model. Its exit code and its error line say why it failed.
+- `serve --port <other>` starts a router that the product port does not keep apart from the real one. Only tests do this, each with its own state folder.

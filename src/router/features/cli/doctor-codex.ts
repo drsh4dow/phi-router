@@ -1,0 +1,127 @@
+import { Array, Effect, Option, Path, String as Str, Struct, pipe } from "effect";
+import {
+	addressEnv,
+	auto,
+	codexSettings,
+	dotenvFile,
+	dotted,
+	endsWithExemption,
+	exemptionLine,
+	plugin,
+	provider,
+	roleFile,
+	sealedRole,
+} from "./codex-settings.ts";
+import { canaryRun, reported } from "./doctor.ts";
+import { codexHome, codexTurn, installedPlugin, textOf } from "#router/client/codex.ts";
+import { holds, hookTrust, pluginEnabled } from "./codex-holds.ts";
+import type { Check } from "./doctor.ts";
+
+/** What `doctor codex` reads in Codex's home: `config.toml`, `.env`, the role file, and the plugin's install. */
+interface Install {
+	readonly config: string;
+	readonly dotenv: string;
+	readonly role: string;
+	readonly installed: boolean;
+}
+
+/**
+ * One check per setting `on codex` writes, and one each for the exemption line in `.env`, the role file, the plugin's
+ * enabling, its install in Codex's cache, and the human's trust of its hook.
+ *
+ * @param {Install} install What Codex's home holds.
+ * @returns {readonly Check[]} The checks.
+ */
+const installChecks = (install: Install): readonly Check[] => [
+	...pipe(
+		codexSettings,
+		Array.map((setting) => ({
+			name: `${dotted(setting.path)} is ${setting.value}`,
+			passed: holds(install.config)(setting),
+		})),
+	),
+	{ name: `${dotenvFile} ends with ${exemptionLine}`, passed: endsWithExemption(install.dotenv) },
+	{ name: `the role phi-sealed is in ${Array.join(roleFile, "/")}`, passed: install.role === sealedRole },
+	{ name: `the plugin ${plugin} is enabled`, passed: pluginEnabled(install.config) },
+	{ name: `the plugin ${plugin} is installed`, passed: install.installed },
+	{ name: "the plugin's hooks are trusted", passed: Str.isNonEmpty(hookTrust(install.config)) },
+];
+
+/**
+ * The `config.toml` of the headless turn: the router at `address` as its provider with retries off, a fake key-command
+ * login, analytics and the update check off, the plugin enabled, and the user's trust of its hook.
+ *
+ * @param {object} turn The router's address, and the trust table from the user's `config.toml`.
+ * @returns {string} The file.
+ */
+const turnConfig = (turn: { readonly address: string; readonly trust: string }): string =>
+	Array.join(
+		[
+			"check_for_update_on_startup = false",
+			`model = "${auto}"`,
+			'model_provider = "phi"',
+			"[analytics]",
+			"enabled = false",
+			"[features]",
+			"unbounded_connection_retries = false",
+			`[${dotted(provider)}]`,
+			'name = "phi-router"',
+			`base_url = "${turn.address}/v1"`,
+			'wire_api = "responses"',
+			"request_max_retries = 0",
+			"stream_max_retries = 0",
+			'http_headers = { "ChatGPT-Account-ID" = "phi-doctor-account" }',
+			`[${dotted([...provider, "auth"])}]`,
+			'command = "echo"',
+			'args = ["phi-doctor-login"]',
+			`[${dotted(["plugins", plugin])}]`,
+			"enabled = true",
+			turn.trust,
+			"",
+		],
+		"\n",
+	);
+
+/**
+ * Checks the settings, the role, and the plugin's install and trust first, and stops there when one fails, since an
+ * untrusted hook looks like a network failure. Then it runs the canary through the installed plugin, and passes only
+ * when `codex exec` exited 0, the canary arrived at the BAA mock, and it arrived at no open mock. It changes no setting,
+ * and never touches the product port, the user's router configuration, or a real account.
+ */
+const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: string) {
+	const path = yield* Path.Path;
+	const home = yield* codexHome(named);
+	const config = yield* textOf(path.join(home, "config.toml"));
+	const dotenv = yield* textOf(path.join(home, dotenvFile));
+	const role = yield* textOf(path.join(home, ...roleFile));
+	const installed = yield* installedPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
+
+	yield* reported(
+		"codex",
+		installChecks({ config, dotenv, installed: Option.isSome(installed), role }),
+		`Run phi-router on codex for a missing setting, line or role, codex plugin add ${plugin} for the plugin, and start codex and pick "Trust all and continue" for the hooks.`,
+	);
+
+	const checks = yield* Option.match(installed, {
+		onNone: () => Effect.succeed([]),
+		onSome: (folder) =>
+			canaryRun({ binary: "codex", headless: "codex exec", vendor: "openai" }, ({ address, env, prompt }) =>
+				codexTurn({
+					config: turnConfig({ address, trust: hookTrust(config) }),
+					dotenv: exemptionLine,
+					env: Struct.assign(env, { [addressEnv]: address }),
+					home,
+					installed: folder,
+					prompt,
+				}),
+			),
+	});
+
+	yield* reported(
+		"codex",
+		checks,
+		`The canary must reach the BAA mock alone, through the router the plugin's hook starts. Each FAIL line names what did not hold. When codex exec fails, run codex plugin add ${plugin} again and trust its hooks.`,
+	);
+});
+
+export { doctorCodex };

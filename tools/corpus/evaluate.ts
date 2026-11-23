@@ -1,0 +1,113 @@
+import { Array, Effect, Option, Schema, pipe } from "effect";
+import type { Case, Synthetic as SyntheticList } from "./manifest.ts";
+import { Findings, Verdicts, standingOf } from "#router/features/verdicts/index.ts";
+import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
+import type { Played, Sent } from "./report.ts";
+import type { Message } from "#router/features/parts/index.ts";
+import { Synthetic } from "#router/features/policy/index.ts";
+import { decide } from "#router/features/lanes/index.ts";
+import { guard } from "#router/features/border/index.ts";
+import { reportOf } from "./report.ts";
+import { requestMessagesOf } from "./messages.ts";
+import { tokensOf } from "./canary-tokens.ts";
+
+/** The verdicts of one case's session, kept in memory and never written. */
+interface Book {
+	readonly lookup: Lookup;
+	readonly record: (standings: readonly (readonly [string, Standing])[]) => void;
+}
+
+/** How many cases play at once. Each case keeps its own book, so they share nothing. */
+const casesAtOnce = 8;
+
+const encodeView = Schema.encodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
+
+/**
+ * The messages as one JSON body, as the tracker reads a request a mock received.
+ *
+ * @param {readonly Message[]} messages The request's messages.
+ * @returns {string} The body.
+ */
+const bodyOf = (messages: readonly Message[]): string => Option.getOrElse(encodeView(messages), () => "");
+
+const bookOf = (): Book => {
+	const verdicts = new Map<string, Standing>();
+
+	return {
+		lookup: (key) => Option.getOrElse(Option.fromNullishOr(verdicts.get(key)), () => "unknown"),
+		record: (standings) => {
+			for (const [key, standing] of standings) {
+				verdicts.set(key, standing);
+			}
+		},
+	};
+};
+
+const isFailure = Verdicts.$match({
+	Cleared: () => false,
+	Sealed: ({ finding }) => Findings.$is("Failure")(finding),
+});
+
+/** A request the border refuses reaches no open account, so it shows nothing. */
+const guardedBody = Effect.fnUntraced(function* guardedBody(messages: readonly Message[], lookup: Lookup) {
+	const guarded = yield* guard({ harness: "claude", lookup, messages }).pipe(
+		Effect.catchTag("ToolsNotCleared", () => Effect.succeed([])),
+	);
+
+	return bodyOf(guarded);
+});
+
+const sentOf = Effect.fn("sentOf")(function* sentOf(messages: readonly Message[], book: Book) {
+	const decision = yield* decide({ lookup: book.lookup, messages });
+
+	book.record(
+		pipe(
+			decision.found,
+			Array.map(([key, verdict]) => [key, standingOf(verdict)] as const),
+		),
+	);
+
+	const failures = pipe(
+		decision.found,
+		Array.filter(([, verdict]) => isFailure(verdict)),
+	).length;
+
+	const lane = decision.laneAt(book.lookup);
+
+	if (lane === "sealed") {
+		return { failures, lane, usage: decision.usage } satisfies Sent;
+	}
+
+	const body = yield* guardedBody(messages, book.lookup);
+
+	return { failures, lane, usage: decision.usage, view: body } satisfies Sent;
+});
+
+/**
+ * Every request of the case through `decide` with one book, and each one on the clean lane through `guard`. Play never
+ * stops at a seal: the requests after it return to the clean lane with the sealed part stubbed, which is what the eval tests.
+ */
+const play = Effect.fn("play")(function* play(subject: Case) {
+	const tracked = yield* tokensOf(subject);
+	const requests = yield* requestMessagesOf(subject);
+	const book = bookOf();
+	const sent = yield* Effect.forEach(requests, (messages) => sentOf(messages, book), { concurrency: 1 });
+
+	return { case: subject, sent, tracked } satisfies Played;
+});
+
+const evaluate = Effect.fn("evaluate")(function* evaluate({
+	cases,
+	synthetic,
+}: {
+	readonly cases: readonly Case[];
+	readonly synthetic: SyntheticList;
+}) {
+	const played = yield* Effect.forEach(cases, (subject) => play(subject), { concurrency: casesAtOnce }).pipe(
+		Effect.provideService(Synthetic, synthetic),
+	);
+
+	return reportOf(played);
+});
+
+export { evaluate, play };

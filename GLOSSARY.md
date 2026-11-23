@@ -1,0 +1,196 @@
+# PHI router
+
+The router sends each model request of a coding harness to an open account or to a BAA account, by what the request holds.
+
+## Language
+
+### The product
+
+**PHI**:
+For routing, content that holds a complete direct identifier of a real patient or member, such as a full name, an SSN or an MRN. Internal ids, health facts tied only to an internal id, staff and vendor contacts, fragments and counts are not PHI.
+
+**Harness**:
+A coding agent program that sends model requests: pi, Claude Code or Codex.
+_Avoid_: client, tool
+
+**Instance**:
+One running process of a harness.
+
+**Router**:
+The local program that receives every model request of a protected instance and picks its lane.
+_Avoid_: gateway, proxy, daemon
+
+**Harness adapter**:
+The package that installs the router into one harness the way that harness installs extensions.
+_Avoid_: integration, connector
+
+**Protected instance**:
+An instance whose model requests go to the router.
+
+**Lease**:
+An instance's registration with the router. The router runs only while a lease belongs to a live instance.
+
+**Lease registry**:
+The router's leases, stored on disk so a router launched after a crash adopts them. A lease in it holds while its process runs with the start time the lease recorded.
+
+**Port proof**:
+The router's answer that shows the listener on its port is this user's router: the HMAC-SHA-256 of a nonce and the port under the secret. A harness adapter asks for it before each prompt and each compaction, and blocks the prompt when the answer does not match.
+_Avoid_: handshake, health check
+
+**Nonce**:
+The 32 random bytes, in hex, that a harness adapter sends with one request for the port proof, so no earlier answer passes.
+
+**Secret**:
+The 32 random bytes, in hex, in `phi-router/secret` under the user's XDG state folder, 0600 in a 0700 folder, under which the router computes the port proof. Another user cannot read it.
+_Avoid_: key, token
+
+### Accounts and lanes
+
+**Vendor**:
+The company whose wire an account speaks: Anthropic, for Claude Code's Messages requests, or OpenAI, for Codex's Responses requests.
+
+**Account**:
+One credential for one model vendor.
+
+**BAA account**:
+An account under a business associate agreement, whose models may read PHI.
+
+**Open account**:
+An account outside any BAA.
+_Avoid_: personal account, personal provider
+
+**Clean lane**:
+The ordered list of open accounts, where a request with no sealed new content runs.
+
+**Sealed lane**:
+The ordered list of BAA accounts, where a request with sealed new content runs.
+
+**Home account**:
+The open account a session's clean lane tries first.
+
+**Walk**:
+The accounts one request may still try, in order: the open accounts from its home account on, without the stamped ones, then the BAA accounts that carry its target model, then those that lack it. It only shrinks.
+
+**Failover**:
+A request moving to the next account of its walk on a 429, a 5xx, no answer or an ended login, before the first byte of the answer. It moves from the clean lane to the sealed lane, never back.
+
+**Stamp**:
+The mark a 429 leaves on an open account. The clean lane skips the account for 30 minutes.
+
+**Login folder**:
+The folder where a vendor's CLI keeps one account's login: Claude Code's `CLAUDE_CONFIG_DIR` or Codex's `CODEX_HOME`. The router reads its token on each send and the vendor CLI refreshes it.
+
+**Target model**:
+The model a request names.
+
+**`phi/auto`**:
+The model name that stands for the target model the router's configuration names for the harness's vendor.
+
+**Model catalog**:
+The list of models an open account offers a harness, which the router serves with `phi/auto` added.
+
+**`phi/sealed`**:
+The model name that pins every request that carries it. A request on it runs the configured sealed model. In pi it is the model `sealed` of the provider `phi`.
+
+**Substitute**:
+The model that runs a sealed request when no BAA account carries the target model.
+
+### Policy and verdicts
+
+**Policy**:
+The rules and the judge's questions that say what is PHI, versioned as one unit.
+
+**Rule**:
+A deterministic pattern for an unambiguous direct identifier. A rule seals and never clears.
+
+**Judge**:
+The decision model that scores whether a piece holds PHI when no rule sealed it.
+_Avoid_: classifier, scanner
+
+**Part**:
+One unit of a request that the border can replace on its own: a message, a system section or the tool list.
+
+**Piece**:
+A part as the policy reads it: its kind, its text and its images.
+
+**Content key**:
+A hash of one part's role and content, the name its verdict is stored under.
+
+**Verdict**:
+What the router concluded about one part: **sealed**, it holds PHI, or **cleared**, it does not.
+
+**New content**:
+The parts of a request that arrived after the last reply. They decide the request's lane.
+
+**Seam**:
+The end of the previous message of the same role, read in front of a message that goes on from it mid-word.
+
+**Fixture**:
+A part whose exact text the configuration lists, so the policy skips it.
+
+**Policy version**:
+A hash of the policy and the judge model. A verdict stored under another policy version is ignored and its part judged again.
+
+**Verdict store**:
+One file per session id that holds the session's content keys with their verdicts, its reply keys, its pin and the policy version. It never holds content.
+
+**Standing**:
+A part's verdict as one read of the verdict store gives it: sealed, cleared, or unknown when the store holds no verdict for its key.
+
+**Reply key**:
+The content key of a reply an open account streamed to the end, kept in the verdict store so that reply is checked by the rules alone.
+
+**Lane choice**:
+The lane the router sends one request on, by the lane rule. The border never relies on it.
+
+### The border
+
+**Stub**:
+The constant text an open account receives in place of a part that is sealed or not yet judged.
+
+**Border**:
+The check on every request bound for an open account, which passes cleared parts and stubs the rest.
+
+**Pin**:
+A session's or a subagent's choice to run wholly on the sealed lane, with nothing judged.
+
+**Pinned subagent**:
+A subagent started on `phi/sealed`. Claude Code names it `phi-router:phi-sealed` and Codex `phi-sealed`. pi has none.
+
+**Pinned line**:
+The first line of the pinned subagent's instructions, `phi-router: pinned subagent.`. A request whose system prompt holds it is pinned whatever model it names.
+
+**BAA repo**:
+A repository whose sessions run wholly on the sealed lane.
+
+**Title request**:
+Codex's request that names a thread, marked by `thread_source: "thread_title"` in its turn metadata. It runs sealed with the reason `title`, with no judge call and no bridge.
+
+**Lane log**:
+One line per routed request, which never holds content.
+
+**Bridge**:
+The constant block the router adds to the system prompt of every request that is neither pinned nor a title request, on both lanes.
+
+### Verification
+
+**Canary**:
+A synthetic identifier planted in a test corpus, so a check can search request bodies for it. Never real PHI.
+
+**Corpus**:
+The generated set of synthetic conversations with canaries that the leak gate runs on.
+
+**Case**:
+One conversation of the corpus, PHI or clean.
+
+**Capture**:
+The bytes of one request or reply recorded off a real harness binary, kept as a fixture.
+
+**Mock upstream**:
+A loopback test server that stands for the open account, the BAA account or the judge and records each request.
+
+**Wire run**:
+`bun run wire <harness>`, which drives the real harness binary through the router against mock upstreams and checks what each mock received.
+
+**Leak**:
+A complete canary in any one message sent to an open account.

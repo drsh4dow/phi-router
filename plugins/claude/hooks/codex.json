@@ -1,0 +1,54 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" session-start --pid \"$PPID\" --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\" 1>&2"
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" prompt-submit --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\"",
+						"timeout": 10
+					},
+					{
+						"type": "command",
+						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" codex-prompt || { echo 'phi-router blocked this prompt: it could not read which provider this session sends to.' >&2; exit 2; }"
+					},
+					{
+						"type": "command",
+						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" session-start --pid \"$PPID\" --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\" 1>&2 || exit 2"
+					}
+				]
+			}
+		],
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" turn-end --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\"",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"PreCompact": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" session-start --pid \"$PPID\" --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\" 1>&2 || echo '{\"continue\":false,\"stopReason\":\"phi-router: the port does not hold your router, so Codex did not compact.\"}'"
+					}
+				]
+			}
+		]
+	}
+}

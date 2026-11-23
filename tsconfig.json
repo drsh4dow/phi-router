@@ -1,0 +1,50 @@
+{
+	"compilerOptions": {
+		"target": "ES2024",
+		"lib": ["ES2024"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"types": [],
+		"noEmit": true,
+		"skipLibCheck": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
+		"isolatedModules": true,
+		"strict": true,
+		"exactOptionalPropertyTypes": true,
+		"noUncheckedIndexedAccess": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"plugins": [
+			{
+				"name": "@effect/language-service",
+				"diagnostics": false,
+				"allowedUnstableApis": [
+					// approved by the owner
+					"effect/http",
+					"effect/process",
+					"effect/crypto/Digest",
+					"effect/persistence/UserDirectories",
+					// approved by the owner
+					"effect/cli",
+					"effect/FileSystem",
+					"effect/Path",
+					"effect/PlatformError",
+					"effect/testing",
+					"@effect/platform-bun",
+					"@effect/platform-node",
+					"@effect/vitest"
+				]
+			}
+		]
+	},
+	"include": ["src", "tools"],
+	"exclude": ["tools/oxlint/anti-slop", "tools/gates/fixtures"]
+}

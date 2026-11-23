@@ -1,0 +1,11 @@
+{
+	"name": "phi-router",
+	"owner": { "name": "drsh4dow" },
+	"plugins": [
+		{
+			"name": "phi-router",
+			"source": "./plugins/claude",
+			"description": "Sends each model request to an open account or a BAA account, by whether it holds PHI."
+		}
+	]
+}

@@ -1,0 +1,128 @@
+import { Array, Number as Num, Option, pipe } from "effect";
+import { or, shiftRight, unsigned32, xor } from "./encodings.ts";
+
+/** A seeded draw source, so one seed always yields the same corpus byte for byte. */
+interface Random {
+	/** An integer in `[0, bound)`. */
+	readonly int: (bound: number) => number;
+	/** An integer in `[low, high]`. */
+	readonly between: (low: number, high: number) => number;
+	readonly chance: (probability: number) => boolean;
+	readonly pick: <Item>(items: Array.NonEmptyReadonlyArray<Item>) => Item;
+	readonly shuffle: <Item>(items: readonly Item[]) => Item[];
+	readonly chars: (alphabet: string, count: number) => string;
+	readonly digits: (count: number) => string;
+	readonly hex: (count: number) => string;
+}
+
+/** The set of values already planted, which `unique` reads and adds to. */
+interface Used {
+	readonly has: (value: string) => boolean;
+	readonly add: (value: string) => void;
+}
+
+/** Mulberry32's constants: the Weyl step, the three mixing shifts, and the masks each multiply ors in. */
+const mulberry = {
+	masks: { first: 1, second: 61 },
+	shifts: { first: 15, second: 7, third: 14 },
+	step: 1_831_565_813,
+} as const;
+
+const wordValues = 4_294_967_296;
+
+/**
+ * Mulberry32's output for one state, in arithmetic instead of bitwise operators.
+ *
+ * @param {number} state The generator's state after its Weyl step.
+ * @returns {number} An unsigned 32-bit integer.
+ */
+const mix = (state: number): number => {
+	const spread = xor(state, shiftRight(state, mulberry.shifts.first));
+	const mixed = unsigned32(Math.imul(spread, or(state, mulberry.masks.first)));
+	const respread = xor(mixed, shiftRight(mixed, mulberry.shifts.second));
+	const scrambled = Math.imul(respread, or(mixed, mulberry.masks.second));
+	const remixed = xor(unsigned32(mixed + scrambled), mixed);
+
+	return xor(remixed, shiftRight(remixed, mulberry.shifts.third));
+};
+
+const mulberry32 = (seed: number): (() => number) => {
+	let state = unsigned32(seed);
+
+	return () => {
+		state = unsigned32(state + mulberry.step);
+
+		return mix(state) / wordValues;
+	};
+};
+
+/**
+ * A seeded mulberry32 draw source.
+ *
+ * @param {number} seed Any integer.
+ * @returns {Random} The draw source.
+ */
+const seeded = (seed: number): Random => {
+	const float = mulberry32(seed);
+
+	const int = (bound: number): number => Math.floor(float() * bound);
+
+	const pick = <Item>(items: Array.NonEmptyReadonlyArray<Item>): Item => Array.getUnsafe(items, int(items.length));
+
+	const shuffle = <Item>(items: readonly Item[]): Item[] => {
+		const shuffled = Array.copy(items);
+		const indices = Array.fromIterable(shuffled.keys());
+		const swapped = Option.getOrElse(Array.tail(indices), Array.empty);
+
+		for (const index of Array.reverse(swapped)) {
+			const other = int(Num.increment(index));
+			const there = Array.getUnsafe(shuffled, other);
+
+			shuffled[other] = Array.getUnsafe(shuffled, index);
+			shuffled[index] = there;
+		}
+
+		return shuffled;
+	};
+
+	const chars = (alphabet: string, count: number): string =>
+		pipe(
+			Array.makeBy(count, () => alphabet[int(alphabet.length)] ?? ""),
+			Array.join(""),
+		);
+
+	return {
+		between: (low, high) => low + int(Num.increment(high - low)),
+		chance: (probability) => float() < probability,
+		chars,
+		digits: (count) => chars("0123456789", count),
+		hex: (count) => chars("0123456789abcdef", count),
+		int,
+		pick,
+		shuffle,
+	};
+};
+
+/**
+ * Draws until the value is not in `used`, then records it, so every planted value is unique across the file.
+ *
+ * @param {object} root0 Where planted values are kept, and how to draw one.
+ * @param {Used} root0.used The values planted so far.
+ * @param {() => string} root0.draw Draws one value.
+ * @returns {string} The new value.
+ */
+const unique = ({ used, draw }: { readonly used: Used; readonly draw: () => string }): string => {
+	let value = draw();
+
+	while (used.has(value)) {
+		value = draw();
+	}
+
+	used.add(value);
+
+	return value;
+};
+
+export { seeded, unique };
+
+export type { Random, Used };

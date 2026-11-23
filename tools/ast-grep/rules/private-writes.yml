@@ -1,0 +1,50 @@
+id: private-writes
+language: TypeScript
+severity: error
+message: Write files and make folders through src/router/client/private-file.ts, which makes them 0600 and 0700 from creation.
+files:
+   - src/**
+ignores:
+   - src/router/client/private-file.ts
+utils:
+   writer:
+      regex: "^(writeFile|writeFileString|sink|open|makeDirectory|chmod|chown|copy|copyFile|rename|symlink|link|truncate)$"
+   named-writer:
+      any:
+         - kind: shorthand_property_identifier_pattern
+           matches: writer
+         - kind: pair_pattern
+           has:
+              field: key
+              matches: writer
+rule:
+   any:
+      - kind: call_expression
+        has:
+           field: function
+           kind: member_expression
+           has:
+              field: property
+              matches: writer
+      - kind: member_expression
+        has:
+           field: property
+           regex: "^(writeFile|writeFileString|makeDirectory|chmod|chown|copyFile|symlink|truncate)$"
+        not:
+           inside:
+              kind: call_expression
+              field: function
+      - kind: subscript_expression
+        has:
+           field: index
+           has:
+              kind: string_fragment
+              matches: writer
+      - kind: object_pattern
+        has:
+           matches: named-writer
+        inside:
+           kind: variable_declarator
+           has:
+              field: value
+              regex: "FileSystem|^fs$"

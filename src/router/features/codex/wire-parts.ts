@@ -1,0 +1,233 @@
+import { Array, Effect, Option, Predicate, Schema, pipe } from "effect";
+import type { Body, Raw } from "./wire.ts";
+import type { ContentEntry, Entry, Group } from "./groups.ts";
+import { blobsIn, wroteAll } from "./clean-lane.ts";
+import { entriesOf, groupsOf } from "./groups.ts";
+import { loneMessage, replyMessage, toolsMessage } from "./read.ts";
+import type { CleanLaneWrote } from "./clean-lane.ts";
+import type { Digest } from "effect/crypto";
+import type { Lists } from "./frame.ts";
+import type { Message } from "#router/features/parts/index.ts";
+import type { Read } from "./read.ts";
+import { frameOf } from "./frame.ts";
+import { partsOf } from "#router/features/parts/index.ts";
+
+/**
+ * One part of a request as wire items, beside the message the engine reads for it. A tool list is checked and never
+ * rewritten. Any other part goes to the clean lane as sent, or as the stub when a key is not cleared or it is unjudged.
+ * Keys are unbranded here, since a branded field fails `prefer-readonly-parameter-types` on every parameter that holds
+ * one.
+ */
+type WirePart =
+	| {
+			readonly kind: "tools";
+			readonly message: Message;
+			readonly entries: readonly Entry[];
+			/** The tool list's own key, without the empty system content `partsOf` gives beside it. */
+			readonly keys: readonly string[];
+			/** It holds a blob no clean-lane reply wrote. */
+			readonly unjudged: boolean;
+	  }
+	| {
+			readonly kind: "content";
+			readonly message: Message;
+			readonly entries: readonly ContentEntry[];
+			/** `entries` less the reasoning no clean-lane reply wrote. */
+			readonly kept: readonly ContentEntry[];
+			readonly keys: readonly string[];
+			/** It holds a part the codec cannot read, or a blob no clean-lane reply wrote. */
+			readonly unjudged: boolean;
+	  }
+	| {
+			/** An input item the codec cannot read, which the engine reads as an empty user message with no key. */
+			readonly kind: "unread";
+			readonly message: Message;
+			readonly keys: readonly [];
+			readonly paired: boolean;
+			readonly unjudged: true;
+	  };
+
+const stringsOf = (message: Message): readonly string[] => {
+	if (message.role === "system") {
+		return [
+			message.content,
+			...pipe(
+				message.tools,
+				Array.map(({ parameters }) => parameters),
+			),
+		];
+	}
+
+	return pipe(
+		message.content,
+		Array.flatMap((block) => {
+			if (block.type === "text") {
+				return [block.text];
+			}
+
+			if (block.type === "toolCall") {
+				return [block.arguments];
+			}
+
+			return [];
+		}),
+	);
+};
+
+const SummaryText = Schema.Struct({ text: Schema.String, type: Schema.Literal("summary_text") });
+
+const readSummary = Schema.decodeUnknownOption(Schema.Array(SummaryText));
+
+/**
+ * A reasoning item stays on the clean lane only when a clean-lane reply wrote its blob and each summary text, and it
+ * holds no plain reasoning text.
+ *
+ * @param {CleanLaneWrote} wrote What the session's clean-lane replies wrote.
+ * @param {Reasoning} item The reasoning item.
+ * @returns {Effect.Effect<boolean, never, Digest.Digest>} Whether it stays.
+ */
+const reasoningKept = (
+	wrote: CleanLaneWrote,
+	item: Extract<ContentEntry["item"], { readonly type: "reasoning" }>,
+): Effect.Effect<boolean, never, Digest.Digest> => {
+	const plainText = Array.isReadonlyArrayNonEmpty(item.content ?? []);
+
+	return Option.match(readSummary(item.summary, { onExcessProperty: "error" }), {
+		onNone: () => Effect.succeed(false),
+		onSome: (summary) => {
+			const texts = pipe(
+				summary,
+				Array.map(({ text }) => text),
+			);
+
+			return Effect.map(wroteAll(wrote)([item.encrypted_content, ...texts]), (written) => written && !plainText);
+		},
+	});
+};
+
+const keptOnClean =
+	(wrote: CleanLaneWrote) =>
+	({ item }: ContentEntry): Effect.Effect<boolean, never, Digest.Digest> => {
+		if (item.type === "reasoning") {
+			return reasoningKept(wrote, item);
+		}
+
+		return Effect.succeed(true);
+	};
+
+const unwrittenBlobIn = (message: Message, wrote: CleanLaneWrote): Effect.Effect<boolean, never, Digest.Digest> => {
+	const blobs = pipe(stringsOf(message), Array.flatMap(blobsIn));
+
+	return Effect.map(wroteAll(wrote)(blobs), (written) => !written);
+};
+
+const toolListPart = (
+	wrote: CleanLaneWrote,
+	tools: readonly (typeof Raw.Type)[],
+	entries: readonly Entry[],
+): Effect.Effect<WirePart, never, Digest.Digest> =>
+	Effect.gen(function* readTools() {
+		const message = yield* toolsMessage(tools);
+		const parts = yield* partsOf(message);
+		const unjudged = yield* unwrittenBlobIn(message, wrote);
+
+		const keys = pipe(
+			parts,
+			Array.filter(({ slot }) => Predicate.isTagged(slot, "SystemTools")),
+			Array.map(({ key }) => key),
+		);
+
+		return { entries, keys, kind: "tools", message, unjudged };
+	});
+
+const contentPart =
+	(wrote: CleanLaneWrote, entries: readonly ContentEntry[]) =>
+	({ message, unread }: Read): Effect.Effect<WirePart, never, Digest.Digest> =>
+		Effect.gen(function* readContent() {
+			const parts = yield* partsOf(message);
+			const unwrittenBlob = yield* unwrittenBlobIn(message, wrote);
+			const kept = yield* Effect.filter(entries, keptOnClean(wrote), { concurrency: 1 });
+
+			const keys = pipe(
+				parts,
+				Array.map(({ key }) => key),
+			);
+
+			const unjudged = unread || unwrittenBlob;
+
+			return { entries, kept, keys, kind: "content", message, unjudged };
+		});
+
+const noLists: Lists = { frame: [], tools: [] };
+
+const unreadMessage: Message = { content: [], role: "user" };
+
+const wirePartOf =
+	(wrote: CleanLaneWrote) =>
+	(group: Group): Effect.Effect<WirePart, never, Digest.Digest> => {
+		switch (group.kind) {
+			case "tools": {
+				return toolListPart(wrote, group.tools, group.entries);
+			}
+
+			case "lone": {
+				return contentPart(wrote, [group.entry])(loneMessage(group.entry.item));
+			}
+
+			case "unread": {
+				return Effect.succeed({
+					keys: [],
+					kind: "unread",
+					message: unreadMessage,
+					paired: group.paired,
+					unjudged: true,
+				});
+			}
+
+			case "reply": {
+				const items = pipe(
+					group.entries,
+					Array.map(({ item }) => item),
+				);
+
+				return Effect.flatMap(replyMessage(wrote)(items), contentPart(wrote, group.entries));
+			}
+
+			default: {
+				const unhandled: never = group;
+
+				return unhandled;
+			}
+		}
+	};
+
+/**
+ * Each part of a request as wire items, in order: the tool list, each user, developer or agent message, each tool output
+ * and each reply's run of items.
+ *
+ * @param {CleanLaneWrote} wrote What the session's clean-lane replies wrote.
+ * @returns {(request: { body: Body | undefined; raw: Raw }) => Effect.Effect<readonly WirePart[], never,
+ *   Digest.Digest>} The parts of a request's lists and its items, the lists read only when the codec reads every field.
+ */
+const wirePartsOf =
+	(wrote: CleanLaneWrote) =>
+	({
+		body,
+		raw,
+	}: {
+		readonly body: typeof Body.Type | undefined;
+		readonly raw: typeof Raw.Type;
+	}): Effect.Effect<readonly WirePart[], never, Digest.Digest> => {
+		const entries = entriesOf(raw);
+
+		const lists = Option.match(Option.fromUndefinedOr(body), {
+			onNone: () => noLists,
+			onSome: (fields) => frameOf({ body: fields, entries }),
+		});
+
+		return Effect.forEach(groupsOf({ entries, lists }), wirePartOf(wrote), { concurrency: 1 });
+	};
+
+export { wirePartsOf };
+
+export type { WirePart };
