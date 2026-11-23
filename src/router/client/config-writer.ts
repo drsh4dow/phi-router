@@ -237,6 +237,14 @@ const addAccounts = Effect.fn("addAccounts")(function* addAccounts(additions: Ad
 	return placed;
 });
 
-export { addAccounts };
+/** Whether `config.json` names a judge, false when there is no file. */
+const judgeNamed = Effect.gen(function* judgeNamed() {
+	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
+	const read = yield* Effect.flatMap(textOf(file), Schema.decodeEffect(Editable));
 
-export type { NewAccount, Placed };
+	return "judge" in read;
+});
+
+export { addAccounts, judgeNamed };
+
+export type { NewAccount };

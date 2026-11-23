@@ -3,6 +3,18 @@ import { canaryRun, reported } from "./doctor.ts";
 import { installedPackage, piTurn } from "#router/client/pi.ts";
 import { piWire } from "#shared/pi.ts";
 
+/** The canary run of `pi -p` on `phi/auto` through the package pi installed in `folder`. */
+const piCanary = Effect.fnUntraced(function* piCanary(folder: string) {
+	return yield* canaryRun({ binary: "pi", headless: "pi -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
+		piTurn({
+			env: Struct.assign(env, { [piWire.portVariable]: new URL(address).port }),
+			model: "phi/auto",
+			package: folder,
+			prompt,
+		}),
+	);
+});
+
 /**
  * Checks that pi installed the package, from pi's own record, and loads it unfiltered, and stops there when not. Then
  * it runs the canary through the installed package, and passes only when `pi -p` exited 0, the canary arrived at the
@@ -26,15 +38,7 @@ const doctorPi = Effect.fn("doctor pi")(function* doctorPi(agentDir: string) {
 
 	const checks = yield* Option.match(installed, {
 		onNone: () => Effect.succeed([]),
-		onSome: ({ folder }) =>
-			canaryRun({ binary: "pi", headless: "pi -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
-				piTurn({
-					env: Struct.assign(env, { [piWire.portVariable]: new URL(address).port }),
-					model: "phi/auto",
-					package: folder,
-					prompt,
-				}),
-			),
+		onSome: ({ folder }) => piCanary(folder),
 	});
 
 	yield* reported(
@@ -44,4 +48,4 @@ const doctorPi = Effect.fn("doctor pi")(function* doctorPi(agentDir: string) {
 	);
 });
 
-export { doctorPi };
+export { doctorPi, piCanary };

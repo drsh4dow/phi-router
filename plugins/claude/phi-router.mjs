@@ -33656,6 +33656,7 @@ var String12 = (name) => String11(flagKind, name);
 var Boolean8 = (name) => Boolean7(flagKind, name);
 var Int5 = (name) => Int4(flagKind, name);
 var ChoiceWithValue2 = (name, choices) => ChoiceWithValue(flagKind, name, choices);
+var Directory3 = (name, options) => Directory(flagKind, name, options);
 var withAlias2 = /* @__PURE__ */ dual(2, (self, alias) => withAlias(self, alias));
 var withDescription2 = /* @__PURE__ */ dual(2, (self, description) => withDescription(self, description));
 var withMetavar2 = /* @__PURE__ */ dual(2, (self, metavar) => withMetavar(self, metavar));
@@ -35983,6 +35984,11 @@ var addAccounts = fn2("addAccounts")(function* addAccounts(additions) {
 	}
 	return placed;
 });
+var judgeNamed = gen3(function* judgeNamed() {
+	const file = yield* provideService2(configFile, UserDirectories, make57());
+	const read = yield* flatMap6(textOf(file), decodeEffect2(Editable));
+	return "judge" in read;
+});
 
 // src/router/client/credentials.ts
 class KeyUnreadable extends TaggedError3()("KeyUnreadable", {
@@ -36406,6 +36412,10 @@ var harnessTurn = (commandOf) =>
 		map7(getOrElse(() => ({ kind: "timedOut" }))),
 		scoped2,
 	);
+var installRun = harnessTurn((argv) => {
+	const [command, ...args] = argv;
+	return succeed6(make24(command, args, { stdin: "ignore" }));
+});
 var harnessFolder = (rule) => (named) =>
 	gen3(function* folder() {
 		const path = yield* Path;
@@ -36498,7 +36508,16 @@ var commandOf = fnUntraced2(function* commandOf(asked) {
 	yield* copyPrivately(asked.installed, path.join(codex, path.relative(asked.home, asked.installed)));
 	yield* writePrivately(path.join(codex, "config.toml"), asked.config);
 	yield* writePrivately(path.join(codex, ".env"), asked.dotenv);
-	const args = ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", asked.prompt];
+	const args = [
+		"exec",
+		...{ bypassed: ["--dangerously-bypass-hook-trust"], persisted: [] }[asked.hookTrust],
+		"--skip-git-repo-check",
+		"--sandbox",
+		"read-only",
+		"--color",
+		"never",
+		asked.prompt,
+	];
 	return make24("codex", args, {
 		cwd: home,
 		env: pipe(asked.env, assign(behindDeadProxy), assign({ CODEX_HOME: codex, HOME: home, PATH: searchPath })),
@@ -38207,7 +38226,12 @@ var trustLine = (config) => {
 	}
 	return `Trust the plugin's hooks: start codex and pick "Trust all and continue" at "Hooks need review". Until you do, no hook starts the router, so every prompt ends in a connection error, and no hook blocks a prompt of a session that sends to another provider. A plugin update asks again.`;
 };
-var onCodex = fn2("on codex")(function* onCodex(named) {
+var changed = fnUntraced2(function* changed(file, before, after) {
+	if (after !== before) {
+		yield* rewritePrivately(file, after);
+	}
+});
+var codexSwitchedOn = fnUntraced2(function* codexSwitchedOn(named) {
 	const files = yield* filesOf(named);
 	const before = yield* textOf2(files.config);
 	const owner = inlineOwner(before);
@@ -38215,9 +38239,17 @@ var onCodex = fn2("on codex")(function* onCodex(named) {
 		return yield* InlineTable.make({ file: files.config, key: owner.value });
 	}
 	const after = switchedOn(before);
-	yield* rewritePrivately(files.config, after);
-	yield* flatMap6(textOf2(files.dotenv), (dotenv) => rewritePrivately(files.dotenv, withExemption(dotenv)));
-	yield* rewritePrivately(files.role, sealedRole);
+	const [dotenv, role] = yield* all4([textOf2(files.dotenv), textOf2(files.role)], { concurrency: 1 });
+	const writes = [
+		[files.config, before, after],
+		[files.dotenv, dotenv, withExemption(dotenv)],
+		[files.role, role, sealedRole],
+	];
+	yield* forEach2(writes, ([file, was, now]) => changed(file, was, now), { concurrency: 1, discard: true });
+	return { after, files };
+});
+var onCodex = fn2("on codex")(function* onCodex(named) {
+	const { after, files } = yield* codexSwitchedOn(named);
 	return yield* log2(
 		join(
 			[
@@ -38890,6 +38922,22 @@ var canaryRun = fnUntraced2(function* canaryRun(harness, turnOf) {
 	const arrived = yield* world.arrived;
 	return [turnCheck(harness)(turn), ...canaryChecks({ arrived, canary })];
 }, scoped2);
+var claudeCanary = fnUntraced2(function* claudeCanary(folder) {
+	return yield* canaryRun(
+		{ binary: "claude", headless: "claude -p", vendor: "anthropic" },
+		({ address, env, prompt }) =>
+			claudeTurn({
+				env,
+				model: auto2,
+				plugin: folder,
+				prompt,
+				settingsEnv: assign(
+					assign(claudeEnv, { [modelAddress]: address }),
+					exempted(address)({ settings: {}, shell: {} }).set,
+				),
+			}),
+	);
+});
 var doctor = fn2("doctor claude")(function* doctor(configDir) {
 	const settings = yield* userSettings(configDir);
 	const installed = yield* installedPlugin2(configDir, plugin2);
@@ -38899,22 +38947,7 @@ var doctor = fn2("doctor claude")(function* doctor(configDir) {
 		settingsChecks({ installed: isSome2(installed), settings, shell }),
 		`Run phi-router on claude for a missing setting, and claude plugin install ${plugin2} for the plugin.`,
 	);
-	const checks = yield* match(installed, {
-		onNone: () => succeed6([]),
-		onSome: (folder) =>
-			canaryRun({ binary: "claude", headless: "claude -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
-				claudeTurn({
-					env,
-					model: auto2,
-					plugin: folder,
-					prompt,
-					settingsEnv: assign(
-						assign(claudeEnv, { [modelAddress]: address }),
-						exempted(address)({ settings: {}, shell: {} }).set,
-					),
-				}),
-			),
-	});
+	const checks = yield* match(installed, { onNone: () => succeed6([]), onSome: claudeCanary });
 	yield* reported(
 		"claude",
 		checks,
@@ -38965,6 +38998,23 @@ var turnConfig = (turn) =>
 		`
 `,
 	);
+var codexCanary = fnUntraced2(function* codexCanary(install) {
+	const trusted = match(liftPredicate(install.trust, isNonEmpty), {
+		onNone: () => "bypassed",
+		onSome: () => "persisted",
+	});
+	return yield* canaryRun({ binary: "codex", headless: "codex exec", vendor: "openai" }, ({ address, env, prompt }) =>
+		codexTurn({
+			config: turnConfig({ address, trust: install.trust }),
+			dotenv: exemptionLine,
+			env: assign(env, { [addressEnv]: address }),
+			home: install.home,
+			hookTrust: trusted,
+			installed: install.folder,
+			prompt,
+		}),
+	);
+});
 var doctorCodex = fn2("doctor codex")(function* doctorCodex(named) {
 	const path = yield* Path;
 	const home = yield* codexHome(named);
@@ -38979,17 +39029,7 @@ var doctorCodex = fn2("doctor codex")(function* doctorCodex(named) {
 	);
 	const checks = yield* match(installed, {
 		onNone: () => succeed6([]),
-		onSome: (folder) =>
-			canaryRun({ binary: "codex", headless: "codex exec", vendor: "openai" }, ({ address, env, prompt }) =>
-				codexTurn({
-					config: turnConfig({ address, trust: hookTrust(config) }),
-					dotenv: exemptionLine,
-					env: assign(env, { [addressEnv]: address }),
-					home,
-					installed: folder,
-					prompt,
-				}),
-			),
+		onSome: (folder) => codexCanary({ folder, home, trust: hookTrust(config) }),
 	});
 	yield* reported(
 		"codex",
@@ -39088,6 +39128,16 @@ var commandOf3 = fnUntraced2(function* commandOf(asked) {
 var piTurn = harnessTurn(commandOf3);
 
 // src/router/features/cli/doctor-pi.ts
+var piCanary = fnUntraced2(function* piCanary(folder) {
+	return yield* canaryRun({ binary: "pi", headless: "pi -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
+		piTurn({
+			env: assign(env, { [piWire.portVariable]: new URL(address).port }),
+			model: "phi/auto",
+			package: folder,
+			prompt,
+		}),
+	);
+});
 var doctorPi = fn2("doctor pi")(function* doctorPi(agentDir) {
 	const installed = yield* installedPackage(agentDir);
 	yield* reported(
@@ -39103,15 +39153,7 @@ var doctorPi = fn2("doctor pi")(function* doctorPi(agentDir) {
 	);
 	const checks = yield* match(installed, {
 		onNone: () => succeed6([]),
-		onSome: ({ folder }) =>
-			canaryRun({ binary: "pi", headless: "pi -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
-				piTurn({
-					env: assign(env, { [piWire.portVariable]: new URL(address).port }),
-					model: "phi/auto",
-					package: folder,
-					prompt,
-				}),
-			),
+		onSome: ({ folder }) => piCanary(folder),
 	});
 	yield* reported(
 		"pi",
@@ -39153,11 +39195,15 @@ var reasonOf = (name) => {
 	}
 	return recordReason;
 };
-var on = fn2("on claude")(function* on(configDir) {
+var switchedOn2 = fnUntraced2(function* switchedOn(configDir) {
 	const settings = yield* userSettings(configDir);
 	const shell = yield* shellLists;
 	const exempt = exempted(routerAddress)({ settings: settings.env, shell });
 	yield* rewriteEnv(configDir, assign(claudeEnv, exempt.set), exempt.unset);
+	return { exempt, path: settings.path };
+});
+var on = fn2("on claude")(function* on(configDir) {
+	const { exempt, path } = yield* switchedOn2(configDir);
 	const lines = pipe(
 		claudeSettings,
 		flatMap3(({ name, reason, value }) => [`${name}=${value}`, `  ${reason}`]),
@@ -39167,7 +39213,7 @@ var on = fn2("on claude")(function* on(configDir) {
 		flatMap3(([name, value]) => [`${name}=${value}`, `  ${reasonOf(name)}`]),
 		match3({ onEmpty: () => [keptReason], onNonEmpty: (written) => written }),
 	);
-	const wrote = `phi-router wrote ${String(claudeSettings.length + size(exempt.set))} settings to ${settings.path}`;
+	const wrote = `phi-router wrote ${String(claudeSettings.length + size(exempt.set))} settings to ${path}`;
 	const restart =
 		"Restart each open Claude Code session: it now sends to the router, which only a new session starts.";
 	yield* log2(
@@ -39178,6 +39224,449 @@ var on = fn2("on claude")(function* on(configDir) {
 		),
 	);
 });
+
+// src/router/client/key-files.ts
+var keyFileOf = fnUntraced2(
+	function* keyFileOf(vendor) {
+		const directories = yield* UserDirectories;
+		const path = yield* Path;
+		const folder = yield* directories.config("phi-router");
+		return path.join(folder, "keys", vendor);
+	},
+	provideService2(UserDirectories, make57()),
+);
+var savedKey = fnUntraced2(function* savedKey(vendor) {
+	const keyFile = yield* keyFileOf(vendor);
+	return yield* option2(readKey({ keyFile }));
+});
+var saveKey = fnUntraced2(function* saveKey(vendor, key) {
+	const saved = yield* savedKey(vendor);
+	const keyFile = yield* keyFileOf(vendor);
+	const same = exists(saved, (held) => value2(held) === value2(key));
+	if (!same) {
+		yield* writePrivately(
+			keyFile,
+			`${value2(key)}
+`,
+		);
+	}
+});
+
+// src/router/client/key-check.ts
+var apis = { anthropic: "https://api.anthropic.com", openai: "https://api.openai.com" };
+var signed = {
+	anthropic: (key) => setHeaders({ "anthropic-version": "2023-06-01", "x-api-key": key }),
+	openai: (key) => bearerToken(key),
+};
+var unauthorized = 401;
+var forbidden3 = 403;
+var refusals = new Set([unauthorized, forbidden3]);
+var okStatus = { high: 300, low: 200 };
+var patience = "30 seconds";
+var checkOf = (status) => {
+	if (refusals.has(status)) {
+		return "refused";
+	}
+	if (status >= okStatus.low && status < okStatus.high) {
+		return "accepted";
+	}
+	return "unanswered";
+};
+
+class KeyChecks extends Service()("phi-router/router/client/key-check/KeyChecks") {
+	static layer = effect(
+		KeyChecks,
+		gen3(function* make() {
+			const client = yield* HttpClient;
+			const check = (vendor, key) =>
+				gen3(function* checked() {
+					const api = yield* String8("PHI_ROUTER_KEY_CHECK_ENDPOINT").pipe(
+						withDefault3(apis[vendor]),
+						orElseSucceed2(() => apis[vendor]),
+					);
+					const request = get7(`${api}/v1/models`).pipe(signed[vendor](value2(key)));
+					return yield* client.execute(request).pipe(
+						timeout2(patience),
+						match6({
+							onFailure: () => "unanswered",
+							onSuccess: ({ status }) => checkOf(status),
+						}),
+					);
+				}).pipe(scoped2, provideService2(TracerPropagationEnabled, false));
+			return KeyChecks.of({ check });
+		}),
+	).pipe(provide2(layer12));
+}
+
+// src/router/client/terminal.ts
+var succeeded3 = 0;
+var inTerminal = (script, args) => make24("sh", ["-c", script, "sh", ...args], { stderr: "inherit", stdin: "inherit" });
+var isTerminal = gen3(function* isTerminal() {
+	const spawner = yield* ChildProcessSpawner;
+	const code = yield* spawner.exitCode(inTerminal("[ -t 0 ]", []));
+	return code === succeeded3;
+});
+var hiddenRead = String.raw`trap 'stty echo' EXIT; trap 'exit 130' HUP INT TERM; stty -echo || exit 1; printf '%s' "$1" >&2; IFS= read -r line || exit 1; printf '\n' >&2; printf '%s' "$line"`;
+var hiddenLine = fnUntraced2(function* hiddenLine(prompt) {
+	const spawner = yield* ChildProcessSpawner;
+	const handle = yield* spawner.spawn(inTerminal(hiddenRead, [prompt]));
+	const line = yield* mkString(decodeText2(handle.stdout));
+	const code = yield* handle.exitCode;
+	return liftPredicate(make23(line), () => code === succeeded3);
+}, scoped2);
+var enterPressed = gen3(function* enterPressed() {
+	const spawner = yield* ChildProcessSpawner;
+	const code = yield* spawner.exitCode(inTerminal("IFS= read -r line", []));
+	return code === succeeded3;
+});
+var handedOver = fnUntraced2(function* handedOver(argv) {
+	const spawner = yield* ChildProcessSpawner;
+	const [command, ...args] = argv;
+	return yield* spawner.exitCode(make24(command, args, { stderr: "inherit", stdin: "inherit", stdout: "inherit" }));
+});
+
+// src/router/features/cli/setup-keys.ts
+class SetupStopped extends TaggedError3()("SetupStopped", {
+	copy: String7,
+}) {
+	get [userMessage]() {
+		return this.copy;
+	}
+}
+var stopped = (copy) => SetupStopped.make({ copy });
+var vendorWords = {
+	anthropic: { name: "Anthropic", prefix: "sk-ant-api" },
+	openai: { name: "OpenAI", prefix: "sk-" },
+};
+var baaAsk = (asked) => ({
+	needer: asked.needer,
+	question: [
+		`Paste the ${vendorWords[asked.vendor].name} API key your organization gave you for patient data.`,
+		`It starts with ${vendorWords[asked.vendor].prefix}. Nothing shows while you paste. Then press Enter.`,
+		"The key is saved only on this computer, in a file only you can read.",
+	],
+	vendor: asked.vendor,
+});
+var judgeAsk = {
+	needer: "The patient-data check",
+	question: [
+		"Paste the OpenAI API key your organization gave you for the patient-data check.",
+		"Nothing shows while you paste. Then press Enter.",
+	],
+	vendor: "openai",
+};
+var misfitOf = (ask, key) => {
+	const wanted = vendorWords[ask.vendor];
+	const kind = pipe(
+		tokenKinds,
+		findFirst2(([prefix]) => startsWith(prefix)(key)),
+		flatMap(([, known]) => known),
+	);
+	return pipe(
+		kind,
+		flatMap(({ scheme, vendor }) => {
+			if (vendor !== ask.vendor) {
+				return some2(
+					`That is an ${vendorWords[vendor].name} key. ${ask.needer} needs an ${wanted.name} key, which starts with ${wanted.prefix}. Nothing was saved.`,
+				);
+			}
+			if (scheme === "oauth") {
+				return some2(
+					`That is a Claude subscription token, not an API key. Setup needs the API key your organization gave you for patient data. Nothing was saved. Paste a key that starts with ${wanted.prefix}.`,
+				);
+			}
+			return none2();
+		}),
+	);
+};
+var unaccepted = {
+	refused: (name) =>
+		`${name} refused that key. Nothing was saved or changed. Check it with whoever gave it to you, then rerun the command.`,
+	unanswered: (name) =>
+		`Setup could not reach ${name} to check that key. Nothing was saved or changed. Check your connection, then rerun the command.`,
+};
+var endedEarly = stopped("Setup ended before it got a key. Nothing was saved or changed.");
+var accepted = fnUntraced2(function* accepted(vendor, key) {
+	const checks = yield* KeyChecks;
+	const answer = yield* checks.check(vendor, key);
+	if (answer !== "accepted") {
+		return yield* stopped(unaccepted[answer](vendorWords[vendor].name));
+	}
+	return { key, vendor };
+});
+var pasted = fnUntraced2(function* pasted(ask) {
+	yield* log2(
+		join(
+			ask.question,
+			`
+`,
+		),
+	);
+	const line = yield* flatMap6(hiddenLine("Key: "), (read) => mapError2(fromOption3(read), () => endedEarly));
+	const key = trim(value2(line));
+	const misfit = misfitOf(ask, key);
+	if (isSome2(misfit)) {
+		return yield* stopped(misfit.value);
+	}
+	yield* log2("");
+	return yield* accepted(ask.vendor, make23(key));
+});
+var stillHeld = fnUntraced2(function* stillHeld(vendor, fresh) {
+	const saved = yield* savedKey(vendor);
+	const kept = pipe(
+		saved,
+		filter(() => !fresh),
+	);
+	if (isNone2(kept)) {
+		return none2();
+	}
+	const checks = yield* KeyChecks;
+	const answer = yield* checks.check(vendor, kept.value);
+	return liftPredicate({ key: kept.value, vendor }, () => answer === "accepted");
+});
+var savedKeys = fnUntraced2(function* savedKeys(keys) {
+	yield* forEach2(keys, ({ key, vendor }) => saveKey(vendor, key), { concurrency: 1, discard: true });
+	return yield* all4({ anthropic: keyFileOf("anthropic"), openai: keyFileOf("openai") }, { concurrency: 1 });
+});
+
+// src/router/features/cli/setup-harnesses.ts
+var harnesses = {
+	claude: {
+		end: () => [
+			"Done. Claude Code windows that were already open, including the one you",
+			"started from, stop answering. Close them.",
+			"Undo any time with: npx phi-router off claude",
+			"",
+			"Press Enter to start Claude Code with phi-router.",
+		],
+		install: (source) => [
+			["claude", "plugin", "install", "phi-router", "--marketplace", source.marketplace, "--scope", "user"],
+		],
+		installed: installedPlugin2("", plugin2),
+		start: ["claude"],
+		subscription: "Claude",
+		switched: as2(switchedOn2(""), some2("Claude Code now sends its requests through phi-router")),
+		test: claudeCanary,
+		title: "Claude Code",
+		vendor: "anthropic",
+	},
+	codex: {
+		end: () => [
+			"Done. Close any Codex window that was already open, and use the one setup starts.",
+			"Undo any time with: npx phi-router off codex",
+			"",
+			"Press Enter to start Codex. It asks once to review phi-router's hooks.",
+			'Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.',
+		],
+		install: (source) => [
+			["codex", "plugin", "marketplace", "add", source.marketplace],
+			["codex", "plugin", "add", plugin2],
+		],
+		installed: gen3(function* codexInstalled() {
+			const path = yield* Path;
+			const home = yield* codexHome("");
+			return yield* installedPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
+		}),
+		start: ["codex"],
+		subscription: "ChatGPT",
+		switched: as2(codexSwitchedOn(""), some2("Codex now sends its requests through phi-router")),
+		test: fnUntraced2(function* codexTest(folder) {
+			const home = yield* codexHome("");
+			return yield* codexCanary({ folder, home, trust: "" });
+		}),
+		title: "Codex",
+		vendor: "openai",
+	},
+	pi: {
+		end: (source) => [
+			"Done. Close any pi window that was already open, and use the one setup starts.",
+			`Undo any time with: pi remove ${source.package}`,
+			"",
+			"Press Enter to start pi on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.",
+		],
+		install: (source) => [["pi", "install", source.package]],
+		installed: map7(
+			installedPackage(""),
+			map(({ folder }) => folder),
+		),
+		start: ["pi", "--model", "phi/auto"],
+		subscription: "Claude",
+		switched: succeed6(none2()),
+		test: piCanary,
+		title: "pi",
+		vendor: "anthropic",
+	},
+};
+
+// src/router/features/cli/setup.ts
+var repository = "drsh4dow/phi-router";
+var judgeEndpoint = "https://api.openai.com/v1";
+var baaStates = { held: "already set up", needed: "needs an API key" };
+var columnGap = 3;
+var header = (name, baa) => {
+	const { subscription } = harnesses[name];
+	const rows = [
+		[`Your ${subscription} subscription`, "already set up"],
+		["Your BAA account", baaStates[baa]],
+	];
+	const width =
+		Math.max(
+			...pipe(
+				rows,
+				map4(([label]) => label.length),
+			),
+		) + columnGap;
+	const lines = pipe(
+		rows,
+		map4(([label, state]) => `  ${padEnd(width)(label)}${state}`),
+	);
+	return join(
+		[`phi-router keeps patient data off your ${subscription} subscription.`, "", ...lines, ""],
+		`
+`,
+	);
+};
+var keysOf = fnUntraced2(function* keysOf(name, fresh) {
+	const { title, vendor } = harnesses[name];
+	const judged = yield* judgeNamed;
+	const baa = yield* stillHeld(vendor, fresh);
+	const judge = yield* transposeOption2(
+		liftPredicate(judgeAsk, () => !judged && vendor !== "openai").pipe(
+			map((ask) => map7(stillHeld(ask.vendor, fresh), (saved) => ({ ask, saved }))),
+		),
+	);
+	yield* log2(header(name, match(baa, { onNone: () => "needed", onSome: () => "held" })));
+	const needed = [{ ask: baaAsk({ needer: title, vendor }), saved: baa }, ...toArray(judge)];
+	const keys = yield* forEach2(
+		needed,
+		({ ask, saved }) => match(saved, { onNone: () => pasted(ask), onSome: succeed6 }),
+		{ concurrency: 1 },
+	);
+	yield* log2(`✓ ${vendorWords[vendor].name} accepted the key`);
+	return keys;
+});
+var configured = fnUntraced2(function* configured(name, keys) {
+	const { title, vendor } = harnesses[name];
+	const files = yield* savedKeys(keys);
+	yield* addAccounts({
+		accounts: [
+			{ account: { forwarded: true, vendor }, lane: "clean" },
+			{ account: { keyFile: files[vendor], scheme: "apiKey", vendor }, lane: "sealed" },
+		],
+		judge: { endpoint: judgeEndpoint, keyFile: files.openai },
+	}).pipe(
+		mapError2((error) =>
+			stopped(
+				`Setup could not write config.json, so ${title} was left as it was. Your key is saved. ${error.message}`,
+			),
+		),
+	);
+});
+var succeeded4 = 0;
+var installFailure = (name, turn) => {
+	const {
+		start: [binary],
+		title,
+	} = harnesses[name];
+	if (turn.kind === "notStarted") {
+		return some2(`Setup could not find ${binary}. Install ${title}, then rerun the command.`);
+	}
+	if (turn.kind === "timedOut") {
+		return some2(`The install in ${title} took over 2 minutes.`);
+	}
+	return liftPredicate(
+		`The install in ${title} failed:
+${turn.printed}`,
+		() => turn.exitCode !== succeeded4,
+	);
+};
+var installedIn = fnUntraced2(function* installedIn(name, source) {
+	const { install, installed, title } = harnesses[name];
+	const before = yield* installed;
+	const installs = match(before, { onNone: () => install(source), onSome: () => [] });
+	yield* forEach2(
+		installs,
+		(argv) =>
+			flatMap6(installRun(argv), (turn) =>
+				match(installFailure(name, turn), {
+					onNone: () => void_3,
+					onSome: (failure) =>
+						stopped(`${failure}
+${title} was left as it was. Your key is saved.`),
+				}),
+			),
+		{ concurrency: 1, discard: true },
+	);
+	const folder = yield* pipe(
+		installed,
+		flatMap6(fromOption3),
+		mapError2(() => stopped(`${title} did not install phi-router. Your key is saved.`)),
+	);
+	yield* log2(`✓ Installed phi-router in ${title}`);
+	return folder;
+});
+var tested = fnUntraced2(function* tested(name, folder) {
+	const { test, title } = harnesses[name];
+	const failed = stopped(
+		`The test failed, so ${title} was left as it was. Your key is saved. For details, run: npx phi-router doctor ${name}`,
+	);
+	const checks = yield* mapError2(test(folder), () => failed);
+	const passed = pipe(
+		checks,
+		every((check) => check.passed),
+	);
+	if (!passed) {
+		return yield* failed;
+	}
+	return yield* log2("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
+});
+var switched = fnUntraced2(function* switched(name) {
+	const { title } = harnesses[name];
+	const writing = gen3(function* writing() {
+		const line = yield* harnesses[name].switched;
+		yield* forEach2(toArray(line), (said) => log2(`✓ ${said}`), {
+			concurrency: 1,
+			discard: true,
+		});
+	});
+	yield* mapError2(writing, (error) =>
+		stopped(`Setup could not change the settings of ${title}. Your key is saved. ${error.message}`),
+	);
+});
+var sourceOf = (checkout) => {
+	if (isUndefined(checkout)) {
+		return { marketplace: repository, package: `git:github.com/${repository}` };
+	}
+	return { marketplace: checkout, package: checkout };
+};
+var noTerminal = stopped(
+	"phi-router setup asks for a key, so it needs your own terminal. Run it yourself, outside your coding agent. Nothing was changed.",
+);
+var setup = fn2("setup")(function* setup(name, checkout, fresh) {
+	const { end, start } = harnesses[name];
+	const source = sourceOf(checkout);
+	yield* filterOrFail2(isTerminal, Boolean, () => noTerminal);
+	yield* flatMap6(keysOf(name, fresh), (keys) => configured(name, keys));
+	const folder = yield* installedIn(name, source);
+	yield* tested(name, folder);
+	yield* switched(name);
+	yield* log2(
+		join(
+			["", ...end(source)],
+			`
+`,
+		),
+	);
+	yield* when2(asVoid2(handedOver(start)), enterPressed);
+});
+var flags = {
+	newKey: Boolean8("new-key").pipe(withDefault5(false)),
+	source: optional5(Directory3("source", { mustExist: true })),
+};
+var claude = make56("claude", flags, (given) => setup("claude", getOrUndefined(given.source), given.newKey));
+var codex = make56("codex", flags, (given) => setup("codex", getOrUndefined(given.source), given.newKey));
+var pi = make56("pi", flags, (given) => setup("pi", getOrUndefined(given.source), given.newKey));
+var setupCommand = make56("setup").pipe(withSubcommands([claude, codex, pi]), provide6(KeyChecks.layer));
 
 // src/router/features/cli/adapters.ts
 var address = String12("address");
@@ -39197,6 +39686,7 @@ var adapterCommands = [
 	make56("on").pipe(withSubcommands([claudeOn, codexOn])),
 	make56("off").pipe(withSubcommands([claudeOff, codexOff])),
 	make56("doctor").pipe(withSubcommands([claudeDoctor, codexDoctor, piDoctor])),
+	setupCommand,
 ];
 
 // src/router/client/seal-notices.ts
@@ -39233,7 +39723,7 @@ var sessionPaths = { pin: "/phi-router/pin", status: "/phi-router/status" };
 var ok2 = 200;
 var unanswered = (reason) => ({ reason });
 var noRouter = unanswered("no router answers there");
-var patience = "5 seconds";
+var patience2 = "5 seconds";
 var stalled = unanswered("it took a request and gave no answer within 5 seconds");
 
 class SessionRequests extends Service()("phi-router/router/client/session-request/SessionRequests") {
@@ -39250,7 +39740,7 @@ class SessionRequests extends Service()("phi-router/router/client/session-reques
 					),
 					flatMap6((response) => mapError2(response.text, () => noRouter)),
 					scoped2,
-					timeoutOrElse2({ duration: patience, orElse: () => fail7(stalled) }),
+					timeoutOrElse2({ duration: patience2, orElse: () => fail7(stalled) }),
 					provideService2(TracerPropagationEnabled, false),
 				);
 			const pin = fn2("SessionRequests.pin")(function* pin2(port, request) {
@@ -40396,7 +40886,7 @@ var completed = (lines) => {
 		)
 	);
 };
-var keysOf = (data) =>
+var keysOf2 = (data) =>
 	match(readEvent(data), {
 		onNone: () => succeed6([]),
 		onSome: ({ item: { summary = [] } }) =>
@@ -40428,7 +40918,7 @@ var cleanLaneKeys = (reply) => {
 		lines,
 		flatMap3((line) => toArray(dataOf(line))),
 	);
-	return map7(forEach2(data, keysOf, { concurrency: 1 }), flatten2);
+	return map7(forEach2(data, keysOf2, { concurrency: 1 }), flatten2);
 };
 var reasoningRejected = (answer) => includes('"invalid_encrypted_content"')(answer);
 // src/router/features/codex/catalog.ts
@@ -41789,7 +42279,7 @@ var AnthropicError = fromJsonString2(
 		type: Literal2("error"),
 	}),
 );
-var claude = {
+var claude2 = {
 	decode: (body, openWrote) =>
 		mapError2(decodeRequest2(body, openWrote, "claude"), ({ reason }) => Unreadable2.make({ reason })),
 	errorBody: (status, message) =>
@@ -41804,7 +42294,7 @@ var claude = {
 	sessionHeader: "x-claude-code-session-id",
 };
 var piNames = piWire.models;
-var pi = {
+var pi2 = {
 	decode: (body, openWrote) =>
 		mapBoth2(decodeRequest2(body, openWrote, "pi"), {
 			onFailure: ({ reason }) => Unreadable2.make({ reason }),
@@ -41813,14 +42303,14 @@ var pi = {
 					model: getOrElse(get2(piNames, decoded.model), () => decoded.model),
 				}),
 		}),
-	errorBody: claude.errorBody,
+	errorBody: claude2.errorBody,
 	harness: "pi",
 	replyKeys,
 	sessionHeader: piWire.sessionHeader,
 };
 var piMessages = `${piWire.base}/v1/messages`;
 var OpenAiError = fromJsonString2(Struct({ error: Struct({ message: String7, type: String7 }) }));
-var codex = {
+var codex2 = {
 	decode: (body, openWrote) => mapError2(decodeRequest(body, openWrote), ({ reason }) => Unreadable2.make({ reason })),
 	errorBody: (status, message) =>
 		orDie2(encodeEffect(OpenAiError)({ error: { message, type: errorType(status, "server_error") } })),
@@ -41847,7 +42337,7 @@ var unwalked = (of) => {
 	const send = assign(models[start.lane], { reason: "router failure" });
 	return { send, start, stops: [] };
 };
-var stopped = (of) => {
+var stopped2 = (of) => {
 	const { aim, spend, walked } = of;
 	const at = current(aim.walk);
 	const here = filter(last(walked.stops), (last2) => last2.at.account === at.account);
@@ -42019,7 +42509,7 @@ var dispatched = fnUntraced2(function* dispatched(arrival) {
 	const walked = yield* make36(unwalked({ arrival, walk }));
 	const stopping = (aim, spend) =>
 		modify(walked, (now) => {
-			const { after, before } = stopped({ aim, spend, walked: now });
+			const { after, before } = stopped2({ aim, spend, walked: now });
 			return [before, after];
 		});
 	const walking = assign(arrival, { stopping });
@@ -42102,7 +42592,7 @@ var listedWith = fnUntraced2(function* listedWith(accounts, incoming, query) {
 	const text = yield* mkString(decodeText2(answer.body));
 	const listed = yield* catalogWith({ copyOf: accounts.targetModel, slug: auto3 })(text);
 	return yield* match(listed, {
-		onNone: () => refusal(codex, statuses3.refused, `the catalog lists no ${accounts.targetModel}`),
+		onNone: () => refusal(codex2, statuses3.refused, `the catalog lists no ${accounts.targetModel}`),
 		onSome: (body) => succeed6({ body, kind: "whole", status: statuses3.ok }),
 	});
 });
@@ -42111,8 +42601,8 @@ var models = (accounts) => (incoming) => {
 		return succeed6(notFound4);
 	}
 	return match(catalogQuery(incoming.query), {
-		onNone: () => refusal(codex, statuses3.unreadable, "phi-router forwards client_version only as a version"),
-		onSome: (query) => listedWith(accounts, incoming, query).pipe(catchTags2(accountFailures(codex))),
+		onNone: () => refusal(codex2, statuses3.unreadable, "phi-router forwards client_version only as a version"),
+		onSome: (query) => listedWith(accounts, incoming, query).pipe(catchTags2(accountFailures(codex2))),
 	});
 };
 
@@ -42279,7 +42769,7 @@ var callerOf = fnUntraced2(function* callerOf(named) {
 	};
 	return call;
 });
-var unauthorized = 401;
+var unauthorized2 = 401;
 var askingOf2 = fnUntraced2(function* askingOf(named) {
 	const call = yield* callerOf(named);
 	const { credential, name, vendor } = named;
@@ -42300,7 +42790,7 @@ var askingOf2 = fnUntraced2(function* askingOf(named) {
 				"chatgpt-account-id": getOrUndefined(held.login.chatgptAccount),
 			});
 			const answer = yield* call({ headers, to });
-			if (answer.status !== unauthorized) {
+			if (answer.status !== unauthorized2) {
 				return answer;
 			}
 			yield* held.rejected;
@@ -42586,10 +43076,10 @@ var Router = flow(
 				),
 			);
 		return serve3([
-			{ answer: anthropic(claude), method: "POST", path: "/v1/messages" },
-			{ answer: anthropic(pi), method: "POST", path: piMessages },
+			{ answer: anthropic(claude2), method: "POST", path: "/v1/messages" },
+			{ answer: anthropic(pi2), method: "POST", path: piMessages },
 			{
-				answer: openai((accounts) => answer(assign(shared, { accounts, wire: codex }))),
+				answer: openai((accounts) => answer(assign(shared, { accounts, wire: codex2 }))),
 				method: "POST",
 				path: "/v1/responses",
 			},
@@ -42604,7 +43094,7 @@ var Router = flow(
 );
 
 // src/router/features/cli/start.ts
-var patience2 = "10 seconds";
+var patience3 = "10 seconds";
 var pause = "50 millis";
 var Reason = Literals(["noBaaKey", "notRunning", "notStarted", "notYours"]);
 var said = {
@@ -42659,7 +43149,7 @@ var start = fn2("start")(function* start(request, port, harness) {
 		tap2((asked) => when2(unanswered, succeed6(asked === "unanswered"))),
 		repeat2({ schedule: spaced(pause), until: settled }),
 		timeoutOrElse2({
-			duration: patience2,
+			duration: patience3,
 			orElse: () => fail7(failed("notStarted")),
 		}),
 	);
@@ -42685,7 +43175,7 @@ var providerSwitches = [
 	"CLAUDE_CODE_USE_GATEWAY",
 ];
 var hookHarness = { false: "codex", true: "claude" };
-var switchedOn2 = ["1", "true", "yes", "on"];
+var switchedOn3 = ["1", "true", "yes", "on"];
 
 class MovedOff extends TaggedError3()("MovedOff", {
 	setting: String7,
@@ -42707,7 +43197,7 @@ var movedBy = fnUntraced2(function* movedBy(address) {
 	);
 	const switched = pipe(
 		values,
-		findFirst2(({ value }) => contains2(switchedOn2, toLowerCase(trim(value)))),
+		findFirst2(({ value }) => contains2(switchedOn3, toLowerCase(trim(value)))),
 		map(({ name }) => name),
 	);
 	return match(installed, {
@@ -42976,12 +43466,12 @@ var serve4 = fnUntraced2(function* serve(port) {
 
 // src/router/features/cli/router-commands.ts
 var folder = String12(spelling.start.folder);
-var claude2 = Boolean8("claude").pipe(withDefault5(false));
+var claude3 = Boolean8("claude").pipe(withDefault5(false));
 var routerCommands = [
 	make56(spelling.start.name, { folder, pid, port, session }, (flags) =>
 		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port, "pi"),
 	).pipe(provide6(Proofs.layer)),
-	make56("session-start", { address, claude: claude2, pid }, (flags) => sessionStart(flags)).pipe(
+	make56("session-start", { address, claude: claude3, pid }, (flags) => sessionStart(flags)).pipe(
 		unlisted,
 		provide6(Proofs.layer),
 	),

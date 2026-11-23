@@ -102,7 +102,8 @@ const hooksRan = Effect.fnUntraced(function* hooksRan(folder: string) {
 
 /**
  * A stand-in for `codex exec` in `check`, which has no real binary. It reads `$CODEX_HOME/config.toml`, runs the
- * SessionStart hooks of each installed plugin when the config holds the hook's trust, posts one streamed Responses
+ * SessionStart hooks of each installed plugin when the config holds the hook's trust or the run bypasses hook trust, as
+ * `--dangerously-bypass-hook-trust` does, posts one streamed Responses
  * request with the prompt to the provider's `base_url`, reads the whole reply, and exits 0 when it was answered 200.
  */
 const started = Effect.gen(function* started() {
@@ -111,7 +112,7 @@ const started = Effect.gen(function* started() {
 	const config = yield* fs.readFileString(`${codexHome}/config.toml`);
 	const folders = yield* pluginFolders(codexHome);
 
-	if (Str.includes(trustTable)(config)) {
+	if (Str.includes(trustTable)(config) || process.argv.includes("--dangerously-bypass-hook-trust")) {
 		yield* Effect.forEach(folders, hooksRan, { concurrency: 1, discard: true });
 	}
 

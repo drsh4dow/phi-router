@@ -1,0 +1,262 @@
+import { Array, Console, Effect, Option, Predicate, String as Str, pipe } from "effect";
+import { Command, Flag } from "effect/cli";
+import type { HarnessName, Source } from "./setup-harnesses.ts";
+import { addAccounts, judgeNamed } from "#router/client/config-writer.ts";
+import { baaAsk, judgeAsk, pasted, savedKeys, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
+import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
+import type { HeldKey } from "./setup-keys.ts";
+import { KeyChecks } from "#router/client/key-check.ts";
+import type { Turn } from "#router/client/harness-turn.ts";
+import { harnesses } from "./setup-harnesses.ts";
+import { installRun } from "#router/client/harness-turn.ts";
+
+/** The repository setup installs from unless `--source` names a checkout. */
+const repository = "drsh4dow/phi-router";
+
+/** The judge's endpoint when `config.json` names no judge. */
+const judgeEndpoint = "https://api.openai.com/v1";
+
+/** What the screen says of the BAA account: a key saved and still accepted, or none yet. */
+const baaStates = { held: "already set up", needed: "needs an API key" } as const;
+
+/** The spaces between a row's label and its state. */
+const columnGap = 3;
+
+/**
+ * The screen's first lines: what setup protects, and which of the two accounts still needs a key.
+ *
+ * @param {HarnessName} name The harness.
+ * @param {string} baa The BAA account's state.
+ * @returns {string} The lines.
+ */
+const header = (name: HarnessName, baa: keyof typeof baaStates): string => {
+	const { subscription } = harnesses[name];
+
+	const rows = [
+		[`Your ${subscription} subscription`, "already set up"],
+		["Your BAA account", baaStates[baa]],
+	] as const;
+
+	const width =
+		Math.max(
+			...pipe(
+				rows,
+				Array.map(([label]) => label.length),
+			),
+		) + columnGap;
+
+	const lines = pipe(
+		rows,
+		Array.map(([label, state]) => `  ${Str.padEnd(width)(label)}${state}`),
+	);
+
+	return Array.join([`phi-router keeps patient data off your ${subscription} subscription.`, "", ...lines, ""], "\n");
+};
+
+/**
+ * The keys setup needs, each saved one its vendor still accepts, the rest asked for: the BAA account's key, and the
+ * judge's OpenAI key when `config.json` names no judge and the BAA key is no OpenAI key.
+ */
+const keysOf = Effect.fnUntraced(function* keysOf(name: HarnessName, fresh: boolean) {
+	const { title, vendor } = harnesses[name];
+	const judged = yield* judgeNamed;
+	const baa = yield* stillHeld(vendor, fresh);
+
+	const judge = yield* Effect.transposeOption(
+		Option.liftPredicate(judgeAsk, () => !judged && vendor !== "openai").pipe(
+			Option.map((ask) => Effect.map(stillHeld(ask.vendor, fresh), (saved) => ({ ask, saved }))),
+		),
+	);
+
+	yield* Console.log(header(name, Option.match(baa, { onNone: () => "needed", onSome: () => "held" })));
+
+	const needed = [{ ask: baaAsk({ needer: title, vendor }), saved: baa }, ...Option.toArray(judge)];
+
+	const keys = yield* Effect.forEach(
+		needed,
+		({ ask, saved }) => Option.match(saved, { onNone: () => pasted(ask), onSome: Effect.succeed }),
+		{ concurrency: 1 },
+	);
+
+	yield* Console.log(`✓ ${vendorWords[vendor].name} accepted the key`);
+
+	return keys;
+});
+
+/** Saves the keys, then names them in `config.json`: the harness's login on the clean lane, the BAA key on the sealed. */
+const configured = Effect.fnUntraced(function* configured(name: HarnessName, keys: readonly HeldKey[]) {
+	const { title, vendor } = harnesses[name];
+	const files = yield* savedKeys(keys);
+
+	yield* addAccounts({
+		accounts: [
+			{ account: { forwarded: true, vendor }, lane: "clean" },
+			{ account: { keyFile: files[vendor], scheme: "apiKey", vendor }, lane: "sealed" },
+		],
+		judge: { endpoint: judgeEndpoint, keyFile: files.openai },
+	}).pipe(
+		Effect.mapError((error) =>
+			stopped(
+				`Setup could not write config.json, so ${title} was left as it was. Your key is saved. ${error.message}`,
+			),
+		),
+	);
+});
+
+const succeeded = 0;
+
+/**
+ * Why an install command failed, as the human reads it, none when it exited 0.
+ *
+ * @param {HarnessName} name The harness.
+ * @param {Turn} turn How the command ended.
+ * @returns {Option.Option<string>} The copy.
+ */
+const installFailure = (name: HarnessName, turn: Turn): Option.Option<string> => {
+	const {
+		start: [binary],
+		title,
+	} = harnesses[name];
+
+	if (turn.kind === "notStarted") {
+		return Option.some(`Setup could not find ${binary}. Install ${title}, then rerun the command.`);
+	}
+
+	if (turn.kind === "timedOut") {
+		return Option.some(`The install in ${title} took over 2 minutes.`);
+	}
+
+	return Option.liftPredicate(`The install in ${title} failed:\n${turn.printed}`, () => turn.exitCode !== succeeded);
+};
+
+/** Runs the harness's installer when it has not installed phi-router yet, and gives the folder it installed it in. */
+const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, source: Source) {
+	const { install, installed, title } = harnesses[name];
+	const before = yield* installed;
+
+	const installs = Option.match(before, { onNone: () => install(source), onSome: () => [] });
+
+	yield* Effect.forEach(
+		installs,
+		(argv) =>
+			Effect.flatMap(installRun(argv), (turn) =>
+				Option.match(installFailure(name, turn), {
+					onNone: () => Effect.void,
+					onSome: (failure) => stopped(`${failure}\n${title} was left as it was. Your key is saved.`),
+				}),
+			),
+		{ concurrency: 1, discard: true },
+	);
+
+	const folder = yield* pipe(
+		installed,
+		Effect.flatMap(Effect.fromOption),
+		Effect.mapError(() => stopped(`${title} did not install phi-router. Your key is saved.`)),
+	);
+
+	yield* Console.log(`✓ Installed phi-router in ${title}`);
+
+	return folder;
+});
+
+/** Runs the canary through the install in `folder`, and stops setup unless it reached the BAA mock alone. */
+const tested = Effect.fnUntraced(function* tested(name: HarnessName, folder: string) {
+	const { test, title } = harnesses[name];
+
+	const failed = stopped(
+		`The test failed, so ${title} was left as it was. Your key is saved. For details, run: npx phi-router doctor ${name}`,
+	);
+
+	const checks = yield* Effect.mapError(test(folder), () => failed);
+
+	const passed = pipe(
+		checks,
+		Array.every((check) => check.passed),
+	);
+
+	if (!passed) {
+		return yield* failed;
+	}
+
+	return yield* Console.log("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
+});
+
+/** Writes the harness's own settings, the last change setup makes, and prints the line that says so. */
+const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
+	const { title } = harnesses[name];
+
+	const writing = Effect.gen(function* writing() {
+		const line = yield* harnesses[name].switched;
+
+		yield* Effect.forEach(Option.toArray(line), (said) => Console.log(`✓ ${said}`), {
+			concurrency: 1,
+			discard: true,
+		});
+	});
+
+	yield* Effect.mapError(writing, (error) =>
+		stopped(`Setup could not change the settings of ${title}. Your key is saved. ${error.message}`),
+	);
+});
+
+/**
+ * What each installer takes: the repository, or the checkout `--source` names.
+ *
+ * @param {string | undefined} checkout The checkout, if one is named.
+ * @returns {Source} The source.
+ */
+const sourceOf = (checkout: string | undefined): Source => {
+	if (Predicate.isUndefined(checkout)) {
+		return { marketplace: repository, package: `git:github.com/${repository}` };
+	}
+
+	return { marketplace: checkout, package: checkout };
+};
+
+const noTerminal = stopped(
+	"phi-router setup asks for a key, so it needs your own terminal. Run it yourself, outside your coding agent. Nothing was changed.",
+);
+
+/**
+ * `phi-router setup <harness>`: asks for the BAA account's key at a hidden prompt, checks it with its vendor, saves it,
+ * names it in `config.json`, installs phi-router with the harness's own installer, runs the canary test through it,
+ * writes the harness's settings last, and starts the harness on Enter. It needs a terminal. Each step changes only what
+ * differs, so a rerun with a saved key that still works asks nothing and changes no file.
+ */
+const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: string | undefined, fresh: boolean) {
+	const { end, start } = harnesses[name];
+	const source = sourceOf(checkout);
+
+	yield* Effect.filterOrFail(isTerminal, Boolean, () => noTerminal);
+	yield* Effect.flatMap(keysOf(name, fresh), (keys) => configured(name, keys));
+
+	const folder = yield* installedIn(name, source);
+
+	yield* tested(name, folder);
+	yield* switched(name);
+	yield* Console.log(Array.join(["", ...end(source)], "\n"));
+	yield* Effect.when(Effect.asVoid(handedOver(start)), enterPressed);
+});
+
+const flags = {
+	newKey: Flag.Boolean("new-key").pipe(Flag.withDefault(false)),
+	source: Flag.optional(Flag.Directory("source", { mustExist: true })),
+};
+
+const claude = Command.make("claude", flags, (given) =>
+	setup("claude", Option.getOrUndefined(given.source), given.newKey),
+);
+
+const codex = Command.make("codex", flags, (given) =>
+	setup("codex", Option.getOrUndefined(given.source), given.newKey),
+);
+
+const pi = Command.make("pi", flags, (given) => setup("pi", Option.getOrUndefined(given.source), given.newKey));
+
+/** `phi-router setup claude|codex|pi [--source <checkout>] [--new-key]`. */
+const setupCommand = Command.make("setup").pipe(
+	Command.withSubcommands([claude, codex, pi]),
+	Command.provide(KeyChecks.layer),
+);
+
+export { setupCommand };

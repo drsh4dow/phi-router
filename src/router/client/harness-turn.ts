@@ -1,7 +1,6 @@
 import { Array, Config, Effect, Option, Path, String as Str, Stream, pipe } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { PlatformError, Scope } from "effect";
-import type { ChildProcess } from "effect/process";
-import { ChildProcessSpawner } from "effect/process";
 import { loopback } from "./server.ts";
 
 /** How one headless harness turn ended. */
@@ -48,6 +47,16 @@ const harnessTurn = <Asked, Failure, Needs>(
 		Effect.map(Option.getOrElse((): Turn => ({ kind: "timedOut" }))),
 		Effect.scoped,
 	);
+
+/**
+ * Runs one installer command, such as `claude plugin install`, in the caller's environment with no stdin, so it asks
+ * nothing, and ends it after 2 minutes.
+ */
+const installRun = harnessTurn((argv: readonly [string, ...string[]]) => {
+	const [command, ...args] = argv;
+
+	return Effect.succeed(ChildProcess.make(command, args, { stdin: "ignore" }));
+});
 
 /**
  * A harness's own folder: the folder a command names when it is not empty, else the environment variable
@@ -98,6 +107,6 @@ const behindDeadProxy = {
 	no_proxy: developerExemption,
 } as const;
 
-export { behindDeadProxy, harnessFolder, harnessTurn };
+export { behindDeadProxy, harnessFolder, harnessTurn, installRun };
 
 export type { Turn };
