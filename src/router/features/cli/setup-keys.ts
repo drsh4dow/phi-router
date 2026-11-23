@@ -53,16 +53,6 @@ const baaAsk = (asked: { readonly vendor: Vendor; readonly needer: string }): Ke
 	vendor: asked.vendor,
 });
 
-/** The question for the judge's OpenAI key, asked until the judge runs on an Anthropic key. */
-const judgeAsk: KeyAsk = {
-	needer: "The patient-data check",
-	question: [
-		"Paste the OpenAI API key your organization gave you for the patient-data check.",
-		"Nothing shows while you paste. Then press Enter.",
-	],
-	vendor: "openai",
-};
-
 /**
  * What a key's prefix says it is. None when no known prefix fits.
  *
@@ -255,13 +245,13 @@ const stillHeld = Effect.fnUntraced(function* stillHeld(vendor: Vendor, fresh: b
 	return Option.liftPredicate({ key: kept.value, vendor } satisfies HeldKey, () => answer === "accepted");
 });
 
-/** Saves each key in its vendor's key file, and gives each vendor's key file. */
-const savedKeys = Effect.fnUntraced(function* savedKeys(keys: readonly HeldKey[]) {
-	yield* Effect.forEach(keys, ({ key, vendor }) => saveKey(vendor, key), { concurrency: 1, discard: true });
+/** Saves the key in its vendor's key file, and gives the file. */
+const savedKeyFile = Effect.fnUntraced(function* savedKeyFile({ key, vendor }: HeldKey) {
+	yield* saveKey(vendor, key);
 
-	return yield* Effect.all({ anthropic: keyFileOf("anthropic"), openai: keyFileOf("openai") }, { concurrency: 1 });
+	return yield* keyFileOf(vendor);
 });
 
-export { baaAsk, keyFor, judgeAsk, savedKeys, stillHeld, stopped, vendorWords };
+export { baaAsk, keyFor, savedKeyFile, stillHeld, stopped, vendorWords };
 
 export type { HeldKey };

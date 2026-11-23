@@ -1,22 +1,19 @@
 import { Array, Console, Effect, Option, Predicate, String as Str, pipe } from "effect";
 import { Command, Flag } from "effect/cli";
 import type { HarnessName, Source } from "./setup-harnesses.ts";
-import { addAccounts, judgeNamed } from "#router/client/config-writer.ts";
-import { baaAsk, judgeAsk, keyFor, savedKeys, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
+import { baaAsk, keyFor, savedKeyFile, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
 import type { HeldKey } from "./setup-keys.ts";
 import { KeyChecks } from "#router/client/key-check.ts";
 import { Platform } from "./platform.ts";
 import type { Turn } from "#router/client/harness-turn.ts";
+import { addAccounts } from "#router/client/config-writer.ts";
 import { harnesses } from "./setup-harnesses.ts";
 import { installRun } from "#router/client/harness-turn.ts";
 
 /** The repository setup installs from unless `--source` names a checkout. */
 const repository = "drsh4dow/phi-router";
-
-/** The judge's endpoint when `config.json` names no judge. */
-const judgeEndpoint = "https://api.openai.com/v1";
 
 /** What the screen says of the BAA account: a key saved and still accepted, or none yet. */
 const baaStates = { held: "already set up", needed: "needs an API key" } as const;
@@ -56,46 +53,36 @@ const header = (name: HarnessName, baa: keyof typeof baaStates): string => {
 };
 
 /**
- * The keys setup needs, each saved one its vendor still accepts, the rest asked for: the BAA account's key, and the
- * judge's OpenAI key when `config.json` names no judge and the BAA key is no OpenAI key.
+ * The BAA account's key: the saved one when its vendor still accepts it, else one the human gives. The judge runs on
+ * it, so setup asks for no other key.
  */
-const keysOf = Effect.fnUntraced(function* keysOf(name: HarnessName, fresh: boolean) {
+const keyOf = Effect.fnUntraced(function* keyOf(name: HarnessName, fresh: boolean) {
 	const { title, vendor } = harnesses[name];
-	const judged = yield* judgeNamed;
-	const baa = yield* stillHeld(vendor, fresh);
+	const saved = yield* stillHeld(vendor, fresh);
 
-	const judge = yield* Effect.transposeOption(
-		Option.liftPredicate(judgeAsk, () => !judged && vendor !== "openai").pipe(
-			Option.map((ask) => Effect.map(stillHeld(ask.vendor, fresh), (saved) => ({ ask, saved }))),
-		),
-	);
+	yield* Console.log(header(name, Option.match(saved, { onNone: () => "needed", onSome: () => "held" })));
 
-	yield* Console.log(header(name, Option.match(baa, { onNone: () => "needed", onSome: () => "held" })));
-
-	const needed = [{ ask: baaAsk({ needer: title, vendor }), saved: baa }, ...Option.toArray(judge)];
-
-	const keys = yield* Effect.forEach(
-		needed,
-		({ ask, saved }) => Option.match(saved, { onNone: () => keyFor(ask), onSome: Effect.succeed }),
-		{ concurrency: 1 },
-	);
+	const key = yield* Option.match(saved, {
+		onNone: () => keyFor(baaAsk({ needer: title, vendor })),
+		onSome: Effect.succeed,
+	});
 
 	yield* Console.log(`✓ ${vendorWords[vendor].name} accepted the key`);
 
-	return keys;
+	return key;
 });
 
-/** Saves the keys, then names them in `config.json`: the harness's login on the clean lane, the BAA key on the sealed. */
-const configured = Effect.fnUntraced(function* configured(name: HarnessName, keys: readonly HeldKey[]) {
-	const { title, vendor } = harnesses[name];
-	const files = yield* savedKeys(keys);
+/** Saves the key, then names it in `config.json`: the harness's login on the clean lane, the BAA key on the sealed. */
+const configured = Effect.fnUntraced(function* configured(name: HarnessName, held: HeldKey) {
+	const { title } = harnesses[name];
+	const { vendor } = held;
+	const keyFile = yield* savedKeyFile(held);
 
 	yield* addAccounts({
 		accounts: [
 			{ account: { forwarded: true, vendor }, lane: "clean" },
-			{ account: { keyFile: files[vendor], scheme: "apiKey", vendor }, lane: "sealed" },
+			{ account: { keyFile, scheme: "apiKey", vendor }, lane: "sealed" },
 		],
-		judge: { endpoint: judgeEndpoint, keyFile: files.openai },
 	}).pipe(
 		Effect.mapError((error) =>
 			stopped(
@@ -245,7 +232,7 @@ const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: st
 	const source = yield* Effect.mapError(sourceOf(checkout), () => noVersion);
 
 	yield* Effect.filterOrFail(isTerminal, Boolean, () => noTerminal);
-	yield* Effect.flatMap(keysOf(name, fresh), (keys) => configured(name, keys));
+	yield* Effect.flatMap(keyOf(name, fresh), (key) => configured(name, key));
 
 	yield* tested(name);
 	yield* installedIn(name, source);

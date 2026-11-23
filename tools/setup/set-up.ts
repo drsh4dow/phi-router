@@ -14,13 +14,10 @@ const ok = 0;
 
 const enter: Typed = { after: "Press Enter", typed: "" };
 
-/** The two keys `setup claude` asks for, each pasted at its hidden question. */
-const keyAnswers: readonly Typed[] = [
-	{ after: "Key: ", typed: keys.anthropic },
-	{ after: "Key: ", typed: keys.openai },
-];
+/** The one key `setup claude` asks for, pasted at its hidden question. */
+const keyAnswer: Typed = { after: "Key: ", typed: keys.anthropic };
 
-const claudeAnswers: readonly Typed[] = [...keyAnswers, enter];
+const claudeAnswers: readonly Typed[] = [keyAnswer, enter];
 
 /** Claude Code's settings before setup, which a failed or stopped setup must leave byte for byte. */
 const ownSettings = '{\n  "model": "opus"\n}\n';
@@ -175,7 +172,7 @@ export {
 	claudeAnswers,
 	configOf,
 	enter,
-	keyAnswers,
+	keyAnswer,
 	keyFiles,
 	layer,
 	leaks,

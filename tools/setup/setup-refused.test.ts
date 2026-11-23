@@ -1,5 +1,5 @@
 import { Effect, FileSystem, Schedule } from "effect";
-import { argsOf, callsOf, keyAnswers, layer, ok, ownSettings, owned, patient, setUp, settled } from "./set-up.ts";
+import { argsOf, callsOf, keyAnswer, layer, ok, ownSettings, owned, patient, setUp, settled } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, snapshot, world } from "./world.ts";
 import type { World } from "./world.ts";
@@ -86,7 +86,7 @@ const failedTest = Effect.gen(function* failedTest() {
 	yield* broken(of, "fail");
 
 	const before = yield* snapshot(of.folders.CLAUDE_CONFIG_DIR);
-	const run = yield* setUp(of, "claude", keyAnswers);
+	const run = yield* setUp(of, "claude", [keyAnswer]);
 	const after = yield* snapshot(of.folders.CLAUDE_CONFIG_DIR);
 
 	assert.notStrictEqual(run.exitCode, ok, run.shown);
@@ -108,7 +108,7 @@ const stopped = Effect.gen(function* stopped() {
 		.exists(`${of.bin}/canary-ran`)
 		.pipe(Effect.repeat({ schedule: Schedule.spaced("100 millis"), until: Boolean }));
 
-	const run = setUp(of, "claude", keyAnswers);
+	const run = setUp(of, "claude", [keyAnswer]);
 	const ended = yield* Effect.raceFirst(Effect.as(run, "ended"), Effect.as(canaryRan, "killed"));
 
 	yield* Effect.sleep("1 second");

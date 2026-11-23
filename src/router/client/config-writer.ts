@@ -22,10 +22,9 @@ interface Wanted {
 	readonly account: NewAccount;
 }
 
-/** What one edit adds: accounts, each on its lane, and the judge `setup` names when the file names none. */
+/** What one edit adds: accounts, each on its lane. */
 interface Additions {
 	readonly accounts: Array.NonEmptyReadonlyArray<Wanted>;
-	readonly judge?: { readonly endpoint: string; readonly keyFile: string };
 }
 
 /** Where an add put an account: its name, whether it is new, and the account of its vendor before it on the lane. */
@@ -187,7 +186,7 @@ interface Editing {
 
 /**
  * Appends each of `additions.accounts` to its lane in `config.json` under the XDG config folder, a missing file read as
- * `{}`, names its judge when the file names none, and keeps every other field as it was, in one write. An account is
+ * `{}`, and keeps every other field as it was, in one write. An account is
  * named after its vendor, `claude-<n>`, `codex-<n>` or `openai-<n>`, with the first number no account uses. An entry on
  * either lane with the same command, key file, forwarded vendor, or folder by real path, keeps the account out. With
  * nothing to add, it writes nothing. A file the router would refuse fails with the decoder's error and is not written. The one
@@ -218,33 +217,18 @@ const addAccounts = Effect.fn("addAccounts")(function* addAccounts(additions: Ad
 		}),
 	);
 
-	const judge = pipe(
-		Option.fromUndefinedOr(additions.judge),
-		Option.filter(() => !("judge" in read)),
+	const anyAdded = pipe(
+		placed,
+		Array.some(({ added: isNew }) => isNew),
 	);
 
-	const anyAdded = Array.findFirst(placed, ({ added: isNew }) => isNew);
-
-	if (Option.isSome(judge) || Option.isSome(anyAdded)) {
-		const edited = Option.match(judge, {
-			onNone: () => added.edited,
-			onSome: (named) => Struct.assign(added.edited, { judge: named }),
-		});
-
-		yield* Effect.flatMap(Schema.encodeEffect(Editable)(edited), (text) => saved(file, text));
+	if (anyAdded) {
+		yield* Effect.flatMap(Schema.encodeEffect(Editable)(added.edited), (text) => saved(file, text));
 	}
 
 	return placed;
 });
 
-/** Whether `config.json` names a judge, false when there is no file. */
-const judgeNamed = Effect.gen(function* judgeNamed() {
-	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
-	const read = yield* Effect.flatMap(textOf(file), Schema.decodeEffect(Editable));
-
-	return "judge" in read;
-});
-
-export { addAccounts, judgeNamed };
+export { addAccounts };
 
 export type { NewAccount };
