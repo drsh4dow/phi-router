@@ -3,6 +3,10 @@ case $0 in
 */*) here=${0%/*} ;;
 *) here=. ;;
 esac
+if [ ! -f "$here/../phi-router.mjs" ]; then
+	echo 'This copy of phi-router is not built. Run bun run build in it, or install a release.' >&2
+	exit 1
+fi
 PHI_ROUTER_LAUNCHED=1
 PHI_ROUTER_GIVEN_NO_PROXY=${NO_PROXY-}
 PHI_ROUTER_GIVEN_no_proxy=${no_proxy-}

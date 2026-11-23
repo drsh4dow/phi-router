@@ -19,14 +19,14 @@
 		"comments": "ast-grep scan src tools",
 		"suppressions": "grep -rnE 'ast-grep-ignore|(oxlint|eslint)-(disable|enable)|oxfmt-ignore|@ts-(expect-error|ignore|nocheck)|@effect-diagnostics' src tools --exclude-dir=fixtures --exclude-dir=anti-slop && echo 'Fix the code the rule caught. A rule that is wrong for this repo goes to the owner, and its off line goes in .oxlintrc.jsonc with the reason.' && exit 1 || true",
 		"unused": "knip",
-		"test": "vitest run src tools --exclude 'tools/gates/fixtures/**' --exclude '.worktrees/**'",
+		"test": "bun run build && vitest run src tools --exclude 'tools/gates/fixtures/**' --exclude '.worktrees/**'",
 		"model": "vitest run tools/formal",
 		"eval:recorded": "bun tools/corpus/eval.ts",
 		"eval:live": "bun tools/corpus/eval.ts --judge live",
 		"build": "bun tools/plugin/build.ts",
 		"judge:probe": "bun tools/judge/probe.ts",
-		"wire": "bun tools/wire/run.ts",
-		"wire:accounts": "bun tools/wire/accounts.ts",
+		"wire": "bun run build && bun tools/wire/run.ts",
+		"wire:accounts": "bun run build && bun tools/wire/accounts.ts",
 		"check": "oxfmt --check && bun run lint && bun run boundaries && bun run comments && bun run suppressions && bun run unused && bun run test"
 	},
 	"devDependencies": {

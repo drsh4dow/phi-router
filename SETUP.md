@@ -9,14 +9,17 @@ A step marked **Hand-off** needs the human. Ask the question it gives, wait for 
 ## Steps
 
 1. Check the prerequisites. Each command prints a version:
-   - `bun --version` or `node --version`. The router runs on Bun when it is on `PATH`, and on Node otherwise.
+   - `bun --version`. Bun builds phi-router, and runs the router.
    - `git --version`.
    - `claude --version`, `codex --version` or `pi --version`, for the harness the human named. When they named none, ask which.
-2. Clone the repository into a folder the human keeps, such as `~/src/phi-router`. Skip this step when the human already has a checkout.
+2. Clone the repository into a folder the human keeps, such as `~/src/phi-router`, and build it. Skip the clone when the human already has a checkout.
 
    ```sh
    git clone https://github.com/drsh4dow/phi-router ~/src/phi-router
+   cd ~/src/phi-router && bun install --frozen-lockfile && bun run build
    ```
+
+   Run `bun run build` again after each `git pull`. The harnesses run the built files, which the repository does not hold.
 
    The harness pages call that folder `<checkout>`. The harness loads phi-router from it, so it stays where it is. `phi-router` on every page is the file `<checkout>/plugins/claude/bin/phi-router`, for all three harnesses. It is not on `PATH`, so run it by that path.
 
