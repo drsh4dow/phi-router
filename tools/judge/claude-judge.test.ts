@@ -103,6 +103,23 @@ const picks = [
 		name: "with no OpenAI API key, the first Anthropic account with its own credential asks the Claude judge",
 	},
 	{
+		expected: { decisions: 0, first: 0, name: "claude" as const, second: 1 },
+		file: ({ first, second }: Record<"first" | "second", string>): Json =>
+			lanes([
+				{
+					endpoint: first,
+					keyEnv: "PHI_TEST_KEY",
+					lacks: ["claude-haiku-5-5"],
+					name: "a",
+					scheme: "apiKey",
+					vendor: "anthropic",
+				},
+				keyed("anthropic", "b", second),
+				openaiFolder,
+			]),
+		name: "an Anthropic account that lacks the Claude judge's model is passed over",
+	},
+	{
 		expected: { decisions: 1, first: 0, name: "decisions" as const, second: 0 },
 		file: ({ first, decisions }: Record<"first" | "decisions", string>): Json =>
 			lanes([keyed("anthropic", "a", first), openaiFolder], {
@@ -117,7 +134,7 @@ const refused = Effect.gen(function* refused() {
 
 	assert.deepStrictEqual(
 		failed.message,
-		"phi-router: config.json names no judge, and sealed holds no account the judge can run on. Add an OpenAI API-key account, or an Anthropic account with its own key or login folder, to sealed, or add a judge block.",
+		"config.json names no judge, and sealed holds no account the judge can run on. Add an OpenAI API-key account, or an Anthropic account with its own key or login folder, to sealed, or add a judge block.",
 	);
 });
 

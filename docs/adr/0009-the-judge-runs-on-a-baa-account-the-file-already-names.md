@@ -7,7 +7,7 @@ The router picks the judge from `config.json` once, when it starts:
 3. Else the first Anthropic account on `sealed` that holds its own credential, an API key, a key command, an OAuth token or a login folder: the Claude judge, on the Messages API, with that account's credential.
 4. Else the router refuses the file: `config.json names no judge, and sealed holds no account the judge can run on.`
 
-A forwarded account holds no credential of its own, and an OpenAI login folder reaches no Decisions API, so neither can carry the judge.
+A forwarded account holds no credential of its own, and an OpenAI login folder reaches no Decisions API, so neither can carry the judge. Nor can an Anthropic account whose `lacks` names the Claude judge's model.
 
 We chose this because a Claude Code user whose BAA is with Anthropic needed an OpenAI account under a second BAA only for the judge. The sealed lane already holds a BAA account and its credential, so the judge reuses it and the file needs no second key.
 
