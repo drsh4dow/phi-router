@@ -35,7 +35,6 @@ const configuredCodex = Effect.fnUntraced(function* configuredCodex(of: World) {
 
 	assert.deepStrictEqual(config, {
 		clean: [{ forwarded: true, name: "codex-1", vendor: "openai" }],
-		judge: { endpoint: "https://api.openai.com/v1", keyFile: openai },
 		sealed: [{ keyFile: openai, name: "openai-1", scheme: "apiKey", vendor: "openai" }],
 	});
 
@@ -103,7 +102,7 @@ const piSetUp = Effect.gen(function* piSetUp() {
 
 it.layer(layer)("setup codex and setup pi", (test) => {
 	test.effect(
-		"setup codex asks one OpenAI key for the sealed lane and the judge, installs with codex, and ends with Codex's lines",
+		"setup codex asks one OpenAI key, installs with codex, and ends with Codex's lines",
 		() => codexSetUp,
 		patient,
 	);

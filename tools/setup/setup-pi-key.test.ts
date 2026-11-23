@@ -90,7 +90,7 @@ const takenOnYes = Effect.gen(function* takenOnYes() {
 
 	yield* piHolds(of, piApiKey(keys.anthropic));
 
-	const run = yield* setUp(of, "claude", [answered("y"), { after: "Key: ", typed: keys.openai }, enter]);
+	const run = yield* setUp(of, "claude", [answered("y"), enter]);
 
 	yield* assertTaken(of, run);
 	yield* assertNoLeak(of, run);
@@ -101,12 +101,7 @@ const pastedOnNo = Effect.gen(function* pastedOnNo() {
 
 	yield* piHolds(of, piApiKey(keys.anthropic));
 
-	const run = yield* setUp(of, "pi", [
-		answered("n"),
-		{ after: "Key: ", typed: keys.anthropic },
-		{ after: "Key: ", typed: keys.openai },
-		enter,
-	]);
+	const run = yield* setUp(of, "pi", [answered("n"), { after: "Key: ", typed: keys.anthropic }, enter]);
 
 	const config = yield* configOf(of);
 
