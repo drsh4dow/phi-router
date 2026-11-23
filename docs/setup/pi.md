@@ -2,6 +2,8 @@
 
 Start from [SETUP.md](../../SETUP.md). You need its `<checkout>` and the judge's endpoint, model and key source. When `PI_CODING_AGENT_DIR` is set in your shell, keep it set for every command on this page.
 
+Or hand the human one command to run in a terminal of their own, never in this chat: `<checkout>/plugins/claude/bin/phi-router setup pi --source <checkout>`. It asks at hidden prompts for the BAA account's Anthropic API key and the judge's OpenAI key, each only when setup has not saved it for Claude Code, checks each with its vendor, saves them in files only the human can read, writes `config.json`, installs the plugin, tests it with a fake patient record, turns it on, and starts pi. The steps below do the same by hand.
+
 1. Install the package. It adds the provider `phi` with the models `phi/auto`, `phi/sealed` and `phi/<id>` for each Anthropic model of pi's catalog, which runs `<id>` through the router, starts the router with each session, and answers `/phi`. The command writes one setting, the checkout's path in the `packages` list of `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json`.
 
    ```sh
