@@ -27189,9 +27189,12 @@ var Status = Struct({
 	session: SessionId,
 });
 var StatusJson = fromJsonString2(Status);
+var RoutedModels = Struct({ auto: NonEmptyString, sealed: NonEmptyString });
+var ModelsJson = fromJsonString2(Struct({ anthropic: optionalKey2(RoutedModels), openai: optionalKey2(RoutedModels) }));
 var loopback = "127.0.0.1";
 var productPort = 47411;
 var spelling = {
+	models: { name: "models" },
 	pin: { name: "pin", session: "session" },
 	program: "phi-router",
 	start: { folder: "folder", name: "start", pid: "pid", port: "port", session: "session" },
@@ -35768,12 +35771,12 @@ var lanesOf = (lanes) => (vendor) => {
 		targetModel: fromUndefinedOr(lanes.targetModel[vendor]),
 	});
 };
-var laneConfiguration = (text) =>
-	map7(decodeEffect2(LaneFile)(text), (lanes) => {
-		const of = lanesOf(lanes);
-		return { anthropic: of("anthropic"), openai: of("openai") };
-	});
-var configuredAccounts = gen3(function* configuredAccounts() {
+var byVendor = (lanes) => {
+	const of = lanesOf(lanes);
+	return { anthropic: of("anthropic"), openai: of("openai") };
+};
+var laneConfiguration = (text) => map7(decodeEffect2(LaneFile)(text), byVendor);
+var configuredFile = gen3(function* configuredFile() {
 	const fs = yield* FileSystem;
 	const file = yield* provideService2(configFile, UserDirectories, make57());
 	const exists = yield* fs.exists(file);
@@ -35781,9 +35784,17 @@ var configuredAccounts = gen3(function* configuredAccounts() {
 		return none2();
 	}
 	const text = yield* fs.readFileString(file);
-	const { clean, sealed } = yield* decodeEffect2(LaneFile)(text);
-	return some2({ clean: pipe(clean, map4(namedAccount)), sealed: pipe(sealed, map4(namedAccount)) });
+	return yield* decodeEffect2(LaneFile)(text).pipe(asSome2);
 });
+var configuredAccounts = configuredFile.pipe(
+	map7(
+		map(({ clean, sealed }) => ({
+			clean: pipe(clean, map4(namedAccount)),
+			sealed: pipe(sealed, map4(namedAccount)),
+		})),
+	),
+);
+var configuredLanes = configuredFile.pipe(map7(map(byVendor)));
 
 // src/router/client/config-writer.ts
 var Written = optionalKey2(ArraySchema(Json2));
@@ -39592,6 +39603,21 @@ var hookCommands = [
 	),
 ];
 
+// src/router/features/cli/models.ts
+var models = make56(spelling.models.name, {}, () =>
+	gen3(function* printed() {
+		const lanes = yield* configuredLanes;
+		const routed = pipe(
+			lanes,
+			map(getSomes),
+			map(map3(({ sealedModel, targetModel }) => ({ auto: targetModel, sealed: sealedModel }))),
+			getOrElse(() => ({})),
+		);
+		const line = yield* orDie2(encodeEffect(ModelsJson)(routed));
+		yield* log2(line);
+	}),
+).pipe(unlisted);
+
 // src/router/features/cli/status.ts
 var status = fn2("status")(function* status(session, port) {
 	const requests = yield* SessionRequests;
@@ -42187,7 +42213,7 @@ var listedWith = fnUntraced2(function* listedWith(accounts, incoming, query) {
 		onSome: (body) => succeed6({ body, kind: "whole", status: statuses3.ok }),
 	});
 });
-var models = (accounts) => (incoming) => {
+var models2 = (accounts) => (incoming) => {
 	if (!fromCodex(incoming.headers)) {
 		return succeed6(notFound4);
 	}
@@ -42674,7 +42700,7 @@ var Router = flow(
 				method: "POST",
 				path: "/v1/responses",
 			},
-			{ answer: openai(models), method: "GET", path: "/v1/models" },
+			{ answer: openai(models2), method: "GET", path: "/v1/models" },
 			{ answer: hello, method: "GET", path: "/api/hello" },
 			...sessionRows({ routing: shared, served: () => served }),
 			...others,
@@ -42821,7 +42847,7 @@ var root = make56(
 	}),
 );
 var cli = root.pipe(
-	withSubcommands([...sessionCommands, ...routerCommands, ...hookCommands, ...adapterCommands, accounts]),
+	withSubcommands([...sessionCommands, ...routerCommands, ...hookCommands, ...adapterCommands, accounts, models]),
 	run5({ version: "0.0.0" }),
 );
 

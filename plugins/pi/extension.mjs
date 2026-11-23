@@ -3622,6 +3622,7 @@ var catchReason = /* @__PURE__ */ dual(
 );
 var mapError = /* @__PURE__ */ dual(2, (self, f) => catchCause(self, (cause) => failCause(causeMap(cause, f))));
 var orDie = (self) => catch_(self, die);
+var orElseSucceed = /* @__PURE__ */ dual(2, (self, f) => catch_(self, (error) => sync(() => f(error))));
 var ignoreCauseLogger = (log) =>
 	log === "Unhandled"
 		? (...message) =>
@@ -5115,6 +5116,7 @@ var orDie2 = orDie;
 var tapError2 = tapError;
 var ignore2 = ignore;
 var ignoreCause2 = ignoreCause;
+var orElseSucceed2 = orElseSucceed;
 var sleep2 = sleep;
 var raceFirst2 = raceFirst;
 var when2 = when;
@@ -7977,6 +7979,15 @@ function annotateKey(ast, annotations) {
 		: new Context(false, false, undefined, annotations);
 	return replaceContext(ast, context);
 }
+var optionalKey = /* @__PURE__ */ memoizeIdempotent((ast) => {
+	const context = ast.context
+		? ast.context.isOptional === false
+			? new Context(true, ast.context.isMutable, ast.context.constructorDefault, ast.context.annotations)
+			: ast.context
+		: new Context(true, false);
+	return optionalKeyLastLink(replaceContext(ast, context));
+});
+var optionalKeyLastLink = /* @__PURE__ */ applyToLastLink(optionalKey);
 function withConstructorDefault(ast, defaultValue) {
 	const context = ast.context
 		? new Context(ast.context.isOptional, ast.context.isMutable, defaultValue, ast.context.annotations)
@@ -8955,6 +8966,11 @@ var make11 = make10;
 function isSchema(u) {
 	return hasProperty(u, TypeId13) && u[TypeId13] === TypeId13;
 }
+var optionalKey2 = /* @__PURE__ */ lambda((schema) =>
+	make11(optionalKey(schema.ast), {
+		schema,
+	}),
+);
 function Literal2(literal) {
 	const out = make11(new Literal(literal), {
 		literal,
@@ -11582,9 +11598,12 @@ var Status = Struct({
 	session: SessionId,
 });
 var StatusJson = fromJsonString2(Status);
+var RoutedModels = Struct({ auto: NonEmptyString, sealed: NonEmptyString });
+var ModelsJson = fromJsonString2(Struct({ anthropic: optionalKey2(RoutedModels), openai: optionalKey2(RoutedModels) }));
 var loopback = "127.0.0.1";
 var productPort = 47411;
 var spelling = {
+	models: { name: "models" },
 	pin: { name: "pin", session: "session" },
 	program: "phi-router",
 	start: { folder: "folder", name: "start", pid: "pid", port: "port", session: "session" },
@@ -11967,6 +11986,9 @@ var printed = fn2("Router.printed")(function* printed(name, command, args) {
 	}
 	return ran.success.output;
 }, scoped2);
+var decodedAs = (name, decode) => (output) =>
+	mapError2(decode(output), (cause) => CommandFailed.make({ cause, command: name }));
+var decodedModels = decodedAs(spelling.models.name, decodeEffect2(ModelsJson));
 
 class Router extends Service()("phi-router/pi/client/router") {
 	static layer = (program) =>
@@ -11993,15 +12015,14 @@ class Router extends Service()("phi-router/pi/client/router") {
 				const status = fn2("Router.status")(function* status2(session, port) {
 					const command = spelling.status.name;
 					const output = yield* asked(command, session, port);
-					const decoded = yield* result2(decodeEffect2(StatusJson)(output));
-					if (isFailure2(decoded)) {
-						return yield* CommandFailed.make({ cause: decoded.failure, command });
-					}
-					return decoded.success;
+					return yield* decodedAs(command, decodeEffect2(StatusJson))(output);
 				});
+				const models = spawning(printed(spelling.models.name, program, [spelling.models.name])).pipe(
+					flatMap3(decodedModels),
+				);
 				const pin = (session, port) => asVoid2(asked(spelling.pin.name, session, port));
 				const unpin = (session, port) => asVoid2(asked(spelling.unpin.name, session, port));
-				return Router.of({ pin, start, status, unpin });
+				return Router.of({ models, pin, start, status, unpin });
 			}),
 		);
 }
@@ -12020,7 +12041,15 @@ var piWire = {
 // src/pi/features/phi/models.ts
 var anthropicCatalog = getBuiltinModels("anthropic");
 var free = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 };
-var phiOwn = (id) => ({ contextWindow: 200000, id, maxTokens: 32000 });
+var phiOwn = (models) => (id) =>
+	pipe(
+		fromUndefinedOr(models.anthropic),
+		flatMap((routed) => findFirst2(anthropicCatalog, (model) => model.id === routed[id])),
+		match({
+			onNone: () => ({ contextWindow: 200000, id, maxTokens: 32000 }),
+			onSome: ({ contextWindow, maxTokens }) => ({ contextWindow, id, maxTokens }),
+		}),
+	);
 var phiModel = ({ contextWindow, id, maxTokens }) => ({
 	compat: { forceAdaptiveThinking: true },
 	contextWindow,
@@ -12031,7 +12060,8 @@ var phiModel = ({ contextWindow, id, maxTokens }) => ({
 	name: `PHI ${id}`,
 	reasoning: true,
 });
-var phiModels = pipe(keys(piWire.models), map2(phiOwn), appendAll(anthropicCatalog), map2(phiModel));
+var phiModels = (models) =>
+	pipe(keys(piWire.models), map2(phiOwn(models)), appendAll(anthropicCatalog), map2(phiModel));
 
 // src/pi/features/phi/phi.ts
 var routedProvider = "phi";
@@ -14210,12 +14240,12 @@ var router = () => {
 	}
 	return provide2(Router.layer(launcher), layer15);
 };
-var provider = (port) => ({
+var provider = (served) => ({
 	api: "anthropic-messages",
 	apiKey: placeholderKey,
-	baseUrl: `http://${loopback}:${String(port)}${piWire.base}`,
+	baseUrl: `http://${loopback}:${String(served.port)}${piWire.base}`,
 	headers: { [piWire.sessionHeader]: "" },
-	models: phiModels,
+	models: phiModels(served.models),
 });
 var addedHeaders = (ctx) => (sent) =>
 	gen2(function* added() {
@@ -14262,20 +14292,33 @@ var bypassProxies = forEach2(
 		}),
 	{ concurrency: 1, discard: true },
 );
+var configured = all2(
+	{
+		models: orElseSucceed2(
+			Router.use((client) => client.models),
+			() => ({}),
+		),
+		port: Port(piWire.portVariable).pipe(withDefault3(productPort)),
+	},
+	{ concurrency: 1 },
+);
 var extension = (pi) =>
 	runPromise2(
-		gen2(function* registered() {
-			const port = yield* Port(piWire.portVariable).pipe(withDefault3(productPort));
-			const { afterTurn, atStart } = yield* observerOn(port);
-			yield* bypassProxies;
-			pi.registerProvider(routedProvider, provider(port));
-			pi.on("session_start", blockUploads(routedProvider));
-			onRouter(pi, port, atStart);
-			pi.on("before_provider_headers", recordUse({ pi, provider: routedProvider }));
-			pi.on("before_provider_headers", headed);
-			pi.on("turn_end", turnEnded(afterTurn));
-			pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
-		}),
+		provide4(
+			gen2(function* registered() {
+				const { models, port } = yield* configured;
+				const { afterTurn, atStart } = yield* observerOn(port);
+				yield* bypassProxies;
+				pi.registerProvider(routedProvider, provider({ models, port }));
+				pi.on("session_start", blockUploads(routedProvider));
+				onRouter(pi, port, atStart);
+				pi.on("before_provider_headers", recordUse({ pi, provider: routedProvider }));
+				pi.on("before_provider_headers", headed);
+				pi.on("turn_end", turnEnded(afterTurn));
+				pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
+			}),
+			router(),
+		),
 	);
 var pi_default = extension;
 export { addedHeaders, pi_default as default, provider };

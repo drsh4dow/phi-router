@@ -246,6 +246,12 @@ const lanesOf =
 /** Per vendor, its two lanes, or none when the file names no account of it. */
 type LaneConfiguration = Readonly<Record<Vendor, Option.Option<VendorLanes>>>;
 
+const byVendor = (lanes: typeof Lanes.Type): LaneConfiguration => {
+	const of = lanesOf(lanes);
+
+	return { anthropic: of("anthropic"), openai: of("openai") };
+};
+
 /**
  * What a `config.json` text says about the lanes: per vendor, the open accounts and the BAA accounts in the file's
  * order, the model `phi/auto` stands for, and the substitute. The file keeps two lists, which mix vendors,
@@ -256,17 +262,10 @@ type LaneConfiguration = Readonly<Record<Vendor, Option.Option<VendorLanes>>>;
  * @returns {Effect.Effect} The lanes, or why the router would refuse the file.
  */
 const laneConfiguration = (text: string): Effect.Effect<LaneConfiguration, Schema.SchemaError> =>
-	Effect.map(Schema.decodeEffect(LaneFile)(text), (lanes) => {
-		const of = lanesOf(lanes);
+	Effect.map(Schema.decodeEffect(LaneFile)(text), byVendor);
 
-		return { anthropic: of("anthropic"), openai: of("openai") };
-	});
-
-/**
- * Each lane's accounts in the file's order, vendors mixed, or none when there is no `config.json`. A file the router
- * would refuse fails.
- */
-const configuredAccounts = Effect.gen(function* configuredAccounts() {
+/** The decoded `config.json`, or none when there is no such file. A file the router would refuse fails. */
+const configuredFile = Effect.gen(function* configuredFile() {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
 	const exists = yield* fs.exists(file);
@@ -276,11 +275,26 @@ const configuredAccounts = Effect.gen(function* configuredAccounts() {
 	}
 
 	const text = yield* fs.readFileString(file);
-	const { clean, sealed } = yield* Schema.decodeEffect(LaneFile)(text);
 
-	return Option.some({ clean: pipe(clean, Array.map(namedAccount)), sealed: pipe(sealed, Array.map(namedAccount)) });
+	return yield* Schema.decodeEffect(LaneFile)(text).pipe(Effect.asSome);
 });
 
-export { LaneFile, configuredAccounts, laneConfiguration };
+/**
+ * Each lane's accounts in the file's order, vendors mixed, or none when there is no `config.json`. A file the router
+ * would refuse fails.
+ */
+const configuredAccounts = configuredFile.pipe(
+	Effect.map(
+		Option.map(({ clean, sealed }) => ({
+			clean: pipe(clean, Array.map(namedAccount)),
+			sealed: pipe(sealed, Array.map(namedAccount)),
+		})),
+	),
+);
+
+/** What `config.json` says about each vendor's lanes, or none when there is no such file. A refused file fails. */
+const configuredLanes = configuredFile.pipe(Effect.map(Option.map(byVendor)));
+
+export { LaneFile, configuredAccounts, configuredLanes, laneConfiguration };
 
 export type { Lane, NamedAccount, Vendor, VendorLanes };

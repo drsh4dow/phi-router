@@ -50,6 +50,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	};
 
 	const service = Router.of({
+		models: Effect.succeed({}),
 		pin: (_session, port) => Effect.andThen(ask("pin", port), Ref.set(pinned, true)),
 		start: () => Effect.void,
 		status: (_session, port) =>
