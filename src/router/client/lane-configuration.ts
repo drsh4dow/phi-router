@@ -62,38 +62,29 @@ const perVendor = Schema.Struct({
 	openai: Schema.optionalKey(Schema.NonEmptyString),
 });
 
-const byEnv = { forwarded: absent, keyCommand: absent, keyEnv: Schema.NonEmptyString, loginFolder: absent };
+const absolutePath = Schema.NonEmptyString.check(Schema.isPattern(/^\//u));
 
-const byCommand = { forwarded: absent, keyCommand: Schema.NonEmptyString, keyEnv: absent, loginFolder: absent };
+/** An account names one credential: each of these but its own is absent. */
+const noCredential = { forwarded: absent, keyCommand: absent, keyEnv: absent, keyFile: absent, loginFolder: absent };
+
+const byEnv = Struct.assign(noCredential, { keyEnv: Schema.NonEmptyString });
+
+const byCommand = Struct.assign(noCredential, { keyCommand: Schema.NonEmptyString });
+
+const byFile = Struct.assign(noCredential, { keyFile: absolutePath });
 
 /** An Anthropic key is an API key or a long-lived OAuth token. An OpenAI key is an API key. */
 const anthropicKey = { scheme: Schema.Literals(["apiKey", "oauth"]), vendor: Schema.Literal("anthropic") };
 
 const openaiKey = { scheme: Schema.Literal("apiKey"), vendor: Schema.Literal("openai") };
 
-const Forwarded = Schema.Struct(
-	Struct.assign(named, {
-		forwarded: Schema.Literal(true),
-		keyCommand: absent,
-		keyEnv: absent,
-		loginFolder: absent,
-		scheme: absent,
-		vendor: Vendors,
-	}),
-);
+const forwarded = Struct.assign(noCredential, { forwarded: Schema.Literal(true), scheme: absent, vendor: Vendors });
 
-const absolutePath = Schema.NonEmptyString.check(Schema.isPattern(/^\//u));
+const Forwarded = Schema.Struct(Struct.assign(named, forwarded));
 
 /** A login folder by its absolute path. Its vendor says which credential file the router reads in it. */
 const LoginFolder = Schema.Struct(
-	Struct.assign(named, {
-		forwarded: absent,
-		keyCommand: absent,
-		keyEnv: absent,
-		loginFolder: absolutePath,
-		scheme: absent,
-		vendor: Vendors,
-	}),
+	Struct.assign(named, Struct.assign(noCredential, { loginFolder: absolutePath, scheme: absent, vendor: Vendors })),
 );
 
 const anthropicKeyed = Struct.assign(named, anthropicKey);
@@ -105,17 +96,27 @@ const Account = Schema.Union([
 	LoginFolder,
 	Schema.Struct(Struct.assign(anthropicKeyed, byEnv)),
 	Schema.Struct(Struct.assign(anthropicKeyed, byCommand)),
+	Schema.Struct(Struct.assign(anthropicKeyed, byFile)),
 	Schema.Struct(Struct.assign(openaiKeyed, byEnv)),
 	Schema.Struct(Struct.assign(openaiKeyed, byCommand)),
+	Schema.Struct(Struct.assign(openaiKeyed, byFile)),
 ]);
 
 type AccountEntry = typeof Account.Type;
+
+const modelOr = (model: string): Schema.withDecodingDefaultKey<Schema.NonEmptyString> =>
+	Schema.NonEmptyString.pipe(Schema.withDecodingDefaultKey(Effect.succeed(model)));
+
+/** The model `phi/auto` stands for, per vendor: the file's, or else the vendor's default. */
+const TargetModels = Schema.Struct({ anthropic: modelOr("claude-opus-5-5"), openai: modelOr("gpt-6.1-sol") }).pipe(
+	Schema.withDecodingDefaultKey(Effect.succeed({})),
+);
 
 const Lanes = Schema.Struct({
 	clean: Schema.NonEmptyArray(Account),
 	sealed: Schema.NonEmptyArray(Account),
 	sealedModel: Schema.optionalKey(perVendor),
-	targetModel: perVendor,
+	targetModel: TargetModels,
 });
 
 const countOf = (lane: readonly AccountEntry[], vendor: Vendor): number =>
@@ -124,18 +125,18 @@ const countOf = (lane: readonly AccountEntry[], vendor: Vendor): number =>
 const unnamed = 0;
 
 /**
- * A vendor's substitute: the file's `sealedModel` for it, or else its `targetModel`.
+ * A vendor's substitute: the file's `sealedModel` for it, or else its target model, the file's or the vendor's default.
  *
  * @param {Lanes} lanes The decoded lanes.
- * @returns {Function} The substitute of a vendor, none when the file names neither model for it.
+ * @returns {Function} The substitute of a vendor.
  */
 const sealedModelOf =
 	(lanes: typeof Lanes.Type) =>
-	(vendor: Vendor): Option.Option<string> =>
+	(vendor: Vendor): string =>
 		pipe(
 			Option.fromUndefinedOr(lanes.sealedModel),
 			Option.flatMapNullishOr((models) => models[vendor]),
-			Option.orElse(() => Option.fromUndefinedOr(lanes.targetModel[vendor])),
+			Option.getOrElse(() => lanes.targetModel[vendor]),
 		);
 
 /**
@@ -149,7 +150,7 @@ const lackingSubstitute = (lanes: typeof Lanes.Type): readonly string[] =>
 		lanes.sealed,
 		Array.flatMap((entry) =>
 			pipe(
-				sealedModelOf(lanes)(entry.vendor),
+				Option.some(sealedModelOf(lanes)(entry.vendor)),
 				Option.filter((model) => Array.contains(entry.lacks ?? [], model)),
 				Option.map((model) => `account ${entry.name} lacks ${model}, the sealed model that runs what it lacks`),
 				Option.toArray,
@@ -160,8 +161,8 @@ const lackingSubstitute = (lanes: typeof Lanes.Type): readonly string[] =>
 const once = 1;
 
 /**
- * Why the lanes cannot be served, or nothing. A vendor has at least one account in `clean`, one in `sealed` and a
- * `targetModel`, or none of the three. No two accounts share a name, on either lane. Only a BAA account lacks a model,
+ * Why the lanes cannot be served, or nothing. A vendor has at least one account in `clean` and one in `sealed`, or
+ * none in either. No two accounts share a name, on either lane. Only a BAA account lacks a model,
  * since the clean lane runs every model a request names, and none lacks its vendor's substitute, which runs the models
  * it lacks.
  *
@@ -172,17 +173,13 @@ const problemsOf = (lanes: typeof Lanes.Type): readonly string[] => {
 	const vendors = pipe(
 		Vendors.literals,
 		Array.flatMap((vendor) => {
-			const places = [
-				countOf(lanes.clean, vendor) > unnamed,
-				countOf(lanes.sealed, vendor) > unnamed,
-				Option.isSome(Option.fromUndefinedOr(lanes.targetModel[vendor])),
-			];
+			const inClean = countOf(lanes.clean, vendor) > unnamed;
 
-			if (pipe(places, Array.every(Boolean)) || !pipe(places, Array.some(Boolean))) {
+			if (inClean === countOf(lanes.sealed, vendor) > unnamed) {
 				return [];
 			}
 
-			return [`vendor ${vendor} needs an account in clean, an account in sealed and a targetModel, or none of them`];
+			return [`vendor ${vendor} needs an account in clean and an account in sealed, or none in either`];
 		}),
 	);
 
@@ -238,8 +235,8 @@ const lanesOf =
 		return Option.all({
 			clean: of(lanes.clean),
 			sealed: of(lanes.sealed),
-			sealedModel: sealedModelOf(lanes)(vendor),
-			targetModel: Option.fromUndefinedOr(lanes.targetModel[vendor]),
+			sealedModel: Option.some(sealedModelOf(lanes)(vendor)),
+			targetModel: Option.some(lanes.targetModel[vendor]),
 		});
 	};
 

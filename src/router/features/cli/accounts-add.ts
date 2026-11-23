@@ -3,7 +3,7 @@ import type { Lane, Vendor } from "#router/client/lane-configuration.ts";
 import { loginFolders, loginIn } from "#router/client/login-folders.ts";
 import { CliError } from "effect/cli";
 import type { NewAccount } from "#router/client/config-writer.ts";
-import { addAccount } from "#router/client/config-writer.ts";
+import { addAccounts } from "#router/client/config-writer.ts";
 import { readKey } from "#router/client/credentials.ts";
 import { realFolder } from "#router/client/processes.ts";
 
@@ -154,7 +154,7 @@ const accountsAdd = Effect.fn("accountsAdd")(function* accountsAdd(request: AddR
 	const lane = laneOf(request.sealed);
 	const found = yield* foundBy(request);
 
-	const placed = yield* addAccount(lane, found.account).pipe(
+	const [placed] = yield* addAccounts({ accounts: [{ account: found.account, lane }] }).pipe(
 		Effect.catchTags({
 			PlatformError: (error) => Effect.fail(refused(`config.json could not be read or written. ${error.message}`)),
 			SchemaError: (error) =>

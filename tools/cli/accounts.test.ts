@@ -199,7 +199,7 @@ const noLogin = refusedWith(
 const noSealedAccount = refusedWith(
 	"claudeOnly",
 	(run) => ["accounts", "add", run.folders.codex],
-	() => ["vendor openai needs an account in clean, an account in sealed and a targetModel", "Nothing changed."],
+	() => ["vendor openai needs an account in clean and an account in sealed", "Nothing changed."],
 );
 
 const troubled = Effect.fnUntraced(function* troubled(run: Prepared) {

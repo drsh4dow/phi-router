@@ -18,8 +18,11 @@ import { LoginEnded, loginFolders } from "./login-folders.ts";
 import type { Login } from "./login-folders.ts";
 import type { Vendor } from "./lane-configuration.ts";
 
-/** Where a key comes from: the name of an environment variable, or a shell command that prints the key. Never the key. */
-type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string };
+/**
+ * Where a key comes from: the name of an environment variable, a shell command that prints the key, or the absolute path
+ * of a file that holds it, such as the one `setup` saves. Never the key.
+ */
+type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string } | { readonly keyFile: string };
 
 /**
  * How an account authenticates: the login the harness forwards on each request, a key the router reads itself, or a
@@ -61,17 +64,35 @@ const printedBy = Effect.fnUntraced(function* printedBy(command: string) {
 	return Redacted.make(key);
 }, Effect.scoped);
 
+const fileKey = Effect.fnUntraced(function* fileKey(file: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const text = yield* fs.readFileString(file);
+	const key = Str.trim(text);
+
+	if (Str.isEmpty(key)) {
+		return yield* KeyUnreadable.make({ cause: "holds nothing", source: `keyFile ${file}` });
+	}
+
+	return Redacted.make(key);
+});
+
 /**
  * Reads the key a source names and keeps it redacted. `keyEnv` reads the variable through `Config`. `keyCommand` runs
- * the text in a POSIX shell and takes its trimmed stdout. An unset or empty variable, a non-zero exit or empty output
- * fails.
+ * the text in a POSIX shell and takes its trimmed stdout. `keyFile` takes the file's trimmed text. An unset or empty
+ * variable, a non-zero exit, empty output, or a missing or empty file fails.
  */
 const readKey = Effect.fn("readKey")(function* readKey(
 	source: KeySource,
-): Effect.fn.Return<Redacted.Redacted, KeyUnreadable, ChildProcessSpawner.ChildProcessSpawner> {
+): Effect.fn.Return<Redacted.Redacted, KeyUnreadable, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem> {
 	if ("keyEnv" in source) {
 		return yield* Effect.mapError(Config.Redacted(source.keyEnv), (cause) =>
 			KeyUnreadable.make({ cause, source: `keyEnv ${source.keyEnv}` }),
+		);
+	}
+
+	if ("keyFile" in source) {
+		return yield* Effect.catchTag(fileKey(source.keyFile), "PlatformError", (cause) =>
+			Effect.fail(KeyUnreadable.make({ cause, source: `keyFile ${source.keyFile}` })),
 		);
 	}
 

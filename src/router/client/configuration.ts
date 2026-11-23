@@ -29,19 +29,34 @@ const absent = Schema.optionalKey(Schema.Never);
 
 const model = Schema.optionalKey(Schema.String);
 
-const KeyedByEnv = Schema.Struct({ endpoint: Schema.String, keyCommand: absent, keyEnv: Schema.NonEmptyString, model });
+/** Each BAA repo and each key file is an absolute path, since the router runs in another folder than the session. */
+const AbsolutePath = Schema.String.check(Schema.isPattern(/^\//u));
+
+const KeyedByEnv = Schema.Struct({
+	endpoint: Schema.String,
+	keyCommand: absent,
+	keyEnv: Schema.NonEmptyString,
+	keyFile: absent,
+	model,
+});
 
 const KeyedByCommand = Schema.Struct({
 	endpoint: Schema.String,
 	keyCommand: Schema.NonEmptyString,
 	keyEnv: absent,
+	keyFile: absent,
 	model,
 });
 
-const Named = Schema.Union([KeyedByEnv, KeyedByCommand]);
+const KeyedByFile = Schema.Struct({
+	endpoint: Schema.String,
+	keyCommand: absent,
+	keyEnv: absent,
+	keyFile: AbsolutePath,
+	model,
+});
 
-/** Each BAA repo is an absolute path, since the router runs in another folder than the session. */
-const AbsolutePath = Schema.String.check(Schema.isPattern(/^\//u));
+const Named = Schema.Union([KeyedByEnv, KeyedByCommand, KeyedByFile]);
 
 const BaaRepos = Schema.optionalKey(Schema.Array(AbsolutePath));
 
