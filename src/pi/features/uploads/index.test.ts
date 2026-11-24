@@ -69,7 +69,7 @@ const afterRequests = (headers: Readonly<Record<string, string>>): Entries => {
 				entries.push({ customType, id: `custom-${customType}`, parentId: "", timestamp, type: "custom" });
 			},
 		},
-		provider: "phi",
+		routedProvider: "phi",
 	});
 
 	hook({ headers }, session);
@@ -111,7 +111,7 @@ const submitted = (getEntries: Entries, line: string): Submitted => {
 			},
 		},
 		editor,
-		provider: "phi",
+		routedProvider: "phi",
 	});
 
 	editor.onSubmit = (text): void => {

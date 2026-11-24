@@ -12,8 +12,7 @@ const anthropicCatalog = getBuiltinModels("anthropic");
 
 const free = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 };
 
-/** A model's id inside the provider `phi`, and the context and output limits pi holds it to. */
-interface Limits {
+interface PhiModelLimits {
 	readonly id: string;
 	readonly contextWindow: number;
 	readonly maxTokens: number;
@@ -29,7 +28,7 @@ interface Limits {
  */
 const phiOwn =
 	(models: typeof ModelsJson.Type) =>
-	(id: keyof typeof piWire.models): Limits =>
+	(id: keyof typeof piWire.models): PhiModelLimits =>
 		pipe(
 			Option.fromUndefinedOr(models.anthropic),
 			Option.flatMap((routed) => Array.findFirst(anthropicCatalog, (model) => model.id === routed[id])),
@@ -39,7 +38,7 @@ const phiOwn =
 			}),
 		);
 
-const phiModel = ({ contextWindow, id, maxTokens }: Limits): NonNullable<ProviderConfig["models"]>[number] => ({
+const phiModel = ({ contextWindow, id, maxTokens }: PhiModelLimits): NonNullable<ProviderConfig["models"]>[number] => ({
 	compat: { forceAdaptiveThinking: true },
 	contextWindow,
 	cost: free,

@@ -3,8 +3,7 @@ import { CommandFailed, ModelsJson, StatusJson, spelling } from "#shared/cli.ts"
 import { Context, Effect, Layer, Result, Schema, Stream } from "effect";
 import type { SessionId, Status } from "#shared/cli.ts";
 
-/** The exit code of a command that did what it was asked. */
-const succeeded = 0;
+const successExitCode = 0;
 
 /**
  * `start` through `sh`, whose `$PPID` is pi's own pid, since pi spawns it directly. The lease is on that pid, as every
@@ -41,7 +40,7 @@ const printed = Effect.fn("Router.printed")(function* printed(name: string, comm
 		return yield* CommandFailed.make({ cause: ran.failure, command: name });
 	}
 
-	if (ran.success.exitCode !== succeeded) {
+	if (ran.success.exitCode !== successExitCode) {
 		return yield* CommandFailed.make({ cause: `${ran.success.output}${ran.success.errors}`, command: name });
 	}
 

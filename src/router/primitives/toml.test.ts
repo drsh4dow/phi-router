@@ -44,7 +44,7 @@ it.effect("reads each statement's kind, full key, value and lines, past comments
 				text: 'args = [\n  "a", # one\n  "]",\n]\n',
 				value: '[\n  "a", \n  "]",\n]',
 			},
-			{ kind: "array", path: ["skills"], text: "[[skills]]\n", value: "" },
+			{ kind: "arrayOfTables", path: ["skills"], text: "[[skills]]\n", value: "" },
 			{
 				kind: "pair",
 				path: ["skills", "odd=key", "name"],

@@ -1,15 +1,12 @@
 import { Array, Option, Record, String as Str, pipe } from "effect";
 
-/** One statement of a TOML file: a `[table]` header, an `[[array]]` header, or a `key = value` pair. */
 interface Statement {
-	readonly kind: "table" | "array" | "pair";
+	readonly kind: "table" | "arrayOfTables" | "pair";
 	/** A header's key, or a pair's key behind the key of the header above it. */
 	readonly path: readonly string[];
 	/** A pair's value as written, trimmed, without a comment. Empty for a header. */
 	readonly value: string;
-	/** Where its first line starts. */
 	readonly start: number;
-	/** Where its last line ends, past the line break. */
 	readonly end: number;
 }
 
@@ -24,8 +21,7 @@ interface Group {
 	readonly end: number;
 }
 
-/** The tokens that decide where a statement ends: strings, comments, line breaks and brackets. */
-const tokenPattern =
+const boundaryTokenPattern =
 	/"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|#[^\n]*|\n|[[\]{}]|[^"'#\n[\]{}]+|["']/gu;
 
 const keyPattern = /\s*(?:"(?<basic>(?:[^"\\]|\\.)*)"|'(?<literal>[^']*)'|(?<bare>[\w-]+))\s*(?:\.|$)/gu;
@@ -49,7 +45,7 @@ const meaningful = (token: Token): boolean => !isComment(token) && Str.isNonEmpt
 
 const tokensOf = (text: string): readonly Token[] => {
 	const texts = pipe(
-		Array.fromIterable(Str.matchAll(tokenPattern)(text)),
+		Array.fromIterable(Str.matchAll(boundaryTokenPattern)(text)),
 		Array.map(([match]) => match),
 	);
 
@@ -61,34 +57,32 @@ const tokensOf = (text: string): readonly Token[] => {
 	return tokens;
 };
 
-/** Where the next statement starts, and how deep in brackets the scan is. */
 interface Place {
-	readonly start: number;
-	readonly depth: number;
+	readonly statementStart: number;
+	readonly bracketDepth: number;
 }
 
-/** A token, the start of the statement it belongs to, and whether it is the line break that ends that statement. */
 interface Placed {
 	readonly token: Token;
-	readonly at: number;
-	readonly breaks: boolean;
+	readonly statementStart: number;
+	readonly endsStatement: boolean;
 }
 
 const placed = (place: Place, token: Token): readonly [Place, Placed] => {
-	const breaks = token.text === "\n" && place.depth === textStart;
+	const endsStatement = token.text === "\n" && place.bracketDepth === textStart;
 
-	if (breaks) {
+	if (endsStatement) {
 		return [
-			{ depth: place.depth, start: token.end },
-			{ at: place.start, breaks, token },
+			{ bracketDepth: place.bracketDepth, statementStart: token.end },
+			{ endsStatement, statementStart: place.statementStart, token },
 		];
 	}
 
-	const depth = Math.max(textStart, place.depth + (deeper.get(token.text) ?? textStart));
+	const bracketDepth = Math.max(textStart, place.bracketDepth + (deeper.get(token.text) ?? textStart));
 
 	return [
-		{ depth, start: place.start },
-		{ at: place.start, breaks, token },
+		{ bracketDepth, statementStart: place.statementStart },
+		{ endsStatement, statementStart: place.statementStart, token },
 	];
 };
 
@@ -100,18 +94,18 @@ const placed = (place: Place, token: Token): readonly [Place, Placed] => {
  * @returns {readonly Group[]} The statements' tokens.
  */
 const groupsOf = (text: string): readonly Group[] => {
-	const [, tokens] = Array.mapAccum(tokensOf(text), { depth: textStart, start: textStart }, placed);
+	const [, tokens] = Array.mapAccum(tokensOf(text), { bracketDepth: textStart, statementStart: textStart }, placed);
 
 	return pipe(
 		tokens,
-		Array.groupBy(({ at }) => String(at)),
+		Array.groupBy(({ statementStart }) => String(statementStart)),
 		Record.values,
 		Array.map((group) => ({
 			end: Array.lastNonEmpty(group).token.end,
-			start: Array.headNonEmpty(group).at,
+			start: Array.headNonEmpty(group).statementStart,
 			tokens: pipe(
 				group,
-				Array.filter(({ breaks }) => !breaks),
+				Array.filter(({ endsStatement }) => !endsStatement),
 				Array.map(({ token }) => token),
 			),
 		})),
@@ -163,7 +157,7 @@ const headerOf = (tokens: readonly Token[]): Pick<Statement, "kind" | "path"> =>
 	);
 
 	if (brackets.length > level) {
-		return { kind: "array", path };
+		return { kind: "arrayOfTables", path };
 	}
 
 	return { kind: "table", path };

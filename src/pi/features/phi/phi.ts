@@ -5,14 +5,12 @@ import { Router } from "#pi/client/router.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
-/** The provider the pi package adds, whose requests go through the router. */
 const routedProvider = "phi";
 
 /** What `/phi` answers when the session's model is another provider's, whose requests never reach the router. */
 const unrouted = `phi-router: this session's model is not a ${routedProvider} model, so phi-router does not route it.`;
 
-/** The status bar entry pi shows for the router. */
-const statusKey = "phi";
+const statusBarEntry = "phi";
 
 /** What `setStatus` takes to clear the router's entry. */
 const noLine = Option.getOrUndefined(Option.none<string>());
@@ -108,14 +106,8 @@ const messagesIn = (count: number): string => {
 	return `${String(count)} messages`;
 };
 
-/**
- * The notice of a turn that sealed messages.
- *
- * @param {object} sealed How many messages the turn sealed, and the status after it.
- * @returns {string} The notice.
- */
-const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
-	`phi-router: ${messagesIn(sealed.count)} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
+const sealNotice: (sealed: { readonly newlySealed: number; readonly status: Reported }) => string = (sealed) =>
+	`phi-router: ${messagesIn(sealed.newlySealed)} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
 
 interface ShownContext {
 	readonly hasUI: boolean;
@@ -219,7 +211,7 @@ const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.E
 							ctx.ui.notify(failureText(failed), "error");
 						},
 						onSuccess: (status) => {
-							ctx.ui.setStatus(statusKey, statusLine(status));
+							ctx.ui.setStatus(statusBarEntry, statusLine(status));
 							ctx.ui.notify(statusText(status), "info");
 						},
 					}),
@@ -245,7 +237,7 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 		(ctx) =>
 			Effect.gen(function* refreshed() {
 				if (!routed(ctx)) {
-					ctx.ui.setStatus(statusKey, noLine);
+					ctx.ui.setStatus(statusBarEntry, noLine);
 
 					return;
 				}
@@ -258,15 +250,15 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 					Option.liftPredicate(noneSealed, () => announce),
 				);
 
-				ctx.ui.setStatus(statusKey, statusLine(status));
+				ctx.ui.setStatus(statusBarEntry, statusLine(status));
 
 				if (Option.isSome(before) && status.sealed > before.value) {
-					ctx.ui.notify(sealNotice({ count: status.sealed - before.value, status }), "warning");
+					ctx.ui.notify(sealNotice({ newlySealed: status.sealed - before.value, status }), "warning");
 				}
 			}).pipe(
 				Effect.catchTag("CommandFailed", (failed) =>
 					Effect.sync(() => {
-						ctx.ui.setStatus(statusKey, failureText(failed));
+						ctx.ui.setStatus(statusBarEntry, failureText(failed));
 					}),
 				),
 				Effect.when(Effect.succeed(ctx.hasUI)),

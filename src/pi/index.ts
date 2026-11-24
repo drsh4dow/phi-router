@@ -232,7 +232,7 @@ const extension: ExtensionFactory = (pi) =>
 				pi.registerProvider(routedProvider, provider({ models, port }));
 				pi.on("session_start", blockUploads(routedProvider));
 				onRouter(pi, port, shows);
-				pi.on("before_provider_headers", recordUse({ pi, provider: routedProvider }));
+				pi.on("before_provider_headers", recordUse({ pi, routedProvider }));
 				pi.on("before_provider_headers", headed);
 				pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
 			}),

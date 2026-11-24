@@ -8,8 +8,7 @@ import type {
 import { printedLine, routed } from "./phi.ts";
 import { Router } from "#pi/client/router.ts";
 
-/** What a hook that may hold back a request reads of pi's context. */
-interface SendContext {
+interface HeldRequestContext {
 	readonly cwd: string;
 	readonly hasUI: boolean;
 	readonly model: { readonly provider: string } | undefined;
@@ -24,10 +23,10 @@ interface SendContext {
  * printed, such as the one for a missing BAA key: in pi's interface, or on stderr in print mode, which has none.
  *
  * @param {number} port The router's port.
- * @param {SendContext} ctx The session, its model and pi's interface.
+ * @param {HeldRequestContext} ctx The session, its model and pi's interface.
  * @returns {Effect.Effect<boolean, never, Router>} Whether pi may send it.
  */
-const cleared = (port: number, ctx: SendContext): Effect.Effect<boolean, never, Router> => {
+const cleared = (port: number, ctx: HeldRequestContext): Effect.Effect<boolean, never, Router> => {
 	if (!routed(ctx)) {
 		return Effect.succeed(true);
 	}
@@ -63,7 +62,7 @@ const actions: Readonly<Record<"false" | "true", InputEventResult>> = {
  */
 const promptSent =
 	(port: number) =>
-	(ctx: SendContext): Effect.Effect<InputEventResult, never, Router> =>
+	(ctx: HeldRequestContext): Effect.Effect<InputEventResult, never, Router> =>
 		Effect.map(cleared(port, ctx), (may) => actions[`${may}`]);
 
 /**
@@ -74,7 +73,7 @@ const promptSent =
  */
 const compactionSent =
 	(port: number) =>
-	(ctx: SendContext): Effect.Effect<SessionBeforeCompactResult, never, Router> =>
+	(ctx: HeldRequestContext): Effect.Effect<SessionBeforeCompactResult, never, Router> =>
 		Effect.map(cleared(port, ctx), (may) => ({ cancel: !may }));
 
 export { compactionSent, promptSent };

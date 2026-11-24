@@ -16,8 +16,7 @@ type Editor = ReturnType<EditorFactory>;
 
 type Submit = (line: string) => void;
 
-/** A built-in command of pi that sends the session off the machine: when pi runs it, and what it sends where. */
-interface Upload {
+interface UploadCommand {
 	readonly command: string;
 	readonly runs: (line: string) => boolean;
 	readonly sends: string;
@@ -27,7 +26,7 @@ interface Upload {
  * `/share` and `/bug`, matched as pi's own submit handler matches them, so a line pi would send to the model passes.
  * `/bug` reaches this list because it can upload the transcript and a model's summary of it.
  */
-const uploads: readonly Upload[] = [
+const uploads: readonly UploadCommand[] = [
 	{
 		command: "/share",
 		runs: (line) => line === "/share",
@@ -69,10 +68,9 @@ interface Sent {
 	readonly headers: Readonly<BeforeProviderHeadersEvent["headers"]>;
 }
 
-/** Where the header hook records a use of the router's provider. */
 interface Recorder {
 	readonly pi: Pick<ExtensionAPI, "appendEntry">;
-	readonly provider: string;
+	readonly routedProvider: string;
 }
 
 /**
@@ -84,9 +82,9 @@ interface Recorder {
  * @returns {(event: Sent, ctx: UsageContext) => void} The hook.
  */
 const recordUse =
-	({ pi, provider }: Recorder) =>
+	({ pi, routedProvider }: Recorder) =>
 	(event: Sent, ctx: UsageContext): void => {
-		if (piWire.sessionHeader in event.headers && !used(ctx, provider)) {
+		if (piWire.sessionHeader in event.headers && !used(ctx, routedProvider)) {
 			pi.appendEntry(usedEntry);
 		}
 	};
@@ -113,11 +111,10 @@ const refusal = (ctx: UploadContext, provider: string, line: string): Option.Opt
 		),
 	);
 
-/** An editor to guard, in the session of `ctx` that `provider` may have served. */
 interface Guarded {
 	readonly ctx: UploadContext;
 	readonly editor: Readonly<Pick<Editor, "onSubmit">>;
-	readonly provider: string;
+	readonly routedProvider: string;
 }
 
 /**
@@ -126,11 +123,11 @@ interface Guarded {
  *
  * @param {Guarded} guarded The editor, which gains the check in place, the session and the router's provider in pi.
  */
-const guardSubmits = ({ ctx, editor, provider }: Guarded): void => {
+const guardSubmits = ({ ctx, editor, routedProvider }: Guarded): void => {
 	let submit: Submit = editor.onSubmit ?? Function.constVoid;
 
 	const checked: Submit = (line) => {
-		Option.match(refusal(ctx, provider, line), {
+		Option.match(refusal(ctx, routedProvider, line), {
 			onNone: () => {
 				submit(line);
 			},
@@ -157,7 +154,7 @@ const guardSubmits = ({ ctx, editor, provider }: Guarded): void => {
  * @returns {ExtensionHandler<SessionStartEvent>} The hook.
  */
 const blockUploads =
-	(provider: string): ExtensionHandler<SessionStartEvent> =>
+	(routedProvider: string): ExtensionHandler<SessionStartEvent> =>
 	(_event, ctx) => {
 		const built: EditorFactory =
 			ctx.ui.getEditorComponent() ??
@@ -166,7 +163,7 @@ const blockUploads =
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 			const editor = built(tui, theme, keybindings);
 
-			guardSubmits({ ctx, editor, provider });
+			guardSubmits({ ctx, editor, routedProvider });
 
 			return editor;
 		});

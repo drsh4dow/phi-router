@@ -8,16 +8,13 @@ class CommandFailed extends Schema.TaggedError<CommandFailed, { readonly brand: 
 
 const none = 0;
 
-/** The id a harness gives one session, the name its verdict store is kept under. */
 const SessionId = Schema.NonEmptyString.pipe(Schema.brand("SessionId"));
 
 const Pid = Schema.Int.check(Schema.isGreaterThan(none));
 
-/** How many of a session's parts hold one verdict. */
-const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(none));
+const PartCount = Schema.Int.check(Schema.isGreaterThanOrEqualTo(none));
 
-/** One account the router's configuration names, without its credential. */
-const Account = Schema.Struct({ name: Schema.String, vendor: Schema.Literals(["anthropic", "openai"]) });
+const ConfiguredAccount = Schema.Struct({ name: Schema.String, vendor: Schema.Literals(["anthropic", "openai"]) });
 
 /**
  * What `status --session <id>` reports about one session: its pin, the accounts of each lane in order, how many of its
@@ -25,11 +22,11 @@ const Account = Schema.Struct({ name: Schema.String, vendor: Schema.Literals(["a
  * model was the substitute.
  */
 const Status = Schema.Struct({
-	accounts: Schema.Struct({ clean: Schema.Array(Account), sealed: Schema.Array(Account) }),
-	cleared: Count,
+	accounts: Schema.Struct({ clean: Schema.Array(ConfiguredAccount), sealed: Schema.Array(ConfiguredAccount) }),
+	cleared: PartCount,
 	last: Schema.NullOr(Schema.Struct({ account: Schema.String, model: Schema.String, substitute: Schema.Boolean })),
 	pinned: Schema.Boolean,
-	sealed: Count,
+	sealed: PartCount,
 	session: SessionId,
 });
 
@@ -48,7 +45,6 @@ const loopback = "127.0.0.1";
 /** The product port, where `start` and the pi package find the router unless told another. */
 const productPort = 47_411;
 
-/** How the commands pi calls are spelled on the command line. */
 const spelling = {
 	models: { name: "models" },
 	pin: { name: "pin", session: "session" },
