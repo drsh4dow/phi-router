@@ -152,7 +152,7 @@
 	"tools/lifecycle/launched.test.ts": 3,
 	"tools/lifecycle/launched.ts": 8,
 	"tools/lifecycle/processes.test.ts": 2,
-	"tools/lifecycle/proof.test.ts": 3,
+	"tools/lifecycle/proof.test.ts": 2,
 	"tools/lifecycle/race.test.ts": 1,
 	"tools/lifecycle/squatter.ts": 4,
 	"tools/pi/doctor.test.ts": 11,

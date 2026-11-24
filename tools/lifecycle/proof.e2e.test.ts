@@ -44,12 +44,11 @@ const caseSixByte = 170;
 
 const caseSixLength = 131;
 
-/** One RFC 4231 test case: its number, its data and key, and the HMAC-SHA-256 it gives. */
-interface RfcCase {
+interface Rfc4231Case {
 	readonly case: number;
 	readonly data: string;
+	readonly hmacSha256: string;
 	readonly key: readonly number[];
-	readonly mac: string;
 }
 
 /** RFC 4231 section 4: test cases 1 and 2, and 6, whose 131-byte key is longer than a block. */
@@ -57,27 +56,27 @@ const rfc4231 = [
 	{
 		case: 1,
 		data: "Hi There",
+		hmacSha256: "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
 		key: Array.replicate(caseOneByte, caseOneLength),
-		mac: "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
 	},
 	{
 		case: 2,
 		data: "what do ya want for nothing?",
+		hmacSha256: "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
 		key: bytesOf("Jefe"),
-		mac: "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
 	},
 	{
 		case: 6,
 		data: "Test Using Larger Than Block-Size Key - Hash Key First",
+		hmacSha256: "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54",
 		key: Array.replicate(caseSixByte, caseSixLength),
-		mac: "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54",
 	},
-] satisfies readonly RfcCase[];
+] satisfies readonly Rfc4231Case[];
 
-const rfcCase = Effect.fnUntraced(function* rfcCase(test: RfcCase) {
-	const mac = yield* hmacOf(test.key, bytesOf(test.data));
+const rfcCase = Effect.fnUntraced(function* rfcCase(test: Rfc4231Case) {
+	const computed = yield* hmacOf(test.key, bytesOf(test.data));
 
-	assert.strictEqual(mac, test.mac);
+	assert.strictEqual(computed, test.hmacSha256);
 });
 
 const startedAgainst = Effect.fnUntraced(function* startedAgainst(port: number) {
