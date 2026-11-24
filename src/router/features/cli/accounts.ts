@@ -111,7 +111,7 @@ const loginOf = Effect.fnUntraced(function* loginOf(account: NamedAccount) {
 		return nothing;
 	}
 
-	const fix = loginFolders[account.vendor].fix(account.credential.folder);
+	const fix = loginFolders[account.vendor].loginCommand(account.credential.folder);
 	const seen = yield* loginIn(account.credential.folder);
 
 	const login = pipe(

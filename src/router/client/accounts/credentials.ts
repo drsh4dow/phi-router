@@ -136,10 +136,6 @@ const cliEnv = Effect.fnUntraced(function* cliEnv(account: LoginFolder) {
 	});
 });
 
-/**
- * One login folder's read, its vendor CLI run, what its ended login names, and the notice for a rejected token its CLI
- * kept.
- */
 const folderOf = Effect.fnUntraced(function* folderOf(account: LoginFolder) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -150,30 +146,29 @@ const folderOf = Effect.fnUntraced(function* folderOf(account: LoginFolder) {
 		FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
 	>();
 
-	const ending = { account: account.name, fix: vendor.fix(account.folder), folder: account.folder };
-	const ended = LoginEnded.make(Struct.assign(ending, { on: Option.none() }));
+	const ending = { account: account.name, folder: account.folder, loginCommand: vendor.loginCommand(account.folder) };
+	const ended = LoginEnded.make(Struct.assign(ending, { endedOn: Option.none() }));
 
 	return {
+		cliRefresh: vendor
+			.refresh(env)
+			.pipe(Effect.scoped, Effect.timeout(refreshLimit), Effect.ignore, Effect.provideContext(services)),
 		ended,
 		ending,
-		kept: Effect.logWarning(
-			`phi-router: ${account.name}'s token got a 401 and its CLI left it as it was, so it is sent once more. If 401s go on, log in again: ${ending.fix}`,
+		keptTokenWarning: Effect.logWarning(
+			`phi-router: ${account.name}'s token got a 401 and its CLI left it as it was, so it is sent once more. If 401s go on, log in again: ${ending.loginCommand}`,
 		),
 		read: fs.readFileString(path.join(account.folder, vendor.file)).pipe(
 			Effect.flatMap(vendor.login),
 			Effect.mapError(() => ended),
 		),
-		refreshed: vendor
-			.refresh(env)
-			.pipe(Effect.scoped, Effect.timeout(refreshLimit), Effect.ignore, Effect.provideContext(services)),
 	};
 });
 
-/** A login to send with, and how to tell its folder the vendor answered 401 to its token. */
-interface Held {
+interface LoginToSend {
 	readonly login: Login;
 	/** The next `ready` refreshes unless the folder holds another token by then. */
-	readonly rejected: Effect.Effect<void>;
+	readonly markRejected: Effect.Effect<void>;
 }
 
 interface FolderLogin {
@@ -186,7 +181,7 @@ interface FolderLogin {
 	 */
 	readonly ready: Effect.Effect<void, LoginEnded>;
 	/** The login to send with now, read from the folder on every call and never cached. It runs no vendor CLI. */
-	readonly current: Effect.Effect<Held, LoginEnded>;
+	readonly current: Effect.Effect<LoginToSend, LoginEnded>;
 }
 
 const folderLogin = Effect.fnUntraced(function* folderLogin(account: LoginFolder) {
@@ -199,10 +194,10 @@ const folderLogin = Effect.fnUntraced(function* folderLogin(account: LoginFolder
 		const login = yield* folder.read;
 
 		if (Option.exists(login.ends, (end) => DateTime.isLessThanOrEqualTo(end, now))) {
-			return yield* LoginEnded.make(Struct.assign(folder.ending, { on: login.ends }));
+			return yield* LoginEnded.make(Struct.assign(folder.ending, { endedOn: login.ends }));
 		}
 
-		return { login, rejected: Ref.set(refused, Option.some(login.token)) } satisfies Held;
+		return { login, markRejected: Ref.set(refused, Option.some(login.token)) } satisfies LoginToSend;
 	});
 
 	const stillRefused = Effect.gen(function* stillRefused() {
@@ -221,8 +216,8 @@ const folderLogin = Effect.fnUntraced(function* folderLogin(account: LoginFolder
 	});
 
 	const refreshing = Effect.gen(function* refreshing() {
-		yield* folder.refreshed;
-		yield* Effect.when(folder.kept, stillRefused);
+		yield* folder.cliRefresh;
+		yield* Effect.when(folder.keptTokenWarning, stillRefused);
 		yield* Ref.set(refused, Option.none());
 
 		return yield* sendable;

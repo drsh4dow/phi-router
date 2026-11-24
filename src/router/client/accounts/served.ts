@@ -5,9 +5,8 @@ import { configText } from "#router/client/configuration/index.ts";
 import { servedBy } from "./upstream.ts";
 import { upstreamHttp } from "./http.ts";
 
-/** What the router serves, and the `config.json` text it built that from. */
-interface Held {
-	readonly text: string;
+interface Serving {
+	readonly builtFrom: string;
 	readonly served: Served;
 }
 
@@ -28,7 +27,7 @@ class Upstream extends Context.Service<Upstream, { readonly served: Effect.Effec
 		Upstream,
 		Effect.gen(function* make() {
 			const text = yield* configText;
-			const held = yield* SynchronizedRef.make<Held>({ served: yield* servedBy(text), text });
+			const held = yield* SynchronizedRef.make<Serving>({ builtFrom: text, served: yield* servedBy(text) });
 
 			const context = yield* Effect.context<
 				Effect.Services<typeof configText> | Effect.Services<ReturnType<typeof servedBy>>
@@ -38,7 +37,7 @@ class Upstream extends Context.Service<Upstream, { readonly served: Effect.Effec
 				Effect.gen(function* reread() {
 					const read = yield* configText;
 
-					if (read === now.text) {
+					if (read === now.builtFrom) {
 						return now;
 					}
 
@@ -47,7 +46,7 @@ class Upstream extends Context.Service<Upstream, { readonly served: Effect.Effec
 						Effect.orElseSucceed(() => now.served),
 					);
 
-					return { served: built, text: read };
+					return { builtFrom: read, served: built };
 				}).pipe(
 					Effect.tapError(kept),
 					Effect.orElseSucceed(() => now),

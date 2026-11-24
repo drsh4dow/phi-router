@@ -3,7 +3,7 @@ import { Array, Effect, Option, Record, Redacted, String as Str, Stream, Struct,
 import type { Credential, NamedAccount, Vendor, VendorLanes } from "#router/client/configuration/index.ts";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { folderLogin, readKey } from "./credentials.ts";
-import { Refused } from "./refused.ts";
+import { NoAnswer } from "./no-answer.ts";
 import { Rejected } from "./rejected.ts";
 import type { Scope } from "effect";
 import { laneConfiguration } from "#router/client/configuration/index.ts";
@@ -111,12 +111,12 @@ type To = (endpoint: string) => HttpClientRequest.HttpClientRequest;
  * The one way out to an account: the request `to` builds on its endpoint, with `headers`, no redirect followed and no
  * trace header.
  */
-type Caller = (call: { readonly headers: Headers; readonly to: To }) => Effect.Effect<Answered, Refused, Scope.Scope>;
+type Caller = (call: { readonly headers: Headers; readonly to: To }) => Effect.Effect<Answered, NoAnswer, Scope.Scope>;
 
 const callerOf = Effect.fnUntraced(function* callerOf(named: NamedAccount) {
 	const client = yield* HttpClient.HttpClient;
 	const http = HttpClient.withScope(client);
-	const refused = (): Refused => Refused.make({ account: named.name });
+	const noAnswer = (): NoAnswer => NoAnswer.make({ account: named.name });
 	const { returned } = wires[named.vendor];
 
 	const call: Caller = ({ headers, to }) => {
@@ -126,9 +126,9 @@ const callerOf = Effect.fnUntraced(function* callerOf(named: NamedAccount) {
 			HttpClientRequest.setHeaders(sent),
 			http.execute,
 			Effect.mapBoth({
-				onFailure: refused,
+				onFailure: noAnswer,
 				onSuccess: (response) => ({
-					body: Stream.mapError(response.stream, refused),
+					body: Stream.mapError(response.stream, noAnswer),
 					headers: picked(response.headers, returned),
 					status: response.status,
 				}),
@@ -174,11 +174,11 @@ const askingOf = Effect.fnUntraced(function* askingOf(named: NamedAccount) {
 
 	const ask: Ask = (harness, to) =>
 		Effect.gen(function* asked() {
-			const held = yield* login.current;
+			const toSend = yield* login.current;
 
 			const headers = Struct.assign(picked(harness, wires[vendor].copied.loginFolder), {
-				authorization: `Bearer ${Redacted.value(held.login.token)}`,
-				"chatgpt-account-id": Option.getOrUndefined(held.login.chatgptAccount),
+				authorization: `Bearer ${Redacted.value(toSend.login.token)}`,
+				"chatgpt-account-id": Option.getOrUndefined(toSend.login.chatgptAccountId),
 			});
 
 			const answer = yield* call({ headers, to });
@@ -187,7 +187,7 @@ const askingOf = Effect.fnUntraced(function* askingOf(named: NamedAccount) {
 				return answer;
 			}
 
-			yield* held.rejected;
+			yield* toSend.markRejected;
 
 			return yield* Rejected.make({ account: name });
 		});

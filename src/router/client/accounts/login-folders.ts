@@ -18,24 +18,22 @@ interface Login {
 	readonly expires: DateTime.Utc;
 	/** A Claude login's end, `refreshTokenExpiresAt`. No refresh moves it. */
 	readonly ends: Option.Option<DateTime.Utc>;
-	/** A Codex login's ChatGPT account, `tokens.account_id`. */
-	readonly chatgptAccount: Option.Option<string>;
+	readonly chatgptAccountId: Option.Option<string>;
 }
 
-/**
- * A login folder holds no token its vendor's CLI can still renew, or no login at all. It names the account, the folder,
- * the day the login ended when the folder says, and `fix`, the one vendor command that logs in again. It holds no token.
- */
 class LoginEnded extends Schema.TaggedError<LoginEnded, { readonly brand: unique symbol }>()("LoginEnded", {
 	account: Schema.String,
-	fix: Schema.String,
+	endedOn: Schema.Option(Schema.DateTimeUtc),
 	folder: Schema.String,
-	on: Schema.Option(Schema.DateTimeUtc),
+	loginCommand: Schema.String,
 }) {
 	public override get message(): string {
-		const on = Option.match(this.on, { onNone: () => "", onSome: (day) => ` on ${DateTime.formatIsoDateUtc(day)}` });
+		const on = Option.match(this.endedOn, {
+			onNone: () => "",
+			onSome: (day) => ` on ${DateTime.formatIsoDateUtc(day)}`,
+		});
 
-		return `phi-router: ${this.account}'s login ended${on}. Fix: ${this.fix}`;
+		return `phi-router: ${this.account}'s login ended${on}. Fix: ${this.loginCommand}`;
 	}
 }
 
@@ -53,19 +51,18 @@ const CodexFile = Schema.fromJsonString(Schema.Struct({ tokens: CodexTokens }));
 
 const Exp = Schema.fromJsonString(Schema.Struct({ exp: Schema.Finite }));
 
-/** The claims of a JWT, its middle segment. `exp` is in seconds. */
-const Claims = Schema.StringFromBase64Url.pipe(Schema.decodeTo(Exp));
+const JwtClaims = Schema.StringFromBase64Url.pipe(Schema.decodeTo(Exp));
 
 const millisPerSecond = 1000;
 
-const claimsAt = 1;
+const jwtClaimsSegment = 1;
 
 const claudeLogin = Effect.fnUntraced(function* claudeLogin(text: string) {
 	const { claudeAiOauth } = yield* Schema.decodeEffect(ClaudeFile)(text);
 	const ends = Option.fromUndefinedOr(claudeAiOauth.refreshTokenExpiresAt).pipe(Option.map(DateTime.makeUnsafe));
 
 	return {
-		chatgptAccount: Option.none(),
+		chatgptAccountId: Option.none(),
 		ends,
 		expires: DateTime.makeUnsafe(claudeAiOauth.expiresAt),
 		token: Redacted.make(claudeAiOauth.accessToken),
@@ -74,11 +71,11 @@ const claudeLogin = Effect.fnUntraced(function* claudeLogin(text: string) {
 
 const codexLogin = Effect.fnUntraced(function* codexLogin(text: string) {
 	const { tokens } = yield* Schema.decodeEffect(CodexFile)(text);
-	const claims = yield* Effect.fromOption(pipe(Str.split(tokens.access_token, "."), Array.get(claimsAt)));
-	const { exp } = yield* Schema.decodeEffect(Claims)(claims);
+	const claims = yield* Effect.fromOption(pipe(Str.split(tokens.access_token, "."), Array.get(jwtClaimsSegment)));
+	const { exp } = yield* Schema.decodeEffect(JwtClaims)(claims);
 
 	return {
-		chatgptAccount: Option.some(tokens.account_id),
+		chatgptAccountId: Option.some(tokens.account_id),
 		ends: Option.none(),
 		expires: DateTime.makeUnsafe(exp * millisPerSecond),
 		token: Redacted.make(tokens.access_token),
@@ -161,8 +158,8 @@ const loginFolders = {
 		ends: claudeEnds,
 		env: "CLAUDE_CONFIG_DIR",
 		file: ".credentials.json",
-		fix: (folder: string) => `CLAUDE_CONFIG_DIR=${folder} claude auth login`,
 		login: claudeLogin,
+		loginCommand: (folder: string) => `CLAUDE_CONFIG_DIR=${folder} claude auth login`,
 		refresh: claudeRefresh,
 	},
 	openai: {
@@ -170,8 +167,8 @@ const loginFolders = {
 		ends: codexEnds,
 		env: "CODEX_HOME",
 		file: "auth.json",
-		fix: (folder: string) => `CODEX_HOME=${folder} codex login`,
 		login: codexLogin,
+		loginCommand: (folder: string) => `CODEX_HOME=${folder} codex login`,
 		refresh: codexRefresh,
 	},
 } as const;

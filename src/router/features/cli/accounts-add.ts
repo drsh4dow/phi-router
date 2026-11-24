@@ -63,7 +63,7 @@ const fromFolder = Effect.fnUntraced(function* fromFolder(folder: string) {
 
 	if (Option.isNone(seen)) {
 		return yield* refused(
-			`${folder} holds no login: no .credentials.json with claudeAiOauth and no auth.json with tokens. Log in there first with ${loginFolders.anthropic.fix(folder)}, or ${loginFolders.openai.fix(folder)}.`,
+			`${folder} holds no login: no .credentials.json with claudeAiOauth and no auth.json with tokens. Log in there first with ${loginFolders.anthropic.loginCommand(folder)}, or ${loginFolders.openai.loginCommand(folder)}.`,
 		);
 	}
 

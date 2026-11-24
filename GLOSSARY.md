@@ -80,6 +80,9 @@ The mark a 429 leaves on an open account. The clean lane skips the account for 3
 **Login folder**:
 The folder where a vendor's CLI keeps one account's login: Claude Code's `CLAUDE_CONFIG_DIR` or Codex's `CODEX_HOME`. The router reads its token on each send and the vendor CLI refreshes it.
 
+**Ended login**:
+A login folder that holds no token its vendor's CLI can still renew, or no login at all. A request fails over from its account, and the router names the vendor command that logs in again.
+
 **Target model**:
 The model a request names.
 
