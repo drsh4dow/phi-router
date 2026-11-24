@@ -199,3 +199,56 @@ it.layer(Digest.layerWebCrypto)("the rewrite rules", (test) => {
 		() => unreadableWithheld,
 	);
 });
+
+const forwardedMembers = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":[{"type":"text","text":"Read notes.txt."},{"type":"text","text":"Then sum it up.","cache_control":{"type":"ephemeral"}}]},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"notes.txt"},"caller":{"type":"direct"},"cache_control":{"type":"ephemeral"}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"1\tsynthetic note","is_error":true,"cache_control":{"type":"ephemeral"}}]}],"max_tokens":1000}`;
+
+const spaced = String.raw`{"model":"phi/auto","messages":[ {"role":"user","content": [ {"text": "Read notes.txt.", "type": "text"} ]}, {"role":"assistant","content": [ {"text": "Reading it.", "type": "text"} ]}, {"role":"user","content": "Go on." } ],"max_tokens":1000}`;
+
+const stubKeepsForwarded = Effect.gen(function* stubKeepsForwarded() {
+	const request = yield* decodeRequest(forwardedMembers, nobodyWrote, "claude");
+	const toOpen = yield* sent(request, clean(stubbedWhere(request.messages, () => true)));
+	const ephemeral = { type: "ephemeral" } as const;
+
+	const call = {
+		cache_control: ephemeral,
+		caller: { type: "direct" },
+		id: "toolu_1",
+		input: {},
+		name: "Read",
+		type: "tool_use",
+	} as const;
+
+	const result = {
+		cache_control: ephemeral,
+		content: sealedStub,
+		is_error: true,
+		tool_use_id: "toolu_1",
+		type: "tool_result",
+	} as const;
+
+	assert.deepStrictEqual(toOpen.messages, [
+		{ content: [{ cache_control: ephemeral, text: sealedStub, type: "text" }], role: "user" },
+		{ content: [stubText, call], role: "assistant" },
+		{ content: [result], role: "user" },
+	]);
+});
+
+const unchangedAsSent = Effect.gen(function* unchangedAsSent() {
+	const request = yield* decodeRequest(spaced, nobodyWrote, "claude");
+	const toOpen = yield* request.encode(clean(request.messages));
+	const toBaa = yield* request.encode({ lane: "sealed", model: target, pinned: false });
+
+	assert.strictEqual(toOpen, toBaa);
+});
+
+it.layer(Digest.layerWebCrypto)("the rewrite rules", (test) => {
+	test.effect(
+		"a stub keeps the cache_control of a prompt's last block, a tool call's caller and cache_control, and a tool result's is_error and cache_control",
+		() => stubKeepsForwarded,
+	);
+
+	test.effect(
+		"messages the border returns unchanged reach an open account byte for byte, whatever their spacing and key order",
+		() => unchangedAsSent,
+	);
+});

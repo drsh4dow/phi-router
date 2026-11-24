@@ -110,7 +110,6 @@ const promptRun = (blocks: readonly Located<PromptBlock>[]): Run => {
 	};
 };
 
-/** A tool result run, which keeps the `is_error` and `cache_control` members of its wire block. */
 const resultRun = Effect.fnUntraced(function* resultRun({
 	span,
 	wire,
