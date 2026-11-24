@@ -31,29 +31,31 @@ const stubbedCalls = (message: AssistantMessage): AssistantMessage["content"] =>
 		}),
 	);
 
-const stubbedMessage = (message: Exclude<Message, SystemMessage>, stub: string): Message => {
-	const text = { text: stub, type: "text" } as const;
+const stubbedMessage =
+	(stub: string) =>
+	(message: Exclude<Message, SystemMessage>): Message => {
+		const text = { text: stub, type: "text" } as const;
 
-	switch (message.role) {
-		case "user": {
-			return { content: [text], role: "user" };
+		switch (message.role) {
+			case "user": {
+				return { content: [text], role: "user" };
+			}
+
+			case "toolResult": {
+				return { content: [text], isError: message.isError, role: "toolResult", toolCallId: message.toolCallId };
+			}
+
+			case "assistant": {
+				return { content: [text, ...stubbedCalls(message)], role: "assistant", writtenBy: message.writtenBy };
+			}
+
+			default: {
+				const unhandled: never = message;
+
+				return unhandled;
+			}
 		}
-
-		case "toolResult": {
-			return { content: [text], isError: message.isError, role: "toolResult", toolCallId: message.toolCallId };
-		}
-
-		case "assistant": {
-			return { content: [text, ...stubbedCalls(message)], role: "assistant", writtenBy: message.writtenBy };
-		}
-
-		default: {
-			const unhandled: never = message;
-
-			return unhandled;
-		}
-	}
-};
+	};
 
 const isSealed = ({ standing }: Checked): boolean => standing === "sealed";
 
@@ -98,7 +100,7 @@ const guardedMessage = (message: Message, checked: readonly Checked[], harness: 
 		return message;
 	}
 
-	return stubbedMessage(message, stubOf(checked, harness));
+	return stubbedMessage(stubOf(checked, harness))(message);
 };
 
 const guard = Effect.fn("guard")(function* guard({
@@ -142,4 +144,4 @@ const guard = Effect.fn("guard")(function* guard({
 	);
 });
 
-export { ToolsNotCleared, guard };
+export { ToolsNotCleared, guard, stubbedMessage };

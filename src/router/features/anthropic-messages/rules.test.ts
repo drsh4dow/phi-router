@@ -8,6 +8,7 @@ import type { Target } from "#router/features/border/index.ts";
 import type { WireBody } from "./wire.ts";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
+import { stubbedMessage } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const sealedStub =
@@ -65,31 +66,7 @@ const stubbedWhere = (
 				return message;
 			}
 
-			if (message.role === "toolResult") {
-				return {
-					content: [stubText],
-					isError: message.isError,
-					role: "toolResult",
-					toolCallId: message.toolCallId,
-				};
-			}
-
-			if (message.role === "user") {
-				return { content: [stubText], role: "user" };
-			}
-
-			const calls = pipe(
-				message.content,
-				Array.flatMap((block) => {
-					if (block.type === "toolCall") {
-						return [{ arguments: "{}", id: block.id, name: block.name, type: "toolCall" } as const];
-					}
-
-					return [];
-				}),
-			);
-
-			return { content: [stubText, ...calls], role: "assistant", writtenBy: message.writtenBy };
+			return stubbedMessage(sealedStub)(message);
 		}),
 	);
 

@@ -1,4 +1,4 @@
-export { ToolsNotCleared, guard } from "./guard.ts";
+export { ToolsNotCleared, guard, stubbedMessage } from "./guard.ts";
 
 export { bridgesFor, stubsFor } from "./texts.ts";
 

@@ -6,56 +6,18 @@ import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
+import { stubbedMessage } from "#router/features/border/index.ts";
 
 const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "toolResult"]);
 
 const sealedStub =
 	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
 
-const stubText = { text: sealedStub, type: "text" } as const;
-
 const piecesAroundNone = 1;
 
 const nobodyWrote = (): boolean => false;
 
 const decodeBody = Schema.decodeEffect(BodyJson);
-
-const stubbed = (message: Message): Message => {
-	switch (message.role) {
-		case "system": {
-			return { content: sealedStub, role: "system", sections: message.sections, tools: message.tools };
-		}
-
-		case "user": {
-			return { content: [stubText], role: "user" };
-		}
-
-		case "toolResult": {
-			return { content: [stubText], isError: message.isError, role: "toolResult", toolCallId: message.toolCallId };
-		}
-
-		case "assistant": {
-			const calls = pipe(
-				message.content,
-				Array.flatMap((block) => {
-					if (block.type === "toolCall") {
-						return [{ arguments: "{}", id: block.id, name: block.name, type: "toolCall" } as const];
-					}
-
-					return [];
-				}),
-			);
-
-			return { content: [stubText, ...calls], role: "assistant", writtenBy: message.writtenBy };
-		}
-
-		default: {
-			const unhandled: never = message;
-
-			return unhandled;
-		}
-	}
-};
 
 type SystemMessage = Extract<Message, { readonly role: "system" }>;
 
@@ -87,12 +49,16 @@ const sealedAfter = (head: SystemMessage, rest: readonly Message[], picked: (ind
 
 	const later = pipe(
 		rest,
-		Array.map((message, index) => {
-			if (picked(head.sections.length + index)) {
-				return stubbed(message);
+		Array.map((message, index): Message => {
+			if (!picked(head.sections.length + index)) {
+				return message;
 			}
 
-			return message;
+			if (message.role === "system") {
+				return { content: sealedStub, role: "system", sections: message.sections, tools: message.tools };
+			}
+
+			return stubbedMessage(sealedStub)(message);
 		}),
 	);
 
