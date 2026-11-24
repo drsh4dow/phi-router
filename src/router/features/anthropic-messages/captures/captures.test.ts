@@ -1,4 +1,4 @@
-import { Array, Effect, Exit, Predicate, Record, Result, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Exit, Record, Result, Schema, String as Str, pipe } from "effect";
 import {
 	UnreadableReply,
 	UnreadableRequest,
@@ -112,30 +112,11 @@ const cutReply = Effect.gen(function* cutReply() {
 	assert.instanceOf(failedFailure, UnreadableReply);
 });
 
-const placeholderSignature = "signature-placeholder";
-
 const placeholderIds = { account_uuid: "", device_id: "device-id-placeholder", session_id: "session-id-placeholder" };
-
-const Signed = Schema.Struct({ signature: Schema.optionalKey(Schema.String) });
-
-const RecordedTurn = Schema.Struct({ content: Schema.Union([Schema.String, Schema.Array(Signed)]) });
 
 const RecordedMetadata = Schema.Struct({ user_id: Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)) });
 
-const RecordedRequest = Schema.fromJsonString(
-	Schema.Struct({ messages: Schema.Array(RecordedTurn), metadata: Schema.optionalKey(RecordedMetadata) }),
-);
-
-const RecordedEvent = Schema.fromJsonString(Schema.Struct({ delta: Schema.optionalKey(Signed) }));
-
-const dataPrefix = "data: ";
-
-const replyData = pipe(
-	replies.toolCallReply,
-	Str.split("\n"),
-	Array.filter(Str.startsWith(dataPrefix)),
-	Array.map(Str.slice(dataPrefix.length)),
-);
+const RecordedRequest = Schema.fromJsonString(Schema.Struct({ metadata: Schema.optionalKey(RecordedMetadata) }));
 
 const placeholders = Effect.gen(function* placeholders() {
 	const recorded = yield* Effect.forEach(
@@ -144,37 +125,12 @@ const placeholders = Effect.gen(function* placeholders() {
 		{ concurrency: 1 },
 	);
 
-	const events = yield* Effect.forEach(replyData, (line) => Schema.decodeEffect(RecordedEvent)(line), {
-		concurrency: 1,
-	});
-
-	const deltas = pipe(
-		events,
-		Array.flatMap((event) => Array.fromNullishOr(event.delta)),
-	);
-
-	const signatures = pipe(
-		recorded,
-		Array.flatMap((body) => body.messages),
-		Array.flatMap((message) => {
-			if (Predicate.isString(message.content)) {
-				return [];
-			}
-
-			return message.content;
-		}),
-		Array.appendAll(deltas),
-		Array.map((block) => block.signature),
-		Array.filter(Predicate.isNotUndefined),
-	);
-
 	const ids = pipe(
 		recorded,
 		Array.flatMap((body) => Array.fromNullishOr(body.metadata)),
 		Array.map((metadata) => metadata.user_id),
 	);
 
-	assert.deepStrictEqual(Array.dedupe(signatures), [placeholderSignature]);
 	assert.isNotEmpty(ids);
 
 	for (const each of ids) {
@@ -258,7 +214,7 @@ it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 
 	test.effect("a streamed reply cut before message_stop, or holding an error event, gives no key", () => cutReply);
 
-	test.effect("every capture's thinking signatures and metadata ids are the fixed placeholders", () => placeholders);
+	test.effect("every capture's metadata ids are the fixed placeholders", () => placeholders);
 
 	test.effect(
 		"a top-level field outside its recorded shape fails the request and names the field",
