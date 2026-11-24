@@ -6,6 +6,7 @@ import type { Digest } from "effect/crypto";
 import type { IsReplyKey } from "./clean-lane.ts";
 import { ReadPart } from "./wire.ts";
 import { cleanLaneItemKey } from "./clean-lane.ts";
+import { writerOf } from "#router/features/parts/index.ts";
 
 interface Read {
 	readonly message: Message;
@@ -126,14 +127,6 @@ const replyContent = (item: ReplyItem): Effect.Effect<AssistantMessage["content"
 };
 
 const unreadIn = (item: ReplyItem): boolean => item.type === "message" && readContent(item.content).holdsUnreadPart;
-
-const writerOf = (written: boolean): AssistantMessage["writtenBy"] => {
-	if (written) {
-		return "open-account";
-	}
-
-	return "other";
-};
 
 const itemKey = Effect.fnUntraced(function* itemKey(item: ReplyItem) {
 	const content = yield* replyContent(item);

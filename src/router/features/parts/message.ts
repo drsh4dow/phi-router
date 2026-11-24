@@ -53,4 +53,14 @@ interface ToolResultMessage {
 
 type Message = SystemMessage | UserMessage | AssistantMessage | ToolResultMessage;
 
+const writerOf = (openAccountWrote: boolean): AssistantMessage["writtenBy"] => {
+	if (openAccountWrote) {
+		return "open-account";
+	}
+
+	return "other";
+};
+
+export { writerOf };
+
 export type { AssistantMessage, ImageBlock, Message, SystemMessage, TextBlock, ToolCall, ToolResultMessage };

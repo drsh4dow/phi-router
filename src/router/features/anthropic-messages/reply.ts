@@ -6,6 +6,7 @@ import { LooseCall } from "./wire.ts";
 import type { WireAssistantBlock } from "./wire.ts";
 import { contentKey } from "#router/primitives/content-key.ts";
 import { stubs } from "#router/features/policy/index.ts";
+import { writerOf } from "#router/features/parts/index.ts";
 
 type ReplyContent = AssistantMessage["content"];
 
@@ -152,14 +153,6 @@ const streamedOpen = (
 		onNone: () => Effect.succeed(false),
 		onSome: (key) => pipe(key, Effect.map(openWrote)),
 	});
-
-const writerOf = (open: boolean): AssistantMessage["writtenBy"] => {
-	if (open) {
-		return "open-account";
-	}
-
-	return "other";
-};
 
 const replyOf = Effect.fnUntraced(function* replyOf(
 	blocks: readonly ReplyBlock[],
