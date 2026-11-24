@@ -1,5 +1,5 @@
 import { Array, Effect, Option, Schema, String as Str, pipe } from "effect";
-import type { Check, Left, Run } from "./checks.ts";
+import type { Check, Played, Run } from "./checks.ts";
 import { commonChecksOf, isAsSent, isBaaOnly } from "./checks.ts";
 import { phiChecksOf, phiTurns, sealCheckOf, shownChecksOf } from "./phi-checks.ts";
 import { Base64Url } from "effect/encoding";
@@ -23,7 +23,7 @@ interface PiTurned extends PhiTurned {
 	readonly routerUp: boolean;
 }
 
-interface PiPlayed extends Left {
+interface PiPlayed extends Played {
 	readonly installed: boolean;
 	readonly doctored: boolean;
 	/** What `doctor pi`, run with a `/tmp` that starts empty, left there. */

@@ -20,8 +20,7 @@ interface Turned {
 	readonly baa: readonly Sent[];
 }
 
-/** What every play's checks read: its runs in order, what the state folder holds, and the run's tokens. */
-interface Left {
+interface Played {
 	readonly turns: readonly Turned[];
 	readonly stored: Stored;
 	readonly sessions: readonly string[];
@@ -32,7 +31,7 @@ interface Left {
 	readonly content: readonly string[];
 }
 
-interface Played extends Left {
+interface ClaudePlayed extends Played {
 	readonly turns: readonly [clean: Turned, canary: Turned, followUp: Turned, tool: Turned, ...phi: Turned[]];
 }
 
@@ -51,7 +50,7 @@ interface Listing {
 	readonly remote: string;
 }
 
-interface CodexPlayed extends Left, Listing {
+interface CodexPlayed extends Played, Listing {
 	readonly turns: readonly [
 		models: CodexTurned,
 		clean: CodexTurned,
@@ -82,7 +81,7 @@ interface Run {
 
 interface Outcome {
 	readonly checks: readonly Check[];
-	readonly stored: Left["stored"];
+	readonly stored: Played["stored"];
 	readonly turns: readonly Turned[];
 }
 
@@ -142,9 +141,9 @@ const leftOf = <Turns extends readonly Turned[]>(left: {
 	readonly run: Run;
 	readonly prompts: readonly string[];
 	readonly sessions: readonly string[];
-	readonly stored: Left["stored"];
+	readonly stored: Played["stored"];
 	readonly turns: Turns;
-}): Left & { readonly turns: Turns } => ({
+}): Played & { readonly turns: Turns } => ({
 	canaries: left.run.tracked.wholeCanaryTokens,
 	cleanText: left.run.clean.text,
 	content: [
@@ -161,7 +160,7 @@ const leftOf = <Turns extends readonly Turned[]>(left: {
 
 const commonChecksOf =
 	(harness: string) =>
-	(played: Left): readonly Check[] => [
+	(played: Played): readonly Check[] => [
 		{ name: `every ${harness} run exits 0`, ok: everyOf(played.turns, (turn) => turn.exitCode === succeeded) },
 		{
 			name: `no open body holds a complete canary of ${played.phiCase}`,
@@ -182,7 +181,7 @@ const commonChecksOf =
 		},
 	];
 
-const checksOf = (played: Played): readonly Check[] => {
+const checksOf = (played: ClaudePlayed): readonly Check[] => {
 	const [clean, canary, followUp, tool] = played.turns;
 	const cleanWindows = windowsOf(played.cleanText);
 
@@ -268,4 +267,4 @@ const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 
 export { checksOf, codexChecksOf, commonChecksOf, everyOf, isAsSent, isBaaOnly, leftOf, succeeded };
 
-export type { Check, CodexTurned, Left, Listing, Outcome, Run, Turned };
+export type { Check, CodexTurned, Listing, Outcome, Played, Run, Turned };
