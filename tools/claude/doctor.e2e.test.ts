@@ -72,7 +72,6 @@ const broken = Effect.fnUntraced(function* broken(copy: string, install: Install
 	}
 });
 
-/** Installs a copy of `plugins/claude` in `dir` as Claude Code records it, then breaks it as `install` says. */
 const installed = Effect.fnUntraced(function* installed(dir: string, install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 
@@ -168,7 +167,6 @@ const failsStatic = Effect.fnUntraced(function* failsStatic(failing: Static) {
 	assert.isFalse(claudeRan, "claude ran although a static check failed");
 });
 
-/** Lists that take Claude Code to the router without a proxy although `on` wrote no `no_proxy`. */
 const keptLists: readonly Lists[] = [
 	{ env: Struct.assign(routed, { no_proxy: "*" }), named: "* in the settings", shell: {} },
 	{ env: routed, named: "127.0.0.0/8 in the shell's NO_PROXY", shell: { NO_PROXY: "corp.example,127.0.0.0/8" } },

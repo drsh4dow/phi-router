@@ -12,7 +12,6 @@ const ok = 200;
 
 const session = "stand-in-session";
 
-/** The `--settings` JSON `doctor claude` passes: its `env` entries, the model address among them. */
 const Settings = Schema.fromJsonString(Schema.Struct({ env: Schema.Record(Schema.String, Schema.String) }));
 
 const Text = Schema.Struct({ text: Schema.String, type: Schema.Literal("text") });
@@ -54,7 +53,6 @@ const sessionStarted = Effect.fnUntraced(function* sessionStarted() {
 	});
 });
 
-/** The Messages request Claude Code sends for a one-line `-p` prompt, to the model address of its `--settings`. */
 const request = Effect.fnUntraced(function* request(env: Readonly<Record<string, string>>) {
 	const prompt = yield* valueOf("-p");
 	const model = yield* valueOf("--model");
@@ -72,10 +70,8 @@ const request = Effect.fnUntraced(function* request(env: Readonly<Record<string,
 	);
 });
 
-/** Set in the environment of the stand-in's second run, which has the settings' `env` in its own. */
 const settled = "PHI_STAND_IN_SETTLED";
 
-/** The session as `claude -p` runs it once its settings' `env` is in its environment. */
 const turn = Effect.gen(function* turn() {
 	const client = yield* HttpClient.HttpClient;
 	const { env } = yield* settings;
@@ -93,7 +89,6 @@ const turn = Effect.gen(function* turn() {
 	);
 });
 
-/** The stand-in run again with the `env` of its `--settings` laid over its own environment, as Claude Code lays it. */
 const settledRun = Effect.gen(function* settledRun() {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const { env } = yield* settings;
@@ -111,13 +106,6 @@ const settledRun = Effect.gen(function* settledRun() {
 	);
 });
 
-/**
- * A stand-in for `claude -p` in `check`, which has no real binary. Like Claude Code, it lays the `env` of its
- * `--settings` over its own environment before its first request, by running itself again with it, so Bun's `fetch`
- * takes the proxy and `no_proxy` from there, as Claude Code does. It runs the SessionStart hooks of the plugin
- * `doctor claude` passes, posts one streamed Messages request built from what `doctor claude` passes, reads the whole
- * reply, and exits 0 when the router answered 200.
- */
 const program = Effect.gen(function* program() {
 	const again = yield* Config.String(settled).pipe(Config.withDefault(""));
 

@@ -73,7 +73,6 @@ interface Trip {
 	readonly seed: string;
 }
 
-/** Reads text as UTF-8 and keeps a byte order mark, so the test sees every byte phi-router left. */
 const utf8 = new TextDecoder("utf-8", { ignoreBOM: true });
 
 const roundTrip = Effect.fnUntraced(function* roundTrip({ seed }: Trip) {
@@ -143,7 +142,6 @@ const appends = Effect.gen(function* appends() {
 	);
 });
 
-/** `é` in Latin-1, a byte no UTF-8 text holds alone. */
 const latinSmallEAcute = 233;
 
 const ascii = new TextEncoder();

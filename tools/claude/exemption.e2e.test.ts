@@ -68,12 +68,6 @@ const lists: readonly Lists[] = [
 	},
 ];
 
-/**
- * A settings file as Claude Code writes it, with `env` as its `env` block, or none when `env` is empty.
- *
- * @param {object} env The `env` block.
- * @returns {string} The file's text.
- */
 const claudeFile = (env: Readonly<Record<string, string>>): string => {
 	const model = '  "model": "opus"\n}\n';
 

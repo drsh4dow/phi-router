@@ -63,11 +63,6 @@ const seenBy = (marker: string): string => {
 	return `{ stat -c %a ${config}; ${address}; ${wide}; ${launcher}; ${proxy}; ${stdin}; } > '${marker}'`;
 };
 
-/**
- * What a test's `codex` does next, as Codex does when it starts: it loads `$CODEX_HOME/.env` into its environment,
- * each `${NAME}` taken from the environment so far, and reads `NO_PROXY` over `no_proxy`. The stand-in's `fetch`
- * reads `no_proxy` first, so `no_proxy` takes `NO_PROXY`.
- */
 const loadsDotenv = `if [ -f "$CODEX_HOME/.env" ]; then set -a; . "$CODEX_HOME/.env"; set +a; fi; no_proxy=\${NO_PROXY-$no_proxy}`;
 
 const searchPath = Effect.fnUntraced(function* searchPath(codex: Codex) {
@@ -107,7 +102,6 @@ const broken = Effect.fnUntraced(function* broken(version: string, install: Inst
 	}
 });
 
-/** Installs a copy of `plugins/claude` in `dir` where `codex plugin add` puts it, then breaks it as `install` says. */
 const installed = Effect.fnUntraced(function* installed(dir: string, install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 	const cache = `${dir}/plugins/cache/phi-router/phi-router`;

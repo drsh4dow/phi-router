@@ -13,10 +13,6 @@ const routed = {
 	DISABLE_TELEMETRY: "1",
 } as const;
 
-/**
- * The ten settings `on claude` must write when neither the settings nor the shell name a host to keep off the proxy:
- * the eight, `no_proxy`, and the record of the value it wrote.
- */
 const written = Struct.assign(routed, {
 	PHI_ROUTER_WROTE_no_proxy: "127.0.0.1:47411",
 	no_proxy: "127.0.0.1:47411",
@@ -41,12 +37,6 @@ const phiRouter = Effect.fnUntraced(function* phiRouter(
 	return yield* ran([runtime, entry, ...args], env);
 });
 
-/**
- * The arguments of each `claude` command with the flag that names `dir` as Claude Code's folder.
- *
- * @param {string} dir The folder.
- * @returns {object} The arguments of `on claude`, `off claude` and `doctor claude`.
- */
 const claudeIn = (dir: string): Readonly<Record<"on" | "off" | "doctor", readonly string[]>> => ({
 	doctor: ["doctor", "claude", "--config-dir", dir],
 	off: ["off", "claude", "--config-dir", dir],
@@ -55,17 +45,12 @@ const claudeIn = (dir: string): Readonly<Record<"on" | "off" | "doctor", readonl
 
 const settingsFile = (dir: string): string => `${dir}/settings.json`;
 
-/** A fresh folder for one test. */
 const folder = Effect.fnUntraced(function* folder(prefix: string) {
 	const fs = yield* FileSystem.FileSystem;
 
 	return yield* fs.makeTempDirectoryScoped({ prefix });
 });
 
-/**
- * A fresh Claude Code folder, and an environment whose HOME is another fresh folder and that sets no config folder and
- * no host to keep off a proxy.
- */
 const claudeFolders = Effect.gen(function* claudeFolders() {
 	const home = yield* folder("phi-claude-home-");
 	const dir = yield* folder("phi-claude-config-");
@@ -80,7 +65,6 @@ const settingsIn = Effect.fnUntraced(function* settingsIn(dir: string) {
 	return yield* Schema.decodeEffect(SettingsJson)(text);
 });
 
-/** Writes `settings` as the settings file in `dir`. */
 const writeSettings = Effect.fnUntraced(function* writeSettings(dir: string, settings: ClaudeSettings) {
 	const fs = yield* FileSystem.FileSystem;
 	const text = yield* Schema.encodeUnknownEffect(SettingsJson)(settings);

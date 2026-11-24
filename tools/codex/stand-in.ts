@@ -7,7 +7,6 @@ const ok = 200;
 
 const session = "01a20000-0000-7000-8000-000000000022";
 
-/** The trust Codex stores for the plugin's session-start hook, as `doctor codex` copies it. */
 const trustTable = '[hooks.state."phi-router@phi-router:hooks/codex.json:session_start:0:0"]';
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ hooks: Schema.String }));
@@ -24,7 +23,6 @@ const valueIn = (config: string, key: string): Effect.Effect<string, string> => 
 	);
 };
 
-/** The plugin folders Codex would load: each `<marketplace>/<plugin>/<version>` of the cache with a manifest. */
 const pluginFolders = Effect.fnUntraced(function* pluginFolders(codexHome: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -64,12 +62,6 @@ const hooksRan = Effect.fnUntraced(function* hooksRan(folder: string) {
 	});
 });
 
-/**
- * A stand-in for `codex exec` in `check`, which has no real binary. It reads `$CODEX_HOME/config.toml`, runs the
- * SessionStart hooks of each installed plugin when the config holds the hook's trust or the run bypasses hook trust, as
- * `--dangerously-bypass-hook-trust` does, asks the provider's `base_url` for its model catalog as Codex does, posts one
- * streamed Responses request with the prompt there, reads the whole reply, and exits 0 when both were answered 200.
- */
 const started = Effect.gen(function* started() {
 	const fs = yield* FileSystem.FileSystem;
 	const codexHome = yield* Config.String("CODEX_HOME");

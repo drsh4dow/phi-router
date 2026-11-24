@@ -18,10 +18,8 @@ stream_max_retries = 2 # phi-router
 
 const exemptionLine = `NO_PROXY="\${NO_PROXY},\${no_proxy},127.0.0.1" # added by phi-router on`;
 
-/** The plugin enabled, as `codex plugin add` writes it. */
 const enabled = '\n[plugins."phi-router@phi-router"]\nenabled = true\n';
 
-/** The trust Codex stores once the human trusts the plugin's hooks. The hashes are made up. */
 const trusted = `
 [hooks.state]
 
@@ -50,12 +48,6 @@ trusted_hash = "sha256:ab"
 trusted_content_hash = "sha256:bb"
 `;
 
-/**
- * The arguments of each `codex` command with the flag that names `dir` as Codex's home.
- *
- * @param {string} dir The folder.
- * @returns {object} The arguments of `on codex`, `off codex` and `doctor codex`.
- */
 const codexIn = (dir: string): Readonly<Record<"on" | "off" | "doctor", readonly string[]>> => ({
 	doctor: ["doctor", "codex", "--codex-home", dir],
 	off: ["off", "codex", "--codex-home", dir],
@@ -68,7 +60,6 @@ const roleFile = (dir: string): string => `${dir}/agents/phi-sealed.toml`;
 
 const dotenvFile = (dir: string): string => `${dir}/.env`;
 
-/** A fresh Codex home, and an environment whose HOME is another fresh folder and that sets no Codex home. */
 const codexFolders = Effect.gen(function* codexFolders() {
 	const home = yield* folder("phi-codex-home-");
 	const dir = yield* folder("phi-codex-config-");
@@ -76,7 +67,6 @@ const codexFolders = Effect.gen(function* codexFolders() {
 	return { dir, env: { CODEX_HOME: "", HOME: home } };
 });
 
-/** Writes `text` as `config.toml` in `dir`. */
 const writeConfig = Effect.fnUntraced(function* writeConfig(dir: string, text: string) {
 	const fs = yield* FileSystem.FileSystem;
 
