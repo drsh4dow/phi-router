@@ -207,6 +207,21 @@ One conversation of the corpus, PHI or clean.
 **Capture**:
 The bytes of one request or reply recorded off a real harness binary, kept as a fixture.
 
+**Harness note**:
+A system-role message a harness puts inside `messages`, such as Claude Code's environment block.
+
+**Attribution block**:
+Claude Code's first system block, its billing header. The router neither judges nor stubs it.
+
+**Dialect**:
+How a Codex request sends its tools: lite puts them in an `additional_tools` item, fallback in the top-level `tools`.
+
+**Reply run**:
+The items of one earlier reply that Codex sends back, read as one assistant message.
+
+**Turn metadata**:
+The `x-codex-turn-metadata` value Codex sends with each turn.
+
 **Mock upstream**:
 A loopback test server that stands for the open account, the BAA account or the judge and records each request.
 
