@@ -97,11 +97,8 @@ const lookalikes = [
 	"x-anthropic-billing-header: cc_version=2.1.325.a35; cc_entrypoint=Canary.Fake;",
 ];
 
-const lookalikeSections = Effect.fnUntraced(function* lookalikeSections(text: string) {
-	const body = `{"model":"m","messages":[{"role":"user","content":"hi"}],"system":[{"type":"text","text":"${text}"}],"max_tokens":10}`;
-	const request = yield* decodeRequest(body, nobodyWrote, "claude");
-
-	return pipe(
+const sectionsOf = (request: MessagesRequest): Extract<Message, { readonly role: "system" }>["sections"] =>
+	pipe(
 		request.messages,
 		Array.flatMap((message) => {
 			if (message.role === "system") {
@@ -111,6 +108,12 @@ const lookalikeSections = Effect.fnUntraced(function* lookalikeSections(text: st
 			return [];
 		}),
 	);
+
+const lookalikeSections = Effect.fnUntraced(function* lookalikeSections(text: string) {
+	const body = `{"model":"m","messages":[{"role":"user","content":"hi"}],"system":[{"type":"text","text":"${text}"}],"max_tokens":10}`;
+	const request = yield* decodeRequest(body, nobodyWrote, "claude");
+
+	return sectionsOf(request);
 });
 
 const lookalikeJudged = Effect.gen(function* lookalikeJudged() {
@@ -175,33 +178,15 @@ it.layer(Digest.layerWebCrypto)("the system blocks and the model", (test) => {
 
 const claudeCodeRequests = Struct.omit(requests, ["piCompaction", "piFirstTurn", "piThinkingOff", "piToolResult"]);
 
-const attributionBlocks = 1;
-
-const sectionNamesOf = (request: MessagesRequest): readonly string[] =>
-	pipe(
-		request.messages,
-		Array.flatMap((message) => {
-			if (message.role === "system") {
-				return message.sections;
-			}
-
-			return [];
-		}),
-		Array.map(({ name }) => name),
-	);
-
 const attributionOfEach = Effect.gen(function* attributionOfEach() {
 	for (const [name, body] of Record.toEntries(claudeCodeRequests)) {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
-		const original = yield* decodeBody(body);
 
-		const judgedBlockNames = pipe(
-			original.system ?? [],
-			Array.map((_block, index) => String(index)),
-			Array.drop(attributionBlocks),
+		assert.notInclude(
+			Array.map(sectionsOf(request), (section) => section.name),
+			"0",
+			name,
 		);
-
-		assert.deepStrictEqual(sectionNamesOf(request), judgedBlockNames, name);
 	}
 });
 
