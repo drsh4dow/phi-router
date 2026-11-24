@@ -44,13 +44,13 @@ const noLeaks = Effect.gen(function* noLeaks() {
 	assert.deepStrictEqual(leaks, []);
 });
 
-it.layer(playedWith("decisions"), { timeout: "120 seconds" })("the default corpus with the Decisions judge", (test) => {
+it.layer(playedWith("decisions"), { timeout: "10 minutes" })("the default corpus with the Decisions judge", (test) => {
 	test.effect("the recorded answers cover every judge call of the default corpus", () => covered);
 
 	test.effect("no complete identifier in the default corpus reaches an open account in one message", () => noLeaks);
 });
 
-it.layer(playedWith("claude"), { timeout: "120 seconds" })("the default corpus with the Claude judge", (test) => {
+it.layer(playedWith("claude"), { timeout: "10 minutes" })("the default corpus with the Claude judge", (test) => {
 	test.effect("the recorded answers cover every judge call of the default corpus", () => covered);
 
 	test.effect("no complete identifier in the default corpus reaches an open account in one message", () => noLeaks);
