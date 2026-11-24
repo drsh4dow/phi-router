@@ -7,10 +7,6 @@ import { tokensOf } from "#tools/corpus/canary-tokens.ts";
 
 const phiCaseId = "h-0051";
 
-/**
- * A Social Security number the SSA voided after a wallet insert printed it, so it names nobody. Of the policy, only its
- * rule for these numbers seals it.
- */
 const voidedSsn = "078-05-1120";
 
 const onlyTextOf = (subject: Case): readonly string[] => {
@@ -37,11 +33,6 @@ const withText = <Subject extends Case>(
 		Array.head,
 	);
 
-/**
- * The first clean case whose whole content is one user text message, and PHI case `h-0051` of the default seed, one
- * user message, with its member number replaced by the voided number, and its tracked tokens. The judge mock seals
- * nothing, so the canary seals only while the policy's rule does, and a run whose rule stopped sealing fails.
- */
 const casesOfRun = Effect.gen(function* casesOfRun() {
 	const { cleanCases, phiCases } = yield* DefaultCorpus;
 	const clean = yield* Effect.fromOption(withText(cleanCases));
