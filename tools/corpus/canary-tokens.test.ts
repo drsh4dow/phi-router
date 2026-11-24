@@ -56,7 +56,7 @@ const textsOf = (subject: Case): string[] =>
 		}),
 	);
 
-const nothing = { fragments: [], leaked: [], missing: [], split: [], unsealed: [] };
+const nothing = { fragments: [], leaked: [], missing: [], split: [], unstubbed: [] };
 
 const completeLeak = Effect.gen(function* completeLeak() {
 	const ask = "Can you check why the importer rejects the row below?";
@@ -71,7 +71,7 @@ const completeLeak = Effect.gen(function* completeLeak() {
 
 	assert.deepStrictEqual(onBaa, nothing);
 	assert.deepStrictEqual(onOpen.leaked, [mrn]);
-	assert.lengthOf(onOpen.unsealed, oneMessage);
+	assert.lengthOf(onOpen.unstubbed, oneMessage);
 });
 
 const redactedLeak = Effect.gen(function* redactedLeak() {
@@ -81,7 +81,7 @@ const redactedLeak = Effect.gen(function* redactedLeak() {
 	const result = yield* seen(subject, { baa: [text], open: [Str.replace(mrn, "[redacted]")(text)] });
 
 	assert.deepStrictEqual(result.leaked, []);
-	assert.lengthOf(result.unsealed, oneMessage);
+	assert.lengthOf(result.unstubbed, oneMessage);
 	assert.isTrue(failed(result));
 });
 
@@ -121,7 +121,7 @@ const pagedOutput = Effect.gen(function* pagedOutput() {
 	const redacted = yield* seen(subject, { baa: [dump], open: [Str.replace(mrn, "[redacted]")(dump)] });
 
 	assert.deepStrictEqual(firstPage, nothing);
-	assert.lengthOf(redacted.unsealed, oneMessage);
+	assert.lengthOf(redacted.unstubbed, oneMessage);
 });
 
 const paddingChars = 60;

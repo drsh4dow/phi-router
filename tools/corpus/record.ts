@@ -13,14 +13,9 @@ interface Field {
 
 interface PhiRecord {
 	readonly lang: Lang;
-	/**
-	 * The direct identifiers it holds: the stratum's first, then any the case or the carrier's format cannot leave out.
-	 * None for a record keyed only by its internal id.
-	 */
 	readonly fields: readonly Field[];
 	readonly diagnosis: Diagnosis;
-	/** The internal patient id, which identifies nobody outside the system. */
-	readonly rowId: number;
+	readonly internalId: number;
 }
 
 interface RenderInput {
@@ -30,8 +25,7 @@ interface RenderInput {
 }
 
 interface Labelled {
-	/** The label as a snake_case column or key name. */
-	readonly key: string;
+	readonly snakeCaseKey: string;
 	readonly label: string;
 	readonly value: string;
 }
@@ -46,7 +40,6 @@ const december = 12;
 
 const firstDay = 1;
 
-/** The last day every month has, so a drawn date is always valid. */
 const lastDayInEveryMonth = 28;
 
 const hoursPerDay = 24;
@@ -57,15 +50,20 @@ const secondsPerMinute = 60;
 
 const millisecondDigits = 3;
 
-/** The hex digits of each group of a version-4 UUID, around its fixed version digit and its variant digit. */
-const uuidHexDigits = { clockSequence: 3, node: 12, timeHigh: 3, timeLow: 8, timeMid: 4 } as const;
+const uuidHexDigits = {
+	clockSequenceAfterVariant: 3,
+	node: 12,
+	timeHighAfterVersion: 3,
+	timeLow: 8,
+	timeMid: 4,
+} as const;
 
 const uuidVariants: Array.NonEmptyReadonlyArray<string> = ["8", "9", "a", "b"];
 
-const labelled = (label: string, value: string): Labelled => ({ key: slug("_")(label), label, value });
+const labelled = (label: string, value: string): Labelled => ({ label, snakeCaseKey: slug("_")(label), value });
 
-const labelledValues = ({ lang, fields, diagnosis, rowId }: PhiRecord): Labelled[] => [
-	{ key: "patient_id", label: "patient_id", value: String(rowId) },
+const labelledValues = ({ lang, fields, diagnosis, internalId }: PhiRecord): Labelled[] => [
+	{ label: "patient_id", snakeCaseKey: "patient_id", value: String(internalId) },
 	...pipe(
 		fields,
 		Array.map((field) => labelled(identifierLabels[field.kind][lang], field.value)),
@@ -79,7 +77,7 @@ const recordObject = (values: readonly Labelled[]): Record<string, string> =>
 	Record.fromEntries(
 		pipe(
 			values,
-			Array.map(({ key, value }) => [key, value] as const),
+			Array.map(({ snakeCaseKey, value }) => [snakeCaseKey, value] as const),
 		),
 	);
 
@@ -98,16 +96,10 @@ const valueOf =
 			Option.map((field) => field.value),
 		);
 
-/**
- * A version-4 UUID whose variant digit `variant` gives.
- *
- * @param {(rng: Random) => string} variant Gives the variant digit.
- * @returns {(rng: Random) => string} Draws the UUID.
- */
 const uuidWith =
 	(variant: (rng: Random) => string) =>
 	(rng: Random): string =>
-		`${rng.hex(uuidHexDigits.timeLow)}-${rng.hex(uuidHexDigits.timeMid)}-4${rng.hex(uuidHexDigits.timeHigh)}-${variant(rng)}${rng.hex(uuidHexDigits.clockSequence)}-${rng.hex(uuidHexDigits.node)}`;
+		`${rng.hex(uuidHexDigits.timeLow)}-${rng.hex(uuidHexDigits.timeMid)}-4${rng.hex(uuidHexDigits.timeHighAfterVersion)}-${variant(rng)}${rng.hex(uuidHexDigits.clockSequenceAfterVariant)}-${rng.hex(uuidHexDigits.node)}`;
 
 const uuid = uuidWith((rng) => rng.pick(uuidVariants));
 

@@ -48,10 +48,10 @@ const fixtures: Array.NonEmptyReadonlyArray<Fixture> = [
 	},
 	{
 		added: (record) => [
-			`  - id: ${String(record.rowId)}`,
+			`  - id: ${String(record.internalId)}`,
 			...pipe(
 				labelledValues(record),
-				Array.map(({ key, value }) => `    ${key}: "${value}"`),
+				Array.map(({ snakeCaseKey, value }) => `    ${snakeCaseKey}: "${value}"`),
 			),
 		],
 		context: ["patients:", "  - id: 1", "    status: pending"],
@@ -63,7 +63,7 @@ const fixtures: Array.NonEmptyReadonlyArray<Fixture> = [
 
 			const columns = pipe(
 				values,
-				Array.map(({ key }) => key),
+				Array.map(({ snakeCaseKey }) => snakeCaseKey),
 				Array.join(", "),
 			);
 
@@ -73,7 +73,7 @@ const fixtures: Array.NonEmptyReadonlyArray<Fixture> = [
 				Array.join(", "),
 			);
 
-			return [`INSERT INTO member_claims (id, ${columns}) VALUES (${String(record.rowId)}, ${row});`];
+			return [`INSERT INTO member_claims (id, ${columns}) VALUES (${String(record.internalId)}, ${row});`];
 		},
 		context: ["-- seed data for local development", "INSERT INTO member_claims (id, status) VALUES (1, 'pending');"],
 		path: "db/seeds/002_claims.sql",
@@ -114,7 +114,7 @@ const fileName = ({ record, rng, minified }: RenderInput): string => {
 
 	const owner = Array.join(
 		[
-			String(record.rowId),
+			String(record.internalId),
 			...pipe(
 				record.fields,
 				Array.map(({ value }) => value),

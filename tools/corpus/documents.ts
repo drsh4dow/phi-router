@@ -108,7 +108,7 @@ const noteBodies: ByLang<NoteBody> = {
 };
 
 const identifierLines = ({ record }: RenderInput): string[] => [
-	`Patient ID: ${String(record.rowId)}`,
+	`Patient ID: ${String(record.internalId)}`,
 	...pipe(
 		record.fields,
 		Array.map(({ kind, value }) => `${identifierLabels[kind][record.lang]}: ${value}`),

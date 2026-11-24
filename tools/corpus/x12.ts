@@ -132,7 +132,7 @@ const transactionOf = ({ record, rng }: RenderInput, envelope: Envelope): readon
 		`NM1*IL*1*${required(identifierKind.patientName)}****MI*${required(identifierKind.memberNumber)}`,
 		...subscriber,
 		"NM1*PR*2*CASCADE MUTUAL HEALTH PLAN*****PI*60054",
-		`CLM*PCN${String(record.rowId)}*${charge}***11:B:1*Y*A*Y*Y`,
+		`CLM*PCN${String(record.internalId)}*${charge}***11:B:1*Y*A*Y*Y`,
 		...claim,
 		`HI*ABK:${Str.replaceAll(".", "")(record.diagnosis.code)}`,
 		"LX*1",

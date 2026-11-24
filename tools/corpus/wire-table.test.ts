@@ -11,7 +11,7 @@ const outcome = {
 	missing: [],
 	openRequests: 0,
 	split: [],
-	unsealed: [],
+	unstubbed: [],
 } as const;
 
 const cleanReach = Effect.sync(() => {

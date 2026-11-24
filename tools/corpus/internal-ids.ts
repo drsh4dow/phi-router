@@ -156,8 +156,8 @@ const internalIdHealth: Array.NonEmptyReadonlyArray<(rng: Random) => Sample> = p
 		const record = {
 			diagnosis: rng.pick(diagnoses),
 			fields: [],
+			internalId: rng.between(firstPatientId, lastPatientId),
 			lang: "en",
-			rowId: rng.between(firstPatientId, lastPatientId),
 		} as const;
 
 		const payload = carriers[carrier].render({ minified: rng.chance(minifiedShare), record, rng });

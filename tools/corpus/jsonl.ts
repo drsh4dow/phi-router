@@ -12,15 +12,8 @@ interface JsonLines<Line extends Schema.Codec<unknown, string>> {
 	readonly text: string;
 }
 
-/** The number an editor gives the first line. */
-const firstLine = 1;
+const firstLineNumber = 1;
 
-/**
- * Decodes every non-blank line, failing on the first bad one with its 1-based line number.
- *
- * @param {JsonLines} lines The schema of one line, the source's name for errors, and the text.
- * @returns {Effect.Effect} The decoded lines, in order.
- */
 const decodeJsonLines = <Line extends Schema.Codec<unknown, string>>({
 	schema,
 	source,
@@ -28,7 +21,7 @@ const decodeJsonLines = <Line extends Schema.Codec<unknown, string>>({
 }: JsonLines<Line>): Effect.Effect<Line["Type"][], LineInvalid> => {
 	const numbered = pipe(
 		Str.split("\n")(text),
-		Array.map((content, index) => ({ content, line: index + firstLine })),
+		Array.map((content, index) => ({ content, line: index + firstLineNumber })),
 		Array.filter(({ content }) => Str.isNonEmpty(Str.trim(content))),
 	);
 

@@ -26,16 +26,11 @@ const unrealisticSummaries: readonly Rule[] = [
 	{ entry: "compaction-summary", transform: "split" },
 ];
 
-/** A split cuts one identifier, and a companion identifier would stay whole beside it. */
 const unrealisticSplits: readonly Rule[] = [
 	{ identifier: identifierKind.birthDate, transform: "split" },
 	{ carrier: "x12-837", transform: "split" },
 ];
 
-/**
- * A BAA account's reply quotes the payload lines that hold the identifier, which an encoded or split payload has none
- * of.
- */
 const unrealisticBaaReplies: readonly Rule[] = [
 	{ entry: "ent-reply", transform: "split" },
 	{ entry: "ent-reply", transform: "buried" },
@@ -64,15 +59,6 @@ const deck = <Value>(rng: Random, values: readonly Value[], size: number): Value
 	return rng.shuffle(Array.take(cycled, size));
 };
 
-/**
- * Deals `size` values from a shuffled deck of `all`. Each deal takes the first card left that fits, or, when none
- * does, a fitting value drawn from all of them.
- *
- * @param {Random} rng The draw source.
- * @param {Array.NonEmptyReadonlyArray} all Every value.
- * @param {number} size How many cards the deck holds.
- * @returns {(fits: (value: Value) => boolean) => Value} Deals one value.
- */
 const dealer = <Value>(
 	rng: Random,
 	all: Array.NonEmptyReadonlyArray<Value>,
@@ -100,13 +86,6 @@ const dealer = <Value>(
 		);
 };
 
-/**
- * Deals the PHI strata like a Latin square: every axis value appears about equally often, combinations spread
- * at random, and an unrealistic combination is re-drawn.
- *
- * @param {Random} rng The draw source.
- * @returns {readonly TextStrata[]} The strata, one per text case.
- */
 const planStrata = (rng: Random): readonly TextStrata[] => {
 	const total = TextIdentifiers.literals.length * perIdentifier;
 

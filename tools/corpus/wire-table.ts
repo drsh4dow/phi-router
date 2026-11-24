@@ -10,9 +10,9 @@ interface WireOutcome extends Seen {
 	readonly brokenBecause?: string;
 }
 
-const failed = (outcome: Pick<WireOutcome, "brokenBecause" | "leaked" | "missing" | "unsealed">): boolean =>
+const failed = (outcome: Pick<WireOutcome, "brokenBecause" | "leaked" | "missing" | "unstubbed">): boolean =>
 	Array.isReadonlyArrayNonEmpty(outcome.leaked) ||
-	Array.isReadonlyArrayNonEmpty(outcome.unsealed) ||
+	Array.isReadonlyArrayNonEmpty(outcome.unstubbed) ||
 	Array.isReadonlyArrayNonEmpty(outcome.missing) ||
 	Predicate.isString(outcome.brokenBecause);
 

@@ -46,12 +46,6 @@ const generate = ({ seed, images }: { readonly seed: number; readonly images: Re
 
 const encodeCase = Schema.encodeEffect(CaseFromJsonLine);
 
-/**
- * The corpus as a JSONL manifest, one case per line, each encoded through the manifest schema.
- *
- * @param {readonly Case[]} cases The corpus.
- * @returns {Effect.Effect<string, Schema.SchemaError>} The manifest's text.
- */
 const encodeCorpus = (cases: readonly Case[]): Effect.Effect<string, Schema.SchemaError> =>
 	Effect.map(
 		Effect.forEach(cases, (item) => encodeCase(item), { concurrency: 1 }),
@@ -70,7 +64,6 @@ const Seed = Schema.NumberFromString.check(Schema.isInt());
 
 const decodeOut = Schema.decodeUnknownEffect(Schema.Tuple([Schema.String]));
 
-/** Parses `<out.jsonl> [--seed N]`. */
 const argsOf = Effect.fn("argsOf")(function* argsOf(argv: readonly string[]) {
 	const flagValueOffset = 1;
 	const usageError = UsageError.make({ message: usage });
@@ -111,10 +104,9 @@ const writeSynthetic = Effect.fn("writeSynthetic")(function* writeSynthetic(out:
 	return syntheticPath;
 });
 
-const main = Effect.gen(function* main() {
-	const scriptArgsStart = 2;
+const writeCorpus = Effect.fnUntraced(function* writeCorpus(argv: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
-	const { out, seed } = yield* argsOf(Array.drop(process.argv, scriptArgsStart));
+	const { out, seed } = yield* argsOf(argv);
 	const images = yield* loadImages;
 	const cases = generate({ images, seed });
 	const manifest = yield* encodeCorpus(cases);
@@ -127,8 +119,9 @@ const main = Effect.gen(function* main() {
 });
 
 if (import.meta.main) {
-	NodeRuntime.runMain(main.pipe(Effect.provide(NodeServices.layer)));
+	const scriptArgsStart = 2;
+
+	NodeRuntime.runMain(writeCorpus(Array.drop(process.argv, scriptArgsStart)).pipe(Effect.provide(NodeServices.layer)));
 }
 
-/** Generates the default corpus: `bun tools/corpus/generate.ts <out.jsonl> [--seed N]` writes it and `synthetic.json`. */
-export { defaultSeed, encodeCorpus, generate };
+export { defaultSeed, encodeCorpus, generate, writeCorpus };

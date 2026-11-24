@@ -4,7 +4,6 @@ import type { IdentifierKind } from "#router/features/policy/index.ts";
 
 type TextIdentifier = Exclude<IdentifierKind, typeof identifierKind.facePhoto>;
 
-/** The identifier kinds a text carries, in the policy's order. */
 const TextIdentifiers = Schema.Literals(
 	pipe(
 		identifierKindNames,
@@ -61,10 +60,6 @@ const Negative = Schema.Literals([
 
 const Role = Schema.Literals(["system", "user", "assistant", "tool"]);
 
-/**
- * A struct encodes its fields in the order they were added, and that order is the manifest's. So a struct whose fields
- * are not in sorted order adds them one at a time.
- */
 const Image = pipe(Schema.Struct({ mimeType: Schema.String }), Schema.fieldsAssign({ data: Schema.String }));
 
 const TextMessage = Schema.Struct({ role: Role, text: Schema.String });
@@ -81,7 +76,6 @@ const Canary = Schema.String.check(Schema.isMinLength(minCanaryLength));
 
 const minFragmentLength = 6;
 
-/** A partial identifier planted on purpose: reported when it reaches an open account, never a leak. */
 const Fragment = Schema.String.check(Schema.isMinLength(minFragmentLength));
 
 const CanaryParts = Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String));
@@ -93,7 +87,6 @@ const PhiCaseStrata = pipe(
 	Schema.fieldsAssign({ entry: Entry }),
 );
 
-/** A case that holds PHI. For a `split` case, `canaryParts` gives each cut canary's parts in message order. */
 const PhiCase = pipe(
 	Schema.Struct({ id: Schema.String }),
 	Schema.fieldsAssign({ expect: Schema.Literal("phi") }),

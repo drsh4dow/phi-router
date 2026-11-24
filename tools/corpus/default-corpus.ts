@@ -8,7 +8,6 @@ import { synthetic } from "./synthetic.ts";
 
 type Phi = typeof PhiCase.Type;
 
-/** The corpus `generate.ts` writes by default, with the test identities it lists. */
 const defaultCorpus = Effect.gen(function* defaultCorpus() {
 	const images = yield* loadImages;
 

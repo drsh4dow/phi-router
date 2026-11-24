@@ -24,7 +24,6 @@ const recordingsPaths = {
 
 type Recorded = Pick<Judge["Service"], "model" | "name">;
 
-/** A recording names the policy version and each digest it holds by the digest's first 32 hex digits. */
 const digestChars = 32;
 
 const noCalls = 0;
@@ -57,7 +56,6 @@ type Replayed = Effect.Effect<
 
 type Keep = (answer: typeof Answer.Type, usage: typeof Usage.Type) => Effect.Effect<void>;
 
-/** The order a recordings line writes its fields in, which every recordings file keeps. */
 const lineFields = [
 	"policy",
 	"question",
@@ -80,10 +78,6 @@ const lengthPrefixed = (fields: readonly string[]): string =>
 		Array.join(""),
 	);
 
-/**
- * What a recording names a call by: the policy version under the judge's default model, the question and digests of
- * what the judge read.
- */
 const askerOf = Effect.fnUntraced(function* askerOf(name: JudgeName) {
 	const digest = yield* Digest.Digest;
 	const version = yield* policyVersion({ model: defaultJudgeModels[name], name });
@@ -166,10 +160,6 @@ const replayingJudge = (
 		name: judge.name,
 	});
 
-/**
- * The judge `name` with its default model, answering only from `contents`, a recordings file. A call it has no answer
- * for, including every call recorded under another policy version, fails as a judge error and counts in `unrecorded`.
- */
 const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(contents: string, name: JudgeName) {
 	const judge = { model: defaultJudgeModels[name], name };
 	const lines = yield* decodeJsonLines({ schema: RecordingLine, source: "recordings.jsonl", text: contents });
@@ -249,7 +239,6 @@ const keepingJudge = (
 		name: live.name,
 	});
 
-/** `live` with every answer and billed failure it gives kept, and `contents`, the kept calls as a recordings file. */
 const recording = Effect.fn("recording")(function* recording(live: Judge["Service"]) {
 	const kept = new Map<string, typeof Recording.Type>();
 	const askedOf = yield* askerOf(live.name);

@@ -25,7 +25,7 @@ const sqlString = (value: string): string => `'${Str.replaceAll("'", "''")(value
 const rowObject = (record: PhiRecord): Record<string, number | string> => {
 	const labelled = recordObject(labelledValues(record));
 
-	return Record.fromEntries([["id", record.rowId], ...Record.toEntries(labelled)]);
+	return Record.fromEntries([["id", record.internalId], ...Record.toEntries(labelled)]);
 };
 
 const pgDump = (table: string, columns: readonly string[], row: readonly string[]): string =>
@@ -84,12 +84,12 @@ const sqlDump = ({ record, rng, minified }: RenderInput): string => {
 		"id",
 		...pipe(
 			values,
-			Array.map(({ key }) => key),
+			Array.map(({ snakeCaseKey }) => snakeCaseKey),
 		),
 	];
 
 	const quoted = [
-		String(record.rowId),
+		String(record.internalId),
 		...pipe(
 			values,
 			Array.map(({ value }) => sqlString(value)),
@@ -108,7 +108,7 @@ const sqlDump = ({ record, rng, minified }: RenderInput): string => {
 
 	if (rng.chance(postgresShare)) {
 		return pgDump(table, columns, [
-			String(record.rowId),
+			String(record.internalId),
 			...pipe(
 				values,
 				Array.map(({ value }) => value),
@@ -151,7 +151,7 @@ const csv = ({ record, rng, minified }: RenderInput): string => {
 			"id",
 			...pipe(
 				values,
-				Array.map(({ key }) => key),
+				Array.map(({ snakeCaseKey }) => snakeCaseKey),
 			),
 		],
 		Array.join(separator),
@@ -159,7 +159,7 @@ const csv = ({ record, rng, minified }: RenderInput): string => {
 
 	const row = pipe(
 		[
-			String(record.rowId),
+			String(record.internalId),
 			...pipe(
 				values,
 				Array.map(({ value }) => csvField(value)),

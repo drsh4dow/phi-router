@@ -13,12 +13,12 @@ const services: Array.NonEmptyReadonlyArray<string> = [
 	"intake-api",
 ];
 
-const keyValue = ({ key, value }: Labelled): string => {
+const keyValue = ({ snakeCaseKey, value }: Labelled): string => {
 	if (/[\s"=]/u.test(value)) {
-		return `${key}="${value}"`;
+		return `${snakeCaseKey}="${value}"`;
 	}
 
-	return `${key}=${value}`;
+	return `${snakeCaseKey}=${value}`;
 };
 
 const secondStampLength = 20;
@@ -124,7 +124,7 @@ const javaTrace = (message: string, values: readonly Labelled[]): string =>
 		[
 			`com.northfield.etl.RecordRejectedException: ${message}: {${pipe(
 				values,
-				Array.map(({ key, value }) => `${key}=${value}`),
+				Array.map(({ snakeCaseKey, value }) => `${snakeCaseKey}=${value}`),
 				Array.join(", "),
 			)}}`,
 			"\tat com.northfield.etl.ClaimMapper.map(ClaimMapper.java:142)",
@@ -146,7 +146,7 @@ const pythonTrace = (message: string, values: readonly Labelled[]): string =>
 			"    raise RecordRejected(row)",
 			`etl.errors.RecordRejected: ${message}: {${pipe(
 				values,
-				Array.map(({ key, value }) => `'${key}': '${value}'`),
+				Array.map(({ snakeCaseKey, value }) => `'${snakeCaseKey}': '${value}'`),
 				Array.join(", "),
 			)}}`,
 		],

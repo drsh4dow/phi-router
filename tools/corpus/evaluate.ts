@@ -20,12 +20,6 @@ const casesAtOnce = 8;
 
 const encodeView = Schema.encodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
 
-/**
- * The messages as one JSON body, as the tracker reads a request a mock received.
- *
- * @param {readonly Message[]} messages The request's messages.
- * @returns {string} The body.
- */
 const bodyOf = (messages: readonly Message[]): string => Option.getOrElse(encodeView(messages), () => "");
 
 const bookOf = (): Book => {
@@ -46,7 +40,6 @@ const isFailure = Verdicts.$match({
 	Sealed: ({ finding }) => Findings.$is("Failure")(finding),
 });
 
-/** A request the border refuses reaches no open account, so it shows nothing. */
 const guardedBody = Effect.fnUntraced(function* guardedBody(messages: readonly Message[], lookup: Lookup) {
 	const guarded = yield* guard({ harness: "claude", lookup, messages }).pipe(
 		Effect.catchTag("ToolsNotCleared", () => Effect.succeed([])),
@@ -81,10 +74,6 @@ const sentOf = Effect.fn("sentOf")(function* sentOf(messages: readonly Message[]
 	return { lane, openAccountBody: body, sealedByJudgeFailure: failures, usage: decision.usage } satisfies Sent;
 });
 
-/**
- * Every request of the case through `decide` with one book, and each one on the clean lane through `guard`. Play never
- * stops at a seal: the requests after it return to the clean lane with the sealed part stubbed, which is what the eval tests.
- */
 const play = Effect.fn("play")(function* play(subject: Case) {
 	const tracked = yield* tokensOf(subject);
 	const requests = yield* requestMessagesOf(subject);

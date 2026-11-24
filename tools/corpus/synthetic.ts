@@ -46,8 +46,8 @@ const recordSample =
 				{ kind: identifierKind.patientName, value: nameIn(carrier)(name) },
 				{ kind: identifierKind.memberNumber, value: member },
 			],
+			internalId: rng.between(fewestRowId, mostRowId),
 			lang: "en",
-			rowId: rng.between(fewestRowId, mostRowId),
 		} as const;
 
 		return { payload: carriers[carrier].render({ minified: false, record, rng }), scene: carriers[carrier] };

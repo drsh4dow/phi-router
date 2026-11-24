@@ -76,7 +76,7 @@ const drawRecord = (request: PhiCaseRequest): PlantedRecord => {
 	const lang = langOf(request);
 	const fields = fieldsOf(strata, { carrier: strata.carrier, lang, rng }, used);
 
-	return { diagnosis: rng.pick(diagnoses), fields, lang, rowId: rng.between(firstRowId, lastRowId) };
+	return { diagnosis: rng.pick(diagnoses), fields, internalId: rng.between(firstRowId, lastRowId), lang };
 };
 
 export { drawRecord };

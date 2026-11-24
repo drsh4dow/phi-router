@@ -80,7 +80,7 @@ const header = (rng: Random, type: string): MessageHead => {
 	};
 };
 
-const pidSegment = ({ fields, rowId }: PhiRecord, rng: Random): string => {
+const pidSegment = ({ fields, internalId }: PhiRecord, rng: Random): string => {
 	const state = rng.pick(states);
 
 	const placed = pipe(
@@ -90,7 +90,7 @@ const pidSegment = ({ fields, rowId }: PhiRecord, rng: Random): string => {
 
 	return segment(
 		"PID",
-		Rec.fromEntries([["1", "1"], ["3", `${String(rowId)}^^^NFH^PI`], ["8", rng.pick(["F", "M"])], ...placed]),
+		Rec.fromEntries([["1", "1"], ["3", `${String(internalId)}^^^NFH^PI`], ["8", rng.pick(["F", "M"])], ...placed]),
 	);
 };
 

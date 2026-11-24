@@ -4,22 +4,16 @@ import { recordedJudge, recording, recordingsPaths } from "./recorded.ts";
 import { Judge } from "#router/client/judge/index.ts";
 import { liveJudge } from "#tools/judge/live.ts";
 
-/**
- * Which judge a corpus run asks, whether it is the Claude judge, and the recordings file named by a flag, or undefined
- * for the judge's own kept beside this file. `recorded` answers from that file. `live` with `record` writes its answers
- * to it. `live` asks the judge the configuration picks, or the Claude judge on its first Anthropic BAA account.
- */
 type JudgeChoice =
-	| { readonly name: "recorded"; readonly claude: boolean; readonly recordings: string | undefined }
+	| { readonly name: "recorded"; readonly claude: boolean; readonly recordings?: string | undefined }
 	| {
 			readonly name: "live";
 			readonly claude: boolean;
 			readonly record: boolean;
-			readonly recordings: string | undefined;
+			readonly recordings?: string | undefined;
 	  };
 
-/** What a corpus run asks: the judge, its count of calls it had no answer for, and the step that runs after the corpus. */
-interface Asked {
+interface CorpusJudge {
 	readonly judge: Judge["Service"];
 	readonly unrecorded: Effect.Effect<number>;
 	readonly writeRecordings: Effect.Effect<void, PlatformError.PlatformError | Schema.SchemaError>;
@@ -36,7 +30,7 @@ const replayOf = Effect.fn("replayOf")(function* replayOf(claude: boolean, recor
 	const contents = yield* fs.readFileString(recordings ?? recordingsPaths[name]);
 	const { judge, unrecorded } = yield* recordedJudge(contents, name);
 
-	return { judge, unrecorded, writeRecordings: Effect.void } satisfies Asked;
+	return { judge, unrecorded, writeRecordings: Effect.void } satisfies CorpusJudge;
 });
 
 const liveOf = Effect.fn("liveOf")(function* liveOf(
@@ -54,7 +48,7 @@ const liveOf = Effect.fn("liveOf")(function* liveOf(
 	yield* Console.log(`live judge ${judge.name}, model ${judge.model}, started ${DateTime.formatIso(started)}`);
 
 	if (!choice.record) {
-		return { judge, unrecorded: liveUnrecorded, writeRecordings: Effect.void } satisfies Asked;
+		return { judge, unrecorded: liveUnrecorded, writeRecordings: Effect.void } satisfies CorpusJudge;
 	}
 
 	const recorder = yield* recording(judge);
@@ -64,17 +58,9 @@ const liveOf = Effect.fn("liveOf")(function* liveOf(
 		Effect.flatMap((contents) => fs.writeFileString(choice.recordings ?? recordingsPaths[judge.name], contents)),
 	);
 
-	return { judge: recorder.judge, unrecorded: liveUnrecorded, writeRecordings } satisfies Asked;
+	return { judge: recorder.judge, unrecorded: liveUnrecorded, writeRecordings } satisfies CorpusJudge;
 });
 
-/**
- * The judge a corpus run asks. `recorded` answers from the recordings. `live` asks the judge the router's
- * configuration file picks, or the Claude judge, which answers every call and costs money, and prints that judge's name,
- * model and start time.
- *
- * @param {JudgeChoice} choice Which judge to ask.
- * @returns {Effect.Effect} The judge, the count of calls it could not answer and the step after the corpus.
- */
 const judgeOf = (choice: JudgeChoice): ReturnType<typeof liveOf> | ReturnType<typeof replayOf> => {
 	if (choice.name === "live") {
 		return liveOf(choice);

@@ -1,11 +1,16 @@
-import { Array, Effect, Schema, String as Str, pipe } from "effect";
-import { Carrier, CaseFromJsonLine, Entry, Identifier, Negative, Transform } from "./manifest.ts";
+import { Array, Effect, FileSystem, Layer, Path, Schema, String as Str, pipe } from "effect";
+import { Carrier, CaseFromJsonLine, Entry, Identifier, Negative, SyntheticIdentities, Transform } from "./manifest.ts";
 import { DefaultCorpus, idsOf, textsOf } from "./default-corpus.ts";
 import { assert, it } from "@effect/vitest";
-import { defaultSeed, encodeCorpus, generate } from "./generate.ts";
+import { defaultSeed, encodeCorpus, generate, writeCorpus } from "./generate.ts";
 import type { Case } from "./manifest.ts";
+import { NodeServices } from "@effect/platform-node";
 import type { Phi } from "./default-corpus.ts";
 import { synthetic } from "./synthetic.ts";
+
+const chosenSeed = 7;
+
+const decodeSynthetic = Schema.decodeUnknownEffect(Schema.fromJsonString(SyntheticIdentities));
 
 const countOf = (values: readonly string[], value: string): number =>
 	pipe(
@@ -260,7 +265,52 @@ const seeded = Effect.gen(function* seeded() {
 	assert.notStrictEqual(other, first);
 });
 
-it.layer(DefaultCorpus.layer)("generate", (test) => {
+const writtenWith = Effect.fnUntraced(function* writtenWith(argsAfter: (out: string) => readonly string[]) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-corpus-" });
+	const out = path.join(folder, "out.jsonl");
+
+	yield* writeCorpus(argsAfter(out));
+
+	const manifest = yield* fs.readFileString(out);
+	const syntheticJson = yield* fs.readFileString(path.join(folder, "synthetic.json"));
+
+	return { manifest, syntheticJson };
+});
+
+const writesDefault = Effect.gen(function* writesDefault() {
+	const { cases } = yield* DefaultCorpus;
+	const written = yield* writtenWith((out) => [out]);
+	const expected = yield* encodeCorpus(cases);
+	const identities = yield* decodeSynthetic(written.syntheticJson);
+
+	assert.strictEqual(written.manifest, expected);
+	assert.deepStrictEqual(identities, synthetic);
+}).pipe(Effect.scoped);
+
+const seedFlag = Effect.gen(function* seedFlag() {
+	const { images } = yield* DefaultCorpus;
+	const written = yield* writtenWith((out) => [out, "--seed", String(chosenSeed)]);
+	const expected = yield* encodeCorpus(generate({ images, seed: chosenSeed }));
+
+	const refused = yield* Effect.forEach(
+		[[], ["out.jsonl", "--seed"], ["out.jsonl", "--seed", "seven"]],
+		(argv) => Effect.flip(writeCorpus(argv)),
+		{ concurrency: 1 },
+	);
+
+	assert.strictEqual(written.manifest, expected);
+	assert.deepStrictEqual(
+		pipe(
+			refused,
+			Array.map(({ _tag }) => _tag),
+		),
+		["UsageError", "UsageError", "UsageError"],
+	);
+}).pipe(Effect.scoped);
+
+it.layer(Layer.mergeAll(DefaultCorpus.layer, NodeServices.layer))("generate", (test) => {
 	test.effect("the default corpus round-trips line by line through the manifest schema", () => roundTrips);
 	test.effect(
 		"ids, canaries and fragments are unique across the file, at least 8 and 6 characters long",
@@ -277,4 +327,14 @@ it.layer(DefaultCorpus.layer)("generate", (test) => {
 	test.effect("the same seed gives byte-identical output and another seed differs", () => seeded, {
 		timeout: 30_000,
 	});
+	test.effect(
+		"generate.ts with no --seed writes the default corpus, and synthetic.json beside it",
+		() => writesDefault,
+		{ timeout: 120_000 },
+	);
+	test.effect(
+		"generate.ts --seed N writes the corpus of seed N, and refuses a missing out file or seed with its usage",
+		() => seedFlag,
+		{ timeout: 120_000 },
+	);
 });
