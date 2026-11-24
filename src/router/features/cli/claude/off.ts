@@ -7,10 +7,6 @@ const names = pipe(
 	Array.map(({ name }) => name),
 );
 
-/**
- * Removes exactly the settings `on claude` writes, whatever their values, gives back the `no_proxy` it replaced as its
- * record says, and prints the names it removed.
- */
 const off = Effect.fn("off claude")(function* off(configDir: string) {
 	const settings = yield* userSettings(configDir);
 	const exempt = restored(settings.env);

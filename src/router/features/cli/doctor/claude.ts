@@ -50,12 +50,6 @@ const claudeCanary = Effect.fnUntraced(function* claudeCanary(folder: string) {
 	);
 });
 
-/**
- * Checks the settings and the plugin's install first, and stops there when one fails, since Claude Code would only
- * retry a refused connection for three minutes. Then it runs the canary through the installed plugin, and passes only
- * when `claude` exited 0, the canary arrived at the BAA mock, and it arrived at no open mock. It changes no setting, and
- * never touches the product port, the user's router configuration, or a real account.
- */
 const doctorClaude = Effect.fn("doctor claude")(function* doctorClaude(configDir: string) {
 	const settings = yield* userSettings(configDir);
 	const installed = yield* claudePlugin(configDir, pluginId);

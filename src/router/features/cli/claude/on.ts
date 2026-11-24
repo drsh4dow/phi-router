@@ -12,12 +12,6 @@ import {
 } from "./settings.ts";
 import { rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
 
-/**
- * Why `on claude` writes `name`: the router's exemption, or the record `off` reads.
- *
- * @param {string} name The setting's name.
- * @returns {string} The reason.
- */
 const reasonOf = (name: string): string => {
 	if (name === exemptionName) {
 		return exemptionReason;

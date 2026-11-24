@@ -1,6 +1,16 @@
 import { Array, Effect, FileSystem, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { claudeFolders, claudeIn, folder, phiRouter, settingsFile, settingsIn, settle, written } from "./configured.ts";
+import {
+	claudeFolders,
+	claudeIn,
+	folder,
+	phiRouter,
+	routed,
+	settingsFile,
+	settingsIn,
+	settle,
+	written,
+} from "./configured.ts";
 import type { ClaudeSettings } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 
@@ -12,6 +22,11 @@ const printedSettings = pipe(
 	Struct.keys(written),
 	Array.map((name) => new RegExp(`^${name}=${written[name]}\n  \\S`, "mu")),
 );
+
+const reasons = [
+	`no_proxy=${written.no_proxy}\n  Claude Code reaches the router without your proxy, which would see every prompt in plain HTTP.`,
+	`PHI_ROUTER_WROTE_no_proxy=${written.PHI_ROUTER_WROTE_no_proxy}\n  phi-router off reads it to give no_proxy back as it was before on.\n`,
+];
 
 const others = { model: "opus", permissions: { allow: ["Read"] } };
 
@@ -33,14 +48,20 @@ const fresh = Effect.gen(function* fresh() {
 		Array.filter((line) => !line.test(on.printed)),
 	);
 
+	const unreasoned = pipe(
+		reasons,
+		Array.filter((reason) => !Str.includes(reason)(on.printed)),
+	);
+
 	assert.deepStrictEqual(
 		{
 			exitCode: on.exitCode,
 			named: Str.startsWith(`phi-router wrote 10 settings to ${settingsFile(dir)}\n`)(on.printed),
 			settings,
 			unprinted,
+			unreasoned,
 		},
-		{ exitCode: ok, named: true, settings: { env: written }, unprinted: [] },
+		{ exitCode: ok, named: true, settings: { env: written }, unprinted: [], unreasoned: [] },
 	);
 }).pipe(Effect.scoped);
 
@@ -157,6 +178,37 @@ const restored = Effect.fnUntraced(function* restored(before: ClaudeSettings) {
 	assert.deepStrictEqual<unknown>(after, before);
 }, Effect.scoped);
 
+const edited = Effect.gen(function* edited() {
+	const { dir, env } = yield* claudeFolders;
+	const before = { env: { no_proxy: "corp.example" } };
+
+	const changedSinceOn = Struct.assign(routed, {
+		ANTHROPIC_BASE_URL: "http://127.0.0.1:47412",
+		DISABLE_TELEMETRY: "0",
+		PHI_ROUTER_REPLACED_no_proxy: "corp.example",
+		PHI_ROUTER_WROTE_no_proxy: "corp.example,127.0.0.1:47411",
+		no_proxy: "corp.example,127.0.0.1:47411",
+	});
+
+	yield* settle(dir, { env: changedSinceOn });
+
+	const off = yield* phiRouter(claudeIn(dir).off, env);
+	const after = yield* settingsIn(dir);
+
+	const printed = [
+		`phi-router removed 8 settings from ${settingsFile(dir)}`,
+		...Struct.keys(routed),
+		"phi-router gave no_proxy back as it was before on",
+	];
+
+	const lines = Str.split("\n")(Str.trimEnd(off.printed));
+
+	assert.deepStrictEqual(
+		{ after, printed: Array.sort(lines, Str.Order) },
+		{ after: before, printed: Array.sort(printed, Str.Order) },
+	);
+}).pipe(Effect.scoped);
+
 const untouched = Effect.gen(function* untouched() {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* claudeFolders;
@@ -168,7 +220,7 @@ const untouched = Effect.gen(function* untouched() {
 
 it.layer(NodeServices.layer)("on claude and off claude", (test) => {
 	test.effect(
-		"on writes exactly the ten settings into an empty folder and prints each with a reason",
+		"on writes exactly the ten settings into an empty folder and prints each with a reason, no_proxy's the exemption's and its record's the one off reads",
 		() => fresh,
 		patient,
 	);
@@ -192,6 +244,11 @@ it.layer(NodeServices.layer)("on claude and off claude", (test) => {
 	test.effect.each([Struct.assign(others, { env: { FOO: "bar" } }), { model: "opus" }])(
 		"off after on gives back every other key as it was in %j",
 		restored,
+		patient,
+	);
+	test.effect(
+		"off removes each setting on wrote whatever its value now, gives no_proxy back, and prints the names it removed",
+		() => edited,
 		patient,
 	);
 	test.effect("off in a folder never switched on exits 0 and creates no file", () => untouched, patient);

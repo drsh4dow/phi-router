@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, String as Str, pipe } from "effect";
+import { Array, DateTime, Effect, FileSystem, Option, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import {
 	codexFolders,
@@ -252,6 +252,70 @@ const untouched = Effect.gen(function* untouched() {
 	assert.deepStrictEqual({ exitCode: off.exitCode, left }, { exitCode: ok, left: [] });
 }).pipe(Effect.scoped);
 
+const settledAt = DateTime.toDateUtc(DateTime.makeUnsafe("2001-01-01T00:00:00Z"));
+
+const settledMtime = Option.some(settledAt.getTime());
+
+const rerun = Effect.gen(function* rerun() {
+	const fs = yield* FileSystem.FileSystem;
+	const { dir, env } = yield* codexFolders;
+	const files = [configFile(dir), dotenvFile(dir), roleFile(dir)];
+
+	yield* phiRouter(codexIn(dir).on, env);
+	yield* Effect.forEach(files, (file) => fs.utimes(file, settledAt, settledAt), { concurrency: 1, discard: true });
+	yield* phiRouter(codexIn(dir).on, env);
+
+	const modified = yield* Effect.forEach(
+		files,
+		(file) =>
+			Effect.map(fs.stat(file), (info) =>
+				pipe(
+					info.mtime,
+					Option.map((at) => at.getTime()),
+				),
+			),
+		{ concurrency: 1 },
+	);
+
+	assert.deepStrictEqual(modified, Array.replicate(settledMtime, files.length));
+}).pipe(Effect.scoped);
+
+const removedKeys = [
+	"model_provider",
+	"features.unbounded_connection_retries",
+	"feedback.enabled",
+	"experimental_realtime_ws_base_url",
+	"experimental_realtime_webrtc_call_base_url",
+	"[model_providers.phi]",
+	"model_providers.phi.name",
+	"model_providers.phi.base_url",
+	"model_providers.phi.wire_api",
+	"model_providers.phi.requires_openai_auth",
+	"model_providers.phi.request_max_retries",
+	"model_providers.phi.stream_max_retries",
+];
+
+const printedOff = Effect.gen(function* printedOff() {
+	const { dir, env } = yield* codexFolders;
+
+	yield* phiRouter(codexIn(dir).on, env);
+
+	const first = yield* phiRouter(codexIn(dir).off, env);
+	const second = yield* phiRouter(codexIn(dir).off, env);
+
+	const removed = [
+		`phi-router removed 12 settings from ${configFile(dir)}`,
+		...removedKeys,
+		`phi-router removed ${exemptionLine} from ${dotenvFile(dir)}`,
+		`phi-router removed the role phi-sealed from ${roleFile(dir)}`,
+	];
+
+	assert.deepStrictEqual(
+		{ first: first.printed, second: second.printed },
+		{ first: `${Array.join(removed, "\n")}\n`, second: `phi-router removed 0 settings from ${configFile(dir)}\n` },
+	);
+}).pipe(Effect.scoped);
+
 const changed = Effect.gen(function* changed() {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* codexFolders;
@@ -288,6 +352,12 @@ it.layer(NodeServices.layer)("on codex and off codex", (test) => {
 	test.effect("the home is the flag's, else CODEX_HOME, else .codex under HOME", () => precedence, patient);
 	test.effect("on writes through a symlinked config.toml and keeps its 0644 mode", () => linked, patient);
 	test.effect("on in a home that does not exist makes each folder 0700 and each file 0600", () => created, patient);
+	test.effect("a second on writes no file", () => rerun, patient);
+	test.effect(
+		"off prints each setting, the exemption line and the role it removed, and a second off prints that it removed nothing",
+		() => printedOff,
+		patient,
+	);
 	test.effect("off in a home never switched on exits 0 and creates no file", () => untouched, patient);
 	test.effect("off leaves a setting the user changed after on", () => changed, patient);
 });

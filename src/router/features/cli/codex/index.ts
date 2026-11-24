@@ -40,7 +40,6 @@ const settingsWithReasons = pipe(
 	Array.flatMap(({ path, reason, value }) => [`${dotted(path)} = ${value}`, `  ${reason}`]),
 );
 
-/** Removes the router's exemption line from `.env`, and the file when the line was all it held. Gives whether it was there. */
 const unexempt = Effect.fnUntraced(function* unexempt(file: string) {
 	const text = yield* textOrEmpty(file);
 
@@ -64,11 +63,6 @@ const trustLine = (config: string): string => {
 	return 'Trust the plugin\'s hooks: start codex and pick "Trust all and continue" at "Hooks need review". Until you do, no hook starts the router, so every prompt ends in a connection error, and no hook blocks a prompt of a session that sends to another provider. A plugin update asks again.';
 };
 
-/**
- * Writes the settings a plugin cannot set into Codex's `config.toml`, keeping every other line, the router's exemption
- * from the developer's proxy into `.env`, and the pinned subagent's role into `agents/phi-sealed.toml`. A file that
- * holds what it would write already is not written. It gives the files and the new `config.toml`.
- */
 const codexSwitchedOn = Effect.fnUntraced(function* codexSwitchedOn(named: string) {
 	const files = yield* filesOf(named);
 	const before = yield* textOrEmpty(files.config);
@@ -114,11 +108,6 @@ const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
 	);
 });
 
-/**
- * Removes the lines `on codex` wrote, the exemption line in `.env` and the role file, and puts back each line of the
- * developer's that `on` replaced. It removes `.env` when the line was all it held, writes no file when that changes
- * nothing, and prints what it removed.
- */
 const offCodex = Effect.fn("off codex")(function* offCodex(named: string) {
 	const files = yield* filesOf(named);
 	const before = yield* textOrEmpty(files.config);

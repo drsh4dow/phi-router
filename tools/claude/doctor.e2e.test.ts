@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Formatter, Layer, String as Str, Struct, pipe } from "effect";
 import { answers, ran } from "#tools/lifecycle/launched.ts";
 import { assert, it } from "@effect/vitest";
-import { claudeFolders, claudeIn, folder, phiRouter, routed, settle, written } from "./configured.ts";
+import { claudeFolders, claudeIn, folder, phiRouter, routed, settingsFile, settle, written } from "./configured.ts";
 import type { ClaudeSettings } from "./configured.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
@@ -98,24 +98,27 @@ const doctored = Effect.fnUntraced(function* doctored(claude: Claude, settings: 
 	yield* installed(dir, install);
 
 	const shell = Struct.assign(env, { ANTHROPIC_API_KEY: shellKey, PATH });
+	const bytes = fs.readFileString(settingsFile(dir));
+	const before = yield* bytes;
 	const doctor = yield* phiRouter(claudeIn(dir).doctor, shell, bun);
+	const after = yield* bytes;
 	const claudeRan = yield* fs.exists(marker);
 	const seen = yield* fs.readFileString(marker).pipe(Effect.orElseSucceed(() => ""));
 
-	return { claudeRan, doctor, seen: pipe(seen, Str.trim, Str.split("\n")) };
+	return { claudeRan, doctor, kept: after === before, seen: pipe(seen, Str.trim, Str.split("\n")) };
 }, Effect.scoped);
 
 const dead = "http://127.0.0.1:9";
 
 const passes = Effect.gen(function* passes() {
-	const { doctor, seen } = yield* doctored("posts", enabled, "whole");
+	const { doctor, kept, seen } = yield* doctored("posts", enabled, "whole");
 	const [folderMode, fileMode, proxy, apiKey, address = ""] = seen;
 
 	assert.strictEqual(doctor.exitCode, ok, doctor.printed);
 	assert.deepStrictEqual(
-		[folderMode, fileMode, proxy, apiKey],
-		["700", "600", `${dead} ${dead} ${dead} ${dead} localhost localhost`, ""],
-		"the mocks' config.json is private while claude runs, behind a dead proxy that localhost alone does not avoid, without the API key of the developer's shell",
+		[folderMode, fileMode, proxy, apiKey, kept],
+		["700", "600", `${dead} ${dead} ${dead} ${dead} localhost localhost`, "", true],
+		"the mocks' config.json is private while claude runs, behind a dead proxy that localhost alone does not avoid, without the API key of the developer's shell, and the user's settings.json is as it was",
 	);
 	const port = Number(new URL(address).port);
 	const routerAnswers = yield* answers(port);
