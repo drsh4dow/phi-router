@@ -10,6 +10,8 @@ export { PinRequestJson, SessionRequests, sessionPaths } from "./session-request
 
 export type { Answered, LeaseRequest, Reply } from "./lease-request.ts";
 
+export type { Connection } from "./callers.ts";
+
 export type { Incoming, Outgoing, Path } from "./server.ts";
 
 export type { Unanswered } from "./session-request.ts";

@@ -99,8 +99,8 @@ const callerIsThisUser = Effect.gen(function* callerIsThisUser() {
 		onNone: () => Effect.succeed(false),
 		onSome: ({ socket }) =>
 			callers.isThisUser({
-				caller: `${socket.remoteAddress}:${String(socket.remotePort)}`,
-				router: `${socket.localAddress}:${String(socket.localPort)}`,
+				caller: `${socket.remoteAddress}:${socket.remotePort}`,
+				router: `${socket.localAddress}:${socket.localPort}`,
 			}),
 	});
 });

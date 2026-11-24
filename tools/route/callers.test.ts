@@ -1,11 +1,16 @@
-import { Array, Context, Effect, FileSystem, Layer, Sink, Stream } from "effect";
+import { Array, Context, Effect, Fiber, FileSystem, Latch, Layer, Sink, Stream } from "effect";
 import { assert, it } from "@effect/vitest";
 import { Callers } from "#router/client/router-port/index.ts";
 import { ChildProcessSpawner } from "effect/process";
+import type { Connection } from "#router/client/router-port/index.ts";
 import { NodeServices } from "@effect/platform-node";
+import { TestClock } from "effect/testing";
 
 /** One connection to the router, in `/proc/net/tcp` as `0100007F:DD8D` and `0100007F:8286`. */
-const connection = { caller: "127.0.0.1:33414", router: "127.0.0.1:56717" };
+const connection: Connection = {
+	caller: "127.0.0.1:33414",
+	router: "127.0.0.1:56717",
+};
 
 const heading = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode";
 
@@ -57,13 +62,22 @@ const lsofPid = 4321;
 /** `lsof -F un` for the same connection, held by one uid: the caller's process, then the router's. */
 const lsofPrinted = "p1\nu1000\nn127.0.0.1:33414->127.0.0.1:56717\np2\nu1000\nn127.0.0.1:56717->127.0.0.1:33414\n";
 
-/** What the check answers where there is no `/proc/net/tcp`, when `lsof` prints `lsofPrinted` and exits `exitCode`. */
-const lsofAnswerFor = Effect.fnUntraced(function* lsofAnswerFor(exitCode: number) {
+const lsofPrintedForAnotherUsersCaller =
+	"p1\nu4242\nn127.0.0.1:33414->127.0.0.1:56717\np2\nu1000\nn127.0.0.1:56717->127.0.0.1:33414\n";
+
+const exitsWith = (exitCode: number): Effect.Effect<ChildProcessSpawner.ExitCode> =>
+	Effect.succeed(ChildProcessSpawner.ExitCode(exitCode));
+
+/** What the check answers where there is no `/proc/net/tcp`, when `lsof` prints `printed` and exits as `exitCode` gives. */
+const lsofAnswerFor = Effect.fnUntraced(function* lsofAnswerFor(
+	printed: string,
+	exitCode: () => Effect.Effect<ChildProcessSpawner.ExitCode>,
+) {
 	const noProcTable = FileSystem.layerNoop({ exists: () => Effect.succeed(false) });
 
 	const lsof = ChildProcessSpawner.makeHandle({
 		all: Stream.empty,
-		exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(exitCode)),
+		exitCode: exitCode(),
 		getInputFd: () => Sink.drain,
 		getOutputFd: () => Stream.empty,
 		isRunning: Effect.succeed(false),
@@ -71,7 +85,7 @@ const lsofAnswerFor = Effect.fnUntraced(function* lsofAnswerFor(exitCode: number
 		pid: ChildProcessSpawner.ProcessId(lsofPid),
 		stderr: Stream.empty,
 		stdin: Sink.drain,
-		stdout: Stream.make(new TextEncoder().encode(lsofPrinted)),
+		stdout: Stream.make(new TextEncoder().encode(printed)),
 		unref: Effect.die("the check never unrefs"),
 	});
 
@@ -91,8 +105,9 @@ const answers = Effect.gen(function* answers() {
 			anotherAddress: answerFor([rows.anotherAddress]),
 			anotherUser: answerFor([rows.anotherUser]),
 			closed: answerFor([rows.closed]),
-			lsofFailed: lsofAnswerFor(exits.failed),
-			lsofThisUser: lsofAnswerFor(exits.listed),
+			lsofAnotherUser: lsofAnswerFor(lsofPrintedForAnotherUsersCaller, () => exitsWith(exits.listed)),
+			lsofFailed: lsofAnswerFor(lsofPrinted, () => exitsWith(exits.failed)),
+			lsofThisUser: lsofAnswerFor(lsofPrinted, () => exitsWith(exits.listed)),
 			noCallerEnd: answerFor([]),
 			thisUser: answerFor([rows.thisUser]),
 			unreadable,
@@ -104,6 +119,7 @@ const answers = Effect.gen(function* answers() {
 		anotherAddress: false,
 		anotherUser: false,
 		closed: false,
+		lsofAnotherUser: false,
 		lsofFailed: false,
 		lsofThisUser: true,
 		noCallerEnd: false,
@@ -112,9 +128,25 @@ const answers = Effect.gen(function* answers() {
 	});
 });
 
+const slowLsof = Effect.gen(function* slowLsof() {
+	const awaited = yield* Latch.make();
+
+	const checking = yield* Effect.forkChild(
+		lsofAnswerFor(lsofPrinted, () => Effect.andThen(awaited.open, Effect.never)),
+	);
+
+	yield* awaited.await;
+	yield* TestClock.adjust("2 seconds");
+
+	const answered = yield* Fiber.join(checking);
+
+	assert.isFalse(answered);
+});
+
 it.layer(NodeServices.layer)("the caller check", (test) => {
 	test.effect(
-		"passes a caller whose end this user holds, and refuses another user's end, a missing end, a closed end, an end at another address, a table it cannot read and an lsof that failed",
+		"passes a caller whose end this user holds, and refuses another user's end, a missing end, a closed end, an end at another address, a table it cannot read, an lsof that failed and an lsof that gives the caller's process another uid",
 		() => answers,
 	);
+	test.effect("refuses a caller once lsof has not exited within 2 seconds", () => slowLsof);
 });
