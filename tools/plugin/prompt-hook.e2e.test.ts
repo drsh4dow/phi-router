@@ -84,6 +84,21 @@ const passed = Effect.gen(function* passed() {
 	assert.deepStrictEqual(hook, { exitCode: ok, stderr: "", stdout: "" });
 });
 
+const pastWholeRead = 4_294_967_296;
+
+const longTranscript = Effect.gen(function* longTranscript() {
+	const fs = yield* FileSystem.FileSystem;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-rollout-" });
+	const file = `${folder}/rollout.jsonl`;
+
+	yield* fs.writeFileString(file, sessionMeta("phi"));
+	yield* fs.truncate(file, pastWholeRead);
+
+	const hook = yield* hookOn(file);
+
+	assert.deepStrictEqual(hook, { exitCode: ok, stderr: "", stdout: "" });
+}).pipe(Effect.scoped);
+
 const elsewhere = Effect.fnUntraced(function* elsewhere(provider: string) {
 	const hook = yield* transcribed(sessionMeta(provider));
 
@@ -136,6 +151,11 @@ const misreadClosed = Effect.fnUntraced(function* misreadClosed(text: string) {
 
 it.layer(NodeServices.layer)("the Codex plugin's prompt hook", (test) => {
 	test.effect("passes a prompt of a session whose transcript names the router's provider", () => passed, patient);
+	test.effect(
+		"passes a prompt from the transcript's first line when the rest is too long to read whole",
+		() => longTranscript,
+		patient,
+	);
 	test.effect.each(["openai", "other", "phi-router"])(
 		"blocks a prompt of a session whose transcript names the provider %s",
 		elsewhere,

@@ -48,7 +48,6 @@ const textOrEmpty = Effect.fnUntraced(function* textOrEmpty(file: string) {
 	return Option.getOrElse(text, () => "");
 });
 
-/** The first line of `file`, read without the rest, such as the `session_meta` line that opens a Codex transcript. */
 const firstLine = Effect.fnUntraced(function* firstLine(file: string) {
 	const fs = yield* FileSystem.FileSystem;
 
