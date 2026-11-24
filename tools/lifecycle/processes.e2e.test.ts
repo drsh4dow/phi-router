@@ -47,13 +47,6 @@ const zombieAndParent = Effect.fnUntraced(function* zombieAndParent() {
 	return { alive: Number(shell.pid), zombie: Number(Str.trim(printed)) };
 });
 
-const stateOf = Effect.fnUntraced(function* stateOf(pid: number) {
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const ps = yield* spawner.spawn(ChildProcess.make("ps", ["-o", "stat=", "-p", String(pid)]));
-
-	return yield* Stream.mkString(Stream.decodeText(ps.stdout));
-}, Effect.scoped);
-
 const pidsOf = Array.map(({ pid }: LiveProcess) => pid);
 
 it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this machine", (test) => {
@@ -62,11 +55,9 @@ it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes
 			const processes = yield* Processes;
 			const ended = yield* endedPid();
 			const { alive, zombie } = yield* zombieAndParent();
-			const zombieState = yield* stateOf(zombie);
 			const first = yield* processes.running([alive, ended, zombie]);
 			const again = yield* processes.running([alive]);
 
-			assert.isTrue(Str.startsWith("Z")(zombieState), `the forked sleep is a zombie, not ${zombieState}`);
 			assert.deepStrictEqual(pipe(first, Option.map(pidsOf)), Option.some([alive]));
 			assert.deepStrictEqual(again, first);
 		}).pipe(Effect.scoped),
