@@ -1,9 +1,5 @@
 import { Record, Schema, SchemaTransformation } from "effect";
 
-/**
- * JSON whose source text a part holds whole, so the judge reads every byte of it and its shape is not the codec's
- * concern: a tool call's `input`, a tool's `input_schema`, `safeguards` and `output_config.format`'s schema.
- */
 const Judged = Schema.Unknown;
 
 /** The one field the clean lane forwards unjudged: Claude Code's ids, no session content. */
@@ -15,11 +11,6 @@ const flag = Schema.optionalKey(Schema.Boolean);
 
 const Effort = Schema.Literals(["low", "medium", "high", "xhigh", "max"]);
 
-/**
- * The members the clean lane carries from a block or message onto the one it writes in its place, each in the closed
- * shape recorded from Claude Code 2.1.325. A member outside its shape refuses the clean lane, so the request goes
- * sealed with its own bytes.
- */
 const forwarded = {
 	cache_control: Schema.Struct({
 		ttl: Schema.optionalKey(Schema.Literals(["5m", "1h"])),
@@ -62,10 +53,6 @@ const ToolChoice = Schema.Struct({ type: Schema.Literal("auto") });
 
 const unreadable = Schema.Struct({ type: Schema.Literal("unreadable"), unreadable: JsonObject });
 
-/**
- * A block, message or tool the codec cannot name: an unknown type or role, or a known one with a key this file does not
- * list. Decoded into its own variant so no branch can mistake it for one it knows.
- */
 const Unreadable = JsonObject.pipe(
 	Schema.decodeTo(
 		unreadable,
@@ -82,7 +69,6 @@ const source = Schema.Struct({ data: Schema.String, media_type: Schema.String, t
 
 const Image = Schema.Struct({ cache_control: cacheControl, source, type: Schema.Literal("image") });
 
-/** A ToolSearch result's pointer to a deferred tool, read as a part of its tool result. */
 const ToolReference = Schema.Struct({ tool_name: Schema.String, type: Schema.Literal("tool_reference") });
 
 const Thinking = Schema.Struct({ signature: Schema.String, thinking: Schema.String, type: Schema.Literal("thinking") });
@@ -143,11 +129,6 @@ const systemBlocks = Schema.optionalKey(Schema.Array(Schema.Union([Text, Unreada
 
 const toolList = Schema.optionalKey(Schema.Array(Schema.Union([Tool, Unreadable])));
 
-/**
- * One /v1/messages body as Claude Code 2.1.325 or pi 1.6.0 sends it. Decoded with `onExcessProperty: "error"`, so an unknown
- * top-level key fails and names itself, and an unknown key or type below it makes that message, block, system block or
- * tool `Unreadable`.
- */
 const Body = Schema.Struct({
 	context_management: Schema.optionalKey(ContextManagement),
 	max_tokens: Schema.Finite,
@@ -167,13 +148,10 @@ const BodyJson = Schema.fromJsonString(Body);
 
 const JsonString = Schema.fromJsonString(Schema.String);
 
-/** A value as compact JSON text, the way Claude Code writes a streamed tool input back. */
 const JsonText = Schema.fromJsonString(Schema.Unknown);
 
-/** What an unreadable block still tells, read with its other keys ignored: a tool call's id and name. */
 const LooseCall = Schema.Struct({ id: Schema.String, name: Schema.String, type: Schema.Literal("tool_use") });
 
-/** What an unreadable block still tells, read with its other keys ignored: the call a tool result answers. */
 const LooseResult = Schema.Struct({ tool_use_id: Schema.String, type: Schema.Literal("tool_result") });
 
 const Delta = Schema.Union([
@@ -197,7 +175,6 @@ const ContentlessEvent = Schema.Struct({
 	type: Schema.Literals(["message_start", "content_block_stop", "ping", "message_delta", "message_stop"]),
 });
 
-/** One SSE `data:` line, decoded with excess keys ignored: usage and `estimated_tokens` are not content. */
 const EventJson = Schema.fromJsonString(Schema.Union([BlockStart, BlockDelta, Failed, ContentlessEvent]));
 
 type WireBody = typeof Body.Type;

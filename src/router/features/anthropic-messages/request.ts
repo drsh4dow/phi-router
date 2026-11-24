@@ -28,7 +28,6 @@ interface MessagesRequest {
 	readonly encode: (upstream: Target) => Effect.Effect<string, CleanLaneRefused>;
 }
 
-/** The body is not one the codec can name. `reason` is Schema's message, which names the field and never its value. */
 class UnreadableRequest extends Schema.TaggedError<UnreadableRequest, { readonly brand: unique symbol }>()(
 	"UnreadableRequest",
 	{ reason: Schema.String },
@@ -38,13 +37,6 @@ const textStart = 0;
 
 const byStart = Order.mapInput(Order.Number, (edit: Edit) => edit.start);
 
-/**
- * The body text with each edit applied. Text no edit touches stays byte for byte.
- *
- * @param {string} source The body as the harness sent it.
- * @param {readonly Edit[]} edits Edits that do not overlap.
- * @returns {string} The edited body.
- */
 const edited = (source: string, edits: readonly Edit[]): string => {
 	const [end, pieces] = Array.mapAccum(Array.sort(edits, byStart), textStart, (at, edit) => [
 		edit.end,
@@ -73,7 +65,6 @@ const bridgeEdit = Effect.fnUntraced(function* bridgeEdit(
 
 const firstMessage = 0;
 
-/** A section the border changed, or that the codec cannot read, as a fresh text block keeping its cache breakpoint. */
 const sectionEdit = Effect.fnUntraced(function* sectionEdit(
 	section: Section,
 	guarded: string,
@@ -87,13 +78,6 @@ const sectionEdit = Effect.fnUntraced(function* sectionEdit(
 	return Option.some({ end: section.span.end, start: section.span.start, text });
 });
 
-/**
- * Each wire message beside the border's messages for its runs.
- *
- * @param {readonly Turn[]} turns The wire messages.
- * @param {readonly Message[]} guarded The border's messages after the system message.
- * @returns {readonly (readonly [Turn, readonly Message[]])[]} The pairs.
- */
 const guardedTurns = (
 	turns: readonly Turn[],
 	guarded: readonly Message[],
@@ -107,7 +91,6 @@ const guardedTurns = (
 	return pairs;
 };
 
-/** The attribution block stays first and untouched, each section takes the border's text, and the bridge goes last. */
 const cleanEdits = Effect.fnUntraced(function* cleanEdits(
 	decoded: Decoded,
 	upstream: Clean,
@@ -152,7 +135,6 @@ interface Encoding {
 	readonly bridge: string;
 }
 
-/** Pinned: the model only. Sealed: the model and the bridge. Clean: those and each run or section the border changed. */
 const encoded = Effect.fnUntraced(function* encoded(
 	{ bridge, decoded, refusals }: Encoding,
 	upstream: Target,
