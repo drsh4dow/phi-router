@@ -24,8 +24,8 @@ const during = Effect.fnUntraced(function* during<Ran extends { readonly printed
 
 	return Struct.assign(ran, {
 		baa: Array.drop(baa, baaBefore.length),
-		judged: judged.length - judgedBefore.length,
 		open: Array.drop(open, openBefore.length),
+		piecesJudged: judged.length - judgedBefore.length,
 		printedTail: Str.slice(-printedTail)(ran.printed),
 		shown: shownIn(ran.printed),
 	});

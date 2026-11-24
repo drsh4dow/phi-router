@@ -198,7 +198,7 @@ const sealedModelChecksOf = (chosen: PhiTurned): readonly Check[] => {
 					Array.every(({ body }) => Str.includes(`"model":"${fakes.sealedModel.anthropic}"`)(body)),
 				) &&
 				!pipe(chosen.open, Array.some(isPost)) &&
-				chosen.judged === unjudged,
+				chosen.piecesJudged === unjudged,
 		},
 		{
 			name: "pi's request on phi/sealed carries only pi's own tools, so the package ships no subagent tool",

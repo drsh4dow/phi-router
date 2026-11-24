@@ -24,9 +24,8 @@ interface Shown {
 	readonly handled: boolean;
 }
 
-/** A run of a harness, with how many pieces the judge mock received during it and what it showed. */
 interface PhiTurned extends Turned {
-	readonly judged: number;
+	readonly piecesJudged: number;
 	readonly shown: Shown;
 }
 
@@ -56,7 +55,7 @@ const shownIn = (printed: string): Shown => {
 const none = 0;
 
 const sentNothing = (turn: PhiTurned): boolean =>
-	turn.judged === none && !pipe([...turn.open, ...turn.baa], Array.some(isModelPost));
+	turn.piecesJudged === none && !pipe([...turn.open, ...turn.baa], Array.some(isModelPost));
 
 const holdsClean =
 	(cleanText: string) =>
@@ -82,7 +81,7 @@ const phiChecksOf = (played: { readonly turns: PhiTurns; readonly cleanText: str
 		},
 		{
 			name: "after /phi pin, the next clean prompt reaches the BAA mock alone, with no judge call",
-			ok: clean(turns.pinned.baa) && !clean(turns.pinned.open) && turns.pinned.judged === none,
+			ok: clean(turns.pinned.baa) && !clean(turns.pinned.open) && turns.pinned.piecesJudged === none,
 		},
 		{
 			name: "after /phi unpin, the next clean prompt reaches the open mock",
