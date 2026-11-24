@@ -1,11 +1,11 @@
-import { Array, Effect, FileSystem, Layer, String as Str, Struct } from "effect";
+import { Array, Context, Effect, FileSystem, Layer, Ref, String as Str, Struct, pipe } from "effect";
+import { FetchHttpClient, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
+import { NodeHttpServer, NodeServices } from "@effect/platform-node";
+import { Proofs, hmacOf, proofOf } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
-import { bundled, instance, ran, routersOn, world } from "./launched.ts";
+import { bundled, freePort, instance, ran, routersOn, world } from "./launched.ts";
 import { flooder, secretKept, squatter } from "./squatter.ts";
-import { hmacOf, proofOf } from "#router/client/router-port/index.ts";
 import { Digest } from "effect/crypto";
-import { FetchHttpClient } from "effect/http";
-import { NodeServices } from "@effect/platform-node";
 import { mocked } from "#tools/route/mocked-router.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
@@ -188,6 +188,45 @@ const rewritten = Effect.fnUntraced(function* rewritten() {
 	assert.strictEqual(again.exitCode, ok, "the running router answers under the secret now in the file");
 }, Effect.scoped);
 
+const startingUp = 503;
+
+const nonceDigits = /^[0-9a-f]{64}$/u;
+
+const asked = Effect.fnUntraced(function* asked() {
+	const built = yield* Layer.build(NodeHttpServer.layerTest);
+	const server = Context.get(built, HttpServer.HttpServer);
+	const nonces = yield* Ref.make<readonly string[]>([]);
+
+	yield* server.serve(
+		Effect.gen(function* recorded() {
+			const request = yield* HttpServerRequest.HttpServerRequest;
+			const [, query = ""] = Str.split(request.url, "?");
+
+			yield* Ref.update(nonces, Array.append(new URLSearchParams(query).get("nonce") ?? ""));
+
+			return HttpServerResponse.empty({ status: startingUp });
+		}),
+	);
+
+	const port = Number(new URL(HttpServer.formatAddress(server.address)).port);
+	const nobody = yield* freePort;
+	const proven = yield* Layer.build(Proofs.layer);
+	const proofs = Context.get(proven, Proofs);
+	const answers = yield* Effect.all([proofs.ask(port), proofs.ask(port), proofs.ask(nobody)], { concurrency: 1 });
+	const sent = yield* Ref.get(nonces);
+
+	const fresh = pipe(
+		sent,
+		Array.filter((nonce) => nonceDigits.test(nonce)),
+		Array.dedupe,
+	);
+
+	assert.deepStrictEqual(
+		{ answers, fresh: fresh.length, sent: sent.length },
+		{ answers: ["waiting", "waiting", "unanswered"], fresh: 2, sent: 2 },
+	);
+}, Effect.scoped);
+
 it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, Digest.layerWebCrypto))(
 	"the port's proof",
 	(test) => {
@@ -199,6 +238,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, Digest.layerW
 			patient,
 		);
 		test.effect("start refuses a listener whose answer never ends", () => flooded(), patient);
+		test.effect(
+			"ask sends a fresh nonce of 64 hex digits each time, waits on a router that answers 503 as one starting up does, and finds nothing on a free port",
+			() => asked(),
+		);
 		test.effect(
 			"start still proves the developer's router once another of their routers wrote a fresh secret",
 			() => rewritten(),
