@@ -12,7 +12,6 @@ class NoLeaseHolds extends Schema.TaggedError<NoLeaseHolds, { readonly brand: un
 	}
 }
 
-/** A router that is closing holds the port until its process ends, so a new one waits for the port. */
 const bindRetry = { schedule: Schedule.spaced("50 millis"), times: 40 } as const;
 
 const serve = Effect.fnUntraced(function* serve(port: number) {

@@ -182,13 +182,39 @@ const linesIn = Effect.fnUntraced(function* linesIn(bin: string, name: string) {
 	return Str.split(Str.trimEnd(text), "\n");
 });
 
-const doctored = Effect.fnUntraced(function* doctored(pi: "real" | "absent", install: Install) {
+type Naming = "--agent-dir" | "PI_CODING_AGENT_DIR" | "HOME";
+
+const named = Effect.fnUntraced(function* named(naming: Naming, agentDir: string, home: string) {
+	const fs = yield* FileSystem.FileSystem;
+
+	if (naming === "PI_CODING_AGENT_DIR") {
+		return { flags: [], variable: agentDir };
+	}
+
+	if (naming === "HOME") {
+		yield* fs.makeDirectory(`${home}/.pi`);
+		yield* fs.symlink(agentDir, `${home}/.pi/agent`);
+
+		return { flags: [], variable: "" };
+	}
+
+	const elsewhere = yield* folder("phi-pi-elsewhere-");
+
+	return { flags: ["--agent-dir", agentDir], variable: elsewhere };
+});
+
+const doctored = Effect.fnUntraced(function* doctored(
+	pi: "real" | "absent",
+	install: Install,
+	naming: Naming = "--agent-dir",
+) {
 	const fs = yield* FileSystem.FileSystem;
 	const [home, temporary] = yield* Effect.all([folder("phi-pi-home-"), folder("phi-pi-tmp-")], { concurrency: 1 });
 	const agentDir = yield* agentFolder(install);
+	const { flags, variable } = yield* named(naming, agentDir, home);
 	const { bin, bun, marker, searchPath: PATH } = yield* searchPath(pi);
-	const env = Struct.assign(hostile, { HOME: home, PATH, PI_CODING_AGENT_DIR: "", TMPDIR: temporary });
-	const doctor = yield* phiRouter(["doctor", "pi", "--agent-dir", agentDir], env, bun);
+	const env = Struct.assign(hostile, { HOME: home, PATH, PI_CODING_AGENT_DIR: variable, TMPDIR: temporary });
+	const doctor = yield* phiRouter(["doctor", "pi", ...flags], env, bun);
 	const prompt = yield* promptSeen(marker);
 	const leftInTemporary = yield* fs.readDirectory(temporary);
 	const agentFolderLeft = yield* fs.exists(agentDir);
@@ -233,6 +259,19 @@ const passes = Effect.gen(function* passes() {
 	assert.isTrue(Option.isSome(prompt), "pi ran the prompt");
 
 	yield* leftBehind(Option.getOrThrow(prompt), leftInTemporary);
+});
+
+const namings: readonly { readonly naming: Naming }[] = [
+	{ naming: "--agent-dir" },
+	{ naming: "PI_CODING_AGENT_DIR" },
+	{ naming: "HOME" },
+];
+
+const found = Effect.fnUntraced(function* found({ naming }: { readonly naming: Naming }) {
+	const { doctor } = yield* doctored("real", "whole", naming);
+
+	assert.strictEqual(doctor.exitCode, ok, doctor.printed);
+	assert.include(doctor.printed, "pass pi installed the package phi-router");
 });
 
 const notInstalled: readonly { readonly install: Install }[] = [
@@ -287,6 +326,7 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("doctor pi", (t
 		() => passes,
 		patient,
 	);
+	test.effect.each(namings)("finds the package in the agent folder $naming gives", found, patient);
 	test.effect.each(notInstalled)(
 		"fails naming the install without a prompt when it is $install",
 		failsNotInstalled,

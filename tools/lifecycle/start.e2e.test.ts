@@ -1,4 +1,5 @@
-import { Array, Clock, Effect, FileSystem, Layer, Record, pipe } from "effect";
+import { Array, Clock, Effect, FileSystem, Layer, Record, Stream, pipe } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { PlatformError, Scope } from "effect";
 import { answers, bundled, instance, leasedPids, ran, refusedWithin, world } from "./launched.ts";
@@ -167,6 +168,42 @@ const ended = Effect.fnUntraced(function* ended() {
 	assert.include(refused.printed, "the process is not running");
 }, Effect.scoped);
 
+const endsASecondAfterTheFirstConnection = `
+Bun.listen({
+	hostname: "127.0.0.1",
+	port: Number(process.env.PORT),
+	socket: {
+		data: () => {},
+		open: (socket) => {
+			setTimeout(() => process.exit(), 1000);
+			socket.end();
+		},
+	},
+});
+console.log("held");
+`;
+
+const closingRouter = Effect.fnUntraced(function* closingRouter(port: number) {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const env = { PORT: String(port) };
+	const command = ChildProcess.make("bun", ["-e", endsASecondAfterTheFirstConnection], { env, extendEnv: true });
+	const handle = yield* spawner.spawn(command);
+
+	yield* Stream.runHead(Stream.decodeText(handle.stdout));
+});
+
+const waited = Effect.fnUntraced(function* waited() {
+	const here = yield* bundled().pipe(Effect.flatMap(world));
+	const holder = yield* instance();
+
+	yield* closingRouter(here.port);
+
+	const started = yield* here.start(holder.pid);
+	const routers = yield* here.routers;
+
+	assert.deepStrictEqual({ routers: routers.length, started }, { routers: oneRouter, started: done });
+}, Effect.scoped);
+
 const configHolding = Effect.fnUntraced(function* configHolding(files: Readonly<Record<string, string>>) {
 	const fs = yield* FileSystem.FileSystem;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });
@@ -240,6 +277,12 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("phi-router sta
 	);
 
 	test.effect("start for a pid with no process fails and leaves no lease", () => ended(), patient);
+
+	test.effect(
+		"start waits for a closing router to free the port, then brings its own router up there",
+		() => waited(),
+		patient,
+	);
 
 	test.effect.each(unstartable)("start with $what prints the line pi shows for it", stoppedBy, patient);
 });

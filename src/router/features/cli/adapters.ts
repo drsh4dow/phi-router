@@ -25,7 +25,6 @@ const codexOff = Command.make("codex", { codexHome }, (flags) => offCodex(flags.
 
 const codexDoctor = Command.make("codex", { codexHome }, (flags) => doctorCodex(flags.codexHome));
 
-/** The agent folder of pi, when it is not the one `PI_CODING_AGENT_DIR` or the home folder gives. Empty means none. */
 const agentDir = Flag.String("agent-dir").pipe(Flag.withDefault(""));
 
 const piDoctor = Command.make("pi", { agentDir }, (flags) => doctorPi(flags.agentDir));
