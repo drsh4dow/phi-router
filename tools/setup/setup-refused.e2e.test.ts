@@ -62,6 +62,22 @@ const noTerminal = Effect.gen(function* noTerminal() {
 	assert.deepStrictEqual(after, before);
 }).pipe(Effect.scoped);
 
+const endOfInput = "\u0004";
+
+const endedAtKey = Effect.gen(function* endedAtKey() {
+	const of = yield* world;
+
+	yield* settled(of);
+
+	const before = yield* owned(of);
+	const run = yield* setUp(of, "claude", [{ after: "Key: ", typed: endOfInput }]);
+	const after = yield* owned(of);
+
+	assert.notStrictEqual(run.exitCode, ok, run.shown);
+	assert.include(run.shown, "Setup ended before it got a key. Nothing was saved or changed.");
+	assert.deepStrictEqual(after, before);
+}).pipe(Effect.scoped);
+
 /** Claude Code's own settings, with every fake harness's canary turn set to `hang` or to `fail`. */
 const broken = Effect.fnUntraced(function* broken(of: World, how: "hang" | "fail") {
 	const fs = yield* FileSystem.FileSystem;
@@ -120,6 +136,7 @@ const stopped = Effect.gen(function* stopped() {
 it.layer(layer)("setup refused", (test) => {
 	test.effect.each(badKeys)("a bad key changes nothing: $kind", badKey, patient);
 	test.effect("setup with no terminal says so and changes nothing", () => noTerminal, patient);
+	test.effect("input that ends at the key question saves and changes nothing", () => endedAtKey, patient);
 	test.effect("a failed test installs nothing and leaves Claude Code's folder as it was", () => failedTest, patient);
 });
 

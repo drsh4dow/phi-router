@@ -6,6 +6,7 @@ import {
 	claudeAnswers,
 	configOf,
 	enter,
+	keyAnswer,
 	keyFiles,
 	layer,
 	leaks,
@@ -166,10 +167,39 @@ const claudeSetUp = Effect.gen(function* claudeSetUp() {
 	assert.deepStrictEqual(leaked, [], "no key outside its key file");
 }).pipe(Effect.scoped);
 
+const endOfInput = "\u0004";
+
+const lastQuestion = "Press Enter to start Claude Code with phi-router.";
+
+const echoedThenEnded = Effect.gen(function* echoedThenEnded() {
+	const of = yield* world;
+
+	yield* settled(of);
+
+	const run = yield* setUp(of, "claude", [keyAnswer, { after: lastQuestion, typed: "go" }]);
+
+	yield* setUp(of, "claude", [{ after: lastQuestion, typed: endOfInput }]);
+
+	const calls = yield* callsOf(of, "claude");
+
+	assert.deepStrictEqual(
+		{
+			echoed: Str.includes(`${lastQuestion}\ngo\n`)(run.shown),
+			starts: Array.countBy(calls, (call) => call === "start"),
+		},
+		{ echoed: true, starts: 1 },
+	);
+}).pipe(Effect.scoped);
+
 it.layer(layer)("setup claude", (test) => {
 	test.effect(
 		"setup claude asks one key at a hidden prompt, configures, installs, tests, switches on last and starts claude",
 		() => claudeSetUp,
+		patient,
+	);
+	test.effect(
+		"setup claude gives the terminal its echo back after the hidden key, and starts nothing when the input ends at its last question",
+		() => echoedThenEnded,
 		patient,
 	);
 });
