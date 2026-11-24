@@ -15,7 +15,6 @@ type Seam = string;
 interface Piece<Key> {
 	readonly key: Key;
 	readonly kind: PieceKind;
-	/** The text parts as sent, one by one, so a registered fixture matches a whole part. */
 	readonly texts: readonly string[];
 	readonly images: readonly Image[];
 	readonly context: readonly string[];
