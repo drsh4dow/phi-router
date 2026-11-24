@@ -30,7 +30,6 @@ const sessionId = "added-1";
 
 const Named = Schema.Array(Schema.Struct({ name: Schema.String }));
 
-/** The clean lane of what `status` prints. */
 const PrintedStatus = Schema.fromJsonString(Schema.Struct({ accounts: Schema.Struct({ clean: Named }) }));
 
 const limited = (): Said => ({ body: "{}", kind: "status", status: 429 });
@@ -39,7 +38,6 @@ const ok = harnesses.claude.answersOk.open;
 
 type Entry = (typeof ConfigFile.Type)["clean"][number];
 
-/** Rewrites the config file's clean lane, keeping each entry `kept` keeps, as `edit` returns it, as no add does. */
 const edited = Effect.fnUntraced(function* edited(
 	file: string,
 	edit: { readonly name: string; readonly kept: boolean; readonly endpoint?: string },
@@ -87,10 +85,6 @@ const cleanLane = Effect.fnUntraced(function* cleanLane(
 	);
 });
 
-/**
- * A router serving one open account, which answers 429, and the second open mock, which no account names yet, with a
- * login folder and a token command for `accounts add`.
- */
 const running = Effect.gen(function* running() {
 	const { env, mocks } = yield* mocked({ holdsPhi: () => false, opens: [limited, ok] });
 

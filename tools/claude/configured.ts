@@ -1,7 +1,6 @@
 import { Effect, FileSystem, Schema, Struct } from "effect";
 import { ran } from "#tools/lifecycle/launched.ts";
 
-/** The eight settings `on claude` must always write, spelled here apart from the code that writes them. */
 const routed = {
 	ANTHROPIC_BASE_URL: "http://127.0.0.1:47411",
 	ANTHROPIC_CUSTOM_MODEL_OPTION: "phi/auto",
@@ -27,7 +26,6 @@ const SettingsJson = Schema.fromJsonString(Schema.Json);
 
 const entry = new URL("../../src/router/main.ts", import.meta.url).pathname;
 
-/** A Claude Code settings file as these tests write it. */
 interface ClaudeSettings {
 	readonly enabledPlugins?: Readonly<Record<string, boolean>>;
 	readonly env?: Readonly<Record<string, string>>;
@@ -35,10 +33,6 @@ interface ClaudeSettings {
 	readonly permissions?: { readonly allow: readonly string[] };
 }
 
-/**
- * Runs `phi-router` from the source entry under `runtime` with `env` beside the caller's own. Each test sets `HOME`
- * and `CLAUDE_CONFIG_DIR` in `env`, so no run reaches the developer's own Claude Code folder.
- */
 const phiRouter = Effect.fnUntraced(function* phiRouter(
 	args: readonly string[],
 	env: Readonly<Record<string, string>>,
@@ -79,7 +73,6 @@ const claudeFolders = Effect.gen(function* claudeFolders() {
 	return { dir, env: { CLAUDE_CONFIG_DIR: "", HOME: home, NO_PROXY: "", no_proxy: "" } };
 });
 
-/** The settings file in `dir`, decoded. */
 const settingsIn = Effect.fnUntraced(function* settingsIn(dir: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const text = yield* fs.readFileString(settingsFile(dir));

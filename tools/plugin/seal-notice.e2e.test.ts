@@ -36,7 +36,6 @@ const turnEnd = Effect.fnUntraced(function* turnEnd(world: World, harness: Harne
 	return yield* hook(world, { address, event: "Stop", harness, input: stopInput });
 });
 
-/** What a turn-end hook printed, with the notice's text in place of its JSON. */
 const noticed = Effect.fnUntraced(function* noticed(world: World, harness: Harness, address: string) {
 	const hooked = yield* turnEnd(world, harness, address);
 	const { systemMessage } = yield* Schema.decodeEffect(Notice)(hooked.stdout);
@@ -44,7 +43,6 @@ const noticed = Effect.fnUntraced(function* noticed(world: World, harness: Harne
 	return Struct.assign(hooked, { stdout: systemMessage });
 });
 
-/** Posts one request of the session that seals, as Claude Code sends it. */
 const sealedTurn = Effect.fnUntraced(function* sealedTurn(url: string) {
 	const client = yield* HttpClient.HttpClient;
 	const body = yield* bodyOf([{ role: "user", text: `Patient Fakesmith ${canary} called about her refill.` }]);

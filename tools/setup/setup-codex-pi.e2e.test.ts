@@ -13,11 +13,6 @@ const piEnd =
 /** What a screen splits into around one `Key: ` question: the text before it and the text after. */
 const oneQuestion = 2;
 
-/**
- * Checks the screens `setup codex` showed.
- *
- * @param {TypedRan} run The run.
- */
 const assertCodexScreens = (run: TypedRan): void => {
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assert.strictEqual(Str.split("Key: ")(run.shown).length, oneQuestion, "one key question");
@@ -28,7 +23,6 @@ const assertCodexScreens = (run: TypedRan): void => {
 	assert.include(run.shown, "codex started");
 };
 
-/** Checks the config.json `setup codex` wrote, and that it ran the test, then codex's installers, then codex. */
 const configuredCodex = Effect.fnUntraced(function* configuredCodex(of: World) {
 	const config = yield* configOf(of);
 	const { openai } = keyFiles(of);
@@ -61,7 +55,6 @@ const codexSetUp = Effect.gen(function* codexSetUp() {
 	assert.deepStrictEqual(leaked, [], "no key outside its key file");
 }).pipe(Effect.scoped);
 
-/** A saved Anthropic key and a config.json with no account. */
 const keyed = Effect.fnUntraced(function* keyed(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -73,11 +66,6 @@ const keyed = Effect.fnUntraced(function* keyed(of: World) {
 	yield* fs.writeFileString(`${of.xdg.XDG_CONFIG_HOME}/phi-router/config.json`, Formatter.formatJson(config));
 });
 
-/**
- * Checks the screens `setup pi` showed.
- *
- * @param {TypedRan} run The run.
- */
 const assertPiScreens = (run: TypedRan): void => {
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assert.notInclude(run.shown, "Key:", "no question");

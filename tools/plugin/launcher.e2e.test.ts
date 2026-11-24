@@ -32,7 +32,6 @@ const launched = Effect.gen(function* launched() {
 	);
 }).pipe(Effect.scoped);
 
-/** The launcher run through a relative link in another folder, as npm links a package's bin into `node_modules/.bin`. */
 const linked = Effect.gen(function* linked() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -47,7 +46,6 @@ const linked = Effect.gen(function* linked() {
 	assert.deepStrictEqual(launcher, { exitCode: 0, printed: "phi-router runs on the bun platform layer\n" });
 }).pipe(Effect.scoped);
 
-/** The launcher of a copy that holds no bundle, as a checkout that was never built leaves it, with its stderr. */
 const unbuilt = Effect.gen(function* unbuilt() {
 	const fs = yield* FileSystem.FileSystem;
 	const copy = yield* pluginCopy;
@@ -62,7 +60,6 @@ const unbuilt = Effect.gen(function* unbuilt() {
 	});
 }).pipe(Effect.scoped);
 
-/** `doctor` through the launcher under bun, with a fresh home folder, and what the home folder holds after it. */
 const doctorHome = Effect.gen(function* doctorHome() {
 	const fs = yield* FileSystem.FileSystem;
 	const copy = yield* pluginCopy;
@@ -80,7 +77,6 @@ const doctorHome = Effect.gen(function* doctorHome() {
 	assert.deepStrictEqual({ exitCode: doctor.exitCode, left }, { exitCode: 0, left: [] }, doctor.printed);
 }).pipe(Effect.scoped);
 
-/** A shell's lists of hosts to keep off its proxy, and the `no_proxy` `on claude` must write for them. */
 interface Lists {
 	readonly NO_PROXY: string;
 	readonly no_proxy: string;
@@ -93,7 +89,6 @@ const shells: readonly Lists[] = [
 	{ NO_PROXY: "", no_proxy: "", wrote: "127.0.0.1:47411" },
 ];
 
-/** `on claude` through the launcher, from a shell with `lists`. */
 const exempted = Effect.fnUntraced(function* exempted({ NO_PROXY, no_proxy, wrote }: Lists) {
 	const fs = yield* FileSystem.FileSystem;
 	const copy = yield* pluginCopy;

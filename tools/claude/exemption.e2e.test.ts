@@ -5,13 +5,8 @@ import { NodeServices } from "@effect/platform-node";
 
 const patient = { timeout: 30_000 };
 
-/** The settings `on` records beside the `no_proxy` it wrote. */
 const record = { replaced: "PHI_ROUTER_REPLACED_no_proxy", wrote: "PHI_ROUTER_WROTE_no_proxy" } as const;
 
-/**
- * A developer's lists of hosts to keep off their proxy: in the settings' `env` block and in the shell that runs `on`,
- * and what `on` must add to the `env` block for them.
- */
 interface Lists {
 	readonly added: Readonly<Record<string, string>>;
 	readonly env: Readonly<Record<string, string>>;

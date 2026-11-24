@@ -26,7 +26,6 @@ const ok = 200;
 
 const failing: Said = { body: "{}", kind: "status", status: 500 };
 
-/** An Anthropic account mock on its own loopback port that answers by `script`. */
 const anthropicOn = Effect.fnUntraced(function* anthropicOn(script: (asked: Asked) => Said) {
 	const server = yield* Layer.build(NodeHttpServer.layerTest);
 
@@ -47,13 +46,6 @@ const forwarded: Json = { forwarded: true, name: "forwarded", vendor: "anthropic
 
 const openaiFolder: Json = { loginFolder: "/nonexistent", name: "openai-folder", vendor: "openai" };
 
-/**
- * A `config.json` with one open account on each vendor, these BAA accounts, of both vendors, on `sealed`, and `beside`.
- *
- * @param {Json[]} sealed The BAA accounts.
- * @param {object} beside The rest of the file.
- * @returns {Json} The file.
- */
 const lanes = (sealed: readonly Json[], beside: Readonly<Record<string, Json>> = {}): Json =>
 	Struct.assign(beside, {
 		clean: [
@@ -64,7 +56,6 @@ const lanes = (sealed: readonly Json[], beside: Readonly<Record<string, Json>> =
 		targetModel: { anthropic: "target", openai: "target" },
 	});
 
-/** Two Anthropic account mocks and a Decisions mock, and how many calls each received once the judge asked one. */
 const choiceOf = Effect.fnUntraced(function* choiceOf(
 	file: (endpoints: { readonly first: string; readonly second: string; readonly decisions: string }) => Json,
 	layer: "claudeLayer" | "layer" = "layer",
@@ -158,7 +149,6 @@ const refused = Effect.gen(function* refused() {
 	);
 });
 
-/** The Claude judge on one Anthropic API-key account whose mock answers by `script`. */
 const claudeAnswering = Effect.fnUntraced(function* claudeAnswering(script: (asked: Asked) => Said) {
 	const mock = yield* anthropicOn(script);
 	const judge = yield* judgeFrom(lanes([keyed("anthropic", "baa", mock.endpoint), openaiFolder]));
@@ -307,10 +297,6 @@ const failures = [
 	},
 ] as const;
 
-/**
- * The verdicts of two pieces when the Claude judge's account answers `said` about the one in trouble and clears the
- * other.
- */
 const sealedBy = Effect.fnUntraced(function* sealedBy(answer: () => Said) {
 	const { judge } = yield* claudeAnswering((asked) => {
 		if (Str.includes(trouble)(asked.body)) {

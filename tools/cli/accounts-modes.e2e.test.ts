@@ -10,7 +10,6 @@ const succeeded = 0;
 
 const shared = 0o755;
 
-/** A config folder the user made at 0755 keeps its mode after an add, and `config.json` in it is 0600. */
 const writesPrivately = Effect.gen(function* writesPrivately() {
 	const fs = yield* FileSystem.FileSystem;
 	const run = yield* prepared("both");

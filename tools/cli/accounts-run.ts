@@ -1,7 +1,6 @@
 import { Array, Effect, FileSystem, Path, Record, Schema, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-/** The fake credentials of the account tests. A test fails when any of them shows in an XDG folder or in what was printed. */
 const tokens = {
 	claudeFolder: "phi-test-claude-folder-token",
 	codexFolder: "phi-test-codex-folder-token",
@@ -50,14 +49,12 @@ const JsonText = Schema.fromJsonString(Schema.Json);
 
 const Entries = Schema.Array(Schema.Record(Schema.String, Schema.Json));
 
-/** A `config.json` as a test reads it: its lanes' entries, and every other field as it is. */
 const ConfigFile = Schema.fromJsonString(
 	Schema.StructWithRest(Schema.Struct({ clean: Entries, sealed: Entries }), [
 		Schema.Record(Schema.String, Schema.Json),
 	]),
 );
 
-/** One test's folders and the commands that print its fake Claude token and its fake OpenAI key. */
 interface Prepared {
 	readonly configFile: string;
 	readonly env: { readonly TZ: string; readonly XDG_CONFIG_HOME: string; readonly XDG_STATE_HOME: string };
@@ -97,7 +94,6 @@ const loginsIn = Effect.fnUntraced(function* loginsIn(outside: string) {
 	return folders;
 });
 
-/** Fresh XDG config and state folders, `config.json` holding the config `name`, and the logins outside both. */
 const prepared = Effect.fnUntraced(function* prepared(name: keyof typeof configs) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -123,7 +119,6 @@ const prepared = Effect.fnUntraced(function* prepared(name: keyof typeof configs
 	} satisfies Prepared;
 });
 
-/** Runs `phi-router` from the repository in `env`: its exit code and what it printed on each stream. */
 const phiRouter = Effect.fnUntraced(function* phiRouter(
 	env: Readonly<Record<string, string>>,
 	args: readonly string[],
@@ -144,7 +139,6 @@ const phiRouter = Effect.fnUntraced(function* phiRouter(
 	return { exitCode: Number(exitCode), stderr, stdout };
 }, Effect.scoped);
 
-/** Every file under `roots`, and every one of `printed`, that holds one of `credentials`, the fake tokens unless named. */
 const leaks = Effect.fnUntraced(function* leaks(
 	roots: readonly string[],
 	printed: readonly string[],

@@ -9,7 +9,6 @@ import { squatter } from "#tools/lifecycle/squatter.ts";
 
 const patient = { timeout: 60_000 };
 
-/** A fake login the session's environment holds, which nothing the hook prints may carry. */
 const credential = "phi-38-fake-login";
 
 const movedOff = (setting: string): ((stderr: string) => boolean) =>

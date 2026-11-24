@@ -1,7 +1,6 @@
 import { Effect, FileSystem, Path } from "effect";
 import { copyPrivately, writePrivately } from "#router/client/private-file.ts";
 
-/** A copy of `plugins/claude` alone in a fresh temp folder, as an install leaves it in Claude Code's cache. */
 const pluginCopy = Effect.gen(function* pluginCopy() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -13,10 +12,6 @@ const pluginCopy = Effect.gen(function* pluginCopy() {
 	return copy;
 });
 
-/**
- * A copy of the pi package, its `package.json` and `plugins/`, as `pi install` leaves it, in a fresh temp folder whose
- * name holds a space and an accent, as a user's home folder can.
- */
 const packageCopy = Effect.gen(function* packageCopy() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

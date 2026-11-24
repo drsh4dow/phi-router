@@ -157,14 +157,12 @@ const gates: readonly Gate[] = [
 	},
 ];
 
-/** Files on the paths the map prescribes, which no gate may reject. */
 const prescribed = ["lint", "boundaries"];
 
 const clean = 0;
 
 const patient = { timeout: 120_000 };
 
-/** Copies the repository's source tree and gate configs into a fresh folder. */
 const mirror = Effect.fn("mirror")(function* mirror() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -182,7 +180,6 @@ const mirror = Effect.fn("mirror")(function* mirror() {
 	return tree;
 });
 
-/** Runs one package script in a tree, and returns its exit code and everything it printed. */
 const run = Effect.fn("run")(function* run(tree: string, script: string) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const handle = yield* spawner.spawn(ChildProcess.make("bun", ["run", script], { cwd: tree }));

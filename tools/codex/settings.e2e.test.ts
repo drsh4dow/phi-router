@@ -197,7 +197,6 @@ const precedence = Effect.gen(function* precedence() {
 	);
 }).pipe(Effect.scoped);
 
-/** A `config.toml` at 0644 in another folder, as a dotfiles manager keeps it. */
 const dotfiles = Effect.gen(function* dotfiles() {
 	const fs = yield* FileSystem.FileSystem;
 	const other = yield* folder("phi-codex-dotfiles-");

@@ -11,12 +11,10 @@ const patient = { timeout: 60_000 };
 
 const ok = 0;
 
-/** The pi the repository pins as a dev dependency, so `check` runs the real binary. */
 const piCli = decodeURIComponent(
 	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
 );
 
-/** What a test does to the installed package before `doctor pi` runs. */
 type Install =
 	| "whole"
 	| "none"
@@ -28,12 +26,6 @@ type Install =
 	| "extensionTruncated"
 	| "routerTruncated";
 
-/**
- * The `pi` a test puts on PATH. Each run adds the login it was given to `pi-logins` beside it. When it lists packages
- * it writes its working folder and the `TMPDIR` it was given to `pi-listed`, and when it runs a prompt the router port
- * and the `TMPDIR` to `pi-prompted`, one per line. Then it runs `pi-cli.js` beside it, a link to the pinned pi, under
- * the `bun` beside it. It names no path, so no path passes through a shell string.
- */
 const piWrapper = `#!/bin/sh
 here=\${0%/*}
 printf '%s\\n' "$ANTHROPIC_OAUTH_TOKEN" >> "$here/pi-logins"
@@ -42,7 +34,6 @@ printf '%s\\n' "$ANTHROPIC_OAUTH_TOKEN" >> "$here/pi-logins"
 exec "$here/bun" "$here/pi-cli.js" "$@"
 `;
 
-/** A folder for a test's PATH with `bun`, and with the `pi` wrapper unless `pi` is `absent`. */
 const searchPath = Effect.fnUntraced(function* searchPath(pi: "real" | "absent") {
 	const fs = yield* FileSystem.FileSystem;
 	const bin = yield* folder("phi-pi-bin-");
@@ -62,7 +53,6 @@ const searchPath = Effect.fnUntraced(function* searchPath(pi: "real" | "absent")
 
 const halves = 2;
 
-/** Halves a file, as an interrupted download leaves it. */
 const truncated = Effect.fnUntraced(function* truncated(file: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const text = yield* fs.readFileString(file);
@@ -70,7 +60,6 @@ const truncated = Effect.fnUntraced(function* truncated(file: string) {
 	yield* fs.writeFileString(file, Str.takeLeft(text, text.length / halves));
 });
 
-/** How each install breaks a fresh copy of the package in `copy`. */
 const breakers: Readonly<
 	Record<Install, (copy: string) => Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem>>
 > = {
@@ -117,10 +106,6 @@ const sourcesOf = (install: Install, copy: string): readonly unknown[] => {
 	return [copy];
 };
 
-/**
- * The agent folder of pi as an install leaves it: settings naming a copy of the package broken as `install` says. For
- * `noAgentFolder`, a folder that does not exist.
- */
 const agentFolder = Effect.fnUntraced(function* agentFolder(install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 	const agentDir = yield* folder("phi-pi-agent-");
@@ -137,7 +122,6 @@ const agentFolder = Effect.fnUntraced(function* agentFolder(install: Install) {
 	return agentDir;
 });
 
-/** What the `pi` wrapper saw of a prompt run: the router port, the `TMPDIR`, and whether that folder still exists. */
 interface Prompted {
 	readonly port: string;
 	readonly temporary: string;
@@ -225,7 +209,6 @@ const doctored = Effect.fnUntraced(function* doctored(
 	return { agentFolderLeft, doctor, leftInTemporary, listed, listedLeft, logins, prompt };
 }, Effect.scoped);
 
-/** What a passing doctor leaves: no router on the port pi was given, nothing in TMPDIR, and no folder of pi's. */
 const leftBehind = Effect.fnUntraced(function* leftBehind(
 	{ port, temporary, temporaryLeft }: Prompted,
 	leftInTemporary: readonly string[],

@@ -11,14 +11,12 @@ import { stopped } from "#tools/route/stopped.ts";
 
 const patient = { timeout: 120_000 };
 
-/** The pi the repository pins as a dev dependency, so `check` runs the real binary. */
 const piCli = decodeURIComponent(
 	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
 );
 
 const canary = "phi-canary-36";
 
-/** A session pi saved earlier on `phi/auto`, of two turns, the first of which holds the canary. */
 const savedSession = `{"type":"session","version":3,"id":"s-compact","timestamp":"2026-11-23T00:00:00.000Z","cwd":"/tmp"}
 {"type":"message","id":"t1","parentId":null,"timestamp":"2026-11-23T00:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"Reply with ok. ${canary}"}],"timestamp":0}}
 {"type":"message","id":"t2","parentId":"t1","timestamp":"2026-11-23T00:00:00.000Z","message":{"role":"assistant","content":[{"type":"text","text":"ok"}],"timestamp":0,"api":"anthropic-messages","provider":"phi","model":"auto","stopReason":"stop","usage":{"input":1,"output":1,"cacheRead":0,"cacheWrite":0,"totalTokens":2,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}}}}
@@ -26,10 +24,6 @@ const savedSession = `{"type":"session","version":3,"id":"s-compact","timestamp"
 {"type":"message","id":"t4","parentId":"t3","timestamp":"2026-11-23T00:00:00.000Z","message":{"role":"assistant","content":[{"type":"text","text":"ok"}],"timestamp":0,"api":"anthropic-messages","provider":"phi","model":"auto","stopReason":"stop","usage":{"input":1,"output":1,"cacheRead":0,"cacheWrite":0,"totalTokens":2,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}}}}
 `;
 
-/**
- * A fresh home that holds `savedSession`, an agent folder that keeps one recent token through a compaction, and a state
- * folder that holds the developer's secret, with a fake login, offline, and the router's port set to `port`.
- */
 const piWorld = Effect.fnUntraced(function* piWorld(port: number) {
 	const fs = yield* FileSystem.FileSystem;
 
@@ -89,11 +83,6 @@ const piRun = Effect.fnUntraced(function* piRun(run: {
 	return Array.join(lines, "\n");
 }, Effect.scoped);
 
-/**
- * Asserts that the listener got nonce requests and nothing else.
- *
- * @param {readonly string[]} received What the listener got.
- */
 const onlyAsked = (received: readonly string[]): void => {
 	assert.isNotEmpty(received, "the extension asked the listener for its proof");
 	assert.deepStrictEqual(

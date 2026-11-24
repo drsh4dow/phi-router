@@ -17,12 +17,6 @@ const subscriptionCopy = "That is a Claude subscription token, not an API key.";
 /** What a screen splits into around a line it shows once: the text before it and the text after. */
 const once = 2;
 
-/**
- * An answer to the offer.
- *
- * @param {string} typed The answer.
- * @returns {Typed} The answer, typed once the offer shows.
- */
 const answered = (typed: string): Typed => ({ after: "[y/N] ", typed });
 
 /** A paste setup refuses at once, so a run that reaches the paste question ends there. */
@@ -33,7 +27,6 @@ type PiLogin =
 	| { readonly type: "api_key"; readonly key: string }
 	| { readonly type: "oauth"; readonly access: string; readonly refresh: string; readonly expires: number };
 
-/** The `auth.json` of pi with `anthropic` as its Anthropic entry. */
 const piHolds = Effect.fnUntraced(function* piHolds(of: World, anthropic: PiLogin) {
 	const fs = yield* FileSystem.FileSystem;
 
@@ -48,13 +41,6 @@ const piHolds = Effect.fnUntraced(function* piHolds(of: World, anthropic: PiLogi
  */
 const piApiKey = (key: string): PiLogin => ({ key, type: "api_key" });
 
-/**
- * Checks that `shown` shows `first` once, and `second` after it and not before.
- *
- * @param {string} shown What the terminal showed.
- * @param {string} first The line shown first.
- * @param {string} second The line shown after it.
- */
 const assertOnceBefore = (shown: string, first: string, second: string): void => {
 	const parts = Str.split(first)(shown);
 	const [before, after = ""] = parts;
@@ -64,14 +50,12 @@ const assertOnceBefore = (shown: string, first: string, second: string): void =>
 	assert.include(after, second, `${second} after ${first}`);
 };
 
-/** Checks that no file of the world but a key file and pi's `auth.json`, and nothing `run` showed, holds a key. */
 const assertNoLeak = Effect.fnUntraced(function* assertNoLeak(of: World, run: TypedRan) {
 	const leaked = yield* leaks(of, [run.shown]);
 
 	assert.deepStrictEqual(leaked, [], "no key outside its key file");
 });
 
-/** Checks the run that took pi's key: no Anthropic paste question, the key in its key file and `config.json`. */
 const assertTaken = Effect.fnUntraced(function* assertTaken(of: World, run: TypedRan) {
 	const fs = yield* FileSystem.FileSystem;
 	const config = yield* configOf(of);
@@ -143,7 +127,6 @@ const refusedThenPasted = Effect.gen(function* refusedThenPasted() {
 	yield* assertNoLeak(of, run);
 }).pipe(Effect.scoped);
 
-/** A pi that offers nothing, and what makes it so. */
 interface Unoffered {
 	readonly kind: string;
 	readonly given: (of: World) => Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem>;

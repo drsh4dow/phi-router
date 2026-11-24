@@ -15,7 +15,6 @@ const standIn = new URL("stand-in.ts", import.meta.url).pathname;
 
 type Claude = "posts" | "silent" | "absent";
 
-/** What a test does to the installed plugin's files before `doctor` runs. */
 type Install = "whole" | "none" | "launcherNotExecutable" | "noBundle";
 
 const notExecutable = 0o644;
@@ -24,14 +23,6 @@ const shellKey = "sk-ant-api03-phi-test-shell-key";
 
 const enabled = { enabledPlugins: { "phi-router@phi-router": true }, env: written };
 
-/**
- * The line a test's `claude` runs first: it writes to `marker` the modes of the mocks' config folder and
- * `config.json`, the proxy and the hosts kept off it that it was given, the API key it was given, then the model
- * address of its `--settings`.
- *
- * @param {string} marker The file.
- * @returns {string} The line.
- */
 const seenBy = (marker: string): string => {
 	const config = '"$XDG_CONFIG_HOME/phi-router" "$XDG_CONFIG_HOME/phi-router/config.json"';
 
@@ -60,7 +51,6 @@ const searchPath = Effect.fnUntraced(function* searchPath(claude: Claude) {
 	return { bun, marker, searchPath: `${bin}:/usr/bin:/bin` };
 });
 
-/** Breaks the plugin's copy as `install` says. */
 const broken = Effect.fnUntraced(function* broken(copy: string, install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 

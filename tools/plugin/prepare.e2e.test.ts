@@ -7,10 +7,6 @@ const manifest = new URL("../../package.json", import.meta.url).pathname;
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ scripts: Schema.Struct({ prepare: Schema.String }) }));
 
-/**
- * The manifest's `prepare` as npm runs it in the folder `pi install` clones into, which holds no dev tools, with an
- * `effect-tsgo` of another package first on `PATH`, as `bun run` and an ancestor's `node_modules/.bin` put one there.
- */
 const prepared = Effect.gen(function* prepared() {
 	const fs = yield* FileSystem.FileSystem;
 	const installed = yield* fs.makeTempDirectoryScoped({ prefix: "phi-pi-installed-" });

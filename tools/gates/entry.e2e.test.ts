@@ -13,7 +13,6 @@ const bundle = "plugins/claude/phi-router.mjs";
 
 const patient = { timeout: 60_000 };
 
-/** Runs one command in the repository with `env` beside this process's, and returns its exit code and its output. */
 const run = Effect.fn("run")(function* run(
 	env: Readonly<Record<string, string>>,
 	command: string,
@@ -30,7 +29,6 @@ const run = Effect.fn("run")(function* run(
 	return { exitCode, stderr, stdout };
 }, Effect.scoped);
 
-/** `run`, expected to exit 0. Returns its stdout. */
 const ran = Effect.fn("ran")(function* ran(
 	env: Readonly<Record<string, string>>,
 	command: string,
@@ -70,7 +68,6 @@ const posted = Effect.fn("posted")(function* posted(url: string, sent: readonly 
 
 const judgedText = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/** Which of the marked turns the judge mock was asked about in `received`. */
 const markedIn = Effect.fn("markedIn")(function* markedIn(received: readonly { readonly body: unknown }[]) {
 	const texts = yield* Effect.forEach(received, ({ body }) => judgedText(body), { concurrency: 1 });
 
@@ -85,13 +82,6 @@ const markedIn = Effect.fn("markedIn")(function* markedIn(received: readonly { r
 	);
 });
 
-/**
- * The arguments of a command for session `restart-1`.
- *
- * @param {string} name The command.
- * @param {string} url The router it asks.
- * @returns {readonly string[]} The arguments.
- */
 const command = (name: string, url: string): readonly string[] => [
 	bundle,
 	name,
@@ -101,10 +91,6 @@ const command = (name: string, url: string): readonly string[] => [
 	new URL(url).port,
 ];
 
-/**
- * `pin`, a request and `status` against the built router, then a SIGKILL and `status` with no router, then `status`,
- * `unpin` and `status` against a second router over the same state folder. Returns what each command printed.
- */
 const pinnedAcross = Effect.fn("pinnedAcross")(function* pinnedAcross(
 	runtime: string,
 	env: Readonly<Record<string, string>>,
@@ -143,12 +129,6 @@ const pinnedAcross = Effect.fn("pinnedAcross")(function* pinnedAcross(
 
 const accounts = '{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]}';
 
-/**
- * The status line of session `restart-1` after one pinned request.
- *
- * @param {boolean} pinned Its pin.
- * @returns {string} The line.
- */
 const statusLine = (pinned: boolean): string =>
 	`{"accounts":${accounts},"cleared":0,"last":{"account":"baa","model":"${fakes.targetModel}","substitute":false},"pinned":${String(pinned)},"sealed":0,"session":"restart-1"}\n`;
 
@@ -157,7 +137,6 @@ const pinnedAcrossKill = {
 	restartedRouter: { status: statusLine(true), unpinned: "", unpinnedStatus: statusLine(false) },
 };
 
-/** A router that answers two requests and HEAD `/api/hello`, then takes a SIGKILL. Returns the statuses. */
 const beforeKill = Effect.fn("beforeKill")(function* beforeKill(
 	runtime: string,
 	env: Readonly<Record<string, string>>,

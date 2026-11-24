@@ -18,7 +18,6 @@ import { keys, snapshot, typedRun, world } from "./world.ts";
 import type { World } from "./world.ts";
 import { phiRouter } from "#tools/cli/accounts-run.ts";
 
-/** A key setup refuses, and what it says to it. */
 interface BadKey {
 	readonly copy: string;
 	readonly kind: string;
@@ -91,7 +90,6 @@ const endedAtKey = Effect.gen(function* endedAtKey() {
 	assert.deepStrictEqual(after, before);
 }).pipe(Effect.scoped);
 
-/** Claude Code's own settings, with every fake harness's canary turn set to `hang` or to `fail`. */
 const broken = Effect.fnUntraced(function* broken(of: World, how: "hang" | "fail") {
 	const fs = yield* FileSystem.FileSystem;
 
@@ -99,7 +97,6 @@ const broken = Effect.fnUntraced(function* broken(of: World, how: "hang" | "fail
 	yield* fs.writeFileString(`${of.bin}/${how}`, "");
 });
 
-/** Checks setup ran the fake harness's test and nothing after it, and left Claude Code's settings byte for byte. */
 const untouched = Effect.fnUntraced(function* untouched(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 	const calls = yield* callsOf(of, "claude");

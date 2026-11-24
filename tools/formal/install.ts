@@ -4,7 +4,6 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { installedJar, isPinned, jarFile, release } from "./tla2tools.ts";
 import { Digest } from "effect/crypto";
 
-/** The downloaded bytes do not hash to the pinned checksum. */
 class ChecksumMismatch extends Schema.TaggedError<ChecksumMismatch, { readonly brand: unique symbol }>()(
 	"ChecksumMismatch",
 	{

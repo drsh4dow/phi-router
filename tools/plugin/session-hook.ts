@@ -76,7 +76,6 @@ const hookOf = Effect.fnUntraced(function* hookOf(copy: string, harness: Harness
 
 const blocks = "2\n";
 
-/** One run of a hook that guards what the harness sends: its harness, event, declaration, and what it printed. */
 interface GuardRun {
 	readonly harness: Harness;
 	readonly event: Blocking;

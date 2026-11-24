@@ -1,7 +1,6 @@
 import { Effect, FileSystem } from "effect";
 import { folder } from "#tools/claude/configured.ts";
 
-/** What `on codex` must write into an empty `config.toml`, spelled here apart from the code that writes it. */
 const written = `model_provider = "phi" # phi-router
 features.unbounded_connection_retries = false # phi-router
 feedback.enabled = false # phi-router
@@ -17,7 +16,6 @@ request_max_retries = 2 # phi-router
 stream_max_retries = 2 # phi-router
 `;
 
-/** The line `on codex` must add to `.env`, spelled here apart from the code that writes it. */
 const exemptionLine = `NO_PROXY="\${NO_PROXY},\${no_proxy},127.0.0.1" # added by phi-router on`;
 
 /** The plugin enabled, as `codex plugin add` writes it. */

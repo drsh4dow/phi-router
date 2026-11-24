@@ -53,11 +53,6 @@ const installedOnce = 1;
 /** What a screen splits into around one `Key: ` question: the text before it and the text after. */
 const oneQuestion = 2;
 
-/**
- * Checks the screens a first `setup claude` showed.
- *
- * @param {TypedRan} run The run.
- */
 const assertClaudeScreens = (run: TypedRan): void => {
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assert.include(run.shown, step3, "the spec's step 3 screen");
@@ -68,21 +63,13 @@ const assertClaudeScreens = (run: TypedRan): void => {
 	assert.notInclude(run.shown, "phi-test", "no key shows as it is typed");
 };
 
-/** A `config.json`'s two lanes. */
 type ConfigFile = Readonly<Record<"clean" | "sealed", readonly Schema.Json[]>>;
 
-/**
- * The `config.json` a first `setup claude` writes.
- *
- * @param {World} of The world.
- * @returns {object} The file's content.
- */
 const claudeConfig = (of: World): ConfigFile => ({
 	clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }],
 	sealed: [{ keyFile: keyFiles(of).anthropic, name: "claude-2", scheme: "apiKey", vendor: "anthropic" }],
 });
 
-/** Checks the config.json setup wrote, and that it ran the test, then the spec's install, then claude. */
 const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World) {
 	const config = yield* configOf(of);
 
@@ -95,7 +82,6 @@ const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World)
 	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 });
 
-/** Checks Claude Code's settings send it to the router and keep its own model. */
 const switchedClaude = Effect.fnUntraced(function* switchedClaude(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 	const settings = yield* fs.readFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`);
@@ -104,7 +90,6 @@ const switchedClaude = Effect.fnUntraced(function* switchedClaude(of: World) {
 	assert.include(settings, '"model": "opus"');
 });
 
-/** Checks the saved keys, each in a file and folder only its owner can read. */
 const savedKeys = Effect.fnUntraced(function* savedKeys(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -120,7 +105,6 @@ const savedKeys = Effect.fnUntraced(function* savedKeys(of: World) {
 	assert.deepStrictEqual(modes, [privateFile, privateFolder, privateFolder]);
 });
 
-/** Adds the `judge` block an earlier setup wrote, which named the judge's own OpenAI key. */
 const judged = Effect.fnUntraced(function* judged(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 	const judge = { endpoint: "https://api.openai.com/v1", keyFile: keyFiles(of).openai };
@@ -129,10 +113,6 @@ const judged = Effect.fnUntraced(function* judged(of: World) {
 	yield* fs.writeFileString(`${of.xdg.XDG_CONFIG_HOME}/phi-router/config.json`, Formatter.formatJson(config));
 });
 
-/**
- * Gives `config.json` the `judge` block an earlier setup wrote, reruns `setup claude`, and checks it asks nothing,
- * changes nothing and installs nothing.
- */
 const rerunClaude = Effect.fnUntraced(function* rerunClaude(of: World) {
 	const before = yield* Effect.andThen(judged(of), owned(of));
 	const again = yield* setUp(of, "claude", [enter]);

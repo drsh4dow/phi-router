@@ -26,7 +26,6 @@ const PromptInput = Schema.fromJsonString(
 const inputOf = (prompt: string): Effect.Effect<string, Schema.SchemaError> =>
 	Schema.encodeEffect(PromptInput)({ cwd: "/work", hook_event_name: "UserPromptSubmit", prompt, session_id: session });
 
-/** What the prompt-submit hook of `harness` printed and its exit code for `prompt`, with the router at `address`. */
 const submitted = Effect.fnUntraced(function* submitted(
 	world: World,
 	typed: { readonly harness: Harness; readonly prompt: string; readonly address: string },
@@ -36,7 +35,6 @@ const submitted = Effect.fnUntraced(function* submitted(
 	return yield* hook(world, { address: typed.address, event: "UserPromptSubmit", harness: typed.harness, input });
 });
 
-/** The lines of the reason the prompt-submit hook of `harness` blocked `prompt` with, after it exited 0. */
 const blockedWith = Effect.fnUntraced(function* blockedWith(
 	world: World,
 	typed: { readonly harness: Harness; readonly prompt: string; readonly address?: string },
@@ -76,7 +74,6 @@ const pinnedAt = Effect.fnUntraced(function* pinnedAt(url: string) {
 	return status.pinned;
 });
 
-/** A prompt as `harness` passes it to its hook, the lines the hook must answer with, and the pin the router then holds. */
 interface Spelling {
 	readonly harness: Harness;
 	readonly prompt: string;

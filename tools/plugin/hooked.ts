@@ -4,7 +4,6 @@ import { mocked } from "#tools/route/mocked-router.ts";
 import { pluginCopy } from "./copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 
-/** The session every hook of a test names. */
 const session = "s-phi-hooks";
 
 /** A name the judge mock seals a piece for. */

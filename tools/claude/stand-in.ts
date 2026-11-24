@@ -3,7 +3,6 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 
-/** `process.argv` holds the runtime and the script before the arguments. */
 const runtimeAndScript = 2;
 
 const next = 1;

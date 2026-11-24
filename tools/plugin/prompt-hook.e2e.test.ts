@@ -39,7 +39,6 @@ const promptHook = Effect.gen(function* promptHook() {
 	return { command, copy };
 });
 
-/** Runs the prompt hook by `sh`, as Codex runs it, with `input` on its stdin, and gives its exit code and output. */
 const prompted = Effect.fnUntraced(function* prompted(input: string) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const { command, copy } = yield* promptHook;
@@ -56,7 +55,6 @@ const prompted = Effect.fnUntraced(function* prompted(input: string) {
 	return { exitCode: Number(exitCode), stderr: errors, stdout: printed };
 }, Effect.scoped);
 
-/** Runs the prompt hook on a session whose transcript is `file`. */
 const hookOn = Effect.fnUntraced(function* hookOn(file: string) {
 	const input = yield* Schema.encodeEffect(HookInput)({
 		prompt: "a prompt",
@@ -67,7 +65,6 @@ const hookOn = Effect.fnUntraced(function* hookOn(file: string) {
 	return yield* prompted(input);
 });
 
-/** Runs the prompt hook on a session whose transcript holds `text`. */
 const transcribed = Effect.fnUntraced(function* transcribed(text: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-rollout-" });

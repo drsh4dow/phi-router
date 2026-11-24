@@ -7,7 +7,6 @@ import { pluginCopy } from "./copied.ts";
 const permissions = 0o1000;
 const octal = 8;
 
-/** The kind and mode of each entry in `folder`, where the launcher is a kind of its own. */
 const modesIn = Effect.fnUntraced(function* modesIn(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

@@ -26,7 +26,6 @@ const Json = Schema.fromJsonString(Schema.Json);
 
 const layer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
 
-/** Runs `phi-router setup <harness>`, typing `answers`. */
 const setUp = Effect.fnUntraced(function* setUp(
 	of: World,
 	harness: "claude" | "codex" | "pi",

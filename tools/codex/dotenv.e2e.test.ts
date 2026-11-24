@@ -12,7 +12,6 @@ const sharedFile = 0o644;
 
 const permissions = 0o1000;
 
-/** The developer's own `.env`, which keeps their own hosts off their proxy and holds a key. */
 const user = "OPENAI_API_KEY=sk-user-dotenv-secret\nNO_PROXY=corp.example\n";
 
 const userOn = `${user}${exemptionLine}\n`;
@@ -54,10 +53,8 @@ const made = Effect.gen(function* made() {
 	);
 }).pipe(Effect.scoped);
 
-/** The developer's own line that keeps 127.0.0.1 off their proxy, the same as `on`'s without its mark. */
 const ownLine = `NO_PROXY="\${NO_PROXY},\${no_proxy},127.0.0.1"`;
 
-/** Each `.env` a developer may have, the bytes `on` must leave in it, and the bytes `off` must leave after that. */
 const seeds: readonly Trip[] = [
 	{ off: "NO_PROXY=corp.example\n", on: `NO_PROXY=corp.example\n${exemptionLine}\n`, seed: "NO_PROXY=corp.example" },
 	{ off: `${ownLine}\n`, on: `${ownLine}\n${exemptionLine}\n`, seed: `${ownLine}\n` },
@@ -70,7 +67,6 @@ const seeds: readonly Trip[] = [
 	{ off: "A=1\r\n", on: `A=1\r\n${exemptionLine}\n`, seed: `A=1\r\n${exemptionLine}\r\n` },
 ];
 
-/** A seeded `.env`, the bytes `on` left in it, then the bytes `off` left. */
 interface Trip {
 	readonly off: string;
 	readonly on: string;
@@ -80,7 +76,6 @@ interface Trip {
 /** Reads text as UTF-8 and keeps a byte order mark, so the test sees every byte phi-router left. */
 const utf8 = new TextDecoder("utf-8", { ignoreBOM: true });
 
-/** `on` then `off` on one seeded `.env`. */
 const roundTrip = Effect.fnUntraced(function* roundTrip({ seed }: Trip) {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* codexFolders;
@@ -100,10 +95,8 @@ const roundTrips = Effect.gen(function* roundTrips() {
 	assert.deepStrictEqual(trips, seeds);
 });
 
-/** The line a developer appends after `on`, as `echo 'OPENAI_ORG=acme' >> .env` does. */
 const appended = "OPENAI_ORG=acme";
 
-/** The developer's own lines: a `NO_PROXY` of their own with its comment, between other keys. */
 const own = "A=1\n# hosts my proxy skips\nNO_PROXY=corp.example # corp\nB=2";
 
 /** A `.env` that ends with a newline, one that ends without one, or none at all, and the bytes `off` must leave. */
@@ -118,7 +111,6 @@ const appendSeeds: readonly Appended[] = [
 	{ off: `${appended}\n` },
 ];
 
-/** `on`, a plain append of the developer's line, then `off`, on one seeded `.env`. */
 const appendAfterOn = Effect.fnUntraced(function* appendAfterOn({ seed }: Appended) {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* codexFolders;
@@ -157,7 +149,6 @@ const latinSmallEAcute = 233;
 
 const ascii = new TextEncoder();
 
-/** A `.env` in Latin-1. */
 const latin1 = Uint8Array.of(...ascii.encode("P=caf"), latinSmallEAcute, ...ascii.encode("\n"));
 
 const notUtf8 = Effect.gen(function* notUtf8() {

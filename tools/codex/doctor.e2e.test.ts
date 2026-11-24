@@ -16,10 +16,8 @@ const standIn = new URL("stand-in.ts", import.meta.url).pathname;
 
 type Codex = "posts" | "silent" | "absent";
 
-/** What a test does to the installed plugin's files before `doctor` runs. */
 type Install = "whole" | "none" | "noManifest" | "launcherNotExecutable" | "truncatedBundle";
 
-/** What a test does to the user's Codex home after `on codex`. */
 type Home =
 	| "whole"
 	| "noAddress"
@@ -45,15 +43,6 @@ const dead = "http://127.0.0.1:9";
 /** `ALL_PROXY`, `HTTP_PROXY` and `HTTPS_PROXY`, each in both spellings but the first. */
 const deadVariables = 5;
 
-/**
- * The line a test's `codex` runs first: it writes to `marker` the modes of the mocks' config folder and
- * `config.json`, the provider address of the `config.toml` it was given, how many folders and files of its plugin copy
- * are not private, the mode of the copy's launcher, the proxy and the hosts kept off it that it was given, and how a
- * read of its stdin ended.
- *
- * @param {string} marker The file.
- * @returns {string} The line.
- */
 const seenBy = (marker: string): string => {
 	const config = '"$XDG_CONFIG_HOME/phi-router" "$XDG_CONFIG_HOME/phi-router/config.json"';
 
@@ -94,7 +83,6 @@ const searchPath = Effect.fnUntraced(function* searchPath(codex: Codex) {
 	return { bun, marker, searchPath: `${bin}:/usr/bin:/bin` };
 });
 
-/** Breaks the plugin's copy in `version` as `install` says. */
 const broken = Effect.fnUntraced(function* broken(version: string, install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 	const bundle = `${version}/phi-router.mjs`;
@@ -130,7 +118,6 @@ const installed = Effect.fnUntraced(function* installed(dir: string, install: In
 	yield* broken(`${cache}/0.1.0`, install);
 });
 
-/** Switches `dir` on with `on codex`, enables the plugin and trusts its hooks, then changes it as `home` says. */
 const switchedOn = Effect.fnUntraced(function* switchedOn(
 	dir: string,
 	env: Readonly<Record<string, string>>,

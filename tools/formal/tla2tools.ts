@@ -16,7 +16,6 @@ class JarNotInstalled extends Schema.TaggedError<JarNotInstalled, { readonly bra
 	},
 ) {}
 
-/** Where the jar lives in this checkout. */
 const jarFile = Effect.gen(function* jarFile() {
 	const path = yield* Path.Path;
 

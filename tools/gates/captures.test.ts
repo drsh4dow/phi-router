@@ -40,12 +40,6 @@ const tokenLength = 108;
 
 const token = Str.padEnd(tokenLength, "aB3_x9Z-")("");
 
-/**
- * A synthetic secret part, in mixed case. The test also plants each credential all lower and all upper case.
- *
- * @param {number} length Its length.
- * @returns {string} The part.
- */
 const body = (length: number): string => Str.padEnd(length, "aB3cD4eF5gH6")("");
 
 const legacyKeyLength = 48;
@@ -54,7 +48,6 @@ const githubLength = 36;
 
 const githubPatLength = 82;
 
-/** Every kind of credential, which the gate must catch in a Claude capture and in a Codex capture. */
 const credentials = [
 	`"key":"sk-ant-api03-${body(tokenLength)}"`,
 	`"key":"sk-ant-oat01-${body(tokenLength)}"`,
@@ -75,7 +68,6 @@ const casesOf = (credential: string): readonly string[] => [
 	Str.toUpperCase(credential),
 ];
 
-/** One capture of each harness, which the planted shapes go into. */
 const plantedIn = ["anthropic-messages/captures/tool-result.ts", "codex/captures/first-turn.request.ts"];
 
 it.effect("the credential patterns catch each spelling of a token and pass the placeholders", () =>

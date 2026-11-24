@@ -85,17 +85,6 @@ interface Copies {
 	readonly plugin: string;
 }
 
-/**
- * The fake harnesses. Each appends the arguments it gets to `<name>-args` beside it. Its installer commands write what
- * the real ones write: Claude Code's turns the plugin on in its settings and records the marketplace, Codex's adds the
- * marketplace and the enabled plugin to `config.toml`, and pi's is the pinned pi, which installs the package copy for an
- * npm package. Its canary turn runs the stand-in, or
- * the pinned pi, and a bare start prints `<name> started`. While `hang` exists beside it, its canary turn says so in
- * `canary-ran` and waits. While `fail` exists, its canary turn fails.
- *
- * @param {Copies} copies What the installer commands copy.
- * @returns {Readonly<Record<string, string>>} Each harness's script body, by name.
- */
 const fakes = (copies: Copies): Readonly<Record<string, string>> => {
 	const installedPlugins = `{"version":2,"plugins":{"phi-router@phi-router":[{"installPath":"${copies.plugin}","scope":"user"}]}}`;
 	const cache = '"$CODEX_HOME/plugins/cache/phi-router/phi-router"';
@@ -187,7 +176,6 @@ interface World {
 	readonly xdg: Readonly<Record<"XDG_CACHE_HOME" | "XDG_CONFIG_HOME" | "XDG_DATA_HOME" | "XDG_STATE_HOME", string>>;
 }
 
-/** Builds one test's {@link World} for the test's scope. */
 const world = Effect.gen(function* world() {
 	const copies = { pkg: yield* packageCopy, plugin: yield* pluginCopy };
 	const bin = yield* fakeBin(copies);
@@ -204,7 +192,6 @@ const world = Effect.gen(function* world() {
 	return { bin, checkedKeys, copies, env, folders, root, xdg };
 });
 
-/** What the terminal showed in a {@link typedRun}, and its exit code. */
 interface TypedRan {
 	readonly exitCode: number;
 	readonly shown: string;

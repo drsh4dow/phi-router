@@ -5,7 +5,6 @@ import { Digest } from "effect/crypto";
 import { NodeServices } from "@effect/platform-node";
 import { installedJar } from "./tla2tools.ts";
 
-/** No `java` runs from PATH. */
 class JavaMissing extends Schema.TaggedError<JavaMissing, { readonly brand: unique symbol }>()("JavaMissing", {
 	message: Schema.String,
 }) {}
@@ -47,7 +46,6 @@ const workers: Record<Folder, string> = { breaks: "1", holds: "auto" };
 
 const patient = { timeout: 300_000 };
 
-/** The configurations in one folder, with the text of each. */
 const configurations = Effect.fn("configurations")(function* configurations(folder: Folder) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -103,7 +101,6 @@ const tlc = Effect.fn("tlc")(function* tlc(folder: Folder, file: string) {
 	return { exitCode, output };
 }, Effect.scoped);
 
-/** Runs TLC on one configuration under breaks/ and checks that it reports exactly the rule the configuration names. */
 const breaksOnItsRule = Effect.fn("breaksOnItsRule")(function* breaksOnItsRule(config: {
 	readonly file: string;
 	readonly text: string;
