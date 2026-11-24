@@ -1,20 +1,50 @@
-import { Array, Effect, Exit, Layer, Option, Scope, pipe } from "effect";
+import { Array, Context, Effect, Exit, Layer, Option, Schema, Scope, String as Str, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { FetchHttpClient, HttpClient, HttpServer } from "effect/http";
+import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { badPorts, portBelow, world } from "./launched.ts";
-import { NodeServices } from "@effect/platform-node";
+import { badPorts, instance, portBelow, ran, world } from "./launched.ts";
+import { TestClock } from "effect/testing";
 
-/** Every port `freePort` can hold: Linux hands out port 0 from 32768 up, and macOS from 49152 up to the last port. */
-const holdable = { first: 32_768, last: 65_535 };
+const portZero = { linux: { first: 32_768, last: 60_999 }, macosLast: 65_535 };
 
-/** A held port whose port below Fetch refuses (6665), and its neighbour, whose port below it takes. */
-const seen = { refused: 36_665, taken: { handedOut: 6664, held: 36_664 } };
+const kernelBinds = 64;
 
-it.layer(Layer.empty)("freePort", (test) => {
+const heldBesideBadPort6665 = { refused: 36_665, taken: { handedOut: 6664, held: 36_664 } };
+
+const BadPort = Schema.Struct({ message: Schema.Literal("bad port") });
+
+const BadPortRefusal = Schema.Struct({ cause: Schema.Struct({ cause: BadPort }) });
+
+const takenByFetch = Effect.fnUntraced(function* takenByFetch(port: string) {
+	const client = yield* HttpClient.HttpClient;
+
+	return yield* client.head(`http://127.0.0.1:${port}/`).pipe(
+		Effect.as(true),
+		Effect.catchReason("HttpClientError", "TransportError", (reason) =>
+			Effect.succeed(!Schema.is(BadPortRefusal)(reason)),
+		),
+	);
+});
+
+const portZeroBound = Effect.gen(function* portZeroBound() {
+	const built = yield* Layer.build(NodeHttpServer.layerTest);
+	const { address } = Context.get(built, HttpServer.HttpServer);
+
+	return yield* pipe(
+		HttpServer.formatAddress(address),
+		Str.split(":"),
+		Array.last,
+		Effect.fromOption,
+		Effect.map(Number),
+	);
+});
+
+it.layer(FetchHttpClient.layer)("freePort", (test) => {
 	test.effect("hands out no port that Fetch refuses, whichever port it holds", () =>
 		Effect.sync(() => {
 			const refused = pipe(
-				Array.range(holdable.first, holdable.last),
+				Array.range(portZero.linux.first, portZero.macosLast),
 				Array.map(portBelow),
 				Array.getSomes,
 				Array.filter((port) => badPorts.has(String(port))),
@@ -22,35 +52,95 @@ it.layer(Layer.empty)("freePort", (test) => {
 
 			assert.deepStrictEqual(refused, []);
 			assert.deepStrictEqual(
-				[portBelow(seen.refused), portBelow(seen.taken.held)],
-				[Option.none(), Option.some(seen.taken.handedOut)],
+				[portBelow(heldBesideBadPort6665.refused), portBelow(heldBesideBadPort6665.taken.held)],
+				[Option.none(), Option.some(heldBesideBadPort6665.taken.handedOut)],
 			);
 		}),
 	);
+
+	test.effect("hands out a port below Linux's port-0 range, whichever port of that range it holds", () =>
+		Effect.sync(() => {
+			const inRange = pipe(
+				Array.range(portZero.linux.first, portZero.linux.last),
+				Array.map(portBelow),
+				Array.getSomes,
+				Array.filter((port) => port >= portZero.linux.first),
+			);
+
+			assert.deepStrictEqual(inRange, []);
+		}),
+	);
+
+	test.effect("holds back only ports Fetch refuses", () =>
+		Effect.gen(function* heldBack() {
+			const taken = yield* Effect.filter(Array.fromIterable(badPorts), takenByFetch, { concurrency: "unbounded" });
+
+			assert.deepStrictEqual(taken, []);
+		}),
+	);
+
+	test.effect("holds only ports these checks cover, as the kernel binds port 0 within Linux's or macOS's range", () =>
+		Effect.gen(function* bound() {
+			const ports = yield* Effect.all(Array.replicate(portZeroBound, kernelBinds), { concurrency: 1 });
+
+			const outside = pipe(
+				ports,
+				Array.filter((port) => port < portZero.linux.first || port > portZero.macosLast),
+			);
+
+			assert.deepStrictEqual(outside, []);
+		}).pipe(Effect.scoped),
+	);
 });
 
-/**
- * A process whose command line is a router's on `port` from another test's bundle, as a router in another network
- * namespace can be, since a port is free in each namespace on its own.
- */
-const otherTestsRouter = Effect.fnUntraced(function* otherTestsRouter(port: number) {
+const thisBundle = "/tmp/this-bundle/phi-router.js";
+
+const anotherBundle = "/tmp/another-bundle/phi-router.js";
+
+const routerOf = Effect.fnUntraced(function* routerOf(entry: string, port: number) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const serving = ["/tmp/another-bundle/phi-router.js", "serve", "--port", String(port)];
+	const serving = [entry, "serve", "--port", String(port)];
 
 	return yield* spawner.spawn(ChildProcess.make("node", ["-e", "setTimeout(() => {}, 60_000)", ...serving]));
 });
 
+const stillRuns = 0;
+
 it.layer(NodeServices.layer)("world", (test) => {
-	test.effect("lists and kills only its own routers, though another test's router serves its port", () =>
+	test.effect("lists and kills its own routers only, though another test's router serves its port", () =>
 		Effect.gen(function* ownRoutersOnly() {
 			const scope = yield* Scope.make();
-			const here = yield* Scope.provide(world("/tmp/this-bundle/phi-router.js"), scope);
-			const other = yield* otherTestsRouter(here.port);
+			const here = yield* Scope.provide(world(thisBundle), scope);
+			const own = yield* routerOf(thisBundle, here.port);
+			const other = yield* routerOf(anotherBundle, here.port);
 			const listed = yield* here.routers;
 
 			yield* Scope.close(scope, Exit.void);
 
-			assert.deepStrictEqual({ listed, otherRuns: yield* other.isRunning }, { listed: [], otherRuns: true });
+			const ownEnded = yield* own.exitCode.pipe(
+				Effect.exit,
+				Effect.timeoutOption("5 seconds"),
+				Effect.map(Option.isSome),
+				TestClock.withLive,
+			);
+
+			assert.deepStrictEqual(
+				{ listed, otherRuns: yield* other.isRunning, ownEnded },
+				{ listed: [Number(own.pid)], otherRuns: true, ownEnded: true },
+			);
 		}).pipe(Effect.scoped),
+	);
+
+	test.effect("an instance ends once its scope closes", () =>
+		Effect.gen(function* ended() {
+			const scope = yield* Scope.make();
+			const { pid } = yield* Scope.provide(instance(), scope);
+
+			yield* Scope.close(scope, Exit.void);
+
+			const signalled = yield* ran(["kill", "-0", String(pid)], {});
+
+			assert.notStrictEqual(signalled.exitCode, stillRuns);
+		}),
 	);
 });
