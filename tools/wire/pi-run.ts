@@ -21,7 +21,6 @@ import { succeeded } from "./checks.ts";
 
 const checkout = decodeURIComponent(new URL("../..", import.meta.url).pathname);
 
-/** The repository `pi install` takes, served by `git daemon` on loopback under the path GitHub gives it. */
 const githubRepository = "drsh4dow/phi-router";
 
 const userPath = Effect.map(Config.String("PATH"), (searchPath) =>
@@ -119,7 +118,6 @@ const place = Effect.gen(function* place() {
 
 type Place = Readonly<Effect.Success<typeof place>>;
 
-/** What pi's RPC mode prints once it has handled a command. */
 const rpcAnswered = `"type":"response"`;
 
 interface RpcLine {
@@ -127,12 +125,6 @@ interface RpcLine {
 	readonly turnEnd: string;
 }
 
-/**
- * One `pi` run with `args` in the working folder, the agent folder of `where`, and the router's port and `env` beside
- * `PATH`. Its stdin holds `rpc`, when there is one, until pi prints `until`, such as `rpcAnswered`, and then closes,
- * since pi's RPC mode cancels a command still running at the close. Returns its pid, the exit code, and what it
- * printed.
- */
 const piRun = Effect.fnUntraced(
 	function* piRun(
 		where: Place,
@@ -242,11 +234,6 @@ const inEmptyTmp = Effect.fnUntraced(function* inEmptyTmp(
 	return { exitCode: run.exitCode, left, printed: run.printed };
 }, Effect.scoped);
 
-/**
- * `pi install` with the git address of a snapshot of the tree under test in the agent folder of `where`, then `pi list`
- * and `phi-router doctor pi` on that folder in an empty `/tmp`. Fails with what `pi install` printed when it does not
- * exit 0. Returns whether pi lists the package, whether the doctor passed, and what it left in `/tmp`.
- */
 const installedIn = Effect.fnUntraced(function* installedIn(where: Place) {
 	const none = { env: {} };
 	const address = yield* gitServed(where);
