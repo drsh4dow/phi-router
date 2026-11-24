@@ -1,7 +1,7 @@
 id: live-bounds
 language: TypeScript
 severity: error
-message: A unit test bounds nothing by the real clock. Wait for the outcome and let the runner's timeout catch a hang, or move the bound to a .perf.test.ts.
+message: A unit test bounds nothing by the real clock, neither by an Effect.timeout under TestClock.withLive nor by a retry or repeat capped by times. Wait for the outcome and let the runner's timeout catch a hang, or move the bound to a .perf.test.ts.
 files:
    - "**/*.test.ts"
 ignores:
@@ -15,11 +15,16 @@ utils:
          field: function
          regex: "^Effect\\.timeout"
 rule:
-   kind: call_expression
    any:
-      - all:
-           - has: { field: arguments, has: { pattern: TestClock.withLive } }
-           - has: { field: arguments, has: { matches: timeout } }
-      - all:
-           - has: { field: function, pattern: TestClock.withLive }
-           - has: { field: arguments, has: { matches: timeout, stopBy: end } }
+      - kind: call_expression
+        any:
+           - all:
+                - has: { field: arguments, has: { pattern: TestClock.withLive } }
+                - has: { field: arguments, has: { matches: timeout } }
+           - all:
+                - has: { field: function, pattern: TestClock.withLive }
+                - has: { field: arguments, has: { matches: timeout, stopBy: end } }
+      - kind: object
+        all:
+           - has: { kind: pair, has: { field: key, regex: "^schedule$" } }
+           - has: { kind: pair, has: { field: key, regex: "^times$" } }

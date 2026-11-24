@@ -18,9 +18,6 @@ const tick = "1 second" as const;
 
 const pause = "20 millis";
 
-/** More ticks than the 30-second refresh limit and the kill deadline after it take together. */
-const ticks = 120;
-
 const patient = { timeout: 60_000 };
 
 const token = "phi-test-hung-token";
@@ -34,7 +31,7 @@ const hung = Array.join(
 	"\n",
 );
 
-const waiting = { schedule: Schedule.spaced("20 millis"), times: 250 } as const;
+const waiting = { schedule: Schedule.spaced("20 millis") } as const;
 
 /** A Claude login folder whose token expires in a minute of the test clock, and the stand-in on `PATH`. */
 const nearExpiry = Effect.gen(function* nearExpiry() {
@@ -64,15 +61,10 @@ const started = Effect.fnUntraced(function* started(bin: string) {
 	);
 });
 
-/** Moves the test clock a second at a time, with a real pause between, then fails: the request outlived every tick. */
-const ticking = Effect.andThen(
-	Effect.forEach(
-		Array.replicate(tick, ticks),
-		(each) => Effect.andThen(TestClock.adjust(each), TestClock.withLive(Effect.sleep(pause))),
-		{ concurrency: 1, discard: true },
-	),
-	Effect.fail("the request still waits after every tick"),
-);
+const paused = TestClock.withLive(Effect.sleep(pause));
+
+/** Moves the test clock a second at a time, with a real pause between, until the request ends. */
+const ticking = Effect.forever(Effect.andThen(TestClock.adjust(tick), paused));
 
 /**
  * A token a minute from expiry runs the vendor CLI, and that CLI ignores SIGTERM and never exits. Once the refresh limit
