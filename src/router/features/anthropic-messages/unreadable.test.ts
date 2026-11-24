@@ -18,7 +18,6 @@ const unknownStub = { text: stubs.unknown, type: "text" } as const;
 
 const redacted = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Plan it."},{"role":"assistant","content":[{"type":"redacted_thinking","data":"REDACTED-DATA"},{"type":"text","text":"Visible answer."}]},{"role":"user","content":"Go on."}],"max_tokens":1000}`;
 
-/** The reply in `redacted` as the upstream streamed it. */
 const streamed = pipe(
 	[
 		'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[]}}',
@@ -32,7 +31,6 @@ const streamed = pipe(
 	Array.join("\n\n"),
 );
 
-/** An unknown key on a message, on a system block and on a tool. */
 const vendorKeys = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"PATIENT-SECRET in a note.","new_vendor_field":"x"},{"role":"assistant","content":[{"type":"text","text":"Noted."}]},{"role":"user","content":"Go on."}],"system":[{"type":"text","text":"x-anthropic-billing-header: cc_version=2.1.325.a35; cc_entrypoint=cli;"},{"type":"text","text":"You are Claude Code. PATIENT-SECRET","new_vendor_field":"x","cache_control":{"type":"ephemeral"}}],"tools":[{"name":"Lookup","description":"Reads a row.","input_schema":{"type":"object"},"new_vendor_field":"x"}],"max_tokens":1000}`;
 
 const tool = '{"name":"Lookup","description":"Reads a row.","input_schema":{"type":"object"},"new_vendor_field":"x"}';

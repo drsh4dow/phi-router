@@ -161,12 +161,6 @@ const toolListRefused = (text: string): Effect.Effect<void, CodexRequestRejected
 		assert.isTrue(Predicate.isTagged(error, "ToolsNotCleared"));
 	});
 
-/**
- * The keys of the tool list and of every other list the codec judges whole.
- *
- * @param {readonly Message[]} messages The request's messages.
- * @returns {Effect.Effect<ReadonlySet<string>, never, Digest.Digest>} The keys.
- */
 const frameKeys = (messages: readonly Message[]): Effect.Effect<ReadonlySet<string>, never, Digest.Digest> =>
 	Effect.gen(function* keysOfLists() {
 		const lists = pipe(
@@ -187,7 +181,6 @@ const frameKeys = (messages: readonly Message[]): Effect.Effect<ReadonlySet<stri
 
 const sealedText = [{ text: stubsFor.codex, type: "input_text" }];
 
-/** What the stub leaves of `customToolCall` when every part but the tool list is sealed. */
 const allSealedItems = [
 	...Array.replicate({ content: sealedText, type: "message" }, sixAsks),
 	{ content: [{ annotations: [], logprobs: [], text: stubsFor.codex, type: "output_text" }], type: "message" },
@@ -214,13 +207,6 @@ const allSealed = Effect.gen(function* allSealed() {
 	assert.deepStrictEqual(carried, allSealedItems);
 });
 
-/**
- * A lookup that clears the tool list and gives the nth other key it is asked about the nth verdict, round the list.
- *
- * @param {(key: string) => boolean} inToolList Whether a key is the tool list's.
- * @param {readonly Verdict[]} verdicts The verdicts to hand out.
- * @returns {Lookup} The lookup.
- */
 const lookupOf = (inToolList: (key: string) => boolean, verdicts: readonly (typeof Verdict.Type)[]): Lookup => {
 	const order = new Map<string, number>();
 

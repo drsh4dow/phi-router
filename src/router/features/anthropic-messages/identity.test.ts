@@ -31,7 +31,6 @@ const schema = '{"type":"object","properties":{"row":{"type":"integer","maximum"
 
 const bigNumbers = `{"model":"phi/auto","messages":[{"role":"user","content":"Read the row."},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Lookup","input":${input}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"found"}]}],"tools":[{"name":"Lookup","description":"Reads a row.","input_schema":${schema}}],"max_tokens":1000}`;
 
-/** Spaced out, keys in another order than Claude Code's. */
 const spaced = `{
   "max_tokens" : 1000,
   "tools": [ { "input_schema": ${schema}, "description": "Reads a row.", "name": "Lookup" } ],

@@ -19,19 +19,12 @@ const sealedStub =
 
 const stubText = { text: sealedStub, type: "text" } as const;
 
-/** A body split at each of its stubs gives one piece more than it has stubs. */
 const piecesAroundNone = 1;
 
 const nobodyWrote = (): boolean => false;
 
 const decodeBody = Schema.decodeEffect(BodyJson);
 
-/**
- * What the border gives in place of a sealed message, in the engine model.
- *
- * @param {Message} message The message as decoded.
- * @returns {Message} The stub with the message's tool call ids and names.
- */
 const stubbed = (message: Message): Message => {
 	switch (message.role) {
 		case "system": {
@@ -71,7 +64,6 @@ const stubbed = (message: Message): Message => {
 
 type SystemMessage = Extract<Message, { readonly role: "system" }>;
 
-/** The messages with each picked unit stubbed: the system message's sections first, then every later message. */
 interface Guarded {
 	readonly messages: readonly Message[];
 	readonly stubs: number;
@@ -135,13 +127,6 @@ const toolBlockStart = /(?=\{"type":"tool_use",|\{"tool_use_id":)/u;
 
 const blockAt = 1;
 
-/**
- * The body with `"new_vendor_field":"x"` added to each tool block that `picked` names, counted in body order.
- *
- * @param {string} body A captured request.
- * @param {Function} picked Whether the tool block at an index gets the key.
- * @returns {string} The changed body.
- */
 const withVendorKeys = (body: string, picked: (index: number) => boolean): string =>
 	pipe(
 		Str.split(body, toolBlockStart),
@@ -159,7 +144,6 @@ const isLooseCall = Schema.is(LooseCall);
 
 const isLooseResult = Schema.is(LooseResult);
 
-/** The ids a tool block holds, as a call or as a result. */
 interface ToolIds {
 	readonly calls: readonly string[];
 	readonly results: readonly string[];
@@ -193,7 +177,6 @@ const idsOf = (block: WireUserBlock | WireAssistantBlock): ToolIds => {
 	return { calls: [], results: [] };
 };
 
-/** A body's tool call ids from every tool block, readable or not, once each call proves to have exactly one result. */
 const pairedIn = Effect.fnUntraced(function* pairedIn(body: string, label: string) {
 	const { messages } = yield* decodeBody(body, { onExcessProperty: "error" });
 
@@ -229,12 +212,6 @@ const pairedIn = Effect.fnUntraced(function* pairedIn(body: string, label: strin
 
 const bridgeSections = 1;
 
-/**
- * The messages with the system message's last section, the bridge, left out.
- *
- * @param {readonly Message[]} messages Messages decoded from an output body.
- * @returns {readonly Message[]} The messages as the border returned them.
- */
 const withoutBridge = (messages: readonly Message[]): readonly Message[] =>
 	pipe(
 		messages,

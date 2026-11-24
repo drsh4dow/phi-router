@@ -239,7 +239,6 @@ const turnOf = Effect.fnUntraced(function* turnOf(
 	return { kept: [], rewrite: "content", runs, span: content };
 });
 
-/** Reads a parsed body, beside where its values sit, into engine messages. */
 const decodedOf = Effect.fnUntraced(function* decodedOf(
 	wire: WireBody,
 	body: Span,

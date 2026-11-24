@@ -9,7 +9,6 @@ const Judged = Schema.Unknown;
 /** The one field the clean lane forwards unjudged: Claude Code's ids, no session content. */
 const Metadata = Schema.Unknown;
 
-/** A JSON object, as a block the codec cannot name is. */
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
 
 const flag = Schema.optionalKey(Schema.Boolean);
@@ -167,7 +166,6 @@ const Body = Schema.Struct({
 
 const BodyJson = Schema.fromJsonString(Body);
 
-/** A string as JSON text, for each string the codec writes fresh. */
 const JsonString = Schema.fromJsonString(Schema.String);
 
 /** A value as compact JSON text, the way Claude Code writes a streamed tool input back. */

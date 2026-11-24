@@ -55,7 +55,6 @@ type Run =
 			readonly kind: "reply";
 			readonly readable: boolean;
 			readonly message: AssistantMessage;
-			/** The visible blocks. Thinking is apart, since only the account that wrote it may receive it. */
 			readonly blocks: readonly string[];
 			readonly thinking: readonly Thinking[];
 			readonly calls: readonly WireCall[];

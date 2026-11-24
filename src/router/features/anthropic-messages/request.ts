@@ -16,9 +16,7 @@ type Section = Decoded["system"]["sections"][number];
 
 type Turn = Decoded["turns"][number];
 
-/** A /v1/messages request as the engine reads it. The wire stays inside, and `encode` is the only way back to bytes. */
 interface MessagesRequest {
-	/** The model the harness named, such as `phi/auto` or `phi/sealed`. */
 	readonly model: string;
 	/** The system message first, then one message per turn. A user turn holding tool results gives one per result. */
 	readonly messages: readonly Message[];
@@ -62,7 +60,6 @@ const modelEdit = Effect.fnUntraced(function* modelEdit(decoded: Decoded, model:
 	return { end: decoded.model.end, start: decoded.model.start, text };
 });
 
-/** The harnesses that speak the Messages format. */
 type MessagesHarness = Exclude<Harness, "codex">;
 
 const bridgeEdit = Effect.fnUntraced(function* bridgeEdit(
@@ -149,7 +146,6 @@ const cleanEdits = Effect.fnUntraced(function* cleanEdits(
 	return [bridged, ...Array.getSomes(sections), ...Array.getSomes(turns)];
 });
 
-/** A decoded body, the reasons it may not go to the clean lane, and the bridge its harness reads. */
 interface Encoding {
 	readonly decoded: Decoded;
 	readonly refusals: readonly string[];

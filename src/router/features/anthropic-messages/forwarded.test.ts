@@ -7,7 +7,6 @@ import { guard } from "#router/features/border/index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
 
-/** A parsed JSON value, read only. */
 type Json = string | number | boolean | null | readonly Json[] | { readonly [key: string]: Json };
 
 type Path = readonly (string | number)[];
@@ -22,24 +21,14 @@ const isObject = (value: Json): value is JsonObject => Predicate.isObject(value)
 
 const nobodyWrote = (): boolean => false;
 
-/** Each capture is decoded once per object and string in it, up to 416 times, which takes over 5 s under a loaded CPU. */
 const sweepTimeout = 60_000;
 
-/** One planted body: a marker as a new member of one object, or appended to one string. */
 interface Site {
 	readonly path: Path;
 	readonly marker: string;
 	readonly body: string;
 }
 
-/**
- * `value` with the value at `path` replaced by `change` of it. Copies only the objects and arrays along the path.
- *
- * @param {Json} value The tree.
- * @param {Path} path Where to change it.
- * @param {(at: Json) => Json} change The change.
- * @returns {Json} The changed tree.
- */
 const changed = (value: Json, path: Path, change: (at: Json) => Json): Json => {
 	const [step, ...rest] = path;
 
@@ -66,13 +55,6 @@ const changed = (value: Json, path: Path, change: (at: Json) => Json): Json => {
 	return value;
 };
 
-/**
- * The path of every object and every string in `value`.
- *
- * @param {Json} value The tree.
- * @param {Path} path Its path.
- * @returns {readonly { readonly path: Path; readonly kind: "object" | "string" }[]} The sites.
- */
 const sitesIn = (value: Json, path: Path): readonly { readonly path: Path; readonly kind: "object" | "string" }[] => {
 	if (Predicate.isString(value)) {
 		return [{ kind: "string", path }];
@@ -97,12 +79,6 @@ const sitesIn = (value: Json, path: Path): readonly { readonly path: Path; reado
 	return [];
 };
 
-/**
- * One body per site of `body`, each with its own marker planted there.
- *
- * @param {string} body A captured request.
- * @returns {Effect.Effect<readonly Site[]>} The planted bodies, `metadata` left out.
- */
 const plantedSites = Effect.fnUntraced(function* plantedSites(body: string): Effect.fn.Return<readonly Site[]> {
 	const tree: Json = yield* Effect.orDie(Schema.decodeEffect(JsonText)(body));
 
@@ -156,13 +132,6 @@ const onlyCleared =
 		return "unknown";
 	};
 
-/**
- * The body the clean lane would send, if any: none when guard or the codec refuses the clean lane.
- *
- * @param {MessagesRequest} request The decoded request.
- * @param {Lookup} lookup The border's verdicts.
- * @returns {Effect.Effect<Option.Option<string>>} The clean body.
- */
 const cleanBodyOf = (
 	request: MessagesRequest,
 	lookup: Lookup,
@@ -192,12 +161,6 @@ const toolsKeyOf = Effect.fnUntraced(function* toolsKeyOf(
 	);
 });
 
-/**
- * The outcomes of one planted body, under a border that clears every part and one that clears only the tool list.
- *
- * @param {Site} site The planted body.
- * @returns {Effect.Effect} One outcome per border.
- */
 const outcomesOf = Effect.fnUntraced(function* outcomesOf(
 	site: Site,
 ): Effect.fn.Return<readonly Outcome[], never, Digest.Digest> {

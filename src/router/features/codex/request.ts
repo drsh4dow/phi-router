@@ -19,7 +19,6 @@ class CodexRequestRejected extends Schema.TaggedError<CodexRequestRejected, { re
 	{ reason: Schema.String },
 ) {}
 
-/** A Codex request as the engine reads it, and the way back to the wire. */
 interface CodexRequest {
 	/** The model Codex named, such as `phi/auto`. */
 	readonly model: string;

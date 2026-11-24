@@ -34,12 +34,6 @@ const withFormat = (description: string): ((text: string) => string) =>
 		`"text":{"verbosity":"low","format":{"type":"json_schema","strict":true,"schema":{"type":"object","description":"${description}"},"name":"codex_output_schema"}}`,
 	);
 
-/**
- * A lookup that clears every key of `text` and seals any other.
- *
- * @param {string} text The request whose keys are cleared.
- * @returns {Effect.Effect<Lookup, CodexRequestRejected, Digest.Digest>} The lookup.
- */
 const clearing = (text: string): Effect.Effect<Lookup, CodexRequestRejected, Digest.Digest> =>
 	Effect.gen(function* clearAll() {
 		const request = yield* decodeRequest(text, nothingWritten);
@@ -62,14 +56,6 @@ const clearing = (text: string): Effect.Effect<Lookup, CodexRequestRejected, Dig
 		};
 	});
 
-/**
- * `changed` differs from `text` only in what the clean lane would get unchanged even as the stub, so the lookup that
- * sent `text` to the clean lane refuses `changed`.
- *
- * @param {readonly [string, string]} pair The request and its changed copy.
- * @returns {Effect.Effect<void, CodexRequestRejected | CleanLaneRefused | ToolsNotCleared | string, Digest.Digest>}
- *   Fails when it is let through.
- */
 const changeRefused = ([text, changed]: readonly [string, string]): Effect.Effect<
 	void,
 	CodexRequestRejected | CleanLaneRefused | ToolsNotCleared | string,

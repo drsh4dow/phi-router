@@ -27,7 +27,6 @@ interface Edit {
 	readonly text: string;
 }
 
-/** A parsed wire value beside where it sits in the body. */
 interface Located<Wire> {
 	readonly wire: Wire;
 	readonly span: Span;
@@ -41,7 +40,6 @@ interface Token {
 	readonly inner: string;
 }
 
-/** What one scan found: the top span, each object that holds a key twice, and keys spelled with an escape. */
 interface Scanned {
 	readonly span: Span;
 	readonly repeated: Option.Option<string>;
@@ -237,12 +235,6 @@ const memberOf =
 			Array.findFirst((member) => member.key === key),
 		);
 
-/**
- * The value under `key`, when the object has it.
- *
- * @param {string} key The member's key.
- * @returns {Function} The value's span in an object, if any.
- */
 const valueOf =
 	(key: string) =>
 	(object: Span): Option.Option<Span> =>

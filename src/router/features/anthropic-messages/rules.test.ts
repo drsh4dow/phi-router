@@ -17,7 +17,6 @@ const prompted = String.raw`{"model":"phi/auto","messages":[{"role":"user","cont
 
 const replied = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Read notes.txt."},{"role":"assistant","content":[{"type":"text","text":"Reading it.","cache_control":{"type":"ephemeral"}},{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"notes.txt"}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"1\tsynthetic note"}]}],"max_tokens":1000}`;
 
-/** An unknown block type in a prompt and in a reply, and a known block with an unknown key in a tool result. */
 const withUnreadable = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":[{"type":"text","text":"Summarize the file."},{"type":"document","source":{"type":"text","media_type":"text/plain","data":"PATIENT-SECRET"}}]},{"role":"assistant","content":[{"type":"server_tool_use","id":"srvtoolu_1","name":"web_search","input":{"query":"PATIENT-SECRET"}},{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"notes.txt"}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":[{"type":"text","text":"notes","citations":[{"cited_text":"PATIENT-SECRET"}]}]}]}],"max_tokens":1000}`;
 
 const target = "claude-target";
@@ -55,13 +54,6 @@ const replies = (body: WireBody): readonly (readonly string[])[] =>
 		}),
 	);
 
-/**
- * Each message stubbed where `picked` says so, as the border writes a user prompt, tool result or reply.
- *
- * @param {readonly Message[]} messages The decoded messages.
- * @param {Function} picked Whether to stub the message at an index.
- * @returns {readonly Message[]} What the border would return.
- */
 const stubbedWhere = (
 	messages: readonly Message[],
 	picked: (message: Message, index: number) => boolean,

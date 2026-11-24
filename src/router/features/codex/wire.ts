@@ -77,10 +77,6 @@ const AgentMessage = Schema.Struct({
 	type: Schema.Literal("agent_message"),
 });
 
-/**
- * An input item the clean lane may get as sent. Any other item type, or another field on one, is unread, and the clean
- * lane gets the stub in its place.
- */
 const Item = Schema.Union([
 	AdditionalTools,
 	InputMessage,
@@ -106,7 +102,6 @@ const CodexId = Schema.String.check(Schema.isPattern(/^[\da-f]{8}(?:-[\da-f]{4})
 
 const optionalId = Schema.optionalKey(CodexId);
 
-/** A setting Codex names in a word, such as `read-only` or `cold_resume`. */
 const Word = Schema.String.check(Schema.isPattern(/^[a-z_-]+$/u));
 
 const optionalWord = Schema.optionalKey(Word);
@@ -115,7 +110,6 @@ const optionalBoolean = Schema.optionalKey(Schema.Boolean);
 
 const optionalNumber = Schema.optionalKey(Schema.Finite);
 
-/** How and why Codex compacted the turn's history, each in a word. */
 const Compaction = Schema.Struct({ implementation: Word, phase: Word, reason: Word, strategy: Word, trigger: Word });
 
 const ModelSlug = Schema.String.check(Schema.isPattern(/^[\w./:-]+$/u));

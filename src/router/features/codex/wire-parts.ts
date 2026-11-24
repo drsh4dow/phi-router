@@ -12,18 +12,11 @@ import type { Read } from "./read.ts";
 import { frameOf } from "./frame.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 
-/**
- * One part of a request as wire items, beside the message the engine reads for it. A tool list is checked and never
- * rewritten. Any other part goes to the clean lane as sent, or as the stub when a key is not cleared or it is unjudged.
- * Keys are unbranded here, since a branded field fails `prefer-readonly-parameter-types` on every parameter that holds
- * one.
- */
 type WirePart =
 	| {
 			readonly kind: "tools";
 			readonly message: Message;
 			readonly entries: readonly Entry[];
-			/** The tool list's own key, without the empty system content `partsOf` gives beside it. */
 			readonly keys: readonly string[];
 			/** It holds a blob no clean-lane reply wrote. */
 			readonly unjudged: boolean;
@@ -201,14 +194,6 @@ const wirePartOf =
 		}
 	};
 
-/**
- * Each part of a request as wire items, in order: the tool list, each user, developer or agent message, each tool output
- * and each reply's run of items.
- *
- * @param {CleanLaneWrote} wrote What the session's clean-lane replies wrote.
- * @returns {(request: { body: Body | undefined; raw: Raw }) => Effect.Effect<readonly WirePart[], never,
- *   Digest.Digest>} The parts of a request's lists and its items, the lists read only when the codec reads every field.
- */
 const wirePartsOf =
 	(wrote: CleanLaneWrote) =>
 	({

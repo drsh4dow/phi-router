@@ -21,7 +21,6 @@ interface Reading {
 	readonly readable: boolean;
 }
 
-/** A wire block of a user message: a tool result's run, readable or not, or a prompt block. */
 type UserBlock =
 	| { readonly kind: "result"; readonly run: Run }
 	| { readonly kind: "prompt"; readonly block: Located<PromptBlock> };

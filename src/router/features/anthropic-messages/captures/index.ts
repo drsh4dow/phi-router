@@ -8,7 +8,6 @@ import { toolResult } from "./tool-result.ts";
 import { toolSearch } from "./tool-search.ts";
 import { webSearch } from "./web-search.ts";
 
-/** Every captured request body, by name. */
 const requests = {
 	autoMode,
 	compaction,

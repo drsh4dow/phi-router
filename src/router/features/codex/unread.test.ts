@@ -39,12 +39,6 @@ const futureItem = Str.replace('"input":[', `"input":[{"type":"future_item","not
 const inTurnMetadata = (added: string): ((text: string) => string) =>
 	Str.replace('"x-codex-turn-metadata":"{', `"x-codex-turn-metadata":"{${added}`);
 
-/**
- * Decodes `text` and checks that a pinned request on the sealed lane gets its bytes.
- *
- * @param {string} text The request.
- * @returns {Effect.Effect<CodexRequest, CodexRequestRejected | CleanLaneRefused, Digest.Digest>} The request.
- */
 const sealedAsSent = (
 	text: string,
 ): Effect.Effect<CodexRequest, CodexRequestRejected | CleanLaneRefused, Digest.Digest> =>

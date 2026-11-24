@@ -90,7 +90,6 @@ const modelReplaced = Effect.gen(function* modelReplaced() {
 	assert.strictEqual(toBaa.model, target);
 });
 
-/** First blocks that read like attribution but hold more than Claude Code was recorded sending. */
 const lookalikes = [
 	"x-anthropic-billing-header: cc_version=2.1.325.a35; cc_entrypoint=cli; cc_patient=Canary.Fake;",
 	"x-anthropic-billing-header: cc_version=123.45.6789.a35; cc_entrypoint=cli;",

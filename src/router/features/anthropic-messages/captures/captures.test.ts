@@ -42,12 +42,6 @@ const retried = Effect.gen(function* retried() {
 
 const openThinking = '{"type":"thinking","thinking":"","signature":"signature-placeholder"}';
 
-/**
- * How `body` reads and what the clean lane sends for it, under the keys of the open account's streamed `replies.toolCallReply`.
- *
- * @param {string} body A request.
- * @returns {Effect.Effect} Who wrote each reply, and the clean body with every part cleared.
- */
 const echoOf = Effect.fnUntraced(function* echoOf(body: string) {
 	const keys = yield* replyKeys(replies.toolCallReply);
 	const request = yield* decodeRequest(body, (key) => Array.contains(keys, key), "claude");

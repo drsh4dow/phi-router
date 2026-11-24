@@ -38,14 +38,6 @@ const summaryItem = '"summary":[{"type":"summary_text","text":"Counting the line
 
 const withSummary = Str.replaceAll('"summary":[]', summaryItem);
 
-/**
- * `text` sent to the clean lane with every key cleared, after a session whose clean-lane replies are `reply`.
- *
- * @param {string} text The request.
- * @param {string} reply The clean-lane replies, as server-sent events.
- * @returns {Effect.Effect<string, CodexRequestRejected | CleanLaneRefused | ToolsNotCleared, Digest.Digest>} The
- *   clean-lane body.
- */
 const cleanAfter = (
 	text: string,
 	reply: string,
@@ -71,7 +63,6 @@ const blobRefused = (
 		assert.include(sent, blob);
 	});
 
-/** The blob reply with `response.completed` and then an event that says it failed after all. */
 const endedToo = [`${blobReply}\ndata: {"type":"response.failed"}`, `${blobReply}\ndata: {"type":"error"}`];
 
 const unfinished = Effect.gen(function* unfinished() {

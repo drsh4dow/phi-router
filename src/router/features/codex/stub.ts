@@ -103,16 +103,8 @@ const stubbed =
 			onSome: ([field, value]) => [Record.set(entry.raw, field, value)],
 		});
 
-/** What the clean lane gets in place of an item the codec cannot read. */
 const unreadStub = { content: [{ text: stubs.unknown, type: "input_text" }], role: "user", type: "message" };
 
-/**
- * Items no stub stands in for: the clean lane gets them, or refuses the request.
- *
- * @param {boolean} passes Whether the clean lane may get them.
- * @param {readonly Raw[]} items The items.
- * @returns {Effect.Effect<readonly Raw[], CleanLaneRefused>} The items, or the refusal.
- */
 const orRefused = (
 	passes: boolean,
 	items: readonly (typeof Raw.Type)[],

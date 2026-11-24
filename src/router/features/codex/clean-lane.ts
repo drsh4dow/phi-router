@@ -13,12 +13,6 @@ type CleanLaneWrote = (key: typeof ContentKey.Type) => boolean;
  */
 const blob = /gAAAAA[\w-]+=*/gu;
 
-/**
- * Every blob in `text`.
- *
- * @param {string} text Any text a request carries.
- * @returns {readonly string[]} The blobs, in order.
- */
 const blobsIn = (text: string): readonly string[] =>
 	pipe(
 		Str.matchAll(blob)(text),
@@ -47,13 +41,6 @@ const cleanLaneItemKey = (item: {
 	readonly content: string;
 }): Effect.Effect<typeof ContentKey.Type, never, Digest.Digest> => contentKey(["clean-lane", item.id, item.content]);
 
-/**
- * Whether a clean-lane reply wrote each of `values`. True for none.
- *
- * @param {CleanLaneWrote} wrote What the session's clean-lane replies wrote.
- * @returns {(values: readonly string[]) => Effect.Effect<boolean, never, Digest.Digest>} The check for a list of blobs
- *   or summary texts.
- */
 const wroteAll =
 	(wrote: CleanLaneWrote) =>
 	(values: readonly string[]): Effect.Effect<boolean, never, Digest.Digest> =>

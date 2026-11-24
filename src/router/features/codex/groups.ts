@@ -3,7 +3,6 @@ import { Item, Raw } from "./wire.ts";
 import type { LoneItem, ReplyItem, WireItem } from "./wire.ts";
 import type { Lists } from "./frame.ts";
 
-/** One input item, read and as sent. */
 interface Entry<Item extends WireItem = WireItem> {
 	readonly kind: "read";
 	readonly item: Item;
