@@ -33,7 +33,7 @@
 	"src/router/features/cli/sessions/index.ts": 1,
 	"src/router/features/cli/sessions/pin.ts": 4,
 	"src/router/features/cli/sessions/status.ts": 1,
-	"src/router/features/cli/setup/harnesses.ts": 5,
+	"src/router/features/cli/setup/harnesses.ts": 4,
 	"src/router/features/cli/setup/index.ts": 13,
 	"src/router/features/cli/setup/keys.ts": 17,
 	"src/router/features/cli/start.ts": 5,

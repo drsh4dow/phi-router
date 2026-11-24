@@ -2,6 +2,9 @@ import { Effect, Option, Path } from "effect";
 import { claudeCanary, codexCanary, piCanary } from "#router/features/cli/doctor/index.ts";
 import { claudePlugin, codexHome, codexPlugin, installedPackage } from "#router/client/harnesses/index.ts";
 import { plugin, switchedOn } from "#router/features/cli/claude/index.ts";
+import type { Check } from "#router/features/cli/doctor/index.ts";
+import type { Harness } from "#router/features/border/index.ts";
+import type { Vendor } from "#router/client/configuration/index.ts";
 import { codexSwitchedOn } from "#router/features/cli/codex/index.ts";
 
 /**
@@ -16,6 +19,18 @@ interface Source {
 
 /** One command line: the program and its arguments. */
 type Argv = readonly [string, ...string[]];
+
+interface HarnessSetup {
+	readonly end: (source: Source) => readonly string[];
+	readonly install: (source: Source) => readonly Argv[];
+	readonly installed: Effect.Effect<Option.Option<unknown>, unknown, unknown>;
+	readonly start: Argv;
+	readonly subscription: string;
+	readonly switched: Effect.Effect<Option.Option<string>, Error, unknown>;
+	readonly test: (root: string) => Effect.Effect<readonly Check[], unknown, unknown>;
+	readonly title: string;
+	readonly vendor: Vendor;
+}
 
 /** The Claude Code and Codex plugin in the phi-router package at `root`. */
 const pluginIn = Effect.fnUntraced(function* pluginIn(root: string) {
@@ -98,9 +113,8 @@ const harnesses = {
 		title: "pi",
 		vendor: "anthropic",
 	},
-} as const;
+} as const satisfies Record<Harness, HarnessSetup>;
 
-/** A harness setup knows, by the name its command takes. */
 type HarnessName = keyof typeof harnesses;
 
 export { harnesses };
