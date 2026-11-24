@@ -18,9 +18,7 @@ interface Piece<Key> {
 	/** The text parts as sent, one by one, so a registered fixture matches a whole part. */
 	readonly texts: readonly string[];
 	readonly images: readonly Image[];
-	/** At most `window` preceding rendered items, already cleared, for the judge to read. */
 	readonly context: readonly string[];
-	/** The cleared end of the previous message of the same role, when this one goes on from it mid-word; else empty. */
 	readonly seam: Seam;
 }
 

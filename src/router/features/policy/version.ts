@@ -32,7 +32,6 @@ interface Versioned {
 	readonly rules: readonly Rule[];
 }
 
-/** Plain data, so encoding cannot fail. */
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const identifierQuestionJson = Record.fromEntries([

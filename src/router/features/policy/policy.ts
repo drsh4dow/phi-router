@@ -1,6 +1,5 @@
 import { Array, pipe } from "effect";
 
-/** Each identifier kind under a name code outside the policy can spell, so no other file spells a kind. */
 const identifierKind = {
 	birthDate: "birth-date",
 	driverLicense: "driver-license",
@@ -16,7 +15,6 @@ const identifierKind = {
 	streetAddress: "street-address",
 } as const;
 
-/** Each kind in the order the judge reads it. */
 const identifierKinds = [
 	[identifierKind.patientName, "a real patient's or member's name"],
 	[identifierKind.socialSecurityNumber, "a Social Security number"],
@@ -39,7 +37,6 @@ const identifierKindNames: readonly IdentifierKind[] = pipe(
 	Array.map(([kind]) => kind),
 );
 
-/** The plan's defaults the human can change. Edit the sentence; the judge reads it as written. */
 const defaults = [
 	"Insurance member numbers and a provider's medical record numbers count.",
 	"A real patient's or member's name counts even with no health facts.",
@@ -58,7 +55,6 @@ const counterExamples = [
 
 interface SyntheticIdentities {
 	readonly exact: readonly string[];
-	/** A token that starts with one of these is a test identity, such as a staging client code. */
 	readonly prefixes: readonly string[];
 }
 
@@ -66,7 +62,6 @@ const syntheticIdentities: SyntheticIdentities = { exact: [], prefixes: [] };
 
 const syntheticMark = "[synthetic-id]";
 
-/** Constant per class, so a stub never changes and an open account's cache prefix stays stable. */
 const stubs = {
 	sealed: "[withheld: holds patient identifiers, handled on the HIPAA account]",
 	unknown: "[withheld: not checked for patient identifiers]",
@@ -86,7 +81,6 @@ const counterList = pipe(
 	Array.join("; "),
 );
 
-/** What counts and what does not. Both questions carry it, so the band's kind answer applies the same policy. */
 const countingRules = [
 	`Direct identifiers: ${kindList}.`,
 	...defaults,
