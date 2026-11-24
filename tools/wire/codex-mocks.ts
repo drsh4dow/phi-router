@@ -156,18 +156,12 @@ const installed = Effect.fnUntraced(function* installed(where: { readonly home: 
 
 const SessionLine = /session id: (?<session>\S+)/u;
 
-/**
- * The session id `codex exec` printed.
- *
- * @param {string} printed What it printed on stderr.
- * @returns {Effect.Effect<string, Cause.NoSuchElementError>} The id.
- */
-const sessionOf = (printed: string): Effect.Effect<string, Cause.NoSuchElementError> =>
+const execSessionOf = (stderr: string): Effect.Effect<string, Cause.NoSuchElementError> =>
 	pipe(
-		Option.fromNullishOr(SessionLine.exec(printed)),
+		Option.fromNullishOr(SessionLine.exec(stderr)),
 		Option.flatMap(({ groups }) => Option.fromNullishOr(groups)),
 		Option.flatMap(({ session }) => Option.fromNullishOr(session)),
 		Effect.fromOption,
 	);
 
-export { baaScript, catalogOf, catalogSlugsOf, files, installed, openScript, sessionOf };
+export { baaScript, catalogOf, catalogSlugsOf, execSessionOf, files, installed, openScript };

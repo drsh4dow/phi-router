@@ -1,7 +1,7 @@
 import { Array, Config, Effect, FileSystem, Path, String as Str, Stream, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { CodexTurned, Listing, Outcome, Run } from "./checks.ts";
-import { baaScript, catalogOf, catalogSlugsOf, files, installed, openScript, sessionOf } from "./codex-mocks.ts";
+import { baaScript, catalogOf, catalogSlugsOf, execSessionOf, files, installed, openScript } from "./codex-mocks.ts";
 import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
@@ -224,7 +224,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 
 	const handingOff = Effect.gen(function* handingOff() {
 		const handedOff = yield* turn([...exec, handOff]);
-		const handing = yield* sessionOf(handedOff.stderr);
+		const handing = yield* execSessionOf(handedOff.stderr);
 		const after = yield* turn([...exec, "resume", handing, followUp]);
 
 		return { after, handedOff, handing };
@@ -268,7 +268,7 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const left = leftOf({
 		prompts: [run.clean.text, run.phi.text, followUp, readChart, handOff],
 		run,
-		sessions: [yield* sessionOf(clean.stderr), handing],
+		sessions: [yield* execSessionOf(clean.stderr), handing],
 		stored,
 		turns: [...turns, ...phi.inOrder, handedOff, after] as const,
 	});
