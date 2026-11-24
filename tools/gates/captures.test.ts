@@ -14,13 +14,13 @@ const credentialPatterns = [
 	},
 ] as const;
 
-/**
- * What in `text` looks like a credential, named without the value itself.
- *
- * @param {string} text The text to scan.
- * @returns {readonly string[]} One line per hit: what it looks like, where it starts and its length.
- */
-const credentialsIn = (text: string): readonly string[] =>
+interface CredentialHit {
+	readonly length: number;
+	readonly looksLike: string;
+	readonly startsAt: number;
+}
+
+const credentialsIn = (text: string): readonly CredentialHit[] =>
 	pipe(
 		credentialPatterns,
 		Array.flatMap(({ name, pattern }) => {
@@ -32,7 +32,7 @@ const credentialsIn = (text: string): readonly string[] =>
 
 			const [value] = hit;
 
-			return [`${name} at character ${String(hit.index)}, ${String(value.length)} characters long`];
+			return [{ length: value.length, looksLike: name, startsAt: hit.index }];
 		}),
 	);
 

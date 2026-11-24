@@ -2,8 +2,7 @@ import { Array, Effect, FileSystem, Path, Schema, String as Str, pipe } from "ef
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 
-/** What would start a paid or real-account run: the skill, its driver, the live eval, the wire runs and their scripts. */
-const liveCommands = [
+const paidOrRealAccountRunCommands = [
 	"verify-router",
 	"live.sh",
 	"eval:live",
@@ -31,7 +30,7 @@ it.layer(NodeServices.layer)("CI", (test) => {
 			const ran = [workflow, scripts.check, scripts.test];
 
 			const found = pipe(
-				liveCommands,
+				paidOrRealAccountRunCommands,
 				Array.filter((command) => pipe(ran, Array.some(Str.includes(command)))),
 			);
 
