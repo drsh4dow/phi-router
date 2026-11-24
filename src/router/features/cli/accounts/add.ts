@@ -35,7 +35,6 @@ interface TokenKind {
 	readonly lifetimeNote: string;
 }
 
-/** What a token's prefix says it is, the first prefix that matches. An `sk-ant-` token of no known kind is no OpenAI key. */
 const tokenKinds: readonly (readonly [string, Option.Option<TokenKind>])[] = [
 	[
 		"sk-ant-oat",
@@ -54,6 +53,13 @@ const tokenKinds: readonly (readonly [string, Option.Option<TokenKind>])[] = [
 	["sk-ant-", Option.none()],
 	["sk-", Option.some({ lifetimeNote: "", noun: "key", scheme: "apiKey", vendor: "openai", vendorName: "OpenAI" })],
 ];
+
+const tokenKindOf = (token: string): Option.Option<TokenKind> =>
+	pipe(
+		tokenKinds,
+		Array.findFirst(([prefix]) => Str.startsWith(prefix)(token)),
+		Option.flatMap(([, known]) => known),
+	);
 
 const refused = (reason: string): AddRefused => AddRefused.make({ reason });
 
@@ -102,11 +108,7 @@ const fromCommand = Effect.fnUntraced(function* fromCommand(command: string) {
 
 	const value = Redacted.value(token);
 
-	const kind = pipe(
-		tokenKinds,
-		Array.findFirst(([prefix]) => Str.startsWith(prefix)(value)),
-		Option.flatMap(([, known]) => known),
-	);
+	const kind = tokenKindOf(value);
 
 	if (Option.isNone(kind)) {
 		return yield* refused("The command printed a token whose prefix is unknown. Known: sk-ant-oat, sk-ant-api, sk-.");
@@ -144,11 +146,6 @@ const foundBy = Effect.fnUntraced(function* foundBy(request: AddRequest) {
 	return yield* refused('Name a login folder, or --command "<prints the token>".');
 });
 
-/**
- * Adds one account to the clean lane, or the sealed lane with `sealed`: a login folder a vendor CLI logged in to, or a
- * command that prints a token. It names the account after its vendor, prints what it added, and stores the folder or
- * the command, never the token.
- */
 const accountsAdd = Effect.fn("accountsAdd")(function* accountsAdd(request: AddRequest) {
 	const lane = laneOf(request.sealed);
 	const found = yield* foundBy(request);
@@ -175,4 +172,4 @@ const accountsAdd = Effect.fn("accountsAdd")(function* accountsAdd(request: AddR
 	);
 }, DateTime.withCurrentZoneLocal);
 
-export { accountsAdd, tokenKinds };
+export { accountsAdd, tokenKindOf };

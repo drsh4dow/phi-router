@@ -13,7 +13,6 @@ interface AccountRow {
 	readonly state: string;
 }
 
-/** A login that ends within this many days carries its renew command. */
 const renewWithinDays = 3;
 
 const millisPerDay = 86_400_000;
@@ -64,7 +63,6 @@ const kindOf = (account: NamedAccount): string => {
 	return { apiKey: "key command", oauth: "token" }[credential.scheme];
 };
 
-/** The time a 429 stamp on `name` runs out, as the line says it. */
 const stampOf = Effect.fnUntraced(function* stampOf(name: string) {
 	const state = yield* AccountState;
 	const stamps = yield* state.stamps([name]);
@@ -77,7 +75,6 @@ const stampOf = Effect.fnUntraced(function* stampOf(name: string) {
 	);
 });
 
-/** A Claude login's end, at `end` in epoch milliseconds: ended, ending within 3 days, or later. */
 const endOf = Effect.fnUntraced(function* endOf(end: number, fix: string) {
 	const now = yield* Clock.currentTimeMillis;
 	const day = yield* localDayOf(DateTime.makeUnsafe(end));
@@ -151,7 +148,6 @@ const rowOf = Effect.fnUntraced(function* rowOf(lane: Lane, account: NamedAccoun
 	} satisfies AccountRow;
 });
 
-/** Each lane's rows in the file's order, the clean lane first, or none when there is no `config.json`. */
 const accountRows = Effect.gen(function* accountRows() {
 	const configured = yield* configuredAccounts;
 
@@ -230,4 +226,4 @@ const accounts = Command.make("accounts", {}, () => listed).pipe(
 
 export { accounts };
 
-export { tokenKinds } from "./add.ts";
+export { tokenKindOf } from "./add.ts";

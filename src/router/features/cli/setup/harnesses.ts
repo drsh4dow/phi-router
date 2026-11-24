@@ -33,12 +33,6 @@ const pluginFolderIn = Effect.fnUntraced(function* pluginFolderIn(packageRoot: s
 	return path.join(packageRoot, "plugins", "claude");
 });
 
-/**
- * What setup does in each harness: its name and the subscription it logs in to, as the human reads them, the vendor of
- * its BAA account, the installer's commands, where the install landed, the canary test through the phi-router package
- * setup runs from, before anything is installed, the harness's own settings, written last with the line that says so,
- * and how setup starts it and ends its screen. pi writes no settings, since its package is its whole switch.
- */
 const harnesses = {
 	claude: {
 		baaVendor: "anthropic",
