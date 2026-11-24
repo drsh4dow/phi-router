@@ -15,7 +15,6 @@ const copied = [
 	"src",
 	"tools",
 	"size-limits.txt",
-	".dependency-cruiser-known-violations.json",
 	"package.json",
 	"tsconfig.json",
 	".oxlintrc.jsonc",

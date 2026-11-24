@@ -80,7 +80,6 @@ An exception is a line in `size-limits.txt` with its count and the reason.
 
 ## Rules that need judgment
 
-- **The baselines only fall.** `.dependency-cruiser-known-violations.json`, `tools/gates/comment-budget.json` and the `baseline` lines in `size-limits.txt` hold what does not meet the map yet. Fix a violation at its cause, then lower its count: `bun tools/gates/comment-budget.ts --prune`, `bun run boundaries:shrink`, or the line's count. A moved file takes its counts to its new path.
 - **A gate that fails caught something.** Fix the code. When a rule is wrong for this repo, take it to the owner with what it flags here and your pick. A rule goes off only with the owner's approval, or when files kept outside the repo prove that no spelling satisfies it and another rule together. Its line in `.oxlintrc.jsonc` names the reason.
 - **A ban covers all of `src/` and lifts only for its owner.** The `src/**` block in `.oxlintrc.jsonc` and the owner rules in `.dependency-cruiser.json` hold in every folder. An owner gets one override that lifts exactly its API, with its ledger reason, and a line in the `bans-owners` fixture for each ban it does not own. Ban the root a shortcut starts from, such as the global, not one spelling of it. A ban whose owner file does not exist yet waits only while another gate rejects the API, a rule the owner approved.
 - **Each durable value has one writer.** A new file, store or setting gets its `client/` file before a feature reads or writes it, and every caller goes through that file.
