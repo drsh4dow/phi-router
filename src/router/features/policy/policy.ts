@@ -139,8 +139,13 @@ const seamChars = 200;
  */
 const window = 0;
 
-/** Decisions' limits: characters per call, images per call, and how long one call may take. */
-const judgeLimits = { maxChars: 2_000_000, maxImages: 128, timeoutMs: 20_000 } as const;
+interface JudgeCallLimits {
+	readonly maxChars: number;
+	readonly maxImages: number;
+	readonly timeoutMs: number;
+}
+
+const judgeLimits: JudgeCallLimits = { maxChars: 2_000_000, maxImages: 128, timeoutMs: 20_000 };
 
 export {
 	counterExamples,
