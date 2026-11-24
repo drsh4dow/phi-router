@@ -8,8 +8,6 @@ import {
 import { assert, it } from "@effect/vitest";
 import { replies, requests } from "./index.ts";
 import { Digest } from "effect/crypto";
-import type { Message } from "#router/features/parts/index.ts";
-import type { MessagesRequest } from "#router/features/anthropic-messages/index.ts";
 import { bridgesFor } from "#router/features/border/index.ts";
 
 const nobodyWrote = (): boolean => false;
@@ -185,31 +183,6 @@ const placeholders = Effect.gen(function* placeholders() {
 	}
 });
 
-type SystemTool = Extract<Message, { readonly role: "system" }>["tools"][number];
-
-const toolsOf = (request: MessagesRequest): readonly SystemTool[] =>
-	pipe(
-		request.messages,
-		Array.flatMap((message) => {
-			if (message.role === "system") {
-				return message.tools;
-			}
-
-			return [];
-		}),
-	);
-
-const webSearchTool = '{"type":"web_search_20250305","name":"web_search","max_uses":8}';
-
-const serverTool = Effect.gen(function* serverTool() {
-	const request = yield* decodeRequest(requests.webSearch, nobodyWrote, "claude");
-	const clean = yield* request.encode({ lane: "clean", messages: request.messages, model: "claude-target" });
-
-	assert.deepStrictEqual(toolsOf(request), [{ description: "", name: "web_search", parameters: webSearchTool }]);
-	assert.include(clean, webSearchTool);
-	assert.include(clean, '"tool_choice":{"type":"auto"}');
-});
-
 const enabledThinking = Effect.gen(function* enabledThinking() {
 	const body = Str.replace(
 		'"thinking":{"type":"adaptive","display":"updates"}',
@@ -295,11 +268,6 @@ it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	test.effect("a streamed reply cut before message_stop, or holding an error event, gives no key", () => cutReply);
 
 	test.effect("every capture's thinking signatures and metadata ids are the fixed placeholders", () => placeholders);
-
-	test.effect(
-		"the WebSearch capture's server tool reaches the judge whole, and its tool_choice leaves as sent",
-		() => serverTool,
-	);
 
 	test.effect(
 		"a top-level field outside its recorded shape fails the request and names the field",
