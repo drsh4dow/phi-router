@@ -122,11 +122,6 @@ const kindQuestion = {
 	type: "choice",
 } as const;
 
-/**
- * Each judge's thresholds, from its own calibration on the default corpus (ADR 0009). `p < clearBelow` clears and
- * `p >= sealAtOrAbove` seals. In between, the kind question decides. A system part seals only at or above
- * `sealAtOrAbove` with a named kind.
- */
 const thresholds = {
 	claude: { clearBelow: 0.05, sealAtOrAbove: 0.5 },
 	decisions: { clearBelow: 0.2, sealAtOrAbove: 0.5 },

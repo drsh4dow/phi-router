@@ -1,11 +1,11 @@
 import { Array, Effect, String as Str, Struct, pipe } from "effect";
 import { Findings, Fixtures, Verdicts } from "./index.ts";
 import type { Question, Script } from "./scripted-judge.ts";
+import { Synthetic, thresholds } from "#router/features/policy/index.ts";
 import { assert, it } from "@effect/vitest";
 import { judgeAll, judgedOne, namedKind, pieceOf, ssnHit } from "./scripted-judge.ts";
 import { Digest } from "effect/crypto";
 import type { IdentifierKind } from "#router/features/policy/index.ts";
-import { Synthetic } from "#router/features/policy/index.ts";
 import type { Verdict } from "./index.ts";
 
 const clears = 0.1;
@@ -226,5 +226,36 @@ it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 	test.effect(
 		"a registered fixture part is skipped, and a piece of nothing else clears without the judge",
 		() => fixtureSkipped,
+	);
+});
+
+const { decisions } = thresholds;
+
+const thresholdCases: readonly Case[] = [
+	[
+		"a score at clearBelow asks the kind question",
+		{ kind: () => "none", score: () => decisions.clearBelow },
+		cleared,
+		["identifier", "kind"],
+	],
+	[
+		"a score at sealAtOrAbove seals whatever the kind call answers",
+		{ kind: () => "none", score: () => decisions.sealAtOrAbove },
+		judgeSealed("unlabelled", decisions.sealAtOrAbove),
+		["identifier", "kind"],
+	],
+];
+
+it.layer(Digest.layerWebCrypto)("verdictsFor at the judge's thresholds", (test) => {
+	test.effect.each(thresholdCases)("a user message: %s", ([, script, verdicts, questions]) =>
+		Effect.gen(function* atThreshold() {
+			const piece = yield* pieceOf("Follow-up for the import job.");
+			const judged = yield* judgedOne({ piece, script });
+
+			assert.deepStrictEqual(
+				{ questions: judged.questions, verdicts: judged.verdicts },
+				{ questions: [...questions], verdicts: [...verdicts] },
+			);
+		}),
 	);
 });
