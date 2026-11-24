@@ -92,6 +92,26 @@ const leased = Effect.fnUntraced(function* leased(state: string, session: string
 	yield* fs.writeFileString(path.join(state, "leases.json"), leases, { mode: privateModes.file });
 });
 
-export { autoOf, clean, harnessNames, holdsCanary, leased, linesIn, modelsIn, phi, posted, sentModels };
+const unreadableLeases = Effect.fnUntraced(function* unreadableLeases(state: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+
+	yield* fs.makeDirectory(state, { mode: privateModes.folder, recursive: true });
+	yield* fs.writeFileString(path.join(state, "leases.json"), "{", { mode: privateModes.file });
+});
+
+export {
+	autoOf,
+	clean,
+	harnessNames,
+	holdsCanary,
+	leased,
+	linesIn,
+	modelsIn,
+	phi,
+	posted,
+	sentModels,
+	unreadableLeases,
+};
 
 export type { HarnessName };

@@ -1,8 +1,9 @@
-import { Array, Effect, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, FileSystem, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { jsonText, userMessage } from "./harnesses.ts";
 import { laneLines, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
+import { unreadableLeases } from "./target-models.ts";
 
 const prompt = "Generate a concise, single-line task title.\n\nUser prompt:\nWhat time is the build on Fridays?";
 
@@ -74,10 +75,47 @@ const userTurn = Effect.gen(function* userTurn() {
 	assert.isAbove(user.judge, noJudgeCall);
 });
 
+const ok = 200;
+
+const unreadableRegistry = Effect.gen(function* unreadableRegistry() {
+	const fs = yield* FileSystem.FileSystem;
+	const repo = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-repo-" });
+
+	const { post, state } = yield* routed({
+		configExtras: { baaRepos: [repo] },
+		harness: "codex",
+		holdsPhi: () => false,
+	});
+
+	yield* unreadableLeases(state);
+
+	const body = yield* titleBody('{"thread_source":"thread_title"}');
+	const response = yield* post({ body, session: "codex-title" });
+
+	yield* response.text;
+
+	const lines = yield* laneLines(state);
+
+	assert.deepStrictEqual(
+		{
+			lines: pipe(
+				lines,
+				Array.map(({ account, reason }) => [account, reason]),
+			),
+			status: response.status,
+		},
+		{ lines: [["baa", "title"]], status: ok },
+	);
+}).pipe(Effect.scoped);
+
 it.layer(NodeServices.layer)("Codex's thread-title request", (test) => {
 	test.effect(
 		"goes sealed as title with no judge call, whether its turn metadata is compact, spaced or beside a key the codec does not read",
 		() => titleRequests,
 	);
 	test.effect("the same body from a user turn is judged and goes open", () => userTurn);
+	test.effect(
+		"goes sealed as title with a BAA repo listed though the lease registry is unreadable",
+		() => unreadableRegistry,
+	);
 });

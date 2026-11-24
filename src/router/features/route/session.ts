@@ -34,17 +34,6 @@ const unreadable = answered(statuses.unreadable, '{"error":"unreadable"}');
 
 const failed = answered(statuses.failed, '{"error":"phi-router could not use its state"}');
 
-/**
- * The rows `pin`, `unpin` and `status` reach, so the router stays the one writer of the verdict store. `POST
- * /phi-router/pin` takes `{session, pinned}` and answers once the pin is stored. `GET /phi-router/status?session=<id>`
- * answers the contract's status: the pin and the counts under the router's policy version, `accounts`, and the last
- * line the lane log holds for the session.
- *
- * @param {object} serving What every harness shares, and the accounts the router serves.
- * @param {Routing} serving.routing What every harness shares.
- * @param {Function} serving.served The accounts the router serves now.
- * @returns {readonly Path[]} The two rows.
- */
 const sessionRows = ({
 	routing,
 	served,

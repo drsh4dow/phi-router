@@ -4,8 +4,10 @@ import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { beta, bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
 import { headersNamed, jsonText } from "./harnesses.ts";
+import { Base64 } from "effect/encoding";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
+import { judgeLimits } from "#router/features/policy/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
@@ -153,6 +155,40 @@ const failingJudge = Effect.gen(function* failingJudge() {
 	);
 });
 
+const blobBytes = 65;
+
+const byteStride = 37;
+
+const byteOffset = 11;
+
+const byteValues = 256;
+
+const blob = Uint8Array.from(Array.makeBy(blobBytes, (index) => (index * byteStride + byteOffset) % byteValues));
+
+const unasked = [
+	{ name: "a piece too large for the judge", text: `${Str.repeat(judgeLimits.maxChars)("x")} over` },
+	{ name: "a binary blob", text: `blob ${Base64.encode(blob)}` },
+] as const;
+
+const sealedUnasked = Effect.fnUntraced(function* sealedUnasked({ text }: (typeof unasked)[number]) {
+	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary });
+	const answer = yield* postedIn(post, { session: "lanes-6", turns: [{ role: "user", text }] });
+	const judged = yield* mocks.judge.received;
+	const lines = yield* laneLines(state);
+
+	assert.deepStrictEqual<unknown>(
+		{
+			judged: judged.length,
+			lines: pipe(
+				lines,
+				Array.map(({ judgeFailures, lane }) => ({ judgeFailures, lane })),
+			),
+			status: answer.status,
+		},
+		{ judged: none, lines: [{ judgeFailures: none, lane: "sealed" }], status: status.ok },
+	);
+});
+
 const opaque = "BAA-OPAQUE-3J8W";
 
 const opaqueBlocks = [
@@ -273,6 +309,10 @@ it.layer(NodeServices.layer)("the lanes over HTTP", (test) => {
 		() => lanes,
 	);
 	test.effect("a judge that fails seals the request and shows in the lane log", () => failingJudge);
+	test.effect.each(unasked)(
+		"$name seals the request with no judge call and no judge failure on its lane log line",
+		sealedUnasked,
+	);
 	test.effect.each(opaqueBlocks)(
 		"a completed BAA reply adds no reply key, and its $name reaches neither the judge nor the open account",
 		sealedReplyKeys,

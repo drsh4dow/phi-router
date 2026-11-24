@@ -13,10 +13,6 @@ import { sealedOnly } from "#router/features/accounts/index.ts";
 
 const auto = "phi/auto";
 
-/**
- * How a request's lane is chosen, settled on its arrival: pinned, so it runs sealed with nothing judged, or judged, so
- * each send reads its lane from the verdict store.
- */
 type Choice =
 	| { readonly kind: "pinned"; readonly by: PinnedBy }
 	| { readonly kind: "judged"; readonly laneAt: (now: Lookup) => Lane };
@@ -35,19 +31,12 @@ interface SendModel {
 	readonly substitute: boolean;
 }
 
-/** What one send carries, all of it built from one read of the verdict store. */
 interface Sending extends SendModel {
 	readonly lane: Lane;
 	readonly reason: Reason;
 	readonly body: string;
 }
 
-/**
- * Route.tla `Send`: the body for the lane chosen from one read of the store, built from that same read and naming
- * that lane's model. The border stubs every part that read does not hold cleared. A pinned request goes sealed with no
- * bridge. A request the border or the clean encode refuses goes sealed as a router failure, even with no open account
- * left to try. Any other clean one with no open account left goes sealed for `failover`.
- */
 const sendingOf = Effect.fnUntraced(function* sendingOf({
 	choice,
 	harness,
@@ -95,19 +84,11 @@ const sendingOf = Effect.fnUntraced(function* sendingOf({
 	);
 });
 
-/** One send, and the walk it leaves: the BAA accounts alone once a send went sealed. */
 interface Aim {
 	readonly send: Sending;
 	readonly walk: Walk;
 }
 
-/**
- * The request's target model: the configured one for `phi/auto`, the configured sealed model for `phi/sealed`, else the
- * model the request asked for.
- *
- * @param {Arrived} arrival The request as it arrived.
- * @returns {string} The target model.
- */
 const targetOf = (arrival: Arrived): string => {
 	const { model } = arrival.request;
 
@@ -122,13 +103,6 @@ const targetOf = (arrival: Arrived): string => {
 	return model;
 };
 
-/**
- * The model each lane's send names while `walk` is where it is. The clean lane names the target model. The sealed lane
- * names the same where the walk's first BAA account carries it, and the substitute where that account lacks it.
- *
- * @param {object} at The request, and the walk whose first BAA account a sealed send goes to.
- * @returns {Record<Lane, SendModel>} The model of each lane.
- */
 const modelsAt = (at: { readonly arrival: Arrived; readonly walk: Walk }): Readonly<Record<Lane, SendModel>> => {
 	const { arrival, walk } = at;
 	const { sealedModel } = arrival.serving.accounts;
@@ -142,10 +116,6 @@ const modelsAt = (at: { readonly arrival: Arrived; readonly walk: Walk }): Reado
 	return { clean: target, sealed: { model: sealedModel, substitute: true } };
 };
 
-/**
- * Route.tla `Send`: one more read, the lane and the body both from it. The clean lane while the walk has an open
- * account left, else the sealed lane for `failover`. A send that goes sealed drops the open accounts for good.
- */
 const chosen = Effect.fnUntraced(function* chosen(arrival: Arrived, walk: Walk) {
 	const { choice, request, serving, session } = arrival;
 	const known = yield* serving.store.read(session, serving.policy);
@@ -169,10 +139,6 @@ const chosen = Effect.fnUntraced(function* chosen(arrival: Arrived, walk: Walk) 
 	return aim;
 });
 
-/**
- * What an open account's 200 answer passes through on its way to the harness: its text is collected as it passes, and
- * once the stream completes its reply keys are stored before the body ends. An interrupted stream leaves no key.
- */
 const keepingReplyKeys = Effect.fnUntraced(function* keepingReplyKeys({
 	serving,
 	session,

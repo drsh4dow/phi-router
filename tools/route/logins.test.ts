@@ -1,9 +1,9 @@
-import { Array, Effect, FileSystem, Option, Struct, pipe } from "effect";
+import { Array, Effect, FileSystem, Logger, Option, Struct, pipe } from "effect";
 import type { Lifetime, Vendor } from "./login-fixture.ts";
 import { assert, it } from "@effect/vitest";
 import { claudeRequest, routed } from "./mocked-router.ts";
 import { codexBodyOf, harnesses, userMessage } from "./harnesses.ts";
-import { day, dayLong, loggedIn, logins, start, thirtyDays } from "./login-fixture.ts";
+import { day, dayLong, loggedIn, logins, start, thirtyDays, warnings } from "./login-fixture.ts";
 import type { AccountScript } from "./harnesses.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
@@ -13,7 +13,9 @@ import { leaks } from "#tools/cli/accounts-run.ts";
 
 const minute = 60_000;
 
-const status = { ok: 200, unauthorized: 401 } as const;
+const status = { badGateway: 502, ok: 200, unauthorized: 401 } as const;
+
+const dayBeforeStart = "2026-05-27";
 
 const bodies = {
 	claude: Effect.succeed(
@@ -79,6 +81,7 @@ const through = Effect.fnUntraced(function* through(vendor: Vendor, first: Lifet
 			opened,
 			Array.map(({ headers }) => Option.fromUndefinedOr(headers["chatgpt-account-id"])),
 		),
+		folder: login.folder,
 		leaked,
 		opened: bearersOf(opened),
 		ran,
@@ -132,11 +135,61 @@ const keptToken = Effect.gen(function* keptToken() {
 });
 
 const ended = Effect.gen(function* ended() {
-	const seen = yield* through("claude", { ends: start - day, expires: start + day }, answersOk);
+	const warned = warnings();
+
+	const seen = yield* through("claude", { ends: start - day, expires: start + day }, answersOk).pipe(
+		Effect.provideService(Logger.CurrentLoggers, warned.loggers),
+	);
 
 	assert.deepStrictEqual<unknown>(
-		{ leaked: seen.leaked, opened: seen.opened, ran: seen.ran, sealed: seen.sealed, status: seen.status },
-		{ leaked: [], opened: [], ran: "", sealed: true, status: status.ok },
+		{
+			leaked: seen.leaked,
+			opened: seen.opened,
+			ran: seen.ran,
+			sealed: seen.sealed,
+			status: seen.status,
+			warnings: warned.said,
+		},
+		{
+			leaked: [],
+			opened: [],
+			ran: "",
+			sealed: true,
+			status: status.ok,
+			warnings: [
+				[
+					`phi-router: open's login ended on ${dayBeforeStart}. Fix: CLAUDE_CONFIG_DIR=${seen.folder} claude auth login`,
+				],
+			],
+		},
+	);
+});
+
+const lastEnded = Effect.gen(function* lastEnded() {
+	yield* TestClock.setTime(start);
+
+	const baa = yield* loggedIn("claude", { ends: start - day, expires: start + day });
+
+	const warned = warnings();
+
+	const { post } = yield* routed({ baaFolder: baa.folder, holdsPhi: () => true }).pipe(
+		Effect.provideService(Logger.CurrentLoggers, warned.loggers),
+	);
+
+	const response = yield* bodies.claude.pipe(Effect.flatMap((body) => post({ body, session: "logins-last" })));
+
+	yield* response.text;
+
+	assert.deepStrictEqual<unknown>(
+		{ status: response.status, warnings: warned.said },
+		{
+			status: status.badGateway,
+			warnings: [
+				[
+					`phi-router: baa's login ended on ${dayBeforeStart}. Fix: CLAUDE_CONFIG_DIR=${baa.folder} claude auth login`,
+				],
+			],
+		},
 	);
 });
 
@@ -237,7 +290,14 @@ it.layer(NodeServices.layer)("a login-folder account", (test) => {
 		"of claude answered 401 once, whose CLI leaves the token as it was, resends that token once to the same account",
 		() => keptToken,
 	);
-	test.effect("of claude whose login ended sends the request to the next account and runs nothing", () => ended);
+	test.effect(
+		"of claude whose login ended sends the request to the next account, runs nothing and warns with the command that fixes it",
+		() => ended,
+	);
+	test.effect(
+		"of claude, the last account a sealed request has, whose login ended answers 502 and warns once",
+		() => lastEnded,
+	);
 	test.effect(
 		"of claude whose token expires within 5 minutes runs the vendor CLI once for two requests at once",
 		() => twoAtOnce,

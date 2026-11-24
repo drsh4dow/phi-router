@@ -11,6 +11,13 @@ const canary = "PATIENT-CANARY-3P9W";
 
 const status = { ok: 200, unreadable: 400 } as const;
 
+const AnthropicError = Schema.fromJsonString(
+	Schema.Struct({
+		error: Schema.Struct({ message: Schema.String, type: Schema.String }),
+		type: Schema.Literal("error"),
+	}),
+);
+
 const turns = {
 	clean: { role: "user", text: "List the build steps." },
 	cleared: { role: "assistant", text: "ok" },
@@ -115,10 +122,11 @@ const unmarked = Effect.gen(function* unmarked() {
 	const { mocks, post } = yield* routed({ harness: "pi", holdsPhi: Str.includes(canary) });
 	const body = yield* piBodyOnAuto([turns.clean]);
 	const response = yield* post({ body, session: "" });
-
-	yield* response.text;
+	const text = yield* response.text;
+	const refusal = yield* Schema.decodeEffect(AnthropicError)(text);
 
 	assert.strictEqual(response.status, status.unreadable);
+	assert.strictEqual(refusal.type, "error");
 	assert.deepStrictEqual([...(yield* mocks.open.received), ...(yield* mocks.baa.received)], []);
 });
 
@@ -128,7 +136,10 @@ it.layer(NodeServices.layer)("pi through the router", (test) => {
 		() => piConversation,
 	);
 
-	test.effect("a request whose session header the hook left empty reaches no account", () => unmarked);
+	test.effect(
+		"a request whose session header the hook left empty gets 400 in Anthropic's error shape and reaches no account",
+		() => unmarked,
+	);
 
 	test.effect("pi's bridge and stub, which the conversation sends, point at /phi pin", () => pinPointed);
 });

@@ -1,9 +1,7 @@
 import { stubs as policyStubs } from "#router/features/policy/index.ts";
 
-/** The harness whose request the border rewrites, which decides how the stub and the bridge name the pinned subagent. */
 type Harness = "claude" | "codex" | "pi";
 
-/** How each harness with a pinned subagent names it, so the stub and the bridge cannot name it differently. */
 const pinnedSubagent = { claude: "phi-router:phi-sealed", codex: "phi-sealed" } as const;
 
 const whyTheReplyIsTrusted =
@@ -12,7 +10,6 @@ const whyTheReplyIsTrusted =
 const handedTo = (subagent: string): string =>
 	`Work that needs the identifiers themselves goes to the ${subagent} subagent.`;
 
-/** The stub per harness. The unknown stub stays the policy's, since no reply was written with that content in view. */
 const stubsFor = {
 	claude: `${policyStubs.sealed} ${whyTheReplyIsTrusted} ${handedTo(pinnedSubagent.claude)}`,
 	codex: `${policyStubs.sealed} ${whyTheReplyIsTrusted} ${handedTo(pinnedSubagent.codex)}`,
@@ -24,10 +21,6 @@ const bridgeOpening = `Refer to patients and members only by internal ids, such 
 const bridgeNaming = (subagent: string): string =>
 	`${bridgeOpening} When the work cannot be done without the identifiers themselves, hand it to the ${subagent} subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.`;
 
-/**
- * The bridge: added to every request that is not pinned, on both lanes, by each harness's codec. pi
- * has no subagent, so its bridge names `/phi pin` as its stub does.
- */
 const bridgesFor = {
 	claude: bridgeNaming(pinnedSubagent.claude),
 	codex: bridgeNaming(pinnedSubagent.codex),

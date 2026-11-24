@@ -2,7 +2,6 @@ import type { Harness } from "#router/features/border/index.ts";
 
 type Stop = "noBaaKey" | "baaKeyRefused" | "notStarted";
 
-/** The line the developer reads when a message stops, naming the command that fixes it in their harness. */
 const stopLines: Readonly<Record<Stop, (harness: Harness) => string>> = {
 	baaKeyRefused: (harness) =>
 		`phi-router stopped this message. Your BAA account refused its key, so nothing was sent, and nothing reached your subscription. Run in a terminal: npx phi-router setup ${harness} --new-key`,

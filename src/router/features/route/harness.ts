@@ -15,24 +15,16 @@ interface CleanLaneRefused {
 interface Decoded {
 	readonly model: string;
 	readonly messages: readonly Message[];
-	/** The body for one lane. The clean lane takes what the border returned for `messages`, same length and order. */
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
-	/** `encode` with every reasoning item dropped from the clean body, for an account that could not read one. Codex alone has it. */
 	readonly withoutReasoning?: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	readonly title?: boolean;
 }
 
-/** The body is not one the harness's codec names. `reason` names the field, never its value. */
 class Unreadable extends Schema.TaggedError<Unreadable, { readonly brand: unique symbol }>()("Unreadable", {
 	reason: Schema.String,
 }) {}
 
-/**
- * How one harness speaks to the router: all the route core may know of it. A new harness is one more value of this
- * type and one more row of the path table. Nothing here decides a lane or touches the verdict store.
- */
 interface HarnessWire {
-	/** Picks the stub in `guard`. */
 	readonly harness: Harness;
 	readonly sessionHeader: string;
 	readonly decode: (
@@ -104,10 +96,6 @@ const wires: Wires = {
 				Schema.encodeEffect(OpenAiError)({ error: { message, type: errorType(status, "server_error") } }),
 			),
 	},
-	/**
-	 * The pi package: `x-phi-session`, which it adds, the Messages codec with pi's bridge, and the Anthropic error shape.
-	 * A model id other than one of phi's own names is its own target model, as pi sent it.
-	 */
 	pi: {
 		decode: (body, openWrote) =>
 			Effect.mapBoth(decodeRequest(body, openWrote, "pi"), {

@@ -6,6 +6,7 @@ import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { SessionRequests } from "#router/client/router-port/index.ts";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
+import { unreadableLeases } from "./target-models.ts";
 
 const asked = {
 	first: "PIN-FIRST: list the build steps.",
@@ -108,7 +109,13 @@ const pinnedThenUnpinned = Effect.gen(function* pinnedThenUnpinned() {
 		judged: { asked: yield* judgedOf(judged, marked), calls: judged.length },
 		lines: pipe(
 			lines,
-			Array.map(({ account, judgeCost, lane, reason }) => [account, lane, reason, judgeCost > none]),
+			Array.map(({ account, judgeCost, judgeFailures, lane, reason }) => [
+				account,
+				lane,
+				reason,
+				judgeCost > none,
+				judgeFailures,
+			]),
 		),
 		status: yield* statusOn(url, session),
 		whilePinned: { judged: whilePinnedSeen.judged.length, status: whilePinnedSeen.status },
@@ -130,13 +137,46 @@ const pinnedStretch = Effect.gen(function* pinnedStretch() {
 	assert.deepStrictEqual(seen, {
 		judged: { asked: marked, calls: marked.length },
 		lines: [
-			["baa", "sealed", "pinned", false],
-			["baa", "sealed", "pinned", false],
-			["open", "clean", "clean", true],
+			["baa", "sealed", "pinned", false, none],
+			["baa", "sealed", "pinned", false, none],
+			["open", "clean", "clean", true, none],
 		],
 		status: statusOf({ account: "open", cleared: marked.length + emptySystemPart, pinned: false }),
 		whilePinned: { judged: none, status: statusOf({ account: "baa", cleared: none, pinned: true }) },
 	});
+});
+
+const ok = 200;
+
+const accountsAndReasons = Effect.fnUntraced(function* accountsAndReasons(state: string) {
+	const lines = yield* laneLines(state);
+
+	return pipe(
+		lines,
+		Array.map(({ account, reason }) => [account, reason]),
+	);
+});
+
+const unreadableRegistry = Effect.gen(function* unreadableRegistry() {
+	const fs = yield* FileSystem.FileSystem;
+	const repo = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-repo-" });
+	const listed = yield* routed({ configExtras: { baaRepos: [repo] }, holdsPhi: () => false });
+	const unlisted = yield* routed({ holdsPhi: () => false });
+	const routers = [listed, unlisted];
+
+	yield* Effect.forEach(routers, ({ state }) => unreadableLeases(state), { concurrency: 1 });
+	yield* pinnedOn(listed.url, true);
+
+	const statuses = yield* Effect.forEach(routers, ({ post }) => postedIn(post, session, [user(asked.first)]), {
+		concurrency: 1,
+	});
+
+	const lines = yield* Effect.forEach(routers, ({ state }) => accountsAndReasons(state), { concurrency: 1 });
+
+	assert.deepStrictEqual<unknown>(
+		{ lines, statuses },
+		{ lines: [[["baa", "pinned"]], [["open", "clean"]]], statuses: [ok, ok] },
+	);
 });
 
 const unpinnedBeforeTheSend = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
@@ -284,6 +324,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 		test.effect(
 			"a request pinned on arrival runs on the BAA account with nothing judged when the unpin lands before its send",
 			() => lateUnpin,
+		);
+		test.effect(
+			"an unreadable lease registry fails no request that is pinned or that comes while no BAA repo is listed",
+			() => unreadableRegistry,
 		);
 		test.effect(
 			"the configuration refuses a mode key, whatever its value, a relative BAA repo and a relative judge key file",

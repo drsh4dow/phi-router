@@ -1,7 +1,10 @@
-import { Array, ConfigProvider, Context, Effect, FileSystem, Layer, pipe } from "effect";
+import { Array, ConfigProvider, Context, Effect, FileSystem, Layer, String as Str, pipe } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
+import { bodyOf, claudeRequest, mocked } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import { VerdictStore } from "#router/client/verdict-store.ts";
+import { routerProcess } from "./router-process.ts";
 
 const session = "store-1";
 
@@ -112,6 +115,53 @@ const replyKeysAdd = Effect.gen(function* replyKeysAdd() {
 		true,
 		false,
 	]);
+});
+
+const patient = { timeout: 60_000 };
+
+const judgeKey = '"keyEnv":"PHI_TEST_JUDGE_KEY"';
+
+const judgedAgain = Effect.gen(function* judgedAgain() {
+	const fs = yield* FileSystem.FileSystem;
+	const client = yield* HttpClient.HttpClient;
+	const { env, mocks } = yield* mocked({ holdsPhi: () => false });
+	const file = `${env.XDG_CONFIG_HOME}/phi-router/config.json`;
+	const body = yield* bodyOf([{ role: "user", text: "List the build steps." }]);
+
+	const judgedByOneRun = Effect.gen(function* judgedByOneRun() {
+		const before = yield* mocks.judge.received;
+		const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
+
+		const answer = yield* client.execute(
+			HttpClientRequest.prependUrl(router.url)(claudeRequest({ body, session: "policy-1" })),
+		);
+
+		yield* answer.text;
+		yield* router.kill;
+
+		const after = yield* mocks.judge.received;
+
+		return after.length - before.length;
+	}).pipe(Effect.scoped);
+
+	const first = yield* judgedByOneRun;
+	const sameModel = yield* judgedByOneRun;
+	const text = yield* fs.readFileString(file);
+
+	yield* fs.writeFileString(file, Str.replace(judgeKey, `${judgeKey},"model":"phi-test-other-judge"`)(text));
+
+	const otherModel = yield* judgedByOneRun;
+
+	assert.isAbove(first, sameModel);
+	assert.deepStrictEqual({ otherModel, sameModel }, { otherModel: first, sameModel: 0 });
+});
+
+it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("a restarted router", (test) => {
+	test.effect(
+		"reuses the verdicts its last run stored, and judges every part again once the judge model changed",
+		() => judgedAgain,
+		patient,
+	);
 });
 
 it.layer(NodeServices.layer)("the verdict store", (test) => {

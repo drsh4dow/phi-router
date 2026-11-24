@@ -1,4 +1,4 @@
-import { Array, Effect, Fiber, FileSystem, Path, Schedule, Schema, Stream, Struct, pipe } from "effect";
+import { Array, Effect, Fiber, FileSystem, Path, Schedule, Schema, String as Str, Stream, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
 import type { AccountScript } from "./harnesses.ts";
@@ -12,6 +12,8 @@ import { textEvents } from "#router/client/mock-upstreams/index.ts";
 const badGateway = 502;
 
 const failed = 500;
+
+const rateLimited = 429;
 
 const day = 86_400_000;
 
@@ -47,6 +49,8 @@ const linesIn = Effect.fnUntraced(function* linesIn(state: string) {
 const answers: AccountScript = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
 
 const failing: AccountScript = () => ({ body: "{}", kind: "status", status: 500 });
+
+const limited: AccountScript = () => ({ body: "{}", kind: "status", status: rateLimited });
 
 const untilLineWrittenOnRelease = { schedule: Schedule.spaced("20 millis") } as const;
 
@@ -94,9 +98,7 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 
 	const body = yield* bodyOf([{ role: "user", text: "Go on." }]);
 	const response = yield* post({ body, session: "none-answered-1" });
-
-	yield* response.text;
-
+	const text = yield* response.text;
 	const lines = yield* laneLines(state);
 
 	assert.deepStrictEqual(
@@ -105,9 +107,10 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 				lines,
 				Array.map(({ account, lane, reason }) => [account, lane, reason]),
 			),
+			named: Str.includes("baa-2")(text),
 			status: response.status,
 		},
-		{ lines: [["baa-2", "sealed", "failover"]], status: badGateway },
+		{ lines: [["baa-2", "sealed", "failover"]], named: true, status: badGateway },
 	);
 });
 
@@ -116,15 +119,18 @@ const sealedEnded = Effect.gen(function* sealedEnded() {
 	const { mocks, post, state } = yield* routed({ baaFolder, holdsPhi: () => true });
 	const body = yield* bodyOf([{ role: "user", text: "Member 4411 called." }]);
 	const response = yield* post({ body, session: "sealed-ended-1" });
-
-	yield* response.text;
-
+	const text = yield* response.text;
 	const opened = yield* mocks.open.received;
 	const lines = yield* linesIn(state);
 
 	assert.deepStrictEqual(
-		{ lines, opened: opened.length, status: response.status },
-		{ lines: [["baa", "sealed", "sealed new content"]], opened: 0, status: badGateway },
+		{
+			fix: Str.includes(`CLAUDE_CONFIG_DIR=${baaFolder} claude auth login`)(text),
+			lines,
+			opened: opened.length,
+			status: response.status,
+		},
+		{ fix: true, lines: [["baa", "sealed", "sealed new content"]], opened: 0, status: badGateway },
 	);
 });
 
@@ -165,6 +171,24 @@ const sealedPastEnded = Effect.gen(function* sealedPastEnded() {
 	);
 });
 
+const everyOpenStamped = Effect.gen(function* everyOpenStamped() {
+	const { post, state } = yield* routed({ holdsPhi: () => false, open: limited });
+	const body = yield* bodyOf([{ role: "user", text: "Go on." }]);
+
+	yield* Effect.forEach(
+		["stamped-1", "stamped-2"],
+		(session) => Effect.flatMap(post({ body, session }), (response) => response.text),
+		{ concurrency: 1 },
+	);
+
+	const lines = yield* linesIn(state);
+
+	assert.deepStrictEqual(lines, [
+		["baa", "sealed", "failover"],
+		["baa", "sealed", "failover"],
+	]);
+});
+
 const readsFailingAfterArrival = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
 	const reads = { arrived: false };
 
@@ -203,15 +227,22 @@ it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 		"is still written when the harness hangs up while a failed-over request waits on the BAA account, naming that account",
 		() => hungUp,
 	);
-	test.effect("names the last account tried when no account answers, for failover", () => noneAnswered);
 	test.effect(
-		"names the BAA account whose login ended when a sealed request has no other and fails",
+		"names the last account tried when no account answers, for failover, as the 502 answer does",
+		() => noneAnswered,
+	);
+	test.effect(
+		"names the BAA account whose login ended when a sealed request has no other and fails, and the 502 answer gives its login command",
 		() => sealedEnded,
 	);
 	test.effect("says failover when the home account's login ended and the next open account answers", () => homeEnded);
 	test.effect(
 		"names no failover when a sealed request moves past an open account whose login ended without trying it",
 		() => sealedPastEnded,
+	);
+	test.effect(
+		"says failover at the BAA account for a clean request whose every open account is stamped",
+		() => everyOpenStamped,
 	);
 	test.effect(
 		"is written as a router failure at the home account when the store cannot be read on the walk",

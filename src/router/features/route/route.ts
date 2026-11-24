@@ -17,18 +17,9 @@ const statuses = { failed: 500, notFound: 404, ok: 200, refused: 502, unreadable
 
 const notFound: Outgoing = { body: Stream.empty, headers: {}, kind: "relayed", status: statuses.notFound };
 
-/**
- * An answer the router makes itself, in the error shape of the harness's vendor.
- *
- * @param {HarnessWire} wire The harness.
- * @param {number} status The status.
- * @param {string} message What went wrong. It names a field or an account, never a value.
- * @returns {Effect.Effect<Outgoing>} The answer.
- */
 const refusal = (wire: HarnessWire, status: number, message: string): Effect.Effect<Outgoing> =>
 	Effect.map(wire.vendorErrorBody(status, message), (body) => ({ body, kind: "whole", status }));
 
-/** The failures that say the judge itself gave no usable answer. A binary or too-large piece is sealed without asking it. */
 const judgeFailed = new Set(["judge-error", "judge-timeout", "judge-refused"]);
 
 const isJudgeFailure = Verdicts.$match({
@@ -36,13 +27,8 @@ const isJudgeFailure = Verdicts.$match({
 	Sealed: ({ finding }) => Findings.$is("Failure")(finding) && judgeFailed.has(finding.why),
 });
 
-/** A request that judged nothing counts no judge cost and no failure on its lane log line. */
 const unjudged = { cost: 0, failures: 0 } as const;
 
-/**
- * Route.tla `Arrive`: every part `lookup` does not hold judged, history included, the listed fixtures cleared. `Store`:
- * all the judgments in one step.
- */
 const judgedOn = Effect.fnUntraced(function* judgedOn(
 	serving: Serving,
 	session: string,
@@ -69,12 +55,6 @@ const judgedOn = Effect.fnUntraced(function* judgedOn(
 	return { choice, judged: { cost: usage.cost, failures } };
 });
 
-/**
- * Route.tla `Arrive`: one read of the store, and the pin read from it once: the session's, or the request's own when it
- * comes from the pinned subagent. A pinned request judges and stores nothing, so its parts are judged on the first
- * request after the unpin. Codex's thread-title request runs as pinned: it quotes the prompt under a fresh session id,
- * so no pin or BAA repo of its own session can cover it.
- */
 const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: string, incoming: Incoming) {
 	const arrival = yield* serving.store.read(session, serving.policy);
 	const request = yield* serving.wire.decode(incoming.body, arrival.openWrote);
@@ -94,13 +74,6 @@ const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: s
 	return { choice, incoming, judged, request, serving, session } satisfies Arrived;
 });
 
-/**
- * Every failure of an account in the vendor's error shape: 502 naming the account that did not answer, whose login
- * ended, with the command that fixes it, or whose login folder's token was refused twice.
- *
- * @param {HarnessWire} wire The harness.
- * @returns {object} The handlers, by tag.
- */
 const accountFailures = (wire: HarnessWire) =>
 	({
 		LoginEnded: ({ message }: { readonly message: string }) => refusal(wire, statuses.refused, message),
@@ -110,17 +83,6 @@ const accountFailures = (wire: HarnessWire) =>
 			refusal(wire, statuses.refused, `account ${account} did not answer`),
 	}) as const;
 
-/**
- * One model request of one harness end to end: `Arrive`, then `Dispatch` and each send after it, the answer relayed
- * unbuffered. Every failure is an answer in the vendor's error shape: 400 with no session header or an unreadable body,
- * or with the line that names the setup command when a BAA account refused its key, since each harness shows a 400's
- * message as it came and none takes it for its own login, 500 when the store, the lane log or the 429 stamps fail, 502
- * when no account up to the last BAA account answered.
- * An unreadable body never falls back to the sealed lane.
- *
- * @param {Serving} serving The harness served.
- * @returns {Function} The answer to one request.
- */
 const answering =
 	(serving: Serving) =>
 	(incoming: Incoming): Effect.Effect<Outgoing, never, Judging | Scope.Scope> => {
@@ -142,7 +104,6 @@ const answering =
 		});
 	};
 
-/** The first open account's model catalog, asked with `query` alone, with `phi/auto` appended. */
 const listedWith = Effect.fnUntraced(function* listedWith(
 	accounts: OpenAiAccounts,
 	incoming: Incoming,
@@ -163,16 +124,6 @@ const listedWith = Effect.fnUntraced(function* listedWith(
 	});
 });
 
-/**
- * `GET /v1/models`: the first open account's model catalog, asked with the harness's headers, with `phi/auto` appended as a
- * copy of the target model's entry. Another status is relayed as it came. 502 when the account does not answer, its
- * login ended, or its catalog lists no target model. A request not from Codex gets the 404 of a path the router lacks and reaches no
- * account, so Claude Code's model discovery never carries its login to OpenAI. A `client_version` without the shape of
- * a version gets 400 and reaches no account.
- *
- * @param {OpenAiAccounts} accounts OpenAI's accounts.
- * @returns {Path["answer"]} The answer to one request.
- */
 const models =
 	(accounts: OpenAiAccounts): Path["answer"] =>
 	(incoming) => {

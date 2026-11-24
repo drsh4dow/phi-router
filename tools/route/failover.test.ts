@@ -291,6 +291,44 @@ const replyKeys = Effect.gen(function* replyKeys() {
 	);
 });
 
+const cutReply = Effect.gen(function* cutReply() {
+	const lastEventRead = yield* Latch.make();
+
+	const cutAfterLastEvent: AccountScript = (asked) => {
+		if (Str.includes(replyText)(asked.body)) {
+			return ok(asked);
+		}
+
+		return {
+			events: Stream.concat(
+				Stream.fromIterable(textEvents([replyText])),
+				Stream.flatMap(Stream.fromEffect(lastEventRead.await), () => Stream.die("the account hung up")),
+			),
+			kind: "events",
+		};
+	};
+
+	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary, open: cutAfterLastEvent });
+	const body = yield* bodyOf([clean(one)]);
+	const response = yield* post({ body, session: "failover-8" });
+
+	yield* response.stream.pipe(
+		Stream.decodeText,
+		Stream.tap((text) => Effect.when(lastEventRead.open, Effect.succeed(Str.includes("message_stop")(text)))),
+		Stream.catchCause(() => Stream.empty),
+		Stream.runDrain,
+	);
+
+	const echoed = yield* posted(post, "failover-8", [clean(one), { role: "assistant", text: replyText }, followUp]);
+	const judged = yield* mocks.judge.received;
+	const judgedText = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(judged);
+
+	assert.deepStrictEqual(
+		{ judgedReply: Str.includes(replyText)(judgedText), status: echoed.status },
+		{ judgedReply: true, status: status.ok },
+	);
+});
+
 it.layer(NodeServices.layer)("several accounts per lane", (test) => {
 	test.effect(
 		"a home account's 429 sends the request to the next open account, and the session skips it for 30 minutes",
@@ -317,4 +355,5 @@ it.layer(NodeServices.layer)("several accounts per lane", (test) => {
 		"a reply one open account wrote reaches the next open account as written, and the judge never reads it",
 		() => replyKeys,
 	);
+	test.effect("a reply cut off after its last event leaves no reply key, so the judge reads its echo", () => cutReply);
 });

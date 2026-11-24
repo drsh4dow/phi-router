@@ -16,6 +16,7 @@ const ended = 409;
 const unavailable = 503;
 const harness = 101;
 const other = 202;
+const exited = 303;
 const none = 0;
 const once = 1;
 const monday = "Mon Jan  5 10:00:00 2026";
@@ -238,6 +239,30 @@ it.effect("a lease taken while a check runs outlives the lease the router held b
 		assert.deepStrictEqual(
 			{ after: after.status, calls, registry, taken: taken.status },
 			{ after: ok, calls: once, registry: [leaseOf(other, monday)], taken: ok },
+		);
+	}),
+);
+
+it.effect("a lease taken while a check drops another lease is on disk once the router answers", () =>
+	Effect.gen(function* racingDrop() {
+		const world = yield* machine(
+			[runningAs(harness, monday), runningAs(other, monday)],
+			[leaseOf(harness, monday), leaseOf(exited, monday)],
+		);
+
+		yield* Effect.forkChild(world.life.watching);
+		yield* world.gate.close.pipe(Effect.andThen(TestClock.adjust(oneInterval)));
+
+		const taking = yield* Effect.forkChild(asked(world.life.path.answer, leaseLine(other)));
+
+		yield* Effect.yieldNow.pipe(Effect.andThen(world.gate.open));
+
+		const taken = yield* Fiber.join(taking);
+		const registry = yield* Ref.get(world.registry);
+
+		assert.deepStrictEqual(
+			{ registry, taken: taken.status },
+			{ registry: [leaseOf(harness, monday), leaseOf(other, monday)], taken: ok },
 		);
 	}),
 );

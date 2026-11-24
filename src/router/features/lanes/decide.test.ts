@@ -72,11 +72,6 @@ interface Session {
 	readonly send: (messages: readonly Message[], judge?: Judge["Service"]) => Effect.Effect<Lane, never, Digest.Digest>;
 }
 
-/**
- * One session with its verdicts in memory, a sealed verdict never overwritten, as the router's verdict store keeps them.
- *
- * @returns {Session} The session.
- */
 const sessionOf = (): Session => {
 	const book = new Map<string, Standing>();
 	const lookup: Lookup = (key) => book.get(key) ?? "unknown";
@@ -142,6 +137,13 @@ const judged = Effect.gen(function* judged() {
 	const flagged = yield* session.send([...opening, ranCat, catOutput(syntheticChart)]);
 
 	assert.deepStrictEqual([clean, flagged], ["clean", "sealed"]);
+});
+
+const historySeals = Effect.gen(function* historySeals() {
+	const session = sessionOf();
+	const lane = yield* session.send([system, asked(syntheticChart), reply("other", "Done."), asked("Now add a test.")]);
+
+	assert.strictEqual(lane, "sealed");
 });
 
 const afterSeal = Effect.gen(function* afterSeal() {
@@ -220,6 +222,10 @@ it.layer(Digest.layerWebCrypto)("decide", (test) => {
 	);
 	test.effect("a retry of a sealed request and a repeated read of the sealed content go sealed", () => repeated);
 	test.effect("a tool result the judge flags goes sealed, and a clean one stays clean", () => judged);
+	test.effect(
+		"a request whose never-judged history seals goes sealed, though its new content is clean",
+		() => historySeals,
+	);
 	test.effect(
 		"a reply right after sealed content is judged beside its stub, so the next request goes clean",
 		() => afterSeal,

@@ -14,7 +14,6 @@ import { stopLines } from "./stopped.ts";
 
 const statuses = { failed: 500, ok: 200, rateLimited: 429, unauthorized: 401, unreadable: 400 } as const;
 
-/** A BAA account answered 401 to its key, so the message stops there, with nothing sent to an open account. */
 class BaaKeyRefused extends Schema.TaggedError<BaaKeyRefused, { readonly brand: unique symbol }>()("BaaKeyRefused", {
 	account: Schema.String,
 	harness: Schema.Literals(["claude", "codex", "pi"]),
@@ -28,34 +27,19 @@ const relaying = { kind: "relayed" } as const;
 
 type Unanswered = Effect.Error<ReturnType<Account["send"]>>;
 
-/** What routing a judged request can fail with. `answering` turns each into an answer. */
 type Unrouted = BaaKeyRefused | PlatformError.PlatformError | Schema.SchemaError | Unanswered;
 
 type Relaying = Digest.Digest | Scope.Scope;
 
-/**
- * How one send came out, known before any byte reaches the harness. `answered` is relayed. `unreadable` is a 400 read
- * whole, which the reasoning resend may send again. `failed` moves to the next account, `rejected` is a login folder's 401, and the
- * `last` of either is what the harness gets when no account is left. A body left unread closes with the request.
- */
 type Sent =
 	| { readonly kind: "answered"; readonly outgoing: Outgoing }
 	| { readonly kind: "unreadable"; readonly outgoing: Outgoing; readonly text: string }
 	| { readonly kind: "failed" | "rejected"; readonly last: Effect.Effect<Outgoing, Unanswered> };
 
-/**
- * A request on its walk: what it arrived as, and how the walk keeps the stop of the account an aim stays at, which
- * answers that account's stop before it spent.
- */
 interface Walking extends Arrived {
 	readonly stopping: (aim: Aim, spend: Spend) => Effect.Effect<Stop>;
 }
 
-/**
- * The send to the walk's current account, kept as the request's latest. A 429 or a 5xx fails over, and a 429 stamps an
- * open account. No answer and an ended login fail over too, the second with its notice logged. A BAA account's 401 fails
- * with `BaaKeyRefused`. An open account's 200 keeps its reply keys as it passes.
- */
 const sentTo = Effect.fnUntraced(function* sentTo(arrival: Walking, aim: Aim) {
 	const { incoming, request, serving, session } = arrival;
 	const { account, lane } = current(aim.walk);
@@ -99,13 +83,6 @@ const sentTo = Effect.fnUntraced(function* sentTo(arrival: Walking, aim: Aim) {
 	);
 });
 
-/**
- * Makes the walk's current account fit to send. An ended login fails over with its notice logged.
- *
- * @param {Walk} walk The walk, at the account to make fit.
- * @returns {Effect.Effect} None once the account is fit, the walk past it when its login could not be made fit, or
- *   that failure past the last account.
- */
 const readied = (walk: Walk): Effect.Effect<Option.Option<Walk>, Unrouted> =>
 	Effect.matchEffect(current(walk).account.ready(), {
 		onFailure: (failure) =>
@@ -116,11 +93,6 @@ const readied = (walk: Walk): Effect.Effect<Option.Option<Walk>, Unrouted> =>
 		onSuccess: () => Effect.succeedNone,
 	});
 
-/**
- * The next send down `walk`. `chosen` reads the store first, so a send that goes sealed moves past an open account
- * without making its login fit. The walk stops at the account it stays at, makes it fit once, and `chosen` reads the
- * store once more for the body, so no vendor CLI runs between that read and the send.
- */
 const aimed: (arrival: Walking, walk: Walk) => Effect.Effect<Aim, Unrouted, Digest.Digest> = Effect.fnUntraced(
 	function* aiming(arrival, walk) {
 		const aim = yield* chosen(arrival, walk);
@@ -144,11 +116,6 @@ const aimed: (arrival: Walking, walk: Walk) => Effect.Effect<Aim, Unrouted, Dige
 	},
 );
 
-/**
- * The reasoning resend: after a 400 that says the account could not read an encrypted reasoning item, the request once more
- * with no reasoning. None when the 400 says something else, or when dropping the reasoning leaves the body as it was for
- * the same account, as it always does on the sealed lane. Dropping the reasoning is the request's, so it happens once.
- */
 const resendOf = Effect.fnUntraced(function* resendOf(arrival: Walking, aim: Aim, text: string) {
 	const { withoutReasoning } = arrival.request;
 
@@ -166,17 +133,6 @@ const resendOf = Effect.fnUntraced(function* resendOf(arrival: Walking, aim: Aim
 	);
 });
 
-/**
- * Route.tla `Rejected` and `Failover`: where the walk goes after an account failed before the first byte. A login
- * folder's 401 spends that account's own resend, which unfits it, and the walk stays, so the login is made fit again
- * before the send, which may still go sealed to another account with a resend of its own. Any other failure, and a
- * second 401, moves on. None past the last BAA account.
- *
- * @param {Walking} arrival The request on its walk.
- * @param {Aim} aim The send that failed.
- * @param {boolean} rejected Whether it failed on a login folder's 401.
- * @returns {Effect.Effect} The walk to aim down next, or none.
- */
 const nextAfter = (arrival: Walking, aim: Aim, rejected: boolean): Effect.Effect<Option.Option<Walk>> => {
 	if (!rejected) {
 		return Effect.succeed(onward(aim.walk));
@@ -191,11 +147,6 @@ const nextAfter = (arrival: Walking, aim: Aim, rejected: boolean): Effect.Effect
 	});
 };
 
-/**
- * Route.tla `Reply` when the account answers, `Resend` on the reasoning resend, and `nextAfter` when it fails. Each next send starts
- * from `aimed`. Past the last BAA account the harness gets the last answer as it came, or the request fails with the
- * last failure.
- */
 const tried: (arrival: Walking, aim: Aim) => Effect.Effect<Outgoing, Unrouted, Relaying> = Effect.fnUntraced(
 	function* attempt(arrival, aim) {
 		const sent = yield* sentTo(arrival, aim);
@@ -222,11 +173,6 @@ const tried: (arrival: Walking, aim: Aim) => Effect.Effect<Outgoing, Unrouted, R
 	},
 );
 
-/**
- * Route.tla `Dispatch`: the lane log opened, the walk from the session's home account without the open accounts
- * stamped now, and the first send to its first account. The request's one line is written from its walk once the walk
- * ends: when an account answers, when every account failed, or when the harness hangs up.
- */
 const dispatched = Effect.fnUntraced(function* dispatched(arrival: Arrived) {
 	const { accounts, accountState, laneLog } = arrival.serving;
 	const append = yield* laneLog.opened(arrival.session);

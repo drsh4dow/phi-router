@@ -101,11 +101,6 @@ const guardedMessage = (message: Message, checked: readonly Checked[], harness: 
 	return stubbedMessage(message, stubOf(checked, harness));
 };
 
-/**
- * The request an open account may receive. Keys each part itself, so it never trusts the lane choice: a cleared part
- * passes, a sealed or never-judged one becomes the stub, and each tool call keeps its id and name. Fails when the tool
- * list never cleared.
- */
 const guard = Effect.fn("guard")(function* guard({
 	messages,
 	lookup,

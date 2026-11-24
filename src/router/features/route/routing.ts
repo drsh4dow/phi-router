@@ -9,9 +9,7 @@ import { Upstream } from "#router/client/accounts/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
 
-/** What every harness shares, built once, when the router starts. */
 interface Routing {
-	/** `policyVersion` of the judge and its model, so verdicts another judge or model made are not reused. */
 	readonly policy: string;
 	readonly choose: typeof LaneChoice.Service;
 	readonly store: VerdictStore["Service"];
@@ -22,10 +20,8 @@ interface Routing {
 
 type Judging = Judge | Digest.Digest;
 
-/** The judge and the digest of the build context, and nothing else, so each request keeps the scope its server gives it. */
 const judgingOf = Effect.map(Effect.context<Judging>(), Context.pick(Judge, Digest.Digest));
 
-/** The services only a serving router builds: the judge and the accounts, which read their keys, and the lane log. */
 const services = Layer.mergeAll(Judge.layer, Upstream.layer, LaneLog.layer, Digest.layerWebCrypto).pipe(
 	Layer.provideMerge(Configuration.layer),
 );

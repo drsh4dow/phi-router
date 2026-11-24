@@ -96,6 +96,22 @@ const relayed = Effect.gen(function* relayed() {
 	);
 });
 
+const OpenAiError = Schema.fromJsonString(
+	Schema.Struct({ error: Schema.Struct({ message: Schema.String, type: Schema.String }) }),
+);
+
+const unanswered = Effect.gen(function* unanswered() {
+	const { client } = yield* routed({ harness: "codex", holdsPhi: () => false, opens: ["refused"] });
+	const response = yield* client.execute(asked);
+	const text = yield* response.text;
+	const { error } = yield* Schema.decodeEffect(OpenAiError)(text, { onExcessProperty: "error" });
+
+	assert.deepStrictEqual(
+		{ named: Str.includes("open")(error.message), status: response.status },
+		{ named: true, status: status.refused },
+	);
+});
+
 const claudeCodeDiscovery = HttpClientRequest.get("/v1/models?limit=1000").pipe(
 	HttpClientRequest.setHeaders({
 		accept: "application/json",
@@ -180,6 +196,10 @@ it.layer(NodeServices.layer)("Codex's model catalog", (test) => {
 		() => listed,
 	);
 	test.effect("an account's error passes as it came, and a catalog with no target model gets 502", () => relayed);
+	test.effect(
+		"an account that does not answer gets 502 in OpenAI's error shape, naming the account",
+		() => unanswered,
+	);
 	test.effect(
 		"a model list asked with no Codex originator gets the 404 of a path the router lacks, and reaches no account",
 		() => notCodex,

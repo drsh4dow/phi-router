@@ -1,14 +1,14 @@
-import { Array, Effect, Option, Struct } from "effect";
+import { Array, Effect, FileSystem, Logger, Option, String as Str, Struct } from "effect";
 import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
-import { dayLong, loggedIn, start, thirtyDays } from "./login-fixture.ts";
+import { dayLong, loggedIn, logins, start, thirtyDays, warnings } from "./login-fixture.ts";
 import { postedIn, routed } from "./mocked-router.ts";
 import { replyMessage, replying, userMessage } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
 
-const status = { ok: 200, unauthorized: 401, unreadable: 400 } as const;
+const status = { ok: 200, refused: 502, unauthorized: 401, unreadable: 400 } as const;
 
 const minute = 60_000;
 
@@ -33,6 +33,8 @@ const unreadable = (): Said => ({
 });
 
 const refusedOn = 3;
+
+const refusedFirst = 2;
 
 const thinks = (): Said => replying([reasoning, answer]);
 
@@ -148,6 +150,82 @@ const movesOnAfterSecond401 = Effect.gen(function* movesOnAfterSecond401() {
 	);
 });
 
+const endedBeforeResend = Effect.gen(function* endedBeforeResend() {
+	const fs = yield* FileSystem.FileSystem;
+
+	yield* TestClock.setTime(start);
+
+	const open = yield* loggedIn("codex", dayLong);
+	const opening = inTurn([thinks, unreadable]);
+	const endLogin = Effect.orDie(fs.writeFileString(`${open.folder}/${logins.codex.file}`, "{}"));
+
+	const ending = Effect.when(
+		endLogin,
+		Effect.sync(() => opening.asked() >= refusedFirst),
+	);
+
+	const warned = warnings();
+
+	const { mocks, post } = yield* routed({
+		harness: "codex",
+		holdsPhi: () => false,
+		open: opening.script,
+		openFolder: open.folder,
+		store: (real) =>
+			Struct.assign(real, {
+				read: (session: string, policy: string) => Effect.andThen(ending, real.read(session, policy)),
+			}),
+	}).pipe(Effect.provideService(Logger.CurrentLoggers, warned.loggers));
+
+	yield* postedIn(post, "logins-ended", [userMessage("Think.")]);
+
+	const second = yield* postedIn(post, "logins-ended", [
+		userMessage("Think."),
+		reasoning,
+		answer,
+		userMessage("Go on."),
+	]);
+
+	const [opened = [], sealed = []] = yield* mocks.accounts;
+
+	assert.deepStrictEqual<unknown>(
+		{ opened: opened.length, sealed: sealed.length, second, warnings: warned.said },
+		{
+			opened: refusedFirst,
+			sealed: 1,
+			second: status.ok,
+			warnings: [[`phi-router: open's login ended. Fix: CODEX_HOME=${open.folder} codex login`]],
+		},
+	);
+});
+
+const lastRefusedTwice = Effect.gen(function* lastRefusedTwice() {
+	yield* TestClock.setTime(start);
+
+	const baa = yield* loggedIn("claude", dayLong);
+
+	const { mocks, post } = yield* routed({
+		baa: unauthorized,
+		baaFolder: baa.folder,
+		holdsPhi: () => true,
+		routerEnv: { PATH: `${baa.bin}:/usr/bin:/bin` },
+	});
+
+	const response = yield* post({ body: claudeBody, session: "logins-claude" });
+	const text = yield* response.text;
+	const [opened = [], sealed = []] = yield* mocks.accounts;
+
+	assert.deepStrictEqual(
+		{
+			named: Str.includes("account baa ")(text),
+			opened: opened.length,
+			sealed: sealed.length,
+			status: response.status,
+		},
+		{ named: true, opened: 0, sealed: 2, status: status.refused },
+	);
+});
+
 it.layer(NodeServices.layer)("a login-folder account", (test) => {
 	test.effect(
 		"reached sealed by the reasoning resend after an open 401, makes its login fit before its first send, and answered 401 resends there once",
@@ -157,4 +235,9 @@ it.layer(NodeServices.layer)("a login-folder account", (test) => {
 		"answered 401 twice sends to the next account, whose login is made fit before its first send",
 		() => movesOnAfterSecond401,
 	);
+	test.effect(
+		"of codex whose login ends before the reasoning resend sends the request to the next account and warns with the command that fixes it",
+		() => endedBeforeResend,
+	);
+	test.effect("as the last BAA account answered 401 twice, gets 502 naming that account", () => lastRefusedTwice);
 });

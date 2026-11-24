@@ -3,8 +3,8 @@ import { Headers, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeHttpClient, NodeHttpServer, NodeServices } from "@effect/platform-node";
 import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
-import { codexBodyOf, codexCatalog, codexRequest, fakes, headersNamed, userMessage } from "./harnesses.ts";
-import { postedIn, routed } from "./mocked-router.ts";
+import { bodyOf, postedIn, routed } from "./mocked-router.ts";
+import { codexBodyOf, codexCatalog, codexRequest, fakes, harnesses, headersNamed, userMessage } from "./harnesses.ts";
 import { serveOpenAi } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-5T9V";
@@ -161,6 +161,21 @@ const claudeOnly = Effect.gen(function* claudeOnly() {
 	assert.deepStrictEqual([posted.status, listed.status], [status.notFound, status.notFound]);
 });
 
+const codexOnly = Effect.gen(function* codexOnly() {
+	const { client, mocks } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
+	const body = yield* bodyOf([{ role: "user", text: "List the build steps." }]);
+
+	const statuses = yield* Effect.forEach(
+		[harnesses.claude, harnesses.pi],
+		(harness) => Effect.map(client.execute(harness.request({ body, session: "wire-7" })), (answer) => answer.status),
+		{ concurrency: 1 },
+	);
+
+	const reached = yield* mocks.accounts;
+
+	assert.deepStrictEqual({ reached, statuses }, { reached: [[], []], statuses: [status.notFound, status.notFound] });
+});
+
 const answeredHeaders = {
 	"openai-organization": "org-not-carried",
 	"retry-after": "3",
@@ -194,6 +209,10 @@ it.layer(NodeServices.layer)("Codex's wire", (test) => {
 	test.effect("no session-id gets 400 in OpenAI's shape, with no upstream call", () => noSession);
 	test.effect("a WebSocket upgrade gets 404 and reaches no account", () => upgrade);
 	test.effect("a router with no OpenAI account answers 404 on Codex's paths", () => claudeOnly);
+	test.effect(
+		"a router with no Anthropic account answers 404 on Claude Code's and pi's paths and reaches no account",
+		() => codexOnly,
+	);
 	test.effect(
 		"Codex gets back only content-type, x-request-id and retry-after of an account's headers",
 		() => returnedHeaders,

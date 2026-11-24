@@ -112,8 +112,8 @@ const unknownField = Effect.fnUntraced(function* unknownField({ harness, withFie
 	});
 
 	assert.deepStrictEqual<unknown>(
-		{ named: Str.includes("future_field")(text), received, status: response.status },
-		{ named: true, received: nothing, status: status.unreadable },
+		{ named: Str.includes("future_field")(text), received, status: response.status, valued: holdsCanary(text) },
+		{ named: true, received: nothing, status: status.unreadable, valued: false },
 	);
 });
 
@@ -252,7 +252,7 @@ it.layer(NodeServices.layer)("the router forwards only what it can name (ADR 000
 		() => countTokens,
 	);
 	test.effect.each(unnamed)(
-		"$harness: a captured request with one more top-level field gets 400 naming it, and reaches no mock",
+		"$harness: a captured request with one more top-level field gets 400 naming it and none of its value, and reaches no mock",
 		unknownField,
 	);
 	test.effect.each(unnamed)(

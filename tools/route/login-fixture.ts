@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Option, Path } from "effect";
+import { Array, Effect, FileSystem, Logger, Option, Path } from "effect";
 import { Base64Url } from "effect/encoding";
 
 const start = 1_780_000_000_000;
@@ -92,6 +92,23 @@ const loggedIn = Effect.fnUntraced(function* loggedIn(vendor: Vendor, first: Lif
 	return { bin, folder, ran: Effect.orElseSucceed(fs.readFileString(path.join(bin, "runs.log")), () => ""), tokens };
 });
 
-export { dayLong, day, loggedIn, logins, start, thirtyDays };
+interface Warnings {
+	readonly loggers: ReadonlySet<Logger.Logger<unknown, void>>;
+	readonly said: readonly unknown[];
+}
+
+const warnings = (): Warnings => {
+	const said: unknown[] = [];
+
+	const capture = Logger.make(({ logLevel, message }) => {
+		if (logLevel === "Warn") {
+			said.push(message);
+		}
+	});
+
+	return { loggers: new Set([capture]), said };
+};
+
+export { dayLong, day, loggedIn, logins, start, thirtyDays, warnings };
 
 export type { Lifetime, Vendor };

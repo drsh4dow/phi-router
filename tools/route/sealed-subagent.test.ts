@@ -1,5 +1,6 @@
 import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor, stubsFor } from "#router/features/border/index.ts";
 import { clean, harnessNames, holdsCanary, linesIn, modelsIn, phi, posted, sentModels } from "./target-models.ts";
 import { fakes, laneLines, routed } from "./mocked-router.ts";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
@@ -8,7 +9,6 @@ import type { Json } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Post } from "./mocked-router.ts";
 import { jsonText } from "./harnesses.ts";
-import { stubsFor } from "#router/features/border/index.ts";
 
 const vendorOf: Readonly<Record<HarnessName, keyof typeof fakes.sealedModel>> = {
 	claude: "anthropic",
@@ -38,12 +38,17 @@ const pinnedByName = Effect.fnUntraced(function* pinnedByName(harness: HarnessNa
 	);
 
 	const model = fakes.sealedModel[vendorOf[harness]];
+	const bridge = yield* jsonText(bridgesFor[harness]);
 	const sealed = yield* mocks.baa.received;
 	const judged = yield* mocks.judge.received;
 	const opened = yield* mocks.open.received;
 
 	assert.deepStrictEqual<unknown>(
 		{
+			bridged: pipe(
+				sealed,
+				Array.some(({ body }) => Str.includes(bridge)(body)),
+			),
 			judged: judged.length,
 			lines: yield* linesIn(state),
 			models: yield* modelsIn(sealed),
@@ -51,6 +56,7 @@ const pinnedByName = Effect.fnUntraced(function* pinnedByName(harness: HarnessNa
 			statuses,
 		},
 		{
+			bridged: false,
 			judged: none,
 			lines: Array.replicate(["baa", "sealed", model, false, "pinned"], asked.length),
 			models: Array.replicate(model, asked.length),

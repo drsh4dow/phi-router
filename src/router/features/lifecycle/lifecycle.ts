@@ -6,12 +6,10 @@ import type { LiveProcess } from "#router/client/processes.ts";
 import { Processes } from "#router/client/processes.ts";
 import type { RegistryFailed } from "#router/client/leases.ts";
 
-/** How often the router checks its leases. A router with none left is gone before the next check would run. */
 const leaseInterval = "5 seconds";
 
 type Leases = readonly (typeof Lease.Type)[];
 
-/** A closing router holds no leases, so nothing can be added to them. */
 type Leasing = { readonly kind: "accepting"; readonly leases: Leases } | { readonly kind: "closing" };
 
 type Registered = readonly [LeaseReply, Leasing];
@@ -45,14 +43,6 @@ const pidsOf = (leases: Leases): readonly number[] =>
 const stored = (leases: Leases): Effect.Effect<void, RegistryFailed, LeaseRegistry> =>
 	LeaseRegistry.use((registry) => registry.store(leases));
 
-/**
- * The leases with `lease` among them. The same array when it already holds an equal lease, so taking a lease twice
- * changes nothing.
- *
- * @param {Leases} leases The leases.
- * @param {typeof Lease.Type} lease The lease to take.
- * @returns {Leases} The leases with it.
- */
 const withLease = (leases: Leases, lease: typeof Lease.Type): Leases => {
 	const taken = pipe(
 		leases,
@@ -66,11 +56,6 @@ const withLease = (leases: Leases, lease: typeof Lease.Type): Leases => {
 	return [...leases, lease];
 };
 
-/**
- * One lease check: drops every lease that no longer holds, and stops accepting when none is left. A check that could
- * not read the processes keeps every lease until the next one. A failed write keeps the router up, and leaves the
- * dropped leases on disk for a later check to drop again.
- */
 const checked = Effect.fnUntraced(function* checked(now: Leasing) {
 	if (now.kind === "closing") {
 		return now;
@@ -96,10 +81,6 @@ const checked = Effect.fnUntraced(function* checked(now: Leasing) {
 	return { kind: "accepting", leases: kept } satisfies Leasing;
 });
 
-/**
- * Takes a lease for a running pid, on disk before it answers. A closing router takes none. A read of the processes that
- * did not prove it worked takes none, and `start` asks again.
- */
 const registered = Effect.fnUntraced(function* registered(now: Leasing, request: typeof LeaseRequest.Type) {
 	if (now.kind === "closing") {
 		return ["closing", now] satisfies Registered;
@@ -122,12 +103,6 @@ const registered = Effect.fnUntraced(function* registered(now: Leasing, request:
 	return ["accepted", { kind: "accepting", leases }] satisfies Registered;
 });
 
-/**
- * The router's lifecycle, built by `serve` once the port is bound. It adopts the stored lease registry. `path` is the
- * lease row of the path table. `watching` checks the leases once per interval and returns when a check finds none,
- * having stopped accepting in that same step. Taking a lease and the check each hold one permit across their `ps`
- * call and their write, so neither runs inside the other.
- */
 const lifecycle = Effect.gen(function* lifecycle() {
 	const registry = yield* LeaseRegistry;
 	const adopted = yield* registry.adopted;

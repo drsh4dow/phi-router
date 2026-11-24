@@ -12,18 +12,6 @@ import { sessionRows } from "./session.ts";
 
 const hello: Path["answer"] = () => Effect.succeed({ body: "{}", kind: "whole", status: statuses.ok });
 
-/**
- * The router on the HTTP server in context. It serves `HEAD /api/hello`, `POST /v1/messages` for Claude Code and
- * `POST /pi/v1/messages` for pi while the configuration names Anthropic accounts, `POST /v1/responses` and Codex's
- * `GET /v1/models` while it names OpenAI accounts, and the session rows of `pin`, `unpin` and `status`. Each request
- * reads the accounts once, when it arrives, so an account added to `config.json` serves the next request. Every other
- * path answers 404 (ADR 0001): `/v1/messages/count_tokens`, so Claude Code falls back to its own estimate, and Codex's
- * WebSocket upgrade on `GET /v1/responses`, so it keeps to HTTP. It builds the configuration, the judge, the accounts, the
- * 429 stamps and the lane log itself, so no other command reads the configuration, runs a key command or reads a login
- * folder. It reads the lease registry the lifecycle writes through its own client, since `start` returns only once a
- * lease is on disk. Still required from outside: the HTTP server, `VerdictStore`, `Callers`, and the platform services.
- * A caller adds its own rows to the table, such as the lease row of `serve`.
- */
 const Router = flow(
 	Effect.fnUntraced(function* router(others: readonly Path[]) {
 		const accountState = yield* AccountState;

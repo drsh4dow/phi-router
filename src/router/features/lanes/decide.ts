@@ -16,13 +16,6 @@ const laneOf = (sealed: boolean): Lane => {
 	return "clean";
 };
 
-/**
- * The verdicts of the parts `lookup` did not know, and the request's lane as a function of the verdict store. A request
- * goes to the sealed lane when a part sealed during it, or when a part of its own new content is stored sealed, as in a
- * retry, a repeated read, or a request of the same session that sealed it meanwhile. A reply that repeats a line of
- * sealed content before it seals as a quote of it. The caller stores `found`, then calls `laneAt` with each send's read
- * of the store. `laneAt` judges nothing and moves only from clean to sealed as the store gains seals.
- */
 const decide = Effect.fn("decide")(function* decide({
 	messages,
 	lookup,
@@ -72,10 +65,6 @@ const decide = Effect.fn("decide")(function* decide({
 	return { found, laneAt, usage: verdicts.usage };
 });
 
-/**
- * How the route chooses a lane: `decide` unless a test provides another. The border test provides one that always
- * answers clean and hides a message from judging, to show the border holds when the lane choice is wrong.
- */
 const LaneChoice = Context.Reference<typeof decide>("phi-router/router/features/lanes/LaneChoice", {
 	defaultValue: () => decide,
 });
