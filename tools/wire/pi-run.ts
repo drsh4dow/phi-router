@@ -36,13 +36,13 @@ const userPath = Effect.map(Config.String("PATH"), (searchPath) =>
 );
 
 /** The folders a served snapshot uses: git's home, and the folder `git daemon` serves from. */
-interface Folders {
+interface SnapshotFolders {
 	readonly home: string;
-	readonly served: string;
+	readonly daemonBase: string;
 }
 
 /** Runs `git` with no config beyond the repository's own, and fails naming the command unless it exits 0. */
-const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], where: Folders) {
+const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], where: SnapshotFolders) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const searchPath = yield* userPath;
 	const env = { GIT_CONFIG_NOSYSTEM: "1", HOME: where.home, PATH: searchPath };
@@ -56,9 +56,9 @@ const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], whe
 	);
 });
 
-const snapshot = Effect.fnUntraced(function* snapshot(where: Folders) {
+const snapshot = Effect.fnUntraced(function* snapshot(where: SnapshotFolders) {
 	const path = yield* Path.Path;
-	const repo = path.join(where.served, repository);
+	const repo = path.join(where.daemonBase, repository);
 	const tree = ["--git-dir", path.join(repo, ".git"), "--work-tree", checkout];
 	const author = ["-c", "user.name=phi-wire", "-c", "user.email=phi-wire@127.0.0.1"];
 
@@ -77,7 +77,7 @@ const snapshot = Effect.fnUntraced(function* snapshot(where: Folders) {
  * `git daemon` serving a snapshot of the tree under test on a free loopback port until the scope ends. Returns the
  * address `pi install` takes.
  */
-const gitServed = Effect.fnUntraced(function* gitServed(where: Folders) {
+const gitServed = Effect.fnUntraced(function* gitServed(where: SnapshotFolders) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const port = yield* freePort;
 	const address = `git://127.0.0.1:${String(port)}/${repository}`;
@@ -85,7 +85,7 @@ const gitServed = Effect.fnUntraced(function* gitServed(where: Folders) {
 
 	yield* snapshot(where);
 	yield* spawner.spawn(
-		ChildProcess.make("git", ["daemon", ...flags, `--base-path=${where.served}`], { stdin: "ignore" }),
+		ChildProcess.make("git", ["daemon", ...flags, `--base-path=${where.daemonBase}`], { stdin: "ignore" }),
 	);
 	yield* gitAsks(["ls-remote", address], where).pipe(
 		Effect.retry({ schedule: Schedule.spaced("100 millis") }),
@@ -119,12 +119,12 @@ const place = Effect.gen(function* place() {
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-home-" });
 	const agent = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-pi-" });
 	const work = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-work-" });
-	const served = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-git-" });
+	const daemonBase = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-git-" });
 	const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-tmp-" });
 
 	yield* agentFolder(agent);
 
-	return { agent, home, served, temporary, work };
+	return { agent, daemonBase, home, temporary, work };
 });
 
 type Place = Readonly<Effect.Success<typeof place>>;
