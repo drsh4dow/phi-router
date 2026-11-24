@@ -10,7 +10,6 @@ import { voidedNumber } from "./cases.ts";
 
 const typed = { pin: "/phi pin", status: "/phi", unpin: "/phi unpin" } as const;
 
-/** The words of the seal notice that name what happened, the same in every harness. */
 const sealWords = "held patient identifiers and ran only on the BAA account";
 
 /** What a harness showed of the `/phi` answer and the seal notice in everything a run printed. */

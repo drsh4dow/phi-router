@@ -22,7 +22,6 @@ interface PiTurned extends PhiTurned {
 interface PiPlayed extends Played {
 	readonly installed: boolean;
 	readonly doctored: boolean;
-	/** What `doctor pi`, run with a `/tmp` that starts empty, left there. */
 	readonly leftInTmp: readonly string[];
 	readonly routerBefore: boolean;
 	readonly routerStopped: boolean;

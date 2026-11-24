@@ -62,7 +62,6 @@ interface Check {
 	readonly ok: boolean;
 }
 
-/** A corpus case whose whole content is one user text message, and that text. */
 interface Subject {
 	readonly subject: Case;
 	readonly text: string;
