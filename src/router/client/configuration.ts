@@ -1,10 +1,15 @@
 import { Context, Effect, FileSystem, Layer, Option, Path, Schema } from "effect";
 import type { ChildProcessSpawner } from "effect/process";
-import type { KeySource } from "./credentials.ts";
 import { NoConfigFile } from "./no-config-file.ts";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { realFolder } from "./processes.ts";
+
+/**
+ * Where a key comes from: the name of an environment variable, a shell command that prints the key, or the absolute path
+ * of a file that holds it, such as the one `setup` saves. Never the key.
+ */
+type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string } | { readonly keyFile: string };
 
 /** The file's `judge` block: a Decisions judge apart from the accounts, and its model when the block names one. */
 interface NamedJudge {
@@ -115,3 +120,5 @@ class Configuration extends Context.Service<Configuration, Configured>()("phi-ro
 }
 
 export { Configuration, absent, configFile, configText };
+
+export type { KeySource };

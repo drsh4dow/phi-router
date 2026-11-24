@@ -15,24 +15,9 @@ import {
 	Struct,
 } from "effect";
 import { LoginEnded, loginFolders } from "./login-folders.ts";
+import type { KeySource } from "./configuration.ts";
 import type { Login } from "./login-folders.ts";
 import type { Vendor } from "./lane-configuration.ts";
-
-/**
- * Where a key comes from: the name of an environment variable, a shell command that prints the key, or the absolute path
- * of a file that holds it, such as the one `setup` saves. Never the key.
- */
-type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string } | { readonly keyFile: string };
-
-/**
- * How an account authenticates: the login the harness forwards on each request, a key the router reads itself, or a
- * login folder its vendor's CLI logged into and refreshes. The vendor says what a login folder is: a Claude config
- * folder or a Codex home folder.
- */
-type Credential =
-	| { readonly kind: "forwarded" }
-	| { readonly kind: "key"; readonly scheme: "apiKey" | "oauth"; readonly source: KeySource }
-	| { readonly kind: "loginFolder"; readonly folder: string };
 
 /** A key source gave no key. It names the variable or the command, and never holds what either printed. */
 class KeyUnreadable extends Schema.TaggedError<KeyUnreadable, { readonly brand: unique symbol }>()("KeyUnreadable", {
@@ -259,5 +244,3 @@ const folderLogin = Effect.fnUntraced(function* folderLogin(account: LoginFolder
 });
 
 export { KeyUnreadable, folderLogin, readKey };
-
-export type { Credential, KeySource };

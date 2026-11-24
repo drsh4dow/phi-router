@@ -1,9 +1,8 @@
 import type { Account, Accounts, Answered, Headers, OpenAiAccounts, Unanswered } from "./upstream-accounts.ts";
 import { Array, Effect, Option, Record, Redacted, String as Str, Stream, Struct, pipe } from "effect";
+import type { Credential, NamedAccount, Vendor, VendorLanes } from "./lane-configuration.ts";
 import { HttpClient, HttpClientRequest } from "effect/http";
-import type { NamedAccount, Vendor, VendorLanes } from "./lane-configuration.ts";
 import { folderLogin, readKey } from "./credentials.ts";
-import type { Credential } from "./credentials.ts";
 import { Refused } from "./upstream-refused.ts";
 import { Rejected } from "./upstream-rejected.ts";
 import type { Scope } from "effect";

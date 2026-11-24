@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Schema, pipe } from "effect";
 import { Configuration } from "./configuration.ts";
 import type { JudgeName } from "./judge.ts";
-import type { KeySource } from "./credentials.ts";
+import type { KeySource } from "./configuration.ts";
 import type { NamedAccount } from "./lane-configuration.ts";
 import { claudeModel } from "./judge-claude.ts";
 import { configuredAccounts } from "./lane-configuration.ts";

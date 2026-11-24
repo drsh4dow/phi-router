@@ -1,12 +1,22 @@
 import { Array, Effect, FileSystem, Option, Predicate, Schema, Struct, pipe } from "effect";
 import { absent, configFile } from "./configuration.ts";
-import type { Credential } from "./credentials.ts";
+import type { KeySource } from "./configuration.ts";
 import { UserDirectories } from "effect/persistence";
 
 /** The vendor whose wire an account speaks: Anthropic Messages, or OpenAI Responses. */
 const Vendors = Schema.Literals(["anthropic", "openai"]);
 
 type Vendor = typeof Vendors.Type;
+
+/**
+ * How an account authenticates: the login the harness forwards on each request, a key the router reads itself, or a
+ * login folder its vendor's CLI logged into and refreshes. The vendor says what a login folder is: a Claude config
+ * folder or a Codex home folder.
+ */
+type Credential =
+	| { readonly kind: "forwarded" }
+	| { readonly kind: "key"; readonly scheme: "apiKey" | "oauth"; readonly source: KeySource }
+	| { readonly kind: "loginFolder"; readonly folder: string };
 
 /** One of the two lanes of `config.json`. */
 type Lane = "clean" | "sealed";
@@ -294,4 +304,4 @@ const configuredLanes = configuredFile.pipe(Effect.map(Option.map(byVendor)));
 
 export { LaneFile, configuredAccounts, configuredLanes, laneConfiguration };
 
-export type { Lane, NamedAccount, Vendor, VendorLanes };
+export type { Credential, Lane, NamedAccount, Vendor, VendorLanes };
