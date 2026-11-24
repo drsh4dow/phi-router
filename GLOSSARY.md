@@ -124,6 +124,10 @@ The rules and the judge's questions that say what is PHI, versioned as one unit.
 **Rule**:
 A deterministic pattern for an unambiguous direct identifier. A rule seals and never clears.
 
+**System One model**:
+An AI model built to make fast, structured decisions that software uses directly: it evaluates a state and returns typed answers and probabilities. OpenAI's Decisions API, TypeSafe AI's Jev and Cloudflare's Clef are System One models, and a model that generates text, such as Claude Haiku, is not one however small or fast it is.
+_Avoid_: small model, fast model
+
 **Judge**:
 The decision model that scores whether a piece holds PHI when no rule sealed it. It runs under a BAA. The file's `judge` block runs **Decisions**, OpenAI's Decisions API. With no `judge` block, the first OpenAI API-key account on `sealed` runs Decisions, else the first Anthropic account on `sealed` with its own credential, not forwarded, runs the **Claude judge** on the Messages API (ADR 0009).
 _Avoid_: classifier, scanner
