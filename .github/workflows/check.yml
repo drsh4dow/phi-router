@@ -17,3 +17,5 @@ jobs:
          - name: allow user namespaces, which the wire's empty /tmp test mounts in
            run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
          - run: bun run check
+         - run: bun run test:e2e
+         - run: bun run test:perf

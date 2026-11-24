@@ -17,7 +17,7 @@ The user installs the package (`pi install git:<repo>`), picks model `phi/auto`,
 
 ## Gotchas
 
-- `pi --list-models phi` shows the provider's models. pi's filter is fuzzy, so a few `anthropic` rows show too. `tools/pi/limits.test.ts` drives it with a `config.json`.
+- `pi --list-models phi` shows the provider's models. pi's filter is fuzzy, so a few `anthropic` rows show too. `tools/pi/limits.e2e.test.ts` drives it with a `config.json`.
 
 - pi runs the bundle, not `src/`. `bun run wire` builds it first. Before any other drive, run `bun run build` after a change under `src/`.
 - `PI_CODING_AGENT_DIR` must be a throwaway folder; never the real `~/.pi`.
