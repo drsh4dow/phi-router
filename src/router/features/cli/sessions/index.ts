@@ -11,7 +11,6 @@ const port = Flag.Int(spelling.start.port).pipe(Flag.withDefault(productPort));
 
 const asked = { port, session };
 
-/** The commands that ask the running router about a session. */
 const sessionCommands = pipe(
 	[
 		Command.make(spelling.status.name, asked, (flags) => status(flags.session, flags.port)),

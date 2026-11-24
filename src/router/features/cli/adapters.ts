@@ -9,7 +9,6 @@ const modelAddress = Flag.String("address");
 
 const pid = Flag.Int(spelling.start.pid).pipe(Flag.withSchema(Pid));
 
-/** Claude Code's config folder, when it is not the one `CLAUDE_CONFIG_DIR` or the home folder gives. Empty means none. */
 const configDir = Flag.String("config-dir").pipe(Flag.withDefault(""));
 
 const claudeOn = Command.make("claude", { configDir }, (flags) => on(flags.configDir));
@@ -18,7 +17,6 @@ const claudeOff = Command.make("claude", { configDir }, (flags) => off(flags.con
 
 const claudeDoctor = Command.make("claude", { configDir }, (flags) => doctorClaude(flags.configDir));
 
-/** Codex's home folder, when it is not the one `CODEX_HOME` or the home folder gives. Empty means none. */
 const codexHome = Flag.String("codex-home").pipe(Flag.withDefault(""));
 
 const codexOn = Command.make("codex", { codexHome }, (flags) => onCodex(flags.codexHome));
@@ -32,10 +30,6 @@ const agentDir = Flag.String("agent-dir").pipe(Flag.withDefault(""));
 
 const piDoctor = Command.make("pi", { agentDir }, (flags) => doctorPi(flags.agentDir));
 
-/**
- * The commands of the harness adapters: the hook's `codex-prompt`, and `setup`, `on`, `off` and `doctor`
- * with one subcommand per harness and its own flags. A harness adds its subcommand to each group.
- */
 const adapterCommands = [
 	Command.make("codex-prompt", {}, () => codexPrompt()).pipe(Command.unlisted),
 	Command.make("on").pipe(Command.withSubcommands([claudeOn, codexOn])),

@@ -20,7 +20,6 @@ interface Failing {
 	readonly port: number;
 }
 
-/** What each reason tells the person who reads it, which a hook passes on as its block reason. */
 const said: Readonly<Record<typeof Reason.Type, (failing: Failing) => string>> = {
 	noBaaKey: ({ harness }) => stopLines.noBaaKey(harness),
 	notRunning: ({ pid, port }) =>
@@ -43,15 +42,6 @@ class StartFailed extends Schema.TaggedError<StartFailed, { readonly brand: uniq
 
 const settled = (answered: Answered): boolean => answered === "accepted" || answered === "ended";
 
-/**
- * Leaves a lease for the request's pid with the router on `port`, launching the router when nothing answers there. It
- * first makes the listener prove it is this user's router (ADR 0002), and fails at once, having sent it nothing else,
- * when it cannot. It returns only once the router stored the lease, and prints nothing, since a session-start hook's
- * output can reach the model. It launches one router at most, and asks a router that is starting up or closing again
- * every 50 ms, for 10 s in all. A router it launched that exits for want of a BAA key fails it at once with the line
- * `harness` shows for that. Any other router that never takes the lease fails it with the line for a router that could
- * not start.
- */
 const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Type, port: number, harness: Harness) {
 	const platform = yield* Platform;
 	const requests = yield* LeaseRequests;

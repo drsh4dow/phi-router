@@ -4,7 +4,6 @@ import { Router } from "#router/features/route/index.ts";
 import { keyless } from "./no-baa-key.ts";
 import { lifecycle } from "#router/features/lifecycle/index.ts";
 
-/** The lease check found no lease that holds, so the router stops. */
 class NoLeaseHolds extends Schema.TaggedError<NoLeaseHolds, { readonly brand: unique symbol }>()("NoLeaseHolds", {
 	port: Schema.Int,
 }) {

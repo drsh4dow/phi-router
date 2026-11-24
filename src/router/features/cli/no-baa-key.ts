@@ -1,6 +1,5 @@
 import { Effect, Schema } from "effect";
 
-/** How `serve` exits when it has no BAA key, so the `start` that launched it can say so. */
 const noBaaKeyExit = 3;
 
 class NoBaaKey extends Schema.TaggedError<NoBaaKey, { readonly brand: unique symbol }>()("NoBaaKey", {

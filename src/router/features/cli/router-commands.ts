@@ -9,13 +9,8 @@ import { start } from "./start.ts";
 
 const folder = Flag.String(spelling.start.folder);
 
-/** The hook is Claude Code's, so `session-start` also checks that the session's settings keep it on the router. */
 const claude = Flag.Boolean("claude").pipe(Flag.withDefault(false));
 
-/**
- * The commands that need the router's proof: `start`, which leaves pi's lease and starts a router when none runs, the
- * hooks' `session-start`, which does the same for a harness, and `serve`, the router itself. The last two are unlisted.
- */
 const routerCommands = [
 	Command.make(spelling.start.name, { folder, pid, port, session }, (flags) =>
 		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port, "pi"),

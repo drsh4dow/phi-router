@@ -3,10 +3,6 @@ import { ModelsJson, spelling } from "#shared/cli.ts";
 import { Command } from "effect/cli";
 import { configuredLanes } from "#router/client/configuration/index.ts";
 
-/**
- * `phi-router models`, unlisted, which the pi package runs to give `phi/auto` and `phi/sealed` the limits of the models
- * they run: the JSON line the contract names. It reads `config.json` alone, and fails on a file the router would refuse.
- */
 const models = Command.make(spelling.models.name, {}, () =>
 	Effect.gen(function* printed() {
 		const lanes = yield* configuredLanes;

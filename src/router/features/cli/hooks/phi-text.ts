@@ -10,12 +10,6 @@ const usage = `/${phiCommand.name} shows this session's routing, /${phiCommand.n
 
 type Shows = (status: Reported) => string;
 
-/**
- * The account and the model of a last request, and that the model was a substitute when it was.
- *
- * @param {object} last The last request.
- * @returns {string} The text.
- */
 const ranOn = (last: NonNullable<Reported["last"]>): string => {
 	const ran = `${last.account}, model ${last.model}`;
 
@@ -46,13 +40,6 @@ const pinOf: Shows = (status) => {
 	return "off";
 };
 
-/**
- * What `/phi` shows: the session's pin, its last request's account and model, its sealed and cleared counts, and each
- * lane's accounts. The status holds no word of a message, so neither does this.
- *
- * @param {Reported} status What `phi-router status` reported.
- * @returns {string} The lines.
- */
 const statusText: Shows = (status) =>
 	Array.join(
 		[

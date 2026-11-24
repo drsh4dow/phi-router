@@ -17,10 +17,6 @@ const failedAs =
 	({ reason }: Unanswered): RouterUnanswered =>
 		RouterUnanswered.make({ command: asked.command, port: asked.port, reason });
 
-/**
- * Sets the session's pin on the router on `port` and returns once the router stored it. It prints nothing. It fails
- * when no router answers, since only the router writes the verdict store.
- */
 const pin = Effect.fn("pin")(function* pin(session: typeof SessionId.Type, port: number) {
 	const requests = yield* SessionRequests;
 
