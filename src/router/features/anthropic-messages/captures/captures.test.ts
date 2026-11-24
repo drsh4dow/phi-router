@@ -186,49 +186,6 @@ const misaligned = Effect.gen(function* misaligned() {
 	assert.isTrue(Exit.hasDies(sent));
 });
 
-it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
-	test.effect("every captured request decodes", () => everyCapture);
-
-	test.effect("Claude Code's retry after a 400, which drops thinking's display, decodes", () => retried);
-	test.effect("an unknown top-level field fails the request and names the field, not its value", () => unknownField);
-
-	test.effect(
-		"a streamed reply's keys match its echo, so that reply reads as the open account's and keeps its thinking",
-		() => echoedReply,
-	);
-
-	test.effect(
-		"an echo whose tool input Claude Code rewrote reads as other, and keeps the thinking the open account streamed",
-		() => rewrittenInput,
-	);
-
-	test.effect(
-		"thinking the open account did not stream never reaches the clean lane, though the rest matches its reply",
-		() => otherThinking,
-	);
-
-	test.effect(
-		"in a reply mixing streamed and other thinking, only the streamed block reaches the clean lane",
-		() => mixedThinking,
-	);
-
-	test.effect("a streamed reply cut before message_stop, or holding an error event, gives no key", () => cutReply);
-
-	test.effect("every capture's metadata ids are the fixed placeholders", () => placeholders);
-
-	test.effect(
-		"a top-level field outside its recorded shape fails the request and names the field",
-		() => enabledThinking,
-	);
-
-	test.effect(
-		"the system message comes first, then one message per turn, and each tool result of a user turn is its own message",
-		() => resultMessages,
-	);
-
-	test.effect("the clean lane dies when the border's messages do not line up with the request's", () => misaligned);
-});
-
 const blankBlock =
 	'event: content_block_start\ndata: {"type":"content_block_start","index":2,"content_block":{"type":"text","text":""}}\n\nevent: content_block_delta\ndata: {"type":"content_block_delta","index":2,"delta":{"type":"text_delta","text":"\\n\\n"}}\n\nevent: content_block_stop\ndata: {"type":"content_block_stop","index":2}\n\n';
 
@@ -277,6 +234,47 @@ const unfoldableReply = Effect.gen(function* unfoldableReply() {
 });
 
 it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
+	test.effect("every captured request decodes", () => everyCapture);
+
+	test.effect("Claude Code's retry after a 400, which drops thinking's display, decodes", () => retried);
+	test.effect("an unknown top-level field fails the request and names the field, not its value", () => unknownField);
+
+	test.effect(
+		"a streamed reply's keys match its echo, so that reply reads as the open account's and keeps its thinking",
+		() => echoedReply,
+	);
+
+	test.effect(
+		"an echo whose tool input Claude Code rewrote reads as other, and keeps the thinking the open account streamed",
+		() => rewrittenInput,
+	);
+
+	test.effect(
+		"thinking the open account did not stream never reaches the clean lane, though the rest matches its reply",
+		() => otherThinking,
+	);
+
+	test.effect(
+		"in a reply mixing streamed and other thinking, only the streamed block reaches the clean lane",
+		() => mixedThinking,
+	);
+
+	test.effect("a streamed reply cut before message_stop, or holding an error event, gives no key", () => cutReply);
+
+	test.effect("every capture's metadata ids are the fixed placeholders", () => placeholders);
+
+	test.effect(
+		"a top-level field outside its recorded shape fails the request and names the field",
+		() => enabledThinking,
+	);
+
+	test.effect(
+		"the system message comes first, then one message per turn, and each tool result of a user turn is its own message",
+		() => resultMessages,
+	);
+
+	test.effect("the clean lane dies when the border's messages do not line up with the request's", () => misaligned);
+
 	test.effect(
 		"a blank text block, which Claude Code drops from its echo, leaves a streamed reply's keys alone",
 		() => blankText,

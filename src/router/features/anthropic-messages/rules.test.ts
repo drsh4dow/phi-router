@@ -182,24 +182,6 @@ const unreadableWithheld = Effect.gen(function* unreadableWithheld() {
 	assert.deepStrictEqual(kept.messages, original.messages);
 });
 
-it.layer(Digest.layerWebCrypto)("the rewrite rules", (test) => {
-	test.effect(
-		"thinking the BAA account wrote is dropped on the clean lane and kept on the sealed lane",
-		() => baaThinking,
-	);
-
-	test.effect("thinking an open account wrote stays, even after its message is stubbed", () => openThinking);
-
-	test.effect("a stub keeps a user prompt's cache_control and a tool result's tool_use_id", () => stubKeepsMetadata);
-
-	test.effect("a stubbed reply keeps its last text block's cache_control", () => replyStubKeepsCache);
-
-	test.effect(
-		"a block the codec cannot name reaches an open account as the unknown stub, even when every part cleared",
-		() => unreadableWithheld,
-	);
-});
-
 const forwardedMembers = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":[{"type":"text","text":"Read notes.txt."},{"type":"text","text":"Then sum it up.","cache_control":{"type":"ephemeral"}}]},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"notes.txt"},"caller":{"type":"direct"},"cache_control":{"type":"ephemeral"}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"1\tsynthetic note","is_error":true,"cache_control":{"type":"ephemeral"}}]}],"max_tokens":1000}`;
 
 const stubKeepsForwarded = Effect.gen(function* stubKeepsForwarded() {
@@ -232,6 +214,22 @@ const stubKeepsForwarded = Effect.gen(function* stubKeepsForwarded() {
 });
 
 it.layer(Digest.layerWebCrypto)("the rewrite rules", (test) => {
+	test.effect(
+		"thinking the BAA account wrote is dropped on the clean lane and kept on the sealed lane",
+		() => baaThinking,
+	);
+
+	test.effect("thinking an open account wrote stays, even after its message is stubbed", () => openThinking);
+
+	test.effect("a stub keeps a user prompt's cache_control and a tool result's tool_use_id", () => stubKeepsMetadata);
+
+	test.effect("a stubbed reply keeps its last text block's cache_control", () => replyStubKeepsCache);
+
+	test.effect(
+		"a block the codec cannot name reaches an open account as the unknown stub, even when every part cleared",
+		() => unreadableWithheld,
+	);
+
 	test.effect(
 		"a stub keeps the cache_control of a prompt's last block, a tool call's caller and cache_control, and a tool result's is_error and cache_control",
 		() => stubKeepsForwarded,

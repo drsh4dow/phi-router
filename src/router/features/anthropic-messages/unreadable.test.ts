@@ -163,6 +163,19 @@ const refusedInUnreadable = Effect.gen(function* refusedInUnreadable() {
 	assert.strictEqual(failure.reason, "messages[0].content[0].cache_control");
 });
 
+const otherRedacted = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Plan it."},{"role":"assistant","content":[{"type":"redacted_thinking","data":"OTHER-DATA"},{"type":"text","text":"Visible answer."}]},{"role":"user","content":"Go on."}],"max_tokens":1000}`;
+
+const redactedFromOther = Effect.gen(function* redactedFromOther() {
+	const keys = yield* replyKeys(streamed);
+	const request = yield* decodeRequest(otherRedacted, (key) => Array.contains(keys, key), "claude");
+	const toOpen = yield* request.encode(clean(request));
+	const received = yield* decodeBody(toOpen, strict);
+	const [, reply] = received.messages;
+
+	assert.deepStrictEqual(reply, { content: [unknownStub], role: "assistant" });
+	assert.notInclude(toOpen, "OTHER-DATA");
+});
+
 it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	test.effect(
 		"a member the clean lane would carry, outside its shape, refuses the clean lane and leaves for the BAA as it came",
@@ -202,22 +215,7 @@ it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 		"a member outside its shape refuses the clean lane, even in a message the codec cannot name",
 		() => refusedInUnreadable,
 	);
-});
 
-const otherRedacted = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Plan it."},{"role":"assistant","content":[{"type":"redacted_thinking","data":"OTHER-DATA"},{"type":"text","text":"Visible answer."}]},{"role":"user","content":"Go on."}],"max_tokens":1000}`;
-
-const redactedFromOther = Effect.gen(function* redactedFromOther() {
-	const keys = yield* replyKeys(streamed);
-	const request = yield* decodeRequest(otherRedacted, (key) => Array.contains(keys, key), "claude");
-	const toOpen = yield* request.encode(clean(request));
-	const received = yield* decodeBody(toOpen, strict);
-	const [, reply] = received.messages;
-
-	assert.deepStrictEqual(reply, { content: [unknownStub], role: "assistant" });
-	assert.notInclude(toOpen, "OTHER-DATA");
-});
-
-it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	test.effect(
 		"a reply whose redacted thinking differs from what an open account streamed reaches it as the unknown stub",
 		() => redactedFromOther,
