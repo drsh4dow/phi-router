@@ -2,6 +2,7 @@ import { Array, Config, ConfigProvider, Effect, FileSystem, Path, Record, String
 import { assert, it } from "@effect/vitest";
 import { gitServed, inEmptyTmp, place } from "./pi-run.ts";
 import { NodeServices } from "@effect/platform-node";
+import { TestClock } from "effect/testing";
 import { ran } from "#tools/lifecycle/launched.ts";
 import { succeeded } from "./checks.ts";
 
@@ -97,7 +98,7 @@ const served = Effect.gen(function* served() {
 	assert.strictEqual(whileOpen.open.exitCode, succeeded, whileOpen.open.printed);
 	assert.include(whileOpen.open.printed, "HEAD");
 	assert.notStrictEqual(afterwards.exitCode, succeeded, afterwards.printed);
-}).pipe(Effect.scoped);
+}).pipe(Effect.scoped, TestClock.withLive);
 
 const unservable = Effect.gen(function* unservable() {
 	const fs = yield* FileSystem.FileSystem;
