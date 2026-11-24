@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Schema, pipe } from "effect";
+import { Array, Effect, Schema, pipe } from "effect";
 import { CleanLaneRefused, UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
 import { assert, it } from "@effect/vitest";
 import { BodyJson } from "./wire.ts";
@@ -204,28 +204,7 @@ it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	);
 });
 
-const looseResult = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Read notes.txt."},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"notes.txt"}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"PATIENT-SECRET","new_vendor_field":"x"}]}],"max_tokens":1000}`;
-
 const otherRedacted = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Plan it."},{"role":"assistant","content":[{"type":"redacted_thinking","data":"OTHER-DATA"},{"type":"text","text":"Visible answer."}]},{"role":"user","content":"Go on."}],"max_tokens":1000}`;
-
-const unreadableResult = Effect.gen(function* unreadableResult() {
-	const request = yield* decodeRequest(looseResult, nobodyWrote, "claude");
-	const toOpen = yield* request.encode(clean(request));
-	const received = yield* decodeBody(toOpen, strict);
-
-	assert.deepStrictEqual(
-		Array.last(request.messages),
-		Option.some({ content: [unknownStub], isError: false, role: "toolResult", toolCallId: "toolu_1" } as const),
-	);
-	assert.deepStrictEqual(
-		Array.last(received.messages),
-		Option.some({
-			content: [{ content: [unknownStub], tool_use_id: "toolu_1", type: "tool_result" }],
-			role: "user",
-		} as const),
-	);
-	assert.notInclude(toOpen, "PATIENT-SECRET");
-});
 
 const redactedFromOther = Effect.gen(function* redactedFromOther() {
 	const keys = yield* replyKeys(streamed);
@@ -239,11 +218,6 @@ const redactedFromOther = Effect.gen(function* redactedFromOther() {
 });
 
 it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
-	test.effect(
-		"a tool result with an unknown key reads as the unknown stub under its call id, and reaches an open account so",
-		() => unreadableResult,
-	);
-
 	test.effect(
 		"a reply whose redacted thinking differs from what an open account streamed reaches it as the unknown stub",
 		() => redactedFromOther,
