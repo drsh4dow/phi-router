@@ -4,6 +4,7 @@ import type { Check } from "./checks.ts";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import type { Turn } from "./account-turns.ts";
 import { costOf } from "./spent.ts";
+import { dollars } from "#tools/corpus/render.ts";
 import { voidedSsn } from "./cases.ts";
 
 interface Ran {
@@ -54,10 +55,6 @@ const billed = ([line, turn]: readonly [LaneLogLine, Turn]): Option.Option<numbe
 	return costOf({ model: line.model, tokens: turn.reportedTokens });
 };
 
-const costDecimals = 4;
-
-const dollars = (cost: number): string => `$${cost.toFixed(costDecimals)}`;
-
 const counting = 1;
 
 const lineOf = (line: LaneLogLine, index: number): string =>
@@ -84,6 +81,6 @@ const reportOf = (report: {
 	return Array.join([header, ...lines, ...verdicts, cost], "\n");
 };
 
-export { billed, checksOf, dollars, reportOf };
+export { billed, checksOf, reportOf };
 
 export type { Ran };

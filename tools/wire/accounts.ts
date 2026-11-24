@@ -1,8 +1,9 @@
 import { Array, Config, Console, Effect, FileSystem, Number as Num, Option, Path, Schema, pipe } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { billed, checksOf, dollars, reportOf } from "./account-checks.ts";
+import { billed, checksOf, reportOf } from "./account-checks.ts";
 import type { Ran } from "./account-checks.ts";
 import type { Turn } from "./account-turns.ts";
+import { dollars } from "#tools/corpus/render.ts";
 import { laneLines } from "#tools/route/mocked-router.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { turnsOn } from "./account-turns.ts";

@@ -171,4 +171,4 @@ const render = (report: Report): string => {
 	);
 };
 
-export { render as outputOf };
+export { dollars, render as outputOf };
