@@ -129,7 +129,7 @@ const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 	const { breaches, env, received, roots, state } = yield* mocked({
 		baa: baaScript,
 		catalog: (): Said => ({ body: served.body, kind: "status", status: ok }),
-		configured: { sealedModel: fakes.sealedModel },
+		configExtras: { sealedModel: fakes.sealedModel },
 		harness: "codex",
 		holdsPhi: run.judgeSeals,
 		open: openScript,

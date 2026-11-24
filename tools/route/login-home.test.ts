@@ -101,8 +101,8 @@ const inHome = Effect.fnUntraced(function* inHome(spelled: Spelled) {
 	const { mocks, post } = yield* routed({
 		baa: refusesFirst(),
 		baaFolder: account,
-		env: { HOME: home, PATH: `${login.bin}:/usr/bin:/bin` },
 		holdsPhi: () => true,
+		routerEnv: { HOME: home, PATH: `${login.bin}:/usr/bin:/bin` },
 	});
 
 	const response = yield* post({ body: claudeBody, session: "login-home" });

@@ -12,9 +12,8 @@ import {
 	identity,
 	pipe,
 } from "effect";
-import { Callers, LeaseRequests } from "#router/client/router-port/index.ts";
 import { FetchHttpClient, HttpClient, HttpServer } from "effect/http";
-import type { Harness, Json, Lined, Scripts, Sent } from "./harnesses.ts";
+import type { Harness, Json, LaneAccount, Scripts, Sent } from "./harnesses.ts";
 import type { HttpClientError, HttpClientResponse } from "effect/http";
 import { LaneChoice, decide } from "#router/features/lanes/index.ts";
 import {
@@ -27,6 +26,7 @@ import {
 	judgeOf,
 	lacksOf,
 } from "./harnesses.ts";
+import { Callers } from "#router/client/router-port/index.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { Router } from "#router/features/route/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";
@@ -34,14 +34,13 @@ import { mockOn } from "#tools/judge/configured.ts";
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
-/** An address on loopback where nothing listens any more, so a connection to it is refused. */
 const nothingListens = Effect.scoped(
 	Effect.map(Layer.build(NodeHttpServer.layerTest), (server) =>
 		HttpServer.formatAddress(Context.get(server, HttpServer.HttpServer).address),
 	),
 );
 
-const accountOn = Effect.fnUntraced(function* accountOn(harness: Harness, scripts: Scripts, account: Lined) {
+const accountOn = Effect.fnUntraced(function* accountOn(harness: Harness, scripts: Scripts, account: LaneAccount) {
 	if (account === "refused") {
 		const endpoint = yield* nothingListens;
 		const refused: Effect.Success<ReturnType<Harness["serve"]>> = { endpoint, received: Effect.succeed([]) };
@@ -116,7 +115,7 @@ const configured = Effect.fnUntraced(function* configured(
 		readonly sealed: readonly Json[];
 		readonly judge: { readonly name: NonNullable<Scripts["judgeName"]>; readonly endpoint: string };
 	},
-	beside: Scripts["configured"],
+	beside: Scripts["configExtras"],
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -149,15 +148,6 @@ const configured = Effect.fnUntraced(function* configured(
 	return { env, roots: [state, config], state: path.join(state, "phi-router") };
 });
 
-/**
- * The open mocks, the BAA mocks and the judge mock of one run, each on its own port, and the `env` of a router that
- * calls them, with its state folder. The judge seals a piece `holdsPhi` names and clears the rest unless the test
- * passes its own script. An account script left out answers `ok`, and a catalog left out lists the target model.
- * `mocks.open` and `mocks.baa` are each lane's first. `received` reads what those two and the judge have received so
- * far, and `mocks.accounts` what every account has, the open ones first, each lane in order. `breaches` reads each breach of
- * the credential rule in what the first open, the first BAA and the judge mocks have received so far. `roots` are the
- * XDG state and config folders.
- */
 const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 	const harness = harnesses[scripts.harness ?? "claude"];
 	const opens = yield* laneOn(harness, scripts, "open");
@@ -173,7 +163,7 @@ const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 			judge: { endpoint: judge.endpoint, name: scripts.judgeName ?? "decisions" },
 			sealed: baas.entries,
 		},
-		scripts.configured,
+		scripts.configExtras,
 	);
 
 	const breaches = Effect.all(
@@ -192,7 +182,7 @@ const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 
 	return {
 		breaches,
-		env: Struct.assign(scripts.env ?? {}, env),
+		env: Struct.assign(scripts.routerEnv ?? {}, env),
 		harness,
 		mocks,
 		received: Effect.all([open.received, baa.received, judge.received], { concurrency: 1 }),
@@ -206,10 +196,6 @@ interface Turn {
 	readonly text: string;
 }
 
-/**
- * A `/v1/messages` body in Claude Code's shape with no system blocks and no tools. Each turn is one text block, the
- * way Claude Code echoes a reply, so an assistant turn's key matches the one the mock's stream left.
- */
 const bodyOf = Effect.fnUntraced(function* bodyOf(turns: readonly Turn[]) {
 	const messages = pipe(
 		turns,
@@ -219,12 +205,6 @@ const bodyOf = Effect.fnUntraced(function* bodyOf(turns: readonly Turn[]) {
 	return yield* jsonText({ max_tokens: 1024, messages, model: "phi/auto", stream: true });
 });
 
-/**
- * The mocks of `scripts` and the router in this process over the test server, built beside the lease client as `serve`
- * builds it. `choice` replaces the lane choice, for the border test alone. `callers` replaces who the router takes the
- * caller to be. `store` wraps the verdict store the router reads and writes. `fetch` replaces the fetch the router
- * calls its accounts and the judge with. Returns a harness-side client, its `post`, and the router's `env`.
- */
 const routed = Effect.fnUntraced(function* routed(
 	scripts: Scripts & {
 		readonly choice?: typeof LaneChoice.Service;
@@ -239,7 +219,6 @@ const routed = Effect.fnUntraced(function* routed(
 		ConfigProvider.layer(ConfigProvider.fromEnv({ env })),
 		Layer.succeed(LaneChoice, scripts.choice ?? decide),
 		Layer.succeed(FetchHttpClient.Fetch, scripts.fetch ?? globalThis.fetch),
-		LeaseRequests.layer,
 	);
 
 	const callers = Option.match(Option.fromNullishOr(scripts.callers), {
@@ -268,7 +247,6 @@ const routed = Effect.fnUntraced(function* routed(
 
 type Post = Effect.Success<ReturnType<typeof routed>>["post"];
 
-/** Posts `input` as one Codex request of `session`, reads the whole answer, and returns its status. */
 const postedIn = Effect.fnUntraced(function* postedIn(post: Post, session: string, input: readonly Json[]) {
 	const body = yield* codexBodyOf(input);
 	const response = yield* post({ body, session });

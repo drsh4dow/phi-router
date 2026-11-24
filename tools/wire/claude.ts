@@ -160,7 +160,7 @@ const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => b
 
 	const { breaches, env, received, roots, state } = yield* mocked({
 		baa: baaScript,
-		configured: { sealedModel: fakes.sealedModel },
+		configExtras: { sealedModel: fakes.sealedModel },
 		holdsPhi: judgeSeals,
 		judgeName: "claude",
 		open: openScript(file),

@@ -1,7 +1,7 @@
+import type { AccountScript, Scripts } from "./harnesses.ts";
 import { Effect, FileSystem, Layer, Stream, Struct } from "effect";
-import type { Script, Scripts } from "./harnesses.ts";
 import { assert, it } from "@effect/vitest";
-import { clean, holdsCanary, leased, linesIn, modelsIn, named, phi, posted } from "./target-models.ts";
+import { clean, holdsCanary, leased, linesIn, modelsIn, phi, posted, sentModels } from "./target-models.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { SessionRequests } from "#router/client/router-port/index.ts";
@@ -13,13 +13,13 @@ import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const substitute = "sealed-under-test";
 
-const failing: Script = () => ({ body: "{}", kind: "status", status: 500 });
+const failing: AccountScript = () => ({ body: "{}", kind: "status", status: 500 });
 
-const answering: Script = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
+const answering: AccountScript = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
 
 const session = "order-1";
 
-const lacksFirst = [[named.subagent], []];
+const lacksFirst = [[sentModels.claudeHaiku], []];
 
 const pinnedStore = (real: VerdictStore["Service"]): VerdictStore["Service"] =>
 	Struct.assign(real, {
@@ -34,7 +34,7 @@ const statusOn = Effect.fnUntraced(function* statusOn(url: string) {
 });
 
 const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
-	readonly scripts: Omit<Scripts, "holdsPhi" | "configured"> & {
+	readonly scripts: Omit<Scripts, "holdsPhi" | "configExtras"> & {
 		readonly store?: (real: VerdictStore["Service"]) => VerdictStore["Service"];
 	};
 	readonly turn: Turn;
@@ -44,11 +44,11 @@ const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
 	const fs = yield* FileSystem.FileSystem;
 	const repo = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: "phi-router-repo-" }), fs.realPath);
 
-	const configured = { baaRepos: [repo], sealedModel: { anthropic: substitute } };
-	const run = yield* routed(Struct.assign(of.scripts, { configured, holdsPhi: holdsCanary }));
+	const configExtras = { baaRepos: [repo], sealedModel: { anthropic: substitute } };
+	const run = yield* routed(Struct.assign(of.scripts, { configExtras, holdsPhi: holdsCanary }));
 
 	yield* Effect.when(leased(run.state, session, repo), Effect.succeed(of.leasedInRepo));
-	yield* posted(run.post, { harness: "claude", model: of.model ?? named.subagent, session }, [of.turn]);
+	yield* posted(run.post, { harness: "claude", model: of.model ?? sentModels.claudeHaiku, session }, [of.turn]);
 
 	const models = yield* Effect.andThen(run.mocks.accounts, (received) =>
 		Effect.forEach(received, modelsIn, { concurrency: 1 }),
@@ -60,7 +60,7 @@ const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
 	return { last, lines, models };
 });
 
-const atCarrier = [[], [], [named.subagent]];
+const atCarrier = [[], [], [sentModels.claudeHaiku]];
 
 /**
  * A pinned request and one of a BAA repo skip a healthy first BAA account that lacks the model for one that carries
@@ -83,13 +83,13 @@ const heldCarryingFirst = Effect.gen(function* heldCarryingFirst() {
 		{ inRepo, pinned },
 		{
 			inRepo: {
-				last: { account: "baa-2", model: named.subagent, substitute: false },
-				lines: [["baa-2", "sealed", named.subagent, false, "BAA repo"]],
+				last: { account: "baa-2", model: sentModels.claudeHaiku, substitute: false },
+				lines: [["baa-2", "sealed", sentModels.claudeHaiku, false, "BAA repo"]],
 				models: atCarrier,
 			},
 			pinned: {
-				last: { account: "baa-2", model: named.subagent, substitute: false },
-				lines: [["baa-2", "sealed", named.subagent, false, "pinned"]],
+				last: { account: "baa-2", model: sentModels.claudeHaiku, substitute: false },
+				lines: [["baa-2", "sealed", sentModels.claudeHaiku, false, "pinned"]],
 				models: atCarrier,
 			},
 		},
@@ -117,7 +117,7 @@ const carryingFirst = Effect.gen(function* carryingFirst() {
 
 	const lacksAnother = yield* walkedOver({
 		leasedInRepo: false,
-		scripts: { baas: [answering, answering], lacks: [[named.sonnet], []] },
+		scripts: { baas: [answering, answering], lacks: [[sentModels.claudeSonnet], []] },
 		turn: phi,
 	});
 
@@ -130,13 +130,13 @@ const carryingFirst = Effect.gen(function* carryingFirst() {
 				models: [[], [], [fakes.targetModel]],
 			},
 			lacksAnother: {
-				last: { account: "baa", model: named.subagent, substitute: false },
-				lines: [["baa", "sealed", named.subagent, false, "sealed new content"]],
-				models: [[], [named.subagent], []],
+				last: { account: "baa", model: sentModels.claudeHaiku, substitute: false },
+				lines: [["baa", "sealed", sentModels.claudeHaiku, false, "sealed new content"]],
+				models: [[], [sentModels.claudeHaiku], []],
 			},
 			sealed: {
-				last: { account: "baa-2", model: named.subagent, substitute: false },
-				lines: [["baa-2", "sealed", named.subagent, false, "sealed new content"]],
+				last: { account: "baa-2", model: sentModels.claudeHaiku, substitute: false },
+				lines: [["baa-2", "sealed", sentModels.claudeHaiku, false, "sealed new content"]],
 				models: atCarrier,
 			},
 		},
@@ -156,13 +156,13 @@ const lackingLast = Effect.gen(function* lackingLast() {
 
 	const listedLast = yield* walkedOver({
 		leasedInRepo: false,
-		scripts: { baas: [failing, answering], lacks: [[], [named.subagent]] },
+		scripts: { baas: [failing, answering], lacks: [[], [sentModels.claudeHaiku]] },
 		turn: phi,
 	});
 
 	const fell = yield* walkedOver({
 		leasedInRepo: false,
-		scripts: { lacks: [[named.subagent]], open: failing },
+		scripts: { lacks: [[sentModels.claudeHaiku]], open: failing },
 		turn: clean,
 	});
 
@@ -172,17 +172,17 @@ const lackingLast = Effect.gen(function* lackingLast() {
 			fell: {
 				last: { account: "baa", model: substitute, substitute: true },
 				lines: [["baa", "sealed", substitute, true, "failover"]],
-				models: [[named.subagent], [substitute]],
+				models: [[sentModels.claudeHaiku], [substitute]],
 			},
 			listedFirst: {
 				last: { account: "baa", model: substitute, substitute: true },
 				lines: [["baa", "sealed", substitute, true, "failover"]],
-				models: [[], [substitute], [named.subagent]],
+				models: [[], [substitute], [sentModels.claudeHaiku]],
 			},
 			listedLast: {
 				last: { account: "baa-2", model: substitute, substitute: true },
 				lines: [["baa-2", "sealed", substitute, true, "failover"]],
-				models: [[], [named.subagent], [substitute]],
+				models: [[], [sentModels.claudeHaiku], [substitute]],
 			},
 		},
 	);

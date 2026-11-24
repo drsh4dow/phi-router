@@ -84,7 +84,7 @@ const leasedAndAsked = Effect.fnUntraced(function* leasedAndAsked(url: string, s
 const spellings = Effect.gen(function* spellings() {
 	const requests = yield* SessionRequests;
 	const { folders, listed } = yield* repositories;
-	const { env, mocks, state } = yield* mocked({ configured: { baaRepos: listed }, holdsPhi: () => false });
+	const { env, mocks, state } = yield* mocked({ configExtras: { baaRepos: listed }, holdsPhi: () => false });
 	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 
 	yield* Effect.forEach(folders, ({ folder, session }) => leasedAndAsked(router.url, session, folder), {

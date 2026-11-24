@@ -4,9 +4,9 @@ import { assert, it } from "@effect/vitest";
 import { claudeRequest, routed } from "./mocked-router.ts";
 import { codexBodyOf, harnesses, userMessage } from "./harnesses.ts";
 import { day, dayLong, loggedIn, logins, start, thirtyDays } from "./login-fixture.ts";
+import type { AccountScript } from "./harnesses.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
-import type { Script } from "./harnesses.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 
@@ -53,7 +53,7 @@ const holding = Effect.fnUntraced(function* holding(roots: readonly string[], to
 
 const bearersOf = Array.map(({ headers }: Sent) => headers["authorization"]);
 
-type Answering = (vendor: Vendor) => Script;
+type Answering = (vendor: Vendor) => AccountScript;
 
 const answersOk: Answering = (vendor) => () => harnesses[vendor].answersOk.open();
 
@@ -79,11 +79,11 @@ const through = Effect.fnUntraced(function* through(vendor: Vendor, first: Lifet
 	const login = yield* loggedIn(vendor, first);
 
 	const { env, mocks, post } = yield* routed({
-		env: { PATH: login.bin },
 		harness: vendor,
 		holdsPhi: () => false,
 		open: answering(vendor),
 		openFolder: login.folder,
+		routerEnv: { PATH: login.bin },
 	});
 
 	const body = yield* bodies[vendor];
@@ -171,10 +171,10 @@ const twoAtOnce = Effect.gen(function* twoAtOnce() {
 	});
 
 	const { mocks, post } = yield* routed({
-		env: { PATH: `${login.bin}:/usr/bin:/bin` },
 		holdsPhi: () => false,
 		open: answersOk("claude"),
 		openFolder: login.folder,
+		routerEnv: { PATH: `${login.bin}:/usr/bin:/bin` },
 	});
 
 	const body = yield* bodies.claude;
@@ -227,10 +227,10 @@ const resendsOnEachAccount = Effect.gen(function* resendsOnEachAccount() {
 	const { mocks, post, state } = yield* routed({
 		baa: refusesFirst("claude"),
 		baaFolder: baa.folder,
-		env: { PATH: `${open.bin}:/usr/bin:/bin` },
 		holdsPhi: () => false,
 		open: refusesFirst("claude"),
 		openFolder: open.folder,
+		routerEnv: { PATH: `${open.bin}:/usr/bin:/bin` },
 	});
 
 	yield* fs.writeFileString(`${open.bin}/state`, state);

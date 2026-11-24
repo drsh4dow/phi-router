@@ -2,8 +2,8 @@ import { Array, Clock, Config, Effect, FileSystem, Layer, Path, String as Str, p
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "./mocked-router.ts";
+import type { AccountScript } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Script } from "./harnesses.ts";
 import { TestClock } from "effect/testing";
 import { fakes } from "./harnesses.ts";
 import { routerProcess } from "./router-process.ts";
@@ -34,9 +34,9 @@ const claudeFile = (token: string, expires: number): string =>
 /**
  * An account that answers its first request 401 and every later one 500, so a request is resent once, then fails over.
  *
- * @returns {Script} The account's script.
+ * @returns {AccountScript} The account's script.
  */
-const refusesThenFails = (): Script => {
+const refusesThenFails = (): AccountScript => {
 	const asked: unknown[] = [];
 
 	return (request) => {
@@ -141,10 +141,10 @@ const printsNoCredential = Effect.gen(function* printsNoCredential() {
 	const login = yield* expiring;
 
 	const { env, mocks, roots } = yield* mocked({
-		env: login.env,
 		holdsPhi: () => false,
 		open: refusesThenFails(),
 		openFolder: login.folder,
+		routerEnv: login.env,
 	});
 
 	const answered = yield* postedOnce(env);

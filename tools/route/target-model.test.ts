@@ -1,6 +1,6 @@
 import { Array, Effect, Schema, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { autoOf, clean, harnessNames, holdsCanary, modelsIn, named, phi, posted } from "./target-models.ts";
+import { autoOf, clean, harnessNames, holdsCanary, modelsIn, phi, posted, sentModels } from "./target-models.ts";
 import { fakes, jsonText } from "./harnesses.ts";
 import type { HarnessName } from "./target-models.ts";
 import { NodeServices } from "@effect/platform-node";
@@ -18,7 +18,8 @@ const JsonOf = Schema.fromJsonString(Schema.Unknown);
  */
 const keptClean = Effect.fnUntraced(function* keptClean(harness: HarnessName) {
 	const { breaches, mocks, post } = yield* routed({ harness, holdsPhi: holdsCanary });
-	const asked = [autoOf[harness], named.subagent, named.reviewer, named.gateway];
+
+	const asked = [autoOf[harness], sentModels.claudeHaiku, sentModels.codexReviewer, sentModels.gatewayWithSlash];
 
 	yield* Effect.forEach(
 		asked,
@@ -42,7 +43,7 @@ const keptClean = Effect.fnUntraced(function* keptClean(harness: HarnessName) {
 		{ breaches: found, models, sealed: sealed.length, verbatim },
 		{
 			breaches: [],
-			models: [fakes.targetModel, named.subagent, named.reviewer, named.gateway],
+			models: [fakes.targetModel, sentModels.claudeHaiku, sentModels.codexReviewer, sentModels.gatewayWithSlash],
 			sealed: 0,
 			verbatim: [true, true, true],
 		},
@@ -55,7 +56,14 @@ const keptClean = Effect.fnUntraced(function* keptClean(harness: HarnessName) {
  */
 const judgedUnderEach = Effect.fnUntraced(function* judgedUnderEach(harness: HarnessName) {
 	const { mocks, post } = yield* routed({ harness, holdsPhi: holdsCanary });
-	const asked = [autoOf[harness], named.subagent, named.sonnet, named.reviewer, named.memories];
+
+	const asked = [
+		autoOf[harness],
+		sentModels.claudeHaiku,
+		sentModels.claudeSonnet,
+		sentModels.codexReviewer,
+		sentModels.codexMemories,
+	];
 
 	const canaryJudgments = mocks.judge.received.pipe(
 		Effect.flatMap((judged) =>

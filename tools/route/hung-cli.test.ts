@@ -73,9 +73,9 @@ const boundedByLimit = Effect.gen(function* boundedByLimit() {
 	const login = yield* nearExpiry;
 
 	const { mocks, post } = yield* routed({
-		env: { PATH: `${login.bin}:/usr/bin:/bin` },
 		holdsPhi: () => false,
 		openFolder: login.folder,
+		routerEnv: { PATH: `${login.bin}:/usr/bin:/bin` },
 	});
 
 	const request = yield* Effect.forkChild(
@@ -100,9 +100,9 @@ const hungUpInRefresh = Effect.gen(function* hungUpInRefresh() {
 	const login = yield* nearExpiry;
 
 	const { post, state } = yield* routed({
-		env: { PATH: `${login.bin}:/usr/bin:/bin` },
 		holdsPhi: () => false,
 		openFolder: login.folder,
+		routerEnv: { PATH: `${login.bin}:/usr/bin:/bin` },
 	});
 
 	const request = yield* Effect.forkChild(post({ body, session: "hung-up-in-refresh" }));

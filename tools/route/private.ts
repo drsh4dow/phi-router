@@ -8,10 +8,6 @@ const octal = 8;
 
 const modes = { file: 0o600, folder: 0o700 } as const;
 
-/**
- * Every path under each of `roots` as `<path> <mode in octal>`, and those of them that are not private: a folder with a
- * mode other than 0700, or a file with a mode other than 0600. The roots themselves are walked, not listed.
- */
 const privacyUnder = Effect.fnUntraced(function* privacyUnder(roots: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

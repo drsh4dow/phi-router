@@ -1,9 +1,19 @@
 import { Array, Effect, Option, Schema, Stream, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { autoOf, clean, harnessNames, holdsCanary, linesIn, modelsIn, named, phi, posted } from "./target-models.ts";
+import {
+	autoOf,
+	clean,
+	harnessNames,
+	holdsCanary,
+	linesIn,
+	modelsIn,
+	phi,
+	posted,
+	sentModels,
+} from "./target-models.ts";
+import type { AccountScript } from "./harnesses.ts";
 import type { HarnessName } from "./target-models.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Script } from "./harnesses.ts";
 import type { Turn } from "./mocked-router.ts";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
 import { fakes } from "./harnesses.ts";
@@ -18,9 +28,9 @@ const answered: Turn = { role: "assistant", text: "ok" };
 
 const failed = 500;
 
-const limited: Script = () => ({ body: "{}", kind: "status", status: 429 });
+const limited: AccountScript = () => ({ body: "{}", kind: "status", status: 429 });
 
-const answering: Script = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
+const answering: AccountScript = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
 
 const vendorOf: Readonly<Record<HarnessName, "anthropic" | "openai">> = {
 	claude: "anthropic",
@@ -29,8 +39,8 @@ const vendorOf: Readonly<Record<HarnessName, "anthropic" | "openai">> = {
 };
 
 const modelsOf = {
-	anthropic: { carried: named.subagent, lacked: named.sonnet },
-	openai: { carried: named.memories, lacked: named.reviewer },
+	anthropic: { carried: sentModels.claudeHaiku, lacked: sentModels.claudeSonnet },
+	openai: { carried: sentModels.codexMemories, lacked: sentModels.codexReviewer },
 } as const;
 
 /**
@@ -43,10 +53,10 @@ const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessNa
 	const { carried, lacked } = modelsOf[vendor];
 
 	const { mocks, post, state } = yield* routed({
-		configured: { sealedModel: { [vendor]: substitute } },
+		configExtras: { sealedModel: { [vendor]: substitute } },
 		harness,
 		holdsPhi: holdsCanary,
-		lacks: [[named.gateway, lacked, fakes.targetModel]],
+		lacks: [[sentModels.gatewayWithSlash, lacked, fakes.targetModel]],
 	});
 
 	const statuses = [
@@ -89,9 +99,9 @@ const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessNa
 
 /** With no `sealedModel` for the vendor, the substitute is its target model. */
 const targetAsSubstitute = Effect.gen(function* targetAsSubstitute() {
-	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary, lacks: [[named.subagent]] });
+	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary, lacks: [[sentModels.claudeHaiku]] });
 
-	yield* posted(post, { harness: "claude", model: named.subagent, session: "default-1" }, [phi]);
+	yield* posted(post, { harness: "claude", model: sentModels.claudeHaiku, session: "default-1" }, [phi]);
 
 	const sealed = yield* mocks.baa.received.pipe(Effect.flatMap(modelsIn));
 	const lines = yield* linesIn(state);
@@ -155,25 +165,29 @@ const unsentAs = (line: readonly (string | boolean)[]): Unsent => ({
  */
 const unsent = Effect.gen(function* unsent() {
 	const lineOf = Effect.fnUntraced(function* lineOf(of: {
-		readonly open: Script;
+		readonly open: AccountScript;
 		readonly pinned: boolean;
 		readonly stamp: boolean;
 	}) {
 		const run = yield* routed({
-			configured: { sealedModel: { anthropic: substitute } },
+			configExtras: { sealedModel: { anthropic: substitute } },
 			holdsPhi: holdsCanary,
-			lacks: [[named.subagent]],
+			lacks: [[sentModels.claudeHaiku]],
 			open: of.open,
 			store: readsFailing(of.pinned),
 		});
 
-		const stamping = posted(run.post, { harness: "claude", model: named.subagent, session: "stamping-1" }, [clean]);
+		const stamping = posted(run.post, { harness: "claude", model: sentModels.claudeHaiku, session: "stamping-1" }, [
+			clean,
+		]);
 
 		yield* Effect.when(stamping, Effect.succeed(of.stamp));
 
-		const unsentPost = posted(run.post, { harness: "claude", model: named.subagent, session: unsentSession }, [
-			clean,
-		]);
+		const unsentPost = posted(
+			run.post,
+			{ harness: "claude", model: sentModels.claudeHaiku, session: unsentSession },
+			[clean],
+		);
 
 		const before = yield* run.mocks.accounts;
 		const status = yield* unsentPost;
@@ -191,7 +205,7 @@ const unsent = Effect.gen(function* unsent() {
 	assert.deepStrictEqual<unknown>(
 		{ fromOpen, fromPinned, fromStamped },
 		{
-			fromOpen: unsentAs(["open", "clean", named.subagent, false, "router failure"]),
+			fromOpen: unsentAs(["open", "clean", sentModels.claudeHaiku, false, "router failure"]),
 			fromPinned: unsentAs(["baa", "sealed", substitute, true, "pinned"]),
 			fromStamped: unsentAs(["baa", "sealed", substitute, true, "router failure"]),
 		},

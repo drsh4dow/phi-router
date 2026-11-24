@@ -9,36 +9,25 @@ const canary = "PATIENT-CANARY-25K7";
 
 const holdsCanary = Str.includes(canary);
 
-/**
- * Model names other than `phi/auto` that reach the router: the strings Claude Code sent for the `haiku` and `sonnet`
- * aliases, Codex's reviewer and memory models, and a gateway id with a slash.
- */
-const named = {
-	gateway: "my-gateway/claude-opus-5-5",
-	memories: "gpt-5.6-luna",
-	reviewer: "codex-auto-review",
-	sonnet: "claude-sonnet-5-5",
-	subagent: "claude-haiku-5-5",
+const sentModels = {
+	claudeHaiku: "claude-haiku-5-5",
+	claudeSonnet: "claude-sonnet-5-5",
+	codexMemories: "gpt-5.6-luna",
+	codexReviewer: "codex-auto-review",
+	gatewayWithSlash: "my-gateway/claude-opus-5-5",
 } as const;
 
 type HarnessName = NonNullable<Scripts["harness"]>;
 
 const harnessNames: readonly HarnessName[] = ["claude", "codex", "pi"];
 
-/** How each harness spells `phi/auto`: the pi package sends the id `auto` inside its provider `phi`. */
 const autoOf: Readonly<Record<HarnessName, string>> = { claude: "phi/auto", codex: "phi/auto", pi: "auto" };
 
 const phi: Turn = { role: "user", text: `Member ${canary} called.` };
 
 const clean: Turn = { role: "user", text: "List the build steps." };
 
-/**
- * One turn as a Codex input item. An assistant turn is the reply the BAA mock wrote.
- *
- * @param {Turn} turn The turn.
- * @returns {Json} The item.
- */
-const itemOf = ({ role, text }: Turn): Json => {
+const codexItemOf = ({ role, text }: Turn): Json => {
 	if (role === "user") {
 		return userMessage(text);
 	}
@@ -46,13 +35,6 @@ const itemOf = ({ role, text }: Turn): Json => {
 	return replyMessage({ id: "msg_baa_ok", text });
 };
 
-/**
- * `turns` as the body `harness` sends, naming `model` where the test bodies name `phi/auto`.
- *
- * @param {object} sent The harness and the model.
- * @param {readonly Turn[]} turns The conversation.
- * @returns {Effect.Effect<string>} The body.
- */
 const bodyFor = Effect.fnUntraced(function* bodyFor(
 	sent: { readonly harness: HarnessName; readonly model: string },
 	turns: readonly Turn[],
@@ -61,7 +43,7 @@ const bodyFor = Effect.fnUntraced(function* bodyFor(
 
 	const body = yield* Effect.suspend(() => {
 		if (sent.harness === "codex") {
-			return codexBodyOf(pipe(turns, Array.map(itemOf)));
+			return codexBodyOf(pipe(turns, Array.map(codexItemOf)));
 		}
 
 		return bodyOf(turns);
@@ -70,7 +52,6 @@ const bodyFor = Effect.fnUntraced(function* bodyFor(
 	return Str.replace('"model":"phi/auto"', `"model":${field}`)(body);
 });
 
-/** Posts `turns` as one request of `sent.session` under `sent.model`, reads the whole answer, and returns its status. */
 const posted = Effect.fnUntraced(function* posted(
 	post: Post,
 	sent: { readonly harness: HarnessName; readonly session: string; readonly model: string },
@@ -91,7 +72,6 @@ const modelsIn = (received: readonly Sent[]): Effect.Effect<readonly string[], S
 		concurrency: 1,
 	});
 
-/** The account, lane, model, substitute flag and reason of each line of the lane log in `state`. */
 const linesIn = Effect.fnUntraced(function* linesIn(state: string) {
 	const lines = yield* laneLines(state);
 
@@ -103,7 +83,6 @@ const linesIn = Effect.fnUntraced(function* linesIn(state: string) {
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
-/** A lease of `session` held by this process in `folder`, as `start` leaves it, in the router's state folder. */
 const leased = Effect.fnUntraced(function* leased(state: string, session: string, folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -113,6 +92,6 @@ const leased = Effect.fnUntraced(function* leased(state: string, session: string
 	yield* fs.writeFileString(path.join(state, "leases.json"), leases, { mode: privateModes.file });
 });
 
-export { autoOf, clean, harnessNames, holdsCanary, leased, linesIn, modelsIn, named, phi, posted };
+export { autoOf, clean, harnessNames, holdsCanary, leased, linesIn, modelsIn, phi, posted, sentModels };
 
 export type { HarnessName };

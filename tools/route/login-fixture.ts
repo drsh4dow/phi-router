@@ -72,7 +72,6 @@ interface Tokens {
 	readonly renewed: string;
 }
 
-/** A login of `vendor` in a fresh folder, or in `at` when given, and a stand-in CLI that renews it. */
 const loggedIn = Effect.fnUntraced(function* loggedIn(vendor: Vendor, first: Lifetime, at?: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

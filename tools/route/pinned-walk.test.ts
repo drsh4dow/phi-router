@@ -102,7 +102,7 @@ const inRepo = Effect.gen(function* inRepo() {
 	const fs = yield* FileSystem.FileSystem;
 	const repo = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: "phi-router-repo-" }), fs.realPath);
 	const session = "repo-walk-1";
-	const run = yield* routed(Struct.assign(failingFirst, { configured: { baaRepos: [repo] } }));
+	const run = yield* routed(Struct.assign(failingFirst, { configExtras: { baaRepos: [repo] } }));
 
 	yield* leased(run.state, session, repo);
 

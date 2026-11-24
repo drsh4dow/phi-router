@@ -1,6 +1,6 @@
 import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { clean, harnessNames, holdsCanary, linesIn, modelsIn, named, phi, posted } from "./target-models.ts";
+import { clean, harnessNames, holdsCanary, linesIn, modelsIn, phi, posted, sentModels } from "./target-models.ts";
 import { fakes, laneLines, routed } from "./mocked-router.ts";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import type { HarnessName } from "./target-models.ts";
@@ -29,7 +29,7 @@ const none = 0;
  */
 const pinnedByName = Effect.fnUntraced(function* pinnedByName(harness: HarnessName) {
 	const { mocks, post, state } = yield* routed({
-		configured: { sealedModel: fakes.sealedModel },
+		configExtras: { sealedModel: fakes.sealedModel },
 		harness,
 		holdsPhi: holdsCanary,
 	});
@@ -98,8 +98,13 @@ const postBody = Effect.fnUntraced(function* postBody(
  */
 const pinnedByLine = Effect.fnUntraced(function* pinnedByLine(harness: "claude" | "pi") {
 	const { mocks, post, state } = yield* routed({ harness, holdsPhi: holdsCanary });
-	const inSystem = yield* claudeBody({ model: named.subagent, system: subagentSystem, text: clean.text });
-	const inPrompt = yield* claudeBody({ model: named.subagent, system: "", text: `${pinnedLine} ${clean.text}` });
+	const inSystem = yield* claudeBody({ model: sentModels.claudeHaiku, system: subagentSystem, text: clean.text });
+
+	const inPrompt = yield* claudeBody({
+		model: sentModels.claudeHaiku,
+		system: "",
+		text: `${pinnedLine} ${clean.text}`,
+	});
 
 	yield* postBody(post, { body: inSystem, session: "line-system" });
 
@@ -120,14 +125,14 @@ const pinnedByLine = Effect.fnUntraced(function* pinnedByLine(harness: "claude" 
 			open: yield* modelsIn(opened),
 		},
 		{
-			baa: [named.subagent],
+			baa: [sentModels.claudeHaiku],
 			judgedPinned: none,
 			judgedPrompt: true,
 			lines: [
-				["baa", "sealed", named.subagent, false, "pinned"],
-				["open", "clean", named.subagent, false, "clean"],
+				["baa", "sealed", sentModels.claudeHaiku, false, "pinned"],
+				["open", "clean", sentModels.claudeHaiku, false, "clean"],
 			],
-			open: [named.subagent],
+			open: [sentModels.claudeHaiku],
 		},
 	);
 });

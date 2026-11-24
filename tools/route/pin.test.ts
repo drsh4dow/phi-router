@@ -194,7 +194,7 @@ const lateUnpin = Effect.gen(function* lateUnpin() {
 const listed = "Fixture patient, SSN 536-22-8726.";
 
 const fixtures = Effect.gen(function* fixtures() {
-	const { mocks, post, state, url } = yield* routed({ configured: { fixtures: [listed] }, holdsPhi: () => false });
+	const { mocks, post, state, url } = yield* routed({ configExtras: { fixtures: [listed] }, holdsPhi: () => false });
 
 	yield* postedIn(post, "fixture-1", [user(listed)]);
 	yield* postedIn(post, "fixture-2", [user(`${listed} `)]);
@@ -255,7 +255,8 @@ const modes = Effect.gen(function* modes() {
 			{ judge: { endpoint: judgeEndpoint, keyFile } },
 			{},
 		],
-		(configured) => Effect.exit(Effect.scoped(routed({ configured, holdsPhi: () => false, judgeName: "claude" }))),
+		(configExtras) =>
+			Effect.exit(Effect.scoped(routed({ configExtras, holdsPhi: () => false, judgeName: "claude" }))),
 		{ concurrency: 1 },
 	);
 

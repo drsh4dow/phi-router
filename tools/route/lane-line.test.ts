@@ -1,8 +1,8 @@
 import { Array, Effect, Fiber, FileSystem, Path, Schedule, Schema, Stream, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
+import type { AccountScript } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Script } from "./harnesses.ts";
 import { TestClock } from "effect/testing";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
 import { homeOf } from "#router/features/accounts/index.ts";
@@ -44,9 +44,9 @@ const linesIn = Effect.fnUntraced(function* linesIn(state: string) {
 	);
 });
 
-const answers: Script = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
+const answers: AccountScript = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
 
-const failing: Script = () => ({ body: "{}", kind: "status", status: 500 });
+const failing: AccountScript = () => ({ body: "{}", kind: "status", status: 500 });
 
 /** The router writes the line as it lets go of a request the harness hung up on, so the test waits for it. */
 const lineRetry = { schedule: Schedule.spaced("20 millis") } as const;

@@ -64,7 +64,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const where = yield* place;
 
 	const { breaches, env, received, roots, state } = yield* mocked({
-		configured: { sealedModel: fakes.sealedModel },
+		configExtras: { sealedModel: fakes.sealedModel },
 		holdsPhi: run.judgeSeals,
 	});
 

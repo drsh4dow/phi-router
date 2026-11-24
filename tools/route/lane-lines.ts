@@ -1,7 +1,6 @@
 import { Effect, FileSystem, Path, Schema, String as Str } from "effect";
 import { Reasons } from "#router/client/lane-log.ts";
 
-/** A lane log line: these fields and no other, so no line can carry content. */
 const LaneLine = Schema.fromJsonString(
 	Schema.Struct({
 		account: Schema.String,
@@ -16,7 +15,6 @@ const LaneLine = Schema.fromJsonString(
 	}),
 );
 
-/** The lines of the lane log in the router's state folder `state`. A line with another field fails. */
 const laneLines = Effect.fnUntraced(function* laneLines(state: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

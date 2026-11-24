@@ -4,7 +4,6 @@ import { LeaseRequests } from "#router/client/router-port/index.ts";
 
 const listening = "phi-router listens on ";
 
-/** Leaves a lease for this test process with the router at `url`, so the router runs as long as this process. */
 const leased = Effect.fnUntraced(function* leased(url: string, folder: string) {
 	const built = yield* Layer.build(LeaseRequests.layer);
 	const requests = Context.get(built, LeaseRequests);
@@ -18,11 +17,6 @@ const leased = Effect.fnUntraced(function* leased(url: string, folder: string) {
 	return answered;
 }, Effect.scoped);
 
-/**
- * The router as its own process: `command` plus `serve --port 0`, run from the repository with `env` beside the
- * caller's own. Once it prints that it listens, it holds a lease for this test process, so it runs until the scope ends
- * it or this process ends. Returns its URL and a SIGKILL.
- */
 const routerProcess = Effect.fnUntraced(function* routerProcess(
 	command: readonly [string, ...string[]],
 	env: Readonly<Record<string, string>>,

@@ -2,10 +2,10 @@ import { Array, Effect, FileSystem, Latch, Option, Order, Schema, String as Str,
 import type { Post, Turn } from "./mocked-router.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
+import type { AccountScript } from "./harnesses.ts";
 import type { Cause } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import type { Said } from "#router/client/mock-upstreams/index.ts";
-import type { Script } from "./harnesses.ts";
 import { TestClock } from "effect/testing";
 import { homeOf } from "#router/features/accounts/index.ts";
 import { resetting } from "./resetting.ts";
@@ -39,16 +39,16 @@ const tagsOf = (accounts: readonly (readonly { readonly body: string }[])[]): re
 	);
 
 const answering =
-	(code: number): Script =>
+	(code: number): AccountScript =>
 	(): Said => ({ body: "{}", kind: "status", status: code });
 
 const limited = answering(status.rateLimited);
 
 const failing = answering(status.failed);
 
-const stalling: Script = () => ({ kind: "stalled", status: status.failed });
+const stalling: AccountScript = () => ({ kind: "stalled", status: status.failed });
 
-const ok: Script = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
+const ok: AccountScript = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
 
 const twoAccounts = 2;
 
@@ -163,7 +163,7 @@ const afterFirstByte = Effect.gen(function* afterFirstByte() {
 	const firstRead = yield* Latch.make();
 	const opening = pipe(textEvents(["partial"]), Array.head, Option.toArray);
 
-	const breaking: Script = () => ({
+	const breaking: AccountScript = () => ({
 		events: Stream.concat(
 			Stream.fromIterable(opening),
 			Stream.flatMap(Stream.fromEffect(firstRead.await), () => Stream.die("the account hung up")),
@@ -261,7 +261,7 @@ const replyText = "A-REPLY-6M2P";
 
 const followUp: Turn = { role: "user", text: "Go on." };
 
-const writesThenLimits: Script = (asked) => {
+const writesThenLimits: AccountScript = (asked) => {
 	if (Str.includes(replyText)(asked.body)) {
 		return limited(asked);
 	}

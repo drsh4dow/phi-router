@@ -89,11 +89,11 @@ const resendsAfterRule7 = Effect.gen(function* resendsAfterRule7() {
 	const { mocks, post } = yield* routed({
 		baa: inTurn([unauthorized, answers]).script,
 		baaFolder: baa.folder,
-		env: { PATH: `${open.bin}:/usr/bin:/bin` },
 		harness: "codex",
 		holdsPhi: () => false,
 		open: opening.script,
 		openFolder: open.folder,
+		routerEnv: { PATH: `${open.bin}:/usr/bin:/bin` },
 		store: sealedOnce(() => opening.asked() >= refusedOn),
 	});
 
@@ -134,10 +134,10 @@ const movesOnAfterSecond401 = Effect.gen(function* movesOnAfterSecond401() {
 	const { mocks, post } = yield* routed({
 		baa: answers,
 		baaFolder: baa.folder,
-		env: { PATH: `${open.bin}:/usr/bin:/bin` },
 		holdsPhi: () => false,
 		open: unauthorized,
 		openFolder: open.folder,
+		routerEnv: { PATH: `${open.bin}:/usr/bin:/bin` },
 	});
 
 	const response = yield* post({ body: claudeBody, session: "logins-claude" });
