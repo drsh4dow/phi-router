@@ -1,5 +1,5 @@
-import { Array, Effect, FileSystem, Option, Path, String as Str, Struct, pipe } from "effect";
-import type { Lifetime, Tokens, Vendor } from "./login-fixture.ts";
+import { Array, Effect, FileSystem, Option, Struct, pipe } from "effect";
+import type { Lifetime, Vendor } from "./login-fixture.ts";
 import { assert, it } from "@effect/vitest";
 import { claudeRequest, routed } from "./mocked-router.ts";
 import { codexBodyOf, harnesses, userMessage } from "./harnesses.ts";
@@ -9,6 +9,7 @@ import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
+import { leaks } from "#tools/cli/accounts-run.ts";
 
 const minute = 60_000;
 
@@ -22,34 +23,6 @@ const bodies = {
 };
 
 const sealing = `sed -i 's/"cleared"/"sealed"/g' "$(cat "$(dirname "$0")/state")/sessions/bG9naW5zLWNsYXVkZQ.json"`;
-
-const holding = Effect.fnUntraced(function* holding(roots: readonly string[], tokens: Tokens) {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-
-	const names = yield* Effect.forEach(
-		roots,
-		(root) =>
-			fs.readDirectory(root, { recursive: true }).pipe(Effect.map(Array.map((name) => path.join(root, name)))),
-		{ concurrency: 1 },
-	);
-
-	const files = yield* Effect.forEach(
-		Array.flatten(names),
-		(file) =>
-			fs.readFileString(file).pipe(
-				Effect.orElseSucceed(() => ""),
-				Effect.map((text) => ({ file, text })),
-			),
-		{ concurrency: 1 },
-	);
-
-	return pipe(
-		files,
-		Array.filter(({ text }) => Str.includes(tokens.first)(text) || Str.includes(tokens.renewed)(text)),
-		Array.map(({ file }) => file),
-	);
-});
 
 const bearersOf = Array.map(({ headers }: Sent) => headers["authorization"]);
 
@@ -92,7 +65,13 @@ const through = Effect.fnUntraced(function* through(vendor: Vendor, first: Lifet
 	yield* response.text;
 
 	const [opened = [], sealed = []] = yield* mocks.accounts;
-	const leaked = yield* holding([env.XDG_CONFIG_HOME, env.XDG_STATE_HOME], login.tokens);
+
+	const leaked = yield* leaks(
+		[env.XDG_CONFIG_HOME, env.XDG_STATE_HOME],
+		[],
+		[login.tokens.first, login.tokens.renewed],
+	);
+
 	const ran = yield* login.ran;
 
 	return {

@@ -138,14 +138,12 @@ const phiRouter = Effect.fnUntraced(function* phiRouter(
 	return { exitCode: Number(exitCode), stderr, stdout };
 }, Effect.scoped);
 
-const holdsToken = (text: string): boolean =>
-	pipe(
-		Record.values(tokens),
-		Array.some((token) => Str.includes(token)(text)),
-	);
-
-/** Every file under `roots`, and every one of `printed`, that holds a fake token. */
-const leaks = Effect.fnUntraced(function* leaks(roots: readonly string[], printed: readonly string[]) {
+/** Every file under `roots`, and every one of `printed`, that holds one of `credentials`, the fake tokens unless named. */
+const leaks = Effect.fnUntraced(function* leaks(
+	roots: readonly string[],
+	printed: readonly string[],
+	credentials: readonly string[] = Record.values(tokens),
+) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 
@@ -179,7 +177,7 @@ const leaks = Effect.fnUntraced(function* leaks(roots: readonly string[], printe
 
 	return pipe(
 		texts,
-		Array.filter(({ text }) => holdsToken(text)),
+		Array.filter(({ text }) => Array.some<string>((credential) => Str.includes(credential)(text))(credentials)),
 		Array.map(({ file }) => file),
 	);
 });

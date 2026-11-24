@@ -6,6 +6,7 @@ import type { AccountScript } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 import { fakes } from "./harnesses.ts";
+import { leaks } from "#tools/cli/accounts-run.ts";
 import { routerProcess } from "./router-process.ts";
 
 const minute = 60_000;
@@ -71,46 +72,6 @@ const expiring = Effect.gen(function* expiring() {
 	};
 });
 
-const holding = Effect.fnUntraced(function* holding(roots: readonly string[], printed: string) {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-
-	const listed = yield* Effect.forEach(roots, (root) => fs.readDirectory(root, { recursive: true }), {
-		concurrency: 1,
-	});
-
-	const files = pipe(
-		Array.zip(roots, listed),
-		Array.flatMap(([root, names]) =>
-			pipe(
-				names,
-				Array.map((name) => path.join(root, name)),
-			),
-		),
-	);
-
-	const texts = yield* Effect.forEach(
-		files,
-		(file) =>
-			Effect.map(
-				Effect.orElseSucceed(fs.readFileString(file), () => ""),
-				(text) => ({ file, text }),
-			),
-		{ concurrency: 1 },
-	);
-
-	return pipe(
-		[...texts, { file: "printed output", text: printed }],
-		Array.filter(({ text }) =>
-			pipe(
-				credentials,
-				Array.some((credential) => Str.includes(credential)(text)),
-			),
-		),
-		Array.map(({ file }) => file),
-	);
-});
-
 const teed = ["/bin/sh", "-c", 'bun src/router/main.ts "$@" 2>&1 | tee -a "$PHI_TEST_OUTPUT"', "sh"] as const;
 
 const postedOnce = Effect.fnUntraced(function* postedOnce(env: Readonly<Record<string, string>>) {
@@ -140,7 +101,7 @@ const printsNoCredential = Effect.gen(function* printsNoCredential() {
 	const answered = yield* postedOnce(env);
 	const [opened = [], sealed = []] = yield* mocks.accounts;
 	const printed = yield* login.printed;
-	const leaked = yield* holding(roots, printed);
+	const leaked = yield* leaks(roots, [printed], credentials);
 
 	assert.deepStrictEqual<unknown>(
 		{

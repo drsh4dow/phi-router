@@ -62,11 +62,6 @@ interface Lifetime {
 	readonly standInRuns?: string;
 }
 
-interface Tokens {
-	readonly first: string;
-	readonly renewed: string;
-}
-
 const loggedIn = Effect.fnUntraced(function* loggedIn(vendor: Vendor, first: Lifetime, at?: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -99,4 +94,4 @@ const loggedIn = Effect.fnUntraced(function* loggedIn(vendor: Vendor, first: Lif
 
 export { dayLong, day, loggedIn, logins, start, thirtyDays };
 
-export type { Lifetime, Tokens, Vendor };
+export type { Lifetime, Vendor };
