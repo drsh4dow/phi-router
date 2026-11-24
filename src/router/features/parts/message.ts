@@ -1,3 +1,7 @@
+type Base64 = string;
+
+type JsonSchemaText = string;
+
 interface TextBlock {
 	readonly type: "text";
 	readonly text: string;
@@ -6,8 +10,7 @@ interface TextBlock {
 interface ImageBlock {
 	readonly type: "image";
 	readonly mimeType: string;
-	/** Base64. */
-	readonly data: string;
+	readonly data: Base64;
 }
 
 interface ToolCall {
@@ -20,8 +23,7 @@ interface ToolCall {
 interface Tool {
 	readonly name: string;
 	readonly description: string;
-	/** The JSON schema text. */
-	readonly parameters: string;
+	readonly parameters: JsonSchemaText;
 }
 
 interface SystemMessage {
