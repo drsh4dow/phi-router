@@ -7,7 +7,6 @@ import {
 	mockWorld,
 	responseEvents,
 	serveAnthropic,
-	serveJudge,
 	serveOpenAi,
 	textEvents,
 	toolEvents,
@@ -16,6 +15,7 @@ import type { HttpServer } from "effect/http";
 import { Listener } from "#router/client/router-port/index.ts";
 import type { Scope } from "effect";
 import { TestClock } from "effect/testing";
+import { mockOn } from "#tools/judge/configured.ts";
 
 type Script = (asked: Readonly<Asked>) => Said;
 
@@ -279,12 +279,6 @@ const offRoute = Effect.gen(function* offRoute() {
 	);
 });
 
-const judgeOn = Effect.fnUntraced(function* judgeOn(script: (piece: string) => Reply) {
-	const server = yield* Layer.build(NodeHttpServer.layerTest);
-
-	return yield* Effect.provideContext(serveJudge(script), server);
-});
-
 const cleared = (): Reply => ({ body: { answers: [] }, kind: "body" });
 
 const judgeAsked = { input: '{"piece":"the piece"}', model: "judge", questions: [] };
@@ -292,8 +286,8 @@ const judgeAsked = { input: '{"piece":"the piece"}', model: "judge", questions: 
 const judgeAskedText = Schema.encodeEffect(JsonText)(judgeAsked);
 
 const followedRedirect = Effect.gen(function* followedRedirect() {
-	const elsewhere = yield* judgeOn(cleared);
-	const redirecting = yield* judgeOn(() => ({ kind: "redirect", location: `${elsewhere.endpoint}/decisions` }));
+	const elsewhere = yield* mockOn(cleared);
+	const redirecting = yield* mockOn(() => ({ kind: "redirect", location: `${elsewhere.endpoint}/decisions` }));
 	const client = yield* HttpClient.HttpClient;
 	const asked = yield* judgeAskedText;
 
@@ -311,7 +305,7 @@ const followedRedirect = Effect.gen(function* followedRedirect() {
 });
 
 const answeredAndRecorded = Effect.gen(function* answeredAndRecorded() {
-	const judge = yield* judgeOn(cleared);
+	const judge = yield* mockOn(cleared);
 	const client = yield* HttpClient.HttpClient;
 	const asked = yield* judgeAskedText;
 
