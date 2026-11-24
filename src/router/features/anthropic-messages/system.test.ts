@@ -6,7 +6,7 @@ import type { Message } from "#router/features/parts/index.ts";
 import type { MessagesRequest } from "./index.ts";
 import type { Target } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
-import { toolResult } from "./captures/tool-result.ts";
+import { requests } from "./captures/index.ts";
 
 const sealedStub =
 	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
@@ -46,8 +46,8 @@ const sectionsSealed = (messages: readonly Message[]): readonly Message[] =>
 	);
 
 const attributionFirst = Effect.gen(function* attributionFirst() {
-	const request = yield* decodeRequest(toolResult, nobodyWrote, "claude");
-	const original = yield* decodeBody(toolResult);
+	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
+	const original = yield* decodeBody(requests.toolResult);
 	const toOpen = yield* sent(request, { lane: "clean", messages: sectionsSealed(request.messages), model: target });
 
 	const expected = pipe(
@@ -69,8 +69,8 @@ const attributionFirst = Effect.gen(function* attributionFirst() {
 });
 
 const bridgeOnce = Effect.gen(function* bridgeOnce() {
-	const request = yield* decodeRequest(toolResult, nobodyWrote, "claude");
-	const original = yield* decodeBody(toolResult);
+	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
+	const original = yield* decodeBody(requests.toolResult);
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, model: target });
 	const toBaa = yield* sent(request, { lane: "sealed", model: target, pinned: false });
 	const pinned = yield* sent(request, { lane: "sealed", model: target, pinned: true });
@@ -81,7 +81,7 @@ const bridgeOnce = Effect.gen(function* bridgeOnce() {
 });
 
 const modelReplaced = Effect.gen(function* modelReplaced() {
-	const request = yield* decodeRequest(toolResult, nobodyWrote, "claude");
+	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, model: target });
 	const toBaa = yield* sent(request, { lane: "sealed", model: target, pinned: true });
 

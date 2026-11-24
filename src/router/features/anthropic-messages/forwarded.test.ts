@@ -5,7 +5,7 @@ import type { MessagesRequest } from "./index.ts";
 import { decodeRequest } from "./index.ts";
 import { guard } from "#router/features/border/index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
-import { requests } from "./captures/requests.ts";
+import { requests } from "./captures/index.ts";
 
 /** A parsed JSON value, read only. */
 type Json = string | number | boolean | null | readonly Json[] | { readonly [key: string]: Json };

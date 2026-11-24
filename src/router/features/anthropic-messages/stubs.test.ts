@@ -4,13 +4,15 @@ import type { WireAssistantBlock, WireUnreadable, WireUserBlock } from "./wire.t
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
-import { compaction } from "./captures/compaction.ts";
+import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
-import { firstTurn } from "./captures/first-turn.ts";
-import { subagent } from "./captures/subagent.ts";
-import { toolResult } from "./captures/tool-result.ts";
 
-const requests = { compaction, firstTurn, subagent, toolResult };
+const requests = {
+	compaction: captured.compaction,
+	firstTurn: captured.firstTurn,
+	subagent: captured.subagent,
+	toolResult: captured.toolResult,
+};
 
 const sealedStub =
 	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";

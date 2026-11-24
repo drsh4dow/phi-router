@@ -6,8 +6,8 @@ import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import type { MessagesRequest } from "./index.ts";
 import type { Target } from "#router/features/border/index.ts";
+import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
-import { toolSearch } from "./captures/tool-search.ts";
 
 const target = "claude-target";
 
@@ -145,7 +145,7 @@ const refused = Effect.gen(function* refused() {
 });
 
 const toolReference = Effect.gen(function* toolReference() {
-	const request = yield* decodeRequest(toolSearch, nobodyWrote, "claude");
+	const request = yield* decodeRequest(requests.toolSearch, nobodyWrote, "claude");
 
 	const results = pipe(
 		request.messages,

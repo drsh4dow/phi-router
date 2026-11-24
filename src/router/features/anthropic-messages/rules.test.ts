@@ -7,8 +7,8 @@ import type { MessagesRequest } from "./index.ts";
 import type { Target } from "#router/features/border/index.ts";
 import type { WireBody } from "./wire.ts";
 import { decodeRequest } from "./index.ts";
+import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
-import { toolResult } from "./captures/tool-result.ts";
 
 const sealedStub =
 	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
@@ -102,7 +102,7 @@ const stubbedWhere = (
 	);
 
 const baaThinking = Effect.gen(function* baaThinking() {
-	const request = yield* decodeRequest(toolResult, nobodyWrote, "claude");
+	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, clean(request.messages));
 	const toBaa = yield* sent(request, { lane: "sealed", model: target, pinned: false });
 
@@ -114,7 +114,7 @@ const baaThinking = Effect.gen(function* baaThinking() {
 });
 
 const openThinking = Effect.gen(function* openThinking() {
-	const request = yield* decodeRequest(toolResult, openWroteAll, "claude");
+	const request = yield* decodeRequest(requests.toolResult, openWroteAll, "claude");
 
 	const lastReply = pipe(
 		request.messages,

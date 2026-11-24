@@ -5,7 +5,7 @@ import type { Part } from "#router/features/parts/index.ts";
 import type { UnreadableRequest } from "./index.ts";
 import { decodeRequest } from "./index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
-import { toolResult } from "./captures/tool-result.ts";
+import { requests } from "./captures/index.ts";
 
 const callId = "toolu_01QLmmERkcyuzj56mJxsGPcP";
 
@@ -42,7 +42,7 @@ const resultKey = Effect.fnUntraced(function* resultKey(body: string) {
 });
 
 const inventory = Effect.gen(function* inventory() {
-	const { parts, request } = yield* partsIn(toolResult);
+	const { parts, request } = yield* partsIn(requests.toolResult);
 
 	assert.deepStrictEqual(
 		pipe(
@@ -75,18 +75,22 @@ const inventory = Effect.gen(function* inventory() {
 });
 
 const renamedCall = Effect.gen(function* renamedCall() {
-	const first = yield* resultKey(toolResult);
-	const renamed = yield* resultKey(Str.replaceAll(callId, "toolu_01RenamedCallId0000000000")(toolResult));
-	const edited = yield* resultKey(Str.replace("The end.", "The end!")(toolResult));
+	const first = yield* resultKey(requests.toolResult);
+	const renamed = yield* resultKey(Str.replaceAll(callId, "toolu_01RenamedCallId0000000000")(requests.toolResult));
+	const edited = yield* resultKey(Str.replace("The end.", "The end!")(requests.toolResult));
 
 	assert.deepStrictEqual(renamed, first);
 	assert.notDeepEqual(edited, first);
 });
 
 const thinkingFree = Effect.gen(function* thinkingFree() {
-	const first = yield* keysIn(toolResult);
-	const resigned = yield* keysIn(Str.replaceAll('"signature-placeholder"', '"another-signature"')(toolResult));
-	const removed = yield* keysIn(Str.replace(thinking, "")(toolResult));
+	const first = yield* keysIn(requests.toolResult);
+
+	const resigned = yield* keysIn(
+		Str.replaceAll('"signature-placeholder"', '"another-signature"')(requests.toolResult),
+	);
+
+	const removed = yield* keysIn(Str.replace(thinking, "")(requests.toolResult));
 
 	assert.deepStrictEqual(resigned, first);
 	assert.deepStrictEqual(removed, first);

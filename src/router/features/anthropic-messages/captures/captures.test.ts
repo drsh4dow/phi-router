@@ -1,10 +1,13 @@
 import { Array, Effect, Record, Result, String as Str, pipe } from "effect";
-import { UnreadableReply, UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
+import {
+	UnreadableReply,
+	UnreadableRequest,
+	decodeRequest,
+	replyKeys,
+} from "#router/features/anthropic-messages/index.ts";
 import { assert, it } from "@effect/vitest";
+import { replies, requests } from "./index.ts";
 import { Digest } from "effect/crypto";
-import { requests } from "./captures/requests.ts";
-import { toolCallReply } from "./captures/tool-call.ts";
-import { toolResult } from "./captures/tool-result.ts";
 
 const nobodyWrote = (): boolean => false;
 
@@ -19,7 +22,7 @@ const everyCapture = Effect.gen(function* everyCapture() {
 });
 
 const unknownField = Effect.gen(function* unknownField() {
-	const body = Str.replace('"stream":true}', '"stream":true,"temperature":"PATIENT-SECRET"}')(toolResult);
+	const body = Str.replace('"stream":true}', '"stream":true,"temperature":"PATIENT-SECRET"}')(requests.toolResult);
 	const failure = yield* Effect.flip(decodeRequest(body, nobodyWrote, "claude"));
 
 	assert.instanceOf(failure, UnreadableRequest);
@@ -31,22 +34,22 @@ const retried = Effect.gen(function* retried() {
 	const body = Str.replace(
 		'"thinking":{"type":"adaptive","display":"updates"}',
 		'"thinking":{"type":"adaptive"}',
-	)(toolResult);
+	)(requests.toolResult);
 
-	assert.notStrictEqual(body, toolResult);
+	assert.notStrictEqual(body, requests.toolResult);
 	yield* decodeRequest(body, nobodyWrote, "claude");
 });
 
 const openThinking = '{"type":"thinking","thinking":"","signature":"signature-placeholder"}';
 
 /**
- * How `body` reads and what the clean lane sends for it, under the keys of the open account's streamed `toolCallReply`.
+ * How `body` reads and what the clean lane sends for it, under the keys of the open account's streamed `replies.toolCallReply`.
  *
  * @param {string} body A request.
  * @returns {Effect.Effect} Who wrote each reply, and the clean body with every part cleared.
  */
 const echoOf = Effect.fnUntraced(function* echoOf(body: string) {
-	const keys = yield* replyKeys(toolCallReply);
+	const keys = yield* replyKeys(replies.toolCallReply);
 	const request = yield* decodeRequest(body, (key) => Array.contains(keys, key), "claude");
 	const clean = yield* request.encode({ lane: "clean", messages: request.messages, model: "claude-target" });
 
@@ -65,7 +68,7 @@ const echoOf = Effect.fnUntraced(function* echoOf(body: string) {
 });
 
 const echoedReply = Effect.gen(function* echoedReply() {
-	const { clean, writers } = yield* echoOf(toolResult);
+	const { clean, writers } = yield* echoOf(requests.toolResult);
 
 	assert.deepStrictEqual(writers, ["other", "open-account"]);
 	assert.include(clean, openThinking);
@@ -75,9 +78,9 @@ const rewrittenInput = Effect.gen(function* rewrittenInput() {
 	const body = Str.replace(
 		'"input":{"file_path":"/tmp/phi-16/work/notes.txt"}',
 		'"input":{"file_path":"/tmp/phi-16/work/notes.txt","limit":2000}',
-	)(toolResult);
+	)(requests.toolResult);
 
-	assert.notStrictEqual(body, toolResult);
+	assert.notStrictEqual(body, requests.toolResult);
 	const { clean, writers } = yield* echoOf(body);
 
 	assert.deepStrictEqual(writers, ["other", "other"]);
@@ -87,7 +90,7 @@ const rewrittenInput = Effect.gen(function* rewrittenInput() {
 const baaThinking = '{"type":"thinking","thinking":"BAA-THOUGHT","signature":"baa-signature"}';
 
 const otherThinking = Effect.gen(function* otherThinking() {
-	const body = Str.replaceAll(openThinking, baaThinking)(toolResult);
+	const body = Str.replaceAll(openThinking, baaThinking)(requests.toolResult);
 	const { clean, writers } = yield* echoOf(body);
 
 	assert.deepStrictEqual(writers, ["other", "open-account"]);
@@ -96,7 +99,7 @@ const otherThinking = Effect.gen(function* otherThinking() {
 });
 
 const mixedThinking = Effect.gen(function* mixedThinking() {
-	const body = Str.replaceAll(openThinking, `${openThinking},${baaThinking}`)(toolResult);
+	const body = Str.replaceAll(openThinking, `${openThinking},${baaThinking}`)(requests.toolResult);
 	const { clean } = yield* echoOf(body);
 
 	assert.include(clean, openThinking);
@@ -105,7 +108,7 @@ const mixedThinking = Effect.gen(function* mixedThinking() {
 });
 
 const cutReply = Effect.gen(function* cutReply() {
-	const cut = pipe(toolCallReply, Str.split("event: message_stop"), Array.headNonEmpty);
+	const cut = pipe(replies.toolCallReply, Str.split("event: message_stop"), Array.headNonEmpty);
 	const failed = `${cut}event: error\ndata: {"type":"error","error":{"type":"overloaded_error"}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n`;
 
 	const cutFailure = yield* Effect.flip(replyKeys(cut));
