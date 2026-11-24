@@ -10,13 +10,10 @@ import type {
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { piWire } from "#shared/pi.ts";
 
-/** What builds pi's input editor. */
 type EditorFactory = NonNullable<ReturnType<ExtensionUIContext["getEditorComponent"]>>;
 
-/** The input editor, which hands each line the user submits to `onSubmit`. */
 type Editor = ReturnType<EditorFactory>;
 
-/** What the editor calls with a submitted line. */
 type Submit = (line: string) => void;
 
 /** A built-in command of pi that sends the session off the machine: when pi runs it, and what it sends where. */
@@ -46,7 +43,6 @@ const uploads: readonly Upload[] = [
 /** The entry the package adds to a session before a request of the router's provider that pi left no record of. */
 const usedEntry = "phi-router-used";
 
-/** What the header hook reads of pi's context: the session. */
 interface UsageContext {
 	readonly sessionManager: Pick<SessionManager, "getEntries">;
 }
@@ -69,7 +65,6 @@ const used = (ctx: UsageContext, provider: string): boolean =>
 			(entry.type === "custom" && entry.customType === usedEntry),
 	);
 
-/** What the header hook reads of a request: the headers pi is about to send. */
 interface Sent {
 	readonly headers: Readonly<BeforeProviderHeadersEvent["headers"]>;
 }
@@ -96,7 +91,6 @@ const recordUse =
 		}
 	};
 
-/** What the guard reads of pi's context: the session's entries, and where it tells the user why. */
 interface UploadContext extends UsageContext {
 	readonly ui: Pick<ExtensionUIContext, "notify">;
 }

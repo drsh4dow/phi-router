@@ -6,13 +6,11 @@ class CommandFailed extends Schema.TaggedError<CommandFailed, { readonly brand: 
 	command: Schema.String,
 }) {}
 
-/** The fewest parts a count can hold. */
 const none = 0;
 
 /** The id a harness gives one session, the name its verdict store is kept under. */
 const SessionId = Schema.NonEmptyString.pipe(Schema.brand("SessionId"));
 
-/** The id the operating system gives one process, such as a harness instance's. Unbranded, since a lease holds it. */
 const Pid = Schema.Int.check(Schema.isGreaterThan(none));
 
 /** How many of a session's parts hold one verdict. */
@@ -45,7 +43,6 @@ const ModelsJson = Schema.fromJsonString(
 	Schema.Struct({ anthropic: Schema.optionalKey(RoutedModels), openai: Schema.optionalKey(RoutedModels) }),
 );
 
-/** The address ADR 0002 names: the literal, never `localhost`, since another user can bind `[::1]`. */
 const loopback = "127.0.0.1";
 
 /** The product port, where `start` and the pi package find the router unless told another. */

@@ -30,10 +30,6 @@ const none = 0;
 
 const one = 1;
 
-/**
- * A router that holds the session's pin and sealed count, records each command, and answers none when `down`. Its
- * last request ran the substitute when `substitute`.
- */
 const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?: boolean) {
 	const asked = yield* Ref.make<readonly string[]>([]);
 	const pinned = yield* Ref.make(false);
@@ -64,24 +60,15 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	return { asked, sealed, service };
 });
 
-/** What the fake records when pi clears the status bar's entry. */
 const noEntry = "no entry";
 
 type Shown = readonly (readonly [kind: string, text: string])[];
 
-/** The context pi gives the handlers, and each notice and status bar text it showed, in order. */
 interface Shows {
 	readonly ctx: ShownContext;
 	readonly shown: Shown;
 }
 
-/**
- * The context of the session, with a UI when `hasUI`, on a model of `provider`.
- *
- * @param {boolean} hasUI Whether pi shows a UI.
- * @param {string} provider The provider of the session's model.
- * @returns {Shows} The context, and what it showed.
- */
 const contextOf = (hasUI: boolean, provider = "phi"): Shows => {
 	const shown: (readonly [string, string])[] = [];
 

@@ -3,7 +3,6 @@ import type { CommandFailed, Status } from "#shared/cli.ts";
 import { SessionId, phiCommand } from "#shared/cli.ts";
 import { Router } from "#pi/client/router.ts";
 
-/** What `phi-router status` reports about a session. */
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
 /** The provider the pi package adds, whose requests go through the router. */
@@ -18,7 +17,6 @@ const statusKey = "phi";
 /** What `setStatus` takes to clear the router's entry. */
 const noLine = Option.getOrUndefined(Option.none<string>());
 
-/** The fewest sealed messages, before a session's first seal. */
 const noneSealed = 0;
 
 const oneMessage = 1;
@@ -26,7 +24,6 @@ const oneMessage = 1;
 /** What `/phi` answers to a word it does not know, and the command's description. */
 const usage = `/${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
 
-/** A text drawn from what `phi-router status` reported. */
 type Shows = (status: Reported) => string;
 
 /**
@@ -120,9 +117,6 @@ const messagesIn = (count: number): string => {
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
 	`phi-router: ${messagesIn(sealed.count)} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
 
-/**
- * What `/phi` and the status bar read of pi's context: the session, its model, whether pi shows a UI, and its notices.
- */
 interface ShownContext {
 	readonly hasUI: boolean;
 	readonly model: { readonly provider: string } | undefined;

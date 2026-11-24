@@ -34,7 +34,6 @@ const leasing = [
 	String(routerPort),
 ];
 
-/** What the fake `phi-router` prints and how it exits, for each command line it knows. */
 const replies: readonly { readonly argv: readonly string[]; readonly reply: Reply }[] = [
 	{ argv: leasing, reply: { exitCode: clean, stdout: "" } },
 	{

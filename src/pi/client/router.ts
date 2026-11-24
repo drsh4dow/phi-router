@@ -62,7 +62,6 @@ const decodedAs =
 
 const decodedModels = decodedAs(spelling.models.name, Schema.decodeEffect(ModelsJson));
 
-/** Asks the router on `port` about `session`. */
 type Asking<Answer> = (session: typeof SessionId.Type, port: number) => Effect.Effect<Answer, CommandFailed>;
 
 /** Runs the `phi-router` CLI at `program`, checks its exit code and decodes what it printed with the contract's schemas. */

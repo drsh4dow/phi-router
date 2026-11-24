@@ -8,12 +8,6 @@ const session = "pi-session-1";
 
 const login = "pi-login-token";
 
-/**
- * The login pi holds for `provider`: `login` for Anthropic, another for every other provider.
- *
- * @param {string} named The provider.
- * @returns {Promise<string>} Its login.
- */
 const loginOf = (named: string): Promise<string> => {
 	if (named === "anthropic") {
 		return Promise.resolve(login);
@@ -43,19 +37,12 @@ it.effect("adds nothing to a request of another provider, so it goes out as pi b
 	}),
 );
 
-/** What `pi --list-models` shows of a model besides its provider. */
 interface Listed {
 	readonly id: string;
 	readonly contextWindow?: number | undefined;
 	readonly maxTokens?: number | undefined;
 }
 
-/**
- * The part of `model` that `pi --list-models` shows.
- *
- * @param {Listed} model A model.
- * @returns {Listed} Its id and limits.
- */
 const listed = ({ contextWindow, id, maxTokens }: Listed): Listed => ({ contextWindow, id, maxTokens });
 
 it.effect(

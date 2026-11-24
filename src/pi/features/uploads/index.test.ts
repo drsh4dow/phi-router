@@ -8,12 +8,6 @@ const timestamp = "2026-11-22T13:48:06.636Z";
 
 const noCost = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0, total: 0 };
 
-/**
- * The record pi writes when a session selects a model of `provider`.
- *
- * @param {string} provider The model's provider.
- * @returns {SessionEntry} The entry.
- */
 const selected = (provider: string): SessionEntry => ({
 	id: `select-${provider}`,
 	modelId: "auto",
@@ -31,12 +25,6 @@ const prompt: SessionEntry = {
 	type: "message",
 };
 
-/**
- * The record pi writes of a reply from `provider`.
- *
- * @param {string} provider The provider that replied.
- * @returns {SessionEntry} The entry.
- */
 const reply = (provider: string): SessionEntry => ({
 	id: `reply-${provider}`,
 	message: {
@@ -54,12 +42,10 @@ const reply = (provider: string): SessionEntry => ({
 	type: "message",
 });
 
-/** How the guard reads a session's entries. */
 type Entries = SessionManager["getEntries"];
 
 const otherProvider: Entries = () => [selected("anthropic"), prompt, reply("anthropic")];
 
-/** A session whose requests went through the router: done, cut off before the first reply, and from before a resume. */
 const served = {
 	completed: (): SessionEntry[] => [selected("phi"), prompt, reply("phi")],
 	interrupted: (): SessionEntry[] => [selected("phi"), prompt],
@@ -97,7 +83,6 @@ interface LineEditor {
 	onSubmit?: (text: string) => void;
 }
 
-/** What one submitted line led to: the lines pi's handler got, and the first sentence of each notice the user saw. */
 interface Submitted {
 	readonly handled: readonly string[];
 	readonly told: readonly string[];
@@ -149,25 +134,12 @@ const blocked = [
 	{ handled: [], told: ["phi-router blocked /bug"] },
 ];
 
-/**
- * What each line of `lines` leads to in the session whose entries `getEntries` returns.
- *
- * @param {Entries} getEntries The session's entries.
- * @param {readonly string[]} lines The lines, each submitted alone.
- * @returns {Submitted[]} What each led to.
- */
 const each = (getEntries: Entries, lines: readonly string[]): Submitted[] =>
 	pipe(
 		lines,
 		Array.map((line) => submitted(getEntries, line)),
 	);
 
-/**
- * What `lines` lead to when pi runs them.
- *
- * @param {readonly string[]} lines The lines.
- * @returns {Submitted[]} Each line handed to pi, with no notice.
- */
 const handedOn = (lines: readonly string[]): Submitted[] =>
 	pipe(
 		lines,

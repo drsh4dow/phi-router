@@ -72,13 +72,11 @@ const provider = (served: { readonly port: number; readonly models: typeof Model
 	models: phiModels(served.models),
 });
 
-/** What the header hook reads of pi's context: the session, and pi's logins. */
 interface HeaderContext {
 	readonly modelRegistry: Pick<ModelRegistry, "getApiKeyForProvider">;
 	readonly sessionManager: Pick<SessionManager, "getSessionId">;
 }
 
-/** Headers by name, as pi sends them. */
 type Headers = Readonly<Record<string, string | null>>;
 
 /**
@@ -146,43 +144,19 @@ const leased =
 		return Effect.runPromise(Effect.provide(leasedThenShown, router()));
 	};
 
-/**
- * A hook that shows the session's routing, such as once a turn ends or the model changes.
- *
- * @param {Observe} observe Shows it.
- * @returns {ExtensionHandler} The hook.
- */
 const observed =
 	<Event, Result>(observe: Observe): ExtensionHandler<Event, Result> =>
 	(_event, ctx) =>
 		Effect.runPromise(Effect.provide(observe(ctx), router()));
 
-/**
- * The handler of `/phi` for a router on `port`.
- *
- * @param {number} port The router's port.
- * @returns {Function} The handler, which pi runs in place of a prompt.
- */
 const phiAnswered: (port: number) => RegisteredCommand["handler"] = (port) => (words, ctx) =>
 	Effect.runPromise(Effect.provide(answered(port)(words, ctx), router()));
 
-/**
- * The input hook for a router on `port`.
- *
- * @param {number} port The router's port.
- * @returns {ExtensionHandler<InputEvent, InputEventResult>} The hook.
- */
 const checked =
 	(port: number): ExtensionHandler<InputEvent, InputEventResult> =>
 	(_event, ctx) =>
 		Effect.runPromise(Effect.provide(promptSent(port)(ctx), router()));
 
-/**
- * The compaction hook for a router on `port`.
- *
- * @param {number} port The router's port.
- * @returns {ExtensionHandler<SessionBeforeCompactEvent, SessionBeforeCompactResult>} The hook.
- */
 const compacted =
 	(port: number): ExtensionHandler<SessionBeforeCompactEvent, SessionBeforeCompactResult> =>
 	(_event, ctx) =>
