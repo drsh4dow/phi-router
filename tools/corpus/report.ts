@@ -141,17 +141,27 @@ const firstAt = (played: Played, shown: (seen: Seen) => boolean): Option.Option<
 		Option.map(Num.increment),
 	);
 
-const leakAt = (played: Played): Option.Option<number> =>
-	firstAt(played, ({ leaked }) => Array.isReadonlyArrayNonEmpty(leaked));
+interface Shown {
+	readonly played: PhiPlayed;
+	readonly leak: readonly CaseAt[];
+	readonly split: readonly CaseAt[];
+}
 
-const leaked = (played: Played): boolean => Option.isSome(leakAt(played));
+const shownOf = (played: PhiPlayed): Shown => {
+	const caseAt = (shown: (seen: Seen) => boolean): CaseAt[] =>
+		pipe(
+			firstAt(played, shown),
+			Option.map((firstShownIn) => ({ firstShownIn, id: played.case.id, strata: played.case.strata })),
+			Option.toArray,
+		);
 
-const splitAt = (played: Played): Option.Option<number> => {
-	if (leaked(played)) {
-		return Option.none();
+	const leak = caseAt(({ leaked }) => Array.isReadonlyArrayNonEmpty(leaked));
+
+	if (Array.isReadonlyArrayNonEmpty(leak)) {
+		return { leak, played, split: [] };
 	}
 
-	return firstAt(played, ({ split }) => Array.isReadonlyArrayNonEmpty(split));
+	return { leak, played, split: caseAt(({ split }) => Array.isReadonlyArrayNonEmpty(split)) };
 };
 
 const axes = [
@@ -161,7 +171,7 @@ const axes = [
 	["entry", Entry.literals],
 ] as const;
 
-const strataOf = (scored: readonly PhiPlayed[]): Report["strata"] =>
+const strataOf = (scored: readonly Shown[]): Report["strata"] =>
 	pipe(
 		axes,
 		Array.flatMap(([axis, values]) =>
@@ -170,10 +180,14 @@ const strataOf = (scored: readonly PhiPlayed[]): Report["strata"] =>
 				Array.map((value) => {
 					const inStratum = pipe(
 						scored,
-						Array.filter(({ case: { strata } }) => strata[axis] === value),
+						Array.filter(({ played }) => played.case.strata[axis] === value),
 					);
 
-					const leaks = pipe(inStratum, Array.filter(leaked)).length;
+					const leaks = pipe(
+						inStratum,
+						Array.countBy(({ leak }) => Array.isReadonlyArrayNonEmpty(leak)),
+					);
+
 					const leakRateUpper95 = missRateUpperBound({ cases: inStratum.length, misses: leaks });
 
 					return { axis, cases: inStratum.length, leakRateUpper95, leaks, value };
@@ -238,20 +252,8 @@ const fragmentsOf = (played: readonly Played[]): Report["fragments"] => {
 };
 
 const reportOf = (played: readonly Played[]): Report => {
-	const phi = pipe(played, Array.filter(isPhi));
+	const phi = pipe(played, Array.filter(isPhi), Array.map(shownOf));
 	const sent = pipe(played, Array.flatMap(Struct.get("sent")));
-
-	const casesAt = (at: (each: PhiPlayed) => Option.Option<number>): CaseAt[] =>
-		pipe(
-			phi,
-			Array.flatMap((each) =>
-				pipe(
-					at(each),
-					Option.map((firstShownIn) => ({ firstShownIn, id: each.case.id, strata: each.case.strata })),
-					Option.toArray,
-				),
-			),
-		);
 
 	return {
 		fragments: fragmentsOf(played),
@@ -263,14 +265,14 @@ const reportOf = (played: readonly Played[]): Report => {
 			),
 			sealed: pipe(sent, Array.countBy(isSealed)),
 		},
-		leaks: casesAt(leakAt),
+		leaks: pipe(phi, Array.flatMap(Struct.get("leak"))),
 		overRouting: overRoutingOf(
 			pipe(
 				played,
 				Array.filter((each) => each.case.expect === "clean"),
 			),
 		),
-		splits: casesAt(splitAt),
+		splits: pipe(phi, Array.flatMap(Struct.get("split"))),
 		strata: strataOf(phi),
 	};
 };
