@@ -4,7 +4,7 @@ import { SessionId } from "#shared/cli.ts";
 import { modelAddress } from "./claude-settings.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 import { start } from "./start.ts";
-import { userSettings } from "#router/client/claude-code.ts";
+import { userSettings } from "#router/client/harnesses/index.ts";
 
 /** What a session-start hook reads on its stdin, as far as a lease needs it. The harness's field names stay here. */
 const HookInput = Schema.fromJsonString(Schema.Struct({ cwd: Schema.String, session_id: SessionId }));

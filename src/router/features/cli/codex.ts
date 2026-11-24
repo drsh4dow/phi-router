@@ -1,5 +1,5 @@
 import { Array, Console, Effect, Option, Path, Schema, String as Str, pipe } from "effect";
-import { codexHome, removed, textOf } from "#router/client/codex.ts";
+import { codexHome, removed, textOf } from "#router/client/harnesses/index.ts";
 import {
 	codexSettings,
 	dotenvFile,

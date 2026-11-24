@@ -1,6 +1,6 @@
 import { Array, Config, Effect, FileSystem, Option, Path, Schema, Stream, Struct, pipe } from "effect";
-import { behindDeadProxy, harnessFolder, harnessTurn } from "./harness-turn.ts";
-import { copyPrivately, writePrivately } from "./private-file.ts";
+import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
+import { copyPrivately, writePrivately } from "#router/client/private-file.ts";
 import { ChildProcess } from "effect/process";
 
 /**

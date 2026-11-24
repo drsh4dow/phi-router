@@ -13,7 +13,7 @@ import {
 	pipe,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { behindDeadProxy, harnessFolder, harnessTurn } from "./harness-turn.ts";
+import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 
 /** A login pi sends as its Anthropic subscription. No real account ever sees it. */
 const fakeLogin = "phi-doctor-fake-login";

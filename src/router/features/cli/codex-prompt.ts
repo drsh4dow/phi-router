@@ -1,5 +1,5 @@
 import { Console, Effect, Option, Schema } from "effect";
-import { firstLine } from "#router/client/codex.ts";
+import { firstLine } from "#router/client/harnesses/index.ts";
 import { providerId } from "./codex-settings.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 

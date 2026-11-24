@@ -7,10 +7,10 @@ import { packageOf, versionOf } from "#router/client/own-package.ts";
 import type { HeldKey } from "./setup-keys.ts";
 import { KeyChecks } from "#router/client/key-check.ts";
 import { Platform } from "./platform.ts";
-import type { Turn } from "#router/client/harness-turn.ts";
+import type { Turn } from "#router/client/harnesses/index.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
 import { harnesses } from "./setup-harnesses.ts";
-import { installRun } from "#router/client/harness-turn.ts";
+import { installRun } from "#router/client/harnesses/index.ts";
 
 /** The repository setup installs from unless `--source` names a checkout. */
 const repository = "drsh4dow/phi-router";

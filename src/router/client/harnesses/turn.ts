@@ -1,7 +1,7 @@
 import { Array, Config, Effect, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { PlatformError, Scope } from "effect";
-import { loopback } from "./server.ts";
+import { loopback } from "#router/client/server.ts";
 
 /** How one headless harness turn ended. */
 type Turn =

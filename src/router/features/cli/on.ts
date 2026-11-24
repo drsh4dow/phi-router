@@ -10,7 +10,7 @@ import {
 	routerAddress,
 	shellLists,
 } from "./claude-settings.ts";
-import { rewriteEnv, userSettings } from "#router/client/claude-code.ts";
+import { rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
 
 /**
  * Why `on claude` writes `name`: the router's exemption, or the record `off` reads.

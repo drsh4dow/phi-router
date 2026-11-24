@@ -13,7 +13,7 @@ import {
 	sealedRole,
 } from "./codex-settings.ts";
 import { canaryRun, reported } from "./doctor.ts";
-import { codexHome, codexPlugin, codexTurn, textOf } from "#router/client/codex.ts";
+import { codexHome, codexPlugin, codexTurn, textOf } from "#router/client/harnesses/index.ts";
 import { holds, hookTrust, pluginEnabled } from "./codex-holds.ts";
 import type { Check } from "./doctor.ts";
 

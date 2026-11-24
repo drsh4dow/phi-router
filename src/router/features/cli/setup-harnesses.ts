@@ -1,10 +1,8 @@
 import { Effect, Option, Path } from "effect";
-import { codexHome, codexPlugin } from "#router/client/codex.ts";
+import { claudePlugin, codexHome, codexPlugin, installedPackage } from "#router/client/harnesses/index.ts";
 import { claudeCanary } from "./doctor.ts";
-import { claudePlugin } from "#router/client/claude-code.ts";
 import { codexCanary } from "./doctor-codex.ts";
 import { codexSwitchedOn } from "./codex.ts";
-import { installedPackage } from "#router/client/pi.ts";
 import { piCanary } from "./doctor-pi.ts";
 import { plugin } from "./claude-settings.ts";
 import { switchedOn } from "./on.ts";

@@ -12,9 +12,9 @@ import {
 	Struct,
 	pipe,
 } from "effect";
-import { behindDeadProxy, harnessFolder, harnessTurn } from "./harness-turn.ts";
+import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 import { ChildProcess } from "effect/process";
-import { rewritePrivately } from "./private-file.ts";
+import { rewritePrivately } from "#router/client/private-file.ts";
 
 /** Claude Code's `settings.json`: a JSON object, every key of which a write keeps. */
 const SettingsFile = Schema.fromJsonString(Schema.JsonObject, { space: 2 });

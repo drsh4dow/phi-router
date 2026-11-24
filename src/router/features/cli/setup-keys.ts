@@ -4,7 +4,7 @@ import { keyFileOf, saveKey, savedKey } from "#router/client/key-files.ts";
 import { CliError } from "effect/cli";
 import { KeyChecks } from "#router/client/key-check.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
-import { storedAnthropicKey } from "#router/client/pi.ts";
+import { storedAnthropicKey } from "#router/client/harnesses/index.ts";
 import { tokenKinds } from "./accounts-add.ts";
 
 /** Setup stopped, and changed only what `copy` says. `copy` is the whole of what the human reads, and holds no key. */

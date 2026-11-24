@@ -14,6 +14,7 @@ import {
 } from "effect";
 import type { Arrived, Vendor } from "#router/client/mock-world.ts";
 import { Listener, listensOn } from "#router/client/server.ts";
+import type { Turn, UserSettings } from "#router/client/harnesses/index.ts";
 import {
 	auto,
 	claudeEnv,
@@ -25,10 +26,8 @@ import {
 	routerAddress,
 	shellLists,
 } from "./claude-settings.ts";
-import { claudePlugin, claudeTurn, userSettings } from "#router/client/claude-code.ts";
+import { claudePlugin, claudeTurn, userSettings } from "#router/client/harnesses/index.ts";
 import type { Own } from "./claude-settings.ts";
-import type { Turn } from "#router/client/harness-turn.ts";
-import type { UserSettings } from "#router/client/claude-code.ts";
 import { mockWorld } from "#router/client/mock-world.ts";
 
 /** One line of the doctor's report: a claim about the installation, and whether it holds. */

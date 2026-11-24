@@ -1,6 +1,6 @@
 import { Effect, Option, Struct } from "effect";
 import { canaryRun, reported } from "./doctor.ts";
-import { installedPackage, piTurn } from "#router/client/pi.ts";
+import { installedPackage, piTurn } from "#router/client/harnesses/index.ts";
 import { piWire } from "#shared/pi.ts";
 
 /** The canary run of `pi -p` on `phi/auto` through the package pi installed in `folder`. */
