@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate, Schema, pipe } from "effect";
+import { Array, Effect, Option, Schema, pipe } from "effect";
 import type { Body, Raw } from "./wire.ts";
 import type { ContentEntry, Entry, Group } from "./groups.ts";
 import { blobsIn, wroteAll } from "./clean-lane.ts";
@@ -10,14 +10,12 @@ import type { Lists } from "./frame.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { Read } from "./read.ts";
 import { frameOf } from "./frame.ts";
-import { partsOf } from "#router/features/parts/index.ts";
 
 type WirePart =
 	| {
 			readonly kind: "tools";
 			readonly message: Message;
 			readonly entries: readonly Entry[];
-			readonly keys: readonly string[];
 			/** It holds a blob no clean-lane reply wrote. */
 			readonly unjudged: boolean;
 	  }
@@ -27,7 +25,6 @@ type WirePart =
 			readonly entries: readonly ContentEntry[];
 			/** `entries` less the reasoning no clean-lane reply wrote. */
 			readonly kept: readonly ContentEntry[];
-			readonly keys: readonly string[];
 			/** It holds a part the codec cannot read, or a blob no clean-lane reply wrote. */
 			readonly unjudged: boolean;
 	  }
@@ -35,9 +32,7 @@ type WirePart =
 			/** An input item the codec cannot read, which the engine reads as an empty user message with no key. */
 			readonly kind: "unread";
 			readonly message: Message;
-			readonly keys: readonly [];
 			readonly paired: boolean;
-			readonly unjudged: true;
 	  };
 
 const stringsOf = (message: Message): readonly string[] => {
@@ -121,34 +116,21 @@ const toolListPart = (
 ): Effect.Effect<WirePart, never, Digest.Digest> =>
 	Effect.gen(function* readTools() {
 		const message = yield* toolsMessage(tools);
-		const parts = yield* partsOf(message);
 		const unjudged = yield* unwrittenBlobIn(message, wrote);
 
-		const keys = pipe(
-			parts,
-			Array.filter(({ slot }) => Predicate.isTagged(slot, "SystemTools")),
-			Array.map(({ key }) => key),
-		);
-
-		return { entries, keys, kind: "tools", message, unjudged };
+		return { entries, kind: "tools", message, unjudged };
 	});
 
 const contentPart =
 	(wrote: CleanLaneWrote, entries: readonly ContentEntry[]) =>
 	({ holdsUnreadPart: unread, message }: Read): Effect.Effect<WirePart, never, Digest.Digest> =>
 		Effect.gen(function* readContent() {
-			const parts = yield* partsOf(message);
 			const unwrittenBlob = yield* unwrittenBlobIn(message, wrote);
 			const kept = yield* Effect.filter(entries, keptOnClean(wrote), { concurrency: 1 });
 
-			const keys = pipe(
-				parts,
-				Array.map(({ key }) => key),
-			);
-
 			const unjudged = unread || unwrittenBlob;
 
-			return { entries, kept, keys, kind: "content", message, unjudged };
+			return { entries, kept, kind: "content", message, unjudged };
 		});
 
 const noLists: Lists = { frame: [], tools: [] };
@@ -169,11 +151,9 @@ const wirePartOf =
 
 			case "unread": {
 				return Effect.succeed({
-					keys: [],
 					kind: "unread",
 					message: unreadMessage,
 					paired: group.paired,
-					unjudged: true,
 				});
 			}
 
