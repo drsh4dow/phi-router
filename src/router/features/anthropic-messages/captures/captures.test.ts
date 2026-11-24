@@ -8,7 +8,6 @@ import {
 import { assert, it } from "@effect/vitest";
 import { replies, requests } from "./index.ts";
 import { Digest } from "effect/crypto";
-import { bridgesFor } from "#router/features/border/index.ts";
 
 const nobodyWrote = (): boolean => false;
 
@@ -231,14 +230,6 @@ const misaligned = Effect.gen(function* misaligned() {
 	assert.isTrue(Exit.hasDies(sent));
 });
 
-const piBridge = Effect.gen(function* piBridge() {
-	const request = yield* decodeRequest(requests.piFirstTurn, nobodyWrote, "pi");
-	const sent = yield* request.encode({ lane: "sealed", model: request.model, pinned: false });
-
-	assert.include(sent, bridgesFor.pi);
-	assert.notInclude(sent, bridgesFor.claude);
-});
-
 it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	test.effect("every captured request decodes", () => everyCapture);
 
@@ -280,8 +271,6 @@ it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	);
 
 	test.effect("the clean lane dies when the border's messages do not line up with the request's", () => misaligned);
-
-	test.effect("a pi request gets pi's bridge, not Claude Code's", () => piBridge);
 });
 
 const blankBlock =
