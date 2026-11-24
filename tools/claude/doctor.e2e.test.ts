@@ -20,11 +20,14 @@ type Install = "whole" | "none" | "launcherNotExecutable" | "noBundle";
 
 const notExecutable = 0o644;
 
+const shellKey = "sk-ant-api03-phi-test-shell-key";
+
 const enabled = { enabledPlugins: { "phi-router@phi-router": true }, env: written };
 
 /**
  * The line a test's `claude` runs first: it writes to `marker` the modes of the mocks' config folder and
- * `config.json`, the proxy and the hosts kept off it that it was given, then the model address of its `--settings`.
+ * `config.json`, the proxy and the hosts kept off it that it was given, the API key it was given, then the model
+ * address of its `--settings`.
  *
  * @param {string} marker The file.
  * @returns {string} The line.
@@ -34,7 +37,9 @@ const seenBy = (marker: string): string => {
 
 	const proxy = 'echo "$HTTP_PROXY $HTTPS_PROXY $http_proxy $https_proxy $NO_PROXY $no_proxy"';
 
-	return `{ stat -c %a ${config}; ${proxy}; printf '%s\\n' "$@" | grep -o 'http://127.0.0.1:[0-9]*'; } > '${marker}'`;
+	const apiKey = 'echo "$ANTHROPIC_API_KEY"';
+
+	return `{ stat -c %a ${config}; ${proxy}; ${apiKey}; printf '%s\\n' "$@" | grep -o 'http://127.0.0.1:[0-9]*'; } > '${marker}'`;
 };
 
 const searchPath = Effect.fnUntraced(function* searchPath(claude: Claude) {
@@ -92,7 +97,8 @@ const doctored = Effect.fnUntraced(function* doctored(claude: Claude, settings: 
 	yield* settle(dir, settings);
 	yield* installed(dir, install);
 
-	const doctor = yield* phiRouter(claudeIn(dir).doctor, Struct.assign(env, { PATH }), bun);
+	const shell = Struct.assign(env, { ANTHROPIC_API_KEY: shellKey, PATH });
+	const doctor = yield* phiRouter(claudeIn(dir).doctor, shell, bun);
 	const claudeRan = yield* fs.exists(marker);
 	const seen = yield* fs.readFileString(marker).pipe(Effect.orElseSucceed(() => ""));
 
@@ -103,13 +109,13 @@ const dead = "http://127.0.0.1:9";
 
 const passes = Effect.gen(function* passes() {
 	const { doctor, seen } = yield* doctored("posts", enabled, "whole");
-	const [folderMode, fileMode, proxy, address = ""] = seen;
+	const [folderMode, fileMode, proxy, apiKey, address = ""] = seen;
 
 	assert.strictEqual(doctor.exitCode, ok, doctor.printed);
 	assert.deepStrictEqual(
-		[folderMode, fileMode, proxy],
-		["700", "600", `${dead} ${dead} ${dead} ${dead} localhost localhost`],
-		"the mocks' config.json is private while claude runs, behind a dead proxy that localhost alone does not avoid",
+		[folderMode, fileMode, proxy, apiKey],
+		["700", "600", `${dead} ${dead} ${dead} ${dead} localhost localhost`, ""],
+		"the mocks' config.json is private while claude runs, behind a dead proxy that localhost alone does not avoid, without the API key of the developer's shell",
 	);
 	const port = Number(new URL(address).port);
 	const routerAnswers = yield* answers(port);

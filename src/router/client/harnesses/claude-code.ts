@@ -16,7 +16,6 @@ import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 import { ChildProcess } from "effect/process";
 import { rewritePrivately } from "#router/client/private-file.ts";
 
-/** Claude Code's `settings.json`: a JSON object, every key of which a write keeps. */
 const SettingsFile = Schema.fromJsonString(Schema.JsonObject, { space: 2 });
 
 const Blocks = Schema.Struct({
@@ -24,7 +23,6 @@ const Blocks = Schema.Struct({
 	env: Schema.optionalKey(Schema.JsonObject),
 });
 
-/** Claude Code's `settings.json` is not a JSON object with an object `env` and `enabledPlugins`. It is left as it was. */
 class SettingsUnread extends Schema.TaggedError<SettingsUnread, { readonly brand: unique symbol }>()("SettingsUnread", {
 	cause: Schema.Defect(),
 	path: Schema.String,
@@ -34,11 +32,9 @@ class SettingsUnread extends Schema.TaggedError<SettingsUnread, { readonly brand
 	}
 }
 
-/** What the user's `settings.json` says that the router reads. A missing file or block reads as empty. */
 interface UserSettings {
 	readonly path: string;
 	readonly env: Readonly<Record<string, string>>;
-	/** The plugin ids `enabledPlugins` holds at `true`. */
 	readonly enabledPlugins: readonly string[];
 }
 
@@ -54,10 +50,8 @@ const Installs = Schema.Array(Schema.Struct({ installPath: Schema.String }));
 
 const InstalledPlugins = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Record(Schema.String, Installs) }));
 
-/** The login a headless turn sends, so no real login reaches the router or a mock. */
 const fakeLogin = "phi-doctor-login";
 
-/** Claude Code's config folder: `named`, else `CLAUDE_CONFIG_DIR`, else `.claude` under the home folder. */
 const configFolder = harnessFolder({ fallback: ".claude", variable: "CLAUDE_CONFIG_DIR" });
 
 const configFile = Effect.fnUntraced(function* configFile(named: string, name: string) {
@@ -69,7 +63,6 @@ const configFile = Effect.fnUntraced(function* configFile(named: string, name: s
 
 const settingsName = "settings.json";
 
-/** The settings in `file`, every key kept, with their two blocks, or empty ones when there is no file. */
 const read = Effect.fnUntraced(function* read(file: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const exists = yield* fs.exists(file);
@@ -88,7 +81,6 @@ const read = Effect.fnUntraced(function* read(file: string) {
 	);
 });
 
-/** What `settings.json` in the config folder holds. `named` is the folder the developer named, or empty. */
 const userSettings = Effect.fnUntraced(function* userSettings(named: string) {
 	const file = yield* configFile(named, settingsName);
 	const { blocks } = yield* read(file);
@@ -105,7 +97,6 @@ const userSettings = Effect.fnUntraced(function* userSettings(named: string) {
 	} satisfies UserSettings;
 });
 
-/** The folder Claude Code installed the plugin `id` into, from `plugins/installed_plugins.json`, if it installed it. */
 const claudePlugin = Effect.fnUntraced(function* claudePlugin(named: string, id: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* configFile(named, "plugins/installed_plugins.json");
@@ -128,12 +119,6 @@ const claudePlugin = Effect.fnUntraced(function* claudePlugin(named: string, id:
 	);
 });
 
-/**
- * Sets each of `set` in the `env` block of `settings.json`, removes each of `unset`, and keeps every other key. It
- * removes the block when that empties it. It returns the file's path and the names whose value it changed, and with
- * none changed it writes nothing and creates no file. It writes a temp file beside the target and renames it, so a
- * crash leaves the old file or the new one.
- */
 const rewriteEnv = Effect.fnUntraced(function* rewriteEnv(
 	named: string,
 	set: Readonly<Record<string, string>>,
@@ -170,11 +155,6 @@ const rewriteEnv = Effect.fnUntraced(function* rewriteEnv(
 	return { changed, path: file };
 });
 
-/**
- * `claude -p` with a fake login in a fresh home and config folder, the one plugin in `asked.plugin`, a dead proxy, and
- * nothing of the caller's environment but `PATH`. It retries nothing, so a model address no router holds fails the turn
- * at once.
- */
 const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const fs = yield* FileSystem.FileSystem;
 	const searchPath = yield* Config.String("PATH");
@@ -211,7 +191,6 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	});
 });
 
-/** Runs the installed `claude -p` once in a fresh home and config folder, and ends the turn after 2 minutes. */
 const claudeTurn = harnessTurn(commandOf);
 
 export { claudeTurn, claudePlugin, rewriteEnv, userSettings };
