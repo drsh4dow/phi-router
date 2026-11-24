@@ -18,7 +18,7 @@ CI runs neither. `tools/gates/live-off-ci.test.ts` fails when the workflow or th
 
 ## Launch
 
-From the repository root, once per checkout: `bun install --frozen-lockfile`. Every command below calls the router from source (`bun src/router/main.ts`), except the plugin and pi, which load the bundles `bun run build` writes, `plugins/claude/phi-router.mjs` and `plugins/pi/extension.mjs`. `bun run wire` and `bun run test` build them first. Run `bun run build` before any other command that loads one, such as `vitest run` on one test file.
+From the repository root, once per checkout: `bun install --frozen-lockfile`. Every command below calls the router from source (`bun src/router/main.ts`), except the plugin and pi, which load the bundles `bun run build` writes, `plugins/claude/phi-router.mjs` and `plugins/pi/extension.mjs`. `bun run wire` and `bun run test:e2e` build them first. Run `bun run build` before any other command that loads one, such as `vitest run` on one test file.
 
 Each run starts its own router and its own mocks on free loopback ports, in fresh temp folders, and stops them when it ends. Two runs can go side by side. Never use the host's port 47411, the product port, for a test; the recipes use it only inside their own network namespace.
 
