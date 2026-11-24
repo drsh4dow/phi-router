@@ -1,12 +1,7 @@
 import { Array, Effect, FileSystem, Order, Path, Random } from "effect";
 
-/** Every file the router writes, and every folder it makes, is its user's alone. */
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
-/**
- * Writes `text` to a fresh temp file beside `file`, made 0600 in a folder made 0700, syncs it and renames it over
- * `file`, so a read sees the old file or the whole new one. The new file gets `mode` once it holds the whole text.
- */
 const writePrivately = Effect.fnUntraced(function* writePrivately(
 	file: string,
 	text: string,
@@ -30,7 +25,6 @@ const writePrivately = Effect.fnUntraced(function* writePrivately(
 	yield* fs.rename(temp, file);
 }, Effect.scoped);
 
-/** Appends `text` to `file`, which is made 0600 in a folder made 0700 when it does not exist yet. */
 const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string, text: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -41,10 +35,6 @@ const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string
 
 const permissionModulus = 0o1000;
 
-/**
- * Writes `text` over the file `file` resolves to, which is the file a symlink names when `file` is one, and keeps that
- * file's mode, as a harness's own writes do. A file that does not exist yet is made 0600.
- */
 const rewritePrivately = Effect.fnUntraced(function* rewritePrivately(file: string, text: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const exists = yield* fs.exists(file);
@@ -61,12 +51,6 @@ const rewritePrivately = Effect.fnUntraced(function* rewritePrivately(file: stri
 
 const ownerBits = { execute: 0o100, write: 0o200 } as const;
 
-/**
- * The mode of a private copy of a file: 0700 when its owner may run the original, else 0600.
- *
- * @param {object} original The original's metadata.
- * @returns {number} The mode.
- */
 const copyMode = (original: Readonly<Pick<FileSystem.File.Info, "mode">>): number => {
 	if (original.mode % ownerBits.write >= ownerBits.execute) {
 		return privateModes.folder;
@@ -75,10 +59,6 @@ const copyMode = (original: Readonly<Pick<FileSystem.File.Info, "mode">>): numbe
 	return privateModes.file;
 };
 
-/**
- * Copies the folder `from` to `to`, which must not exist: each folder made 0700, and each file 0600, or 0700 when its
- * source is its owner's to run. Entries go in path order, so each folder exists before what it holds.
- */
 const copyPrivately = Effect.fnUntraced(function* copyPrivately(from: string, to: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
