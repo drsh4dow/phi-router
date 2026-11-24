@@ -1,7 +1,16 @@
 import { Effect, FileSystem, Formatter, Layer, String as Str, Struct, pipe } from "effect";
 import { answers, ran } from "#tools/lifecycle/launched.ts";
 import { assert, it } from "@effect/vitest";
-import { claudeFolders, claudeIn, folder, phiRouter, routed, settingsFile, settle, written } from "./configured.ts";
+import {
+	claudeFolders,
+	claudeIn,
+	folder,
+	phiRouter,
+	routed,
+	settingsFile,
+	writeSettings,
+	written,
+} from "./configured.ts";
 import type { ClaudeSettings } from "./configured.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
@@ -84,7 +93,7 @@ const doctored = Effect.fnUntraced(function* doctored(claude: Claude, settings: 
 	const { dir, env } = yield* claudeFolders;
 	const { bun, marker, searchPath: PATH } = yield* searchPath(claude);
 
-	yield* settle(dir, settings);
+	yield* writeSettings(dir, settings);
 	yield* installed(dir, install);
 
 	const shell = Struct.assign(env, { ANTHROPIC_API_KEY: shellKey, PATH });
@@ -174,7 +183,7 @@ interface Lists {
 const passesKept = Effect.fnUntraced(function* passesKept({ env, shell }: Lists) {
 	const folders = yield* claudeFolders;
 
-	yield* settle(folders.dir, { env });
+	yield* writeSettings(folders.dir, { env });
 
 	const doctor = yield* phiRouter(claudeIn(folders.dir).doctor, Struct.assign(folders.env, shell));
 

@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Record, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { claudeFolders, claudeIn, phiRouter, routed, settingsFile, settingsIn, settle } from "./configured.ts";
+import { claudeFolders, claudeIn, phiRouter, routed, settingsFile, settingsIn, writeSettings } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 
 const patient = { timeout: 30_000 };
@@ -114,10 +114,10 @@ const changed = Effect.gen(function* changed() {
 	const own = `corp.example,${entry},extra.example`;
 	const onWrote = Struct.assign(routed, replaced("corp.example", `corp.example,${entry}`));
 
-	yield* settle(dir, { env: { no_proxy: "corp.example" } });
+	yield* writeSettings(dir, { env: { no_proxy: "corp.example" } });
 	const once = yield* phiRouter(claudeIn(dir).on, env).pipe(Effect.andThen(settingsIn(dir)));
 
-	yield* settle(dir, { env: Struct.assign(onWrote, { no_proxy: own }) });
+	yield* writeSettings(dir, { env: Struct.assign(onWrote, { no_proxy: own }) });
 
 	const after = yield* phiRouter(claudeIn(dir).off, env).pipe(Effect.andThen(settingsIn(dir)));
 
@@ -127,9 +127,9 @@ const changed = Effect.gen(function* changed() {
 const removedSince = Effect.gen(function* removedSince() {
 	const { dir, env } = yield* claudeFolders;
 
-	yield* settle(dir, { env: { no_proxy: "corp.example" } });
+	yield* writeSettings(dir, { env: { no_proxy: "corp.example" } });
 	yield* phiRouter(claudeIn(dir).on, env);
-	yield* settle(dir, {
+	yield* writeSettings(dir, {
 		env: Struct.assign(routed, { [record.replaced]: "corp.example", [record.wrote]: "corp.example" }),
 	});
 

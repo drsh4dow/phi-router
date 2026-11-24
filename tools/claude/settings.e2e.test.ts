@@ -8,7 +8,7 @@ import {
 	routed,
 	settingsFile,
 	settingsIn,
-	settle,
+	writeSettings,
 	written,
 } from "./configured.ts";
 import type { ClaudeSettings } from "./configured.ts";
@@ -69,7 +69,7 @@ const kept = Effect.gen(function* kept() {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* claudeFolders;
 
-	yield* settle(dir, Struct.assign(others, { env: { ANTHROPIC_BASE_URL: "http://old:1", FOO: "bar" } }));
+	yield* writeSettings(dir, Struct.assign(others, { env: { ANTHROPIC_BASE_URL: "http://old:1", FOO: "bar" } }));
 
 	const bytes = fs.readFileString(settingsFile(dir));
 	const once = yield* phiRouter(claudeIn(dir).on, env).pipe(Effect.andThen(bytes));
@@ -123,7 +123,7 @@ const dotfiles = Effect.gen(function* dotfiles() {
 	const fs = yield* FileSystem.FileSystem;
 	const managed = yield* folder("phi-claude-dotfiles-");
 
-	yield* settle(managed, others);
+	yield* writeSettings(managed, others);
 	yield* fs.chmod(settingsFile(managed), sharedFile);
 
 	return managed;
@@ -168,7 +168,7 @@ const created = Effect.gen(function* created() {
 const restored = Effect.fnUntraced(function* restored(before: ClaudeSettings) {
 	const { dir, env } = yield* claudeFolders;
 
-	yield* settle(dir, before);
+	yield* writeSettings(dir, before);
 	yield* phiRouter(claudeIn(dir).on, env);
 
 	const off = yield* phiRouter(claudeIn(dir).off, env);
@@ -190,7 +190,7 @@ const edited = Effect.gen(function* edited() {
 		no_proxy: "corp.example,127.0.0.1:47411",
 	});
 
-	yield* settle(dir, { env: changedSinceOn });
+	yield* writeSettings(dir, { env: changedSinceOn });
 
 	const off = yield* phiRouter(claudeIn(dir).off, env);
 	const after = yield* settingsIn(dir);

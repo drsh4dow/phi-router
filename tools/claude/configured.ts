@@ -81,7 +81,7 @@ const settingsIn = Effect.fnUntraced(function* settingsIn(dir: string) {
 });
 
 /** Writes `settings` as the settings file in `dir`. */
-const settle = Effect.fnUntraced(function* settle(dir: string, settings: ClaudeSettings) {
+const writeSettings = Effect.fnUntraced(function* writeSettings(dir: string, settings: ClaudeSettings) {
 	const fs = yield* FileSystem.FileSystem;
 	const text = yield* Schema.encodeUnknownEffect(SettingsJson)(settings);
 
@@ -90,4 +90,4 @@ const settle = Effect.fnUntraced(function* settle(dir: string, settings: ClaudeS
 
 export type { ClaudeSettings };
 
-export { claudeFolders, claudeIn, folder, phiRouter, routed, settingsFile, settingsIn, settle, written };
+export { claudeFolders, claudeIn, folder, phiRouter, routed, settingsFile, settingsIn, writeSettings, written };

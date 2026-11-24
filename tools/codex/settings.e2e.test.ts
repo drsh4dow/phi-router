@@ -7,8 +7,8 @@ import {
 	dotenvFile,
 	exemptionLine,
 	roleFile,
-	settle,
 	trusted,
+	writeConfig,
 	written,
 } from "./configured.ts";
 import { folder, phiRouter } from "#tools/claude/configured.ts";
@@ -125,7 +125,7 @@ const fresh = Effect.gen(function* fresh() {
 const trustedHook = Effect.gen(function* trustedHook() {
 	const { dir, env } = yield* codexFolders;
 
-	yield* settle(dir, trusted);
+	yield* writeConfig(dir, trusted);
 
 	const on = yield* phiRouter(codexIn(dir).on, env);
 
@@ -137,7 +137,7 @@ const kept = Effect.gen(function* kept() {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* codexFolders;
 
-	yield* settle(dir, user);
+	yield* writeConfig(dir, user);
 
 	const bytes = fs.readFileString(configFile(dir));
 	const [on, once] = yield* Effect.all([phiRouter(codexIn(dir).on, env), bytes], { concurrency: 1 });
@@ -157,7 +157,7 @@ const inline = Effect.gen(function* inline() {
 	const { dir, env } = yield* codexFolders;
 	const before = "features = { goals = true }\n";
 
-	yield* settle(dir, before);
+	yield* writeConfig(dir, before);
 
 	const on = yield* phiRouter(codexIn(dir).on, env);
 	const after = yield* fs.readFileString(configFile(dir));
@@ -201,7 +201,7 @@ const dotfiles = Effect.gen(function* dotfiles() {
 	const fs = yield* FileSystem.FileSystem;
 	const other = yield* folder("phi-codex-dotfiles-");
 
-	yield* settle(other, user);
+	yield* writeConfig(other, user);
 	yield* fs.chmod(configFile(other), sharedFile);
 
 	return configFile(other);
@@ -323,7 +323,7 @@ const changed = Effect.gen(function* changed() {
 
 	const switched = Str.replace('model_provider = "phi" # phi-router', 'model_provider = "openai"')(written);
 
-	yield* settle(dir, switched);
+	yield* writeConfig(dir, switched);
 	yield* phiRouter(codexIn(dir).off, env);
 
 	const after = yield* fs.readFileString(configFile(dir));

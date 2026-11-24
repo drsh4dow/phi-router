@@ -77,10 +77,21 @@ const codexFolders = Effect.gen(function* codexFolders() {
 });
 
 /** Writes `text` as `config.toml` in `dir`. */
-const settle = Effect.fnUntraced(function* settle(dir: string, text: string) {
+const writeConfig = Effect.fnUntraced(function* writeConfig(dir: string, text: string) {
 	const fs = yield* FileSystem.FileSystem;
 
 	yield* fs.writeFileString(configFile(dir), text);
 });
 
-export { codexFolders, codexIn, configFile, dotenvFile, enabled, exemptionLine, roleFile, settle, trusted, written };
+export {
+	codexFolders,
+	codexIn,
+	configFile,
+	dotenvFile,
+	enabled,
+	exemptionLine,
+	roleFile,
+	trusted,
+	writeConfig,
+	written,
+};
