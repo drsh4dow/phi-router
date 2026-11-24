@@ -80,7 +80,7 @@ interface Outcome {
 }
 
 const none = (tokens: readonly string[], bodies: readonly string[]): boolean =>
-	!Array.isReadonlyArrayNonEmpty(foundIn({ bodies, tokens }));
+	!Array.isReadonlyArrayNonEmpty(foundIn(bodies)(tokens));
 
 const holds = (tokens: readonly string[], sent: Sent): boolean => !none(tokens, [sent.body]);
 

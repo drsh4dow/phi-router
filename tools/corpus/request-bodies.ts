@@ -33,13 +33,10 @@ const textsOf = (body: string): readonly string[] => [
 	...pipe(decodeJson(body), Option.toArray, Array.flatMap(stringsOf)),
 ];
 
-const foundIn = (input: { readonly bodies: readonly string[]; readonly tokens: readonly string[] }): string[] => {
-	const texts = pipe(input.bodies, Array.flatMap(textsOf));
+const foundIn = (bodies: readonly string[]): ((tokens: readonly string[]) => string[]) => {
+	const texts = pipe(bodies, Array.flatMap(textsOf));
 
-	return pipe(
-		input.tokens,
-		Array.filter((token) => pipe(texts, Array.some(Str.includes(token)))),
-	);
+	return Array.filter((token) => pipe(texts, Array.some(Str.includes(token))));
 };
 
 const isToolResult = (block: Json): boolean => isJsonObject(block) && block["type"] === "tool_result";
