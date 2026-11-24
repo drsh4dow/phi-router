@@ -258,7 +258,7 @@ const escapedToken = Effect.gen(function* escapedToken() {
 	const token = "line one\nline two";
 	const body = yield* encodeJson({ messages: [{ content: `x ${token} y` }] });
 
-	assert.deepStrictEqual(foundIn({ bodies: [body], tokens: [token, "line three"] }), [token]);
+	assert.deepStrictEqual(foundIn([body])([token, "line three"]), [token]);
 });
 
 describe("canary tokens", () => {

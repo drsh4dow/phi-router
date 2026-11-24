@@ -42,7 +42,7 @@ const holdsAny =
 		pipe(
 			sent,
 			Array.map(({ body }) => body),
-			(bodies) => foundIn({ bodies, tokens }),
+			(bodies) => foundIn(bodies)(tokens),
 			Array.isReadonlyArrayNonEmpty,
 		);
 

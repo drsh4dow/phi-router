@@ -53,7 +53,7 @@ interface Bodies {
 }
 
 const seenOn = ({ tracked, open, baa }: Bodies): Seen => {
-	const inOpen = (tokens: readonly string[]): string[] => foundIn({ bodies: open, tokens });
+	const inOpen = foundIn(open);
 	const openMessages = pipe(open, Array.flatMap(messagesOf));
 
 	const reaches = pipe(
@@ -80,7 +80,7 @@ const seenOn = ({ tracked, open, baa }: Bodies): Seen => {
 	);
 
 	const delivered = [...tracked.wholeCanaryTokens, ...parts, ...tracked.sealedWindows];
-	const reached = [...foundIn({ bodies: baa, tokens: delivered }), ...inOpen(parts)];
+	const reached = [...foundIn(baa)(delivered), ...inOpen(parts)];
 
 	return {
 		fragments: inOpen([
