@@ -22,7 +22,7 @@ import { succeeded } from "./checks.ts";
 const checkout = decodeURIComponent(new URL("../..", import.meta.url).pathname);
 
 /** The repository `pi install` takes, served by `git daemon` on loopback under the path GitHub gives it. */
-const repository = "drsh4dow/phi-router";
+const githubRepository = "drsh4dow/phi-router";
 
 const userPath = Effect.map(Config.String("PATH"), (searchPath) =>
 	pipe(
@@ -53,7 +53,7 @@ const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], whe
 
 const snapshot = Effect.fnUntraced(function* snapshot(where: SnapshotFolders) {
 	const path = yield* Path.Path;
-	const repo = path.join(where.daemonBase, repository);
+	const repo = path.join(where.daemonBase, githubRepository);
 	const tree = ["--git-dir", path.join(repo, ".git"), "--work-tree", checkout];
 	const author = ["-c", "user.name=phi-wire", "-c", "user.email=phi-wire@127.0.0.1"];
 
@@ -71,7 +71,7 @@ const snapshot = Effect.fnUntraced(function* snapshot(where: SnapshotFolders) {
 const gitServed = Effect.fnUntraced(function* gitServed(where: SnapshotFolders) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const port = yield* freePort;
-	const address = `git://127.0.0.1:${String(port)}/${repository}`;
+	const address = `git://127.0.0.1:${String(port)}/${githubRepository}`;
 	const flags = ["--export-all", "--reuseaddr", "--listen=127.0.0.1", `--port=${String(port)}`];
 
 	yield* snapshot(where);
