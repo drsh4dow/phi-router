@@ -64,7 +64,7 @@
 		"typescript/prefer-readonly-parameter-types": ["error", { "ignoreInferredTypes": true }],
 		// approved off by the owner: it flags every export whose type names an unstable Effect module, such as a layer that needs FileSystem
 		"effecttsgo/api-stability-leak": "off",
-		// approved by the owner: allowedUnstableApis in tsconfig.json adds eight modules to the four approved first; the two effect/crypto modules for #32 await the owner's approval
+		// approved by the owner: allowedUnstableApis in tsconfig.json adds ten modules to the four approved first
 		"effecttsgo/unstable-api-usage": "error",
 	},
 	"overrides": [
@@ -355,7 +355,7 @@
 		{
 			"files": ["tools/corpus/manifest.ts"],
 			"rules": {
-				// lifted for the corpus manifest: a case schema's field order is the manifest's line format, Schema.Struct encodes its fields in the order its literal declares them, and Effect has no other way to declare that order
+				// lifted for the corpus manifest, approved by the owner: a case schema's field order is the manifest's line format, Schema.Struct encodes its fields in the order its literal declares them, and Effect has no other way to declare that order
 				"eslint/sort-keys": "off",
 			},
 		},

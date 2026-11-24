@@ -41,7 +41,7 @@
 					"@effect/platform-bun",
 					"@effect/platform-node",
 					"@effect/vitest",
-					// added in the dunify run for the port proof's HMAC-SHA-256 (#32), and the random source its layer needs; awaits the owner's approval
+					// approved by the owner: the port proof's HMAC-SHA-256 (#32), and the random source its layer needs
 					"effect/crypto/Mac",
 					"effect/crypto/SecureRandom"
 				]
