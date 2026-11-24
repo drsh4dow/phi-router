@@ -20,7 +20,6 @@ import { pluginCopy } from "#tools/plugin/copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { storedIn } from "./stored.ts";
 
-/** A fresh home, an empty config folder, a working folder for `claude`, and a copy of the plugin. */
 const place = Effect.gen(function* place() {
 	const fs = yield* FileSystem.FileSystem;
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-home-" });
@@ -33,12 +32,6 @@ const place = Effect.gen(function* place() {
 
 type Place = Readonly<Effect.Success<typeof place>>;
 
-/**
- * One `claude -p` turn with model `phi/auto` and the plugin's copy in `turn.place`, against the router at
- * `turn.router`, with the session flags `turn.session`. Its environment holds nothing of the caller's beside `PATH`,
- * but the router's XDG folders, where the plugin's hook finds the router's secret, and its login is the fake harness
- * token. Returns the exit code and what it printed.
- */
 const claudeTurn = Effect.fnUntraced(
 	function* claudeTurn(turn: {
 		readonly folders: Readonly<Record<string, string>>;
