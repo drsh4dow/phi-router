@@ -11,7 +11,6 @@
 	"src/pi/index.ts": 18,
 	"src/router/client/judge/decisions.ts": 1,
 	"src/router/client/router-port/proof.ts": 1,
-	"src/router/client/router-port/server.ts": 2,
 	"src/router/features/accounts/walk.ts": 6,
 	"src/router/features/anthropic-messages/captures.test.ts": 1,
 	"src/router/features/anthropic-messages/captures/auto-mode.ts": 1,

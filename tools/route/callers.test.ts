@@ -1,8 +1,8 @@
 import { Array, Context, Effect, Fiber, FileSystem, Latch, Layer, Sink, Stream } from "effect";
+import type { Caller, Connection } from "#router/client/router-port/index.ts";
+import { Callers, unnamed } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
-import { Callers } from "#router/client/router-port/index.ts";
 import { ChildProcessSpawner } from "effect/process";
-import type { Connection } from "#router/client/router-port/index.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 
@@ -34,7 +34,7 @@ const rows = {
 };
 
 /** What the check answers when `/proc/net/tcp` holds the router's two rows and `callerRows`. */
-const answerFor = Effect.fnUntraced(function* answerFor(callerRows: readonly string[]) {
+const answerFor = Effect.fnUntraced(function* answerFor(callerRows: readonly string[], asked: Caller = connection) {
 	const text = Array.join([heading, rows.listening, rows.routerEnd, ...callerRows, ""], "\n");
 
 	const table = FileSystem.layerNoop({
@@ -44,7 +44,7 @@ const answerFor = Effect.fnUntraced(function* answerFor(callerRows: readonly str
 
 	const built = yield* Layer.build(Callers.layer.pipe(Layer.provide(table)));
 
-	return yield* Context.get(built, Callers).isThisUser(connection);
+	return yield* Context.get(built, Callers).isThisUser(asked);
 });
 
 /** What the check answers when `/proc/net/tcp` exists and cannot be read. */
@@ -109,6 +109,7 @@ const answers = Effect.gen(function* answers() {
 			lsofFailed: lsofAnswerFor(lsofPrinted, () => exitsWith(exits.failed)),
 			lsofThisUser: lsofAnswerFor(lsofPrinted, () => exitsWith(exits.listed)),
 			noCallerEnd: answerFor([]),
+			noSocketEnds: answerFor([rows.thisUser], unnamed),
 			thisUser: answerFor([rows.thisUser]),
 			unreadable,
 		},
@@ -123,6 +124,7 @@ const answers = Effect.gen(function* answers() {
 		lsofFailed: false,
 		lsofThisUser: true,
 		noCallerEnd: false,
+		noSocketEnds: false,
 		thisUser: true,
 		unreadable: false,
 	});

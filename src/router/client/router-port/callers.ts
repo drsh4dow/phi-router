@@ -8,6 +8,10 @@ interface Connection {
 	readonly caller: Endpoint;
 }
 
+const unnamed = "unnamed";
+
+type Caller = Connection | typeof unnamed;
+
 interface Socket {
 	readonly local: Endpoint;
 	readonly remote: Endpoint;
@@ -103,7 +107,7 @@ const listPatience = "2 seconds";
 class Callers extends Context.Service<
 	Callers,
 	{
-		readonly isThisUser: (connection: Connection) => Effect.Effect<boolean>;
+		readonly isThisUser: (caller: Caller) => Effect.Effect<boolean>;
 	}
 >()("phi-router/router/client/router-port/callers") {
 	public static readonly layer = Layer.effect(
@@ -132,18 +136,26 @@ class Callers extends Context.Service<
 				return Array.flatMap(Str.split(/^p/mu)(printed), lsofSocketsOf);
 			}, Effect.scoped);
 
-			const isThisUser = (connection: Connection): Effect.Effect<boolean> =>
+			const heldByThisUser = (connection: Connection): Effect.Effect<boolean> =>
 				listed(connection).pipe(
 					Effect.map((sockets) => heldByOneUser(sockets, connection)),
 					Effect.timeout(listPatience),
 					Effect.catchCause(() => Effect.succeed(false)),
 				);
 
+			const isThisUser = (caller: Caller): Effect.Effect<boolean> => {
+				if (caller === unnamed) {
+					return Effect.succeed(false);
+				}
+
+				return heldByThisUser(caller);
+			};
+
 			return Callers.of({ isThisUser });
 		}),
 	);
 }
 
-export { Callers };
+export { Callers, unnamed };
 
-export type { Connection };
+export type { Caller, Connection };

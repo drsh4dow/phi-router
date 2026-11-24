@@ -1,7 +1,8 @@
 import { Array, Context, Effect, Option, Record, Schema, pipe } from "effect";
+import { Callers, unnamed } from "./callers.ts";
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Layer, Scope, Stream } from "effect";
-import { Callers } from "./callers.ts";
+import type { Caller } from "./callers.ts";
 import type { HttpServerError } from "effect/http";
 
 const badRequest = 400;
@@ -77,24 +78,21 @@ const handlerOf = ({
 		return HttpServerResponse.stream(outgoing.body, { headers: outgoing.headers, status: outgoing.status });
 	}).pipe(Effect.catchTag("HttpServerError", () => Effect.succeed(HttpServerResponse.empty({ status: badRequest }))));
 
-/**
- * Whether the request's caller is the user the router runs as (ADR 0006). A request whose socket names no ends is not.
- */
 const callerIsThisUser = Effect.gen(function* callerIsThisUser() {
 	const callers = yield* Callers;
 	const request = yield* HttpServerRequest.HttpServerRequest;
 
-	return yield* Option.match(Schema.decodeUnknownOption(NodeSocket)(request.source), {
-		onNone: () => Effect.succeed(false),
-		onSome: ({ socket }) =>
-			callers.isThisUser({
-				caller: `${socket.remoteAddress}:${socket.remotePort}`,
-				router: `${socket.localAddress}:${socket.localPort}`,
-			}),
+	const caller = Option.match(Schema.decodeUnknownOption(NodeSocket)(request.source), {
+		onNone: (): Caller => unnamed,
+		onSome: ({ socket }): Caller => ({
+			caller: `${socket.remoteAddress}:${socket.remotePort}`,
+			router: `${socket.localAddress}:${socket.localPort}`,
+		}),
 	});
+
+	return yield* callers.isThisUser(caller);
 });
 
-/** A request from another user answers 403 before its body is read. */
 const serve = (paths: readonly Path[]): Layer.Layer<never, never, HttpServer.HttpServer | Callers> => {
 	const routes = pipe(
 		paths,

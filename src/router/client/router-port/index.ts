@@ -1,4 +1,4 @@
-export { Callers } from "./callers.ts";
+export { Callers, unnamed } from "./callers.ts";
 
 export { LeaseRequestJson, LeaseRequests, leasePath, statusOf } from "./lease-request.ts";
 
@@ -10,7 +10,7 @@ export { PinRequestJson, SessionRequests, sessionPaths } from "./session-request
 
 export type { Answered, LeaseReply, LeaseRequest } from "./lease-request.ts";
 
-export type { Connection } from "./callers.ts";
+export type { Caller, Connection } from "./callers.ts";
 
 export type { Incoming, Outgoing, Path } from "./server.ts";
 
