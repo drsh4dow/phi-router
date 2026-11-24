@@ -258,6 +258,8 @@ const sealedReplyKeys = Effect.fnUntraced(function* sealedReplyKeys({ block }: O
 	});
 
 	const next = yield* post({ body: echoed, session: "lanes-5" });
+
+	yield* next.text;
 	const opened = yield* mocks.open.received;
 
 	const judged = yield* mocks.judge.received.pipe(Effect.map(Array.map(({ body }) => body)), Effect.flatMap(jsonText));
