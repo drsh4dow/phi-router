@@ -12,7 +12,6 @@ const typed = { pin: "/phi pin", status: "/phi", unpin: "/phi unpin" } as const;
 
 const sealWords = "held patient identifiers and ran only on the BAA account";
 
-/** What a harness showed of the `/phi` answer and the seal notice in everything a run printed. */
 interface Shown {
 	readonly pinOn: boolean;
 	readonly pinOff: boolean;
@@ -28,7 +27,6 @@ interface PhiTurned extends Turned {
 	readonly shown: Shown;
 }
 
-/** The `/phi` turns of a play, each prompt of the same session, by name and in the order it runs them. */
 interface PhiTurns<Turn extends PhiTurned = PhiTurned> {
 	readonly status: Turn;
 	readonly pin: Turn;
@@ -133,7 +131,6 @@ const phiTurns = Effect.fnUntraced(function* phiTurns<Turn extends PhiTurned, Fa
 	return { inOrder, pin, pinned, status, unpin, unpinned } satisfies PhiTurns<Turn>;
 });
 
-/** The prompt whose answer from the open mock starts the pinned subagent. */
 const handOff = "Hand the member lookup to the pinned subagent.";
 
 /**
