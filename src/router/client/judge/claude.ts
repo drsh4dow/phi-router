@@ -8,10 +8,6 @@ import type { Usage } from "./failed.ts";
 import { askingOf } from "#router/client/accounts/index.ts";
 import { textOf } from "./decisions.ts";
 
-/**
- * Claude Code's identity, the first block of every call's system prompt. A Claude login's token answers only a request
- * that opens with it, and an API key takes it as well, so the one prompt that was calibrated runs on both.
- */
 const claudeCode = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 const messagesHeaders = { "anthropic-beta": "oauth-2025-04-20", "anthropic-version": "2023-06-01" };
@@ -22,10 +18,6 @@ const okStatus = { below: 300, from: 200 } as const;
 
 const maxTokens = 256;
 
-/**
- * What a call on `claude-haiku-5-5` costs in US dollars per million tokens. A call whose prompt is over `tierTokens`
- * pays the higher rates on all of its tokens.
- */
 const haikuPrice = {
 	above: { input: 0.5, output: 2.5 },
 	tierTokens: 100_000,
@@ -113,15 +105,6 @@ const kindAsked = <Kind extends string>({ instructions, criteria }: ChoiceQuesti
 	};
 };
 
-/**
- * One Messages request: the question as the system prompt after Claude Code's identity, the piece as `textOf` gives it
- * then its images in one user message, and the answer forced through the question's one tool.
- *
- * @param {string} model The model the judge runs.
- * @param {ToolQuestion} asked The question.
- * @param {JudgeInput} input The piece, its context and its images.
- * @returns {Effect.Effect} The request's JSON text.
- */
 const requestOf = Effect.fnUntraced(function* requestOf(model: string, asked: ToolQuestion, input: JudgeInput) {
 	const text = yield* textOf(input);
 
@@ -153,14 +136,6 @@ const costOf = ({ input_tokens, output_tokens }: Replied["usage"]): number => {
 	return (input_tokens * haikuPrice.upTo.input + output_tokens * haikuPrice.upTo.output) / million;
 };
 
-/**
- * Sends one request to the account, its login made fit first, and reads the reply. A failed call, a status outside 2xx
- * whatever its body says, or a reply that does not read, fails as `judge-error` with a warning that names the account
- * and never the key.
- *
- * @param {NamedAccount} named The BAA account.
- * @returns {Function} Sends a request's JSON text.
- */
 const senderOn = Effect.fnUntraced(function* senderOn(named: NamedAccount) {
 	const account = yield* askingOf(named);
 
@@ -214,13 +189,6 @@ interface Asker {
 	readonly send: Effect.Success<ReturnType<typeof senderOn>>;
 }
 
-/**
- * One question asked and its answer read. A refusal fails as `judge-refused`. An answer cut off, or one that is not the
- * asked tool call, fails as `judge-error`. Both carry the usage the call billed.
- *
- * @param {Asker} asker How the judge asks.
- * @returns {Function} Asks one question and reads its answer from the reply's blocks.
- */
 const askWith =
 	({ accountName, model, send }: Asker) =>
 	<Answer>(

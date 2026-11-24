@@ -19,7 +19,6 @@ interface ScoreQuestion {
 	readonly criteria: { readonly true: string; readonly false: string };
 }
 
-/** A question the judge answers with one of its choices, listed in the order the judge reads them. */
 interface ChoiceQuestion<Choice extends string> {
 	readonly type: "choice";
 	readonly instructions: string;
@@ -62,7 +61,6 @@ class Judge extends Context.Service<Judge, Asking & { readonly name: JudgeName; 
 		Layer.provide(judgeHttp),
 	);
 
-	/** The Claude judge on the configuration's first Anthropic BAA account, whatever else it names. */
 	public static readonly claudeLayer = Layer.effect(Judge, claudeOnSealed.pipe(Effect.flatMap(askingOf))).pipe(
 		Layer.provide(judgeHttp),
 	);

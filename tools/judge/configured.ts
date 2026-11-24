@@ -30,10 +30,9 @@ const configuredEnv = Effect.fnUntraced(function* configuredEnv(endpoint: string
 	return yield* envOf({ judge: Struct.assign({ endpoint }, named) });
 });
 
-/** The judge the router picks from a `config.json` that is `file`. */
-const judgeFrom = Effect.fnUntraced(function* judgeFrom(file: Json) {
+const judgeFrom = Effect.fnUntraced(function* judgeFrom(file: Json, layer: "claudeLayer" | "layer" = "layer") {
 	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: yield* envOf(file) }));
-	const configured = Judge.layer.pipe(Layer.provide(Configuration.layer));
+	const configured = Judge[layer].pipe(Layer.provide(Configuration.layer));
 	const built = yield* Layer.build(Layer.provide(configured, env));
 
 	return Context.get(built, Judge);

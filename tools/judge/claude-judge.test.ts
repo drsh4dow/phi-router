@@ -1,4 +1,4 @@
-import { Array, Effect, Layer, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Layer, Logger, Option, Schema, String as Str, Struct, pipe } from "effect";
 import type { Asked, Json, Said } from "#router/client/mock-upstreams/index.ts";
 import type { ChoiceQuestion, JudgeInput, ScoreQuestion } from "#router/client/judge/index.ts";
 import { Findings, Verdicts, verdictsFor } from "#router/features/verdicts/index.ts";
@@ -67,6 +67,7 @@ const lanes = (sealed: readonly Json[], beside: Readonly<Record<string, Json>> =
 /** Two Anthropic account mocks and a Decisions mock, and how many calls each received once the judge asked one. */
 const choiceOf = Effect.fnUntraced(function* choiceOf(
 	file: (endpoints: { readonly first: string; readonly second: string; readonly decisions: string }) => Json,
+	layer: "claudeLayer" | "layer" = "layer",
 ) {
 	const first = yield* anthropicOn(sealingClaude);
 	const second = yield* anthropicOn(sealingClaude);
@@ -74,6 +75,7 @@ const choiceOf = Effect.fnUntraced(function* choiceOf(
 
 	const judge = yield* judgeFrom(
 		file({ decisions: decisions.endpoint, first: first.endpoint, second: second.endpoint }),
+		layer,
 	);
 
 	yield* judge.identifier(input, scoreQuestion);
@@ -128,6 +130,25 @@ const picks = [
 	},
 ];
 
+const claudeWhateverNamed = Effect.map(
+	choiceOf(
+		({ first, second, decisions }) =>
+			lanes(
+				[
+					forwarded,
+					keyed("openai", "o", decisions),
+					keyed("anthropic", "a", first),
+					keyed("anthropic", "b", second),
+				],
+				{ judge: { endpoint: decisions, keyEnv: "PHI_TEST_KEY" } },
+			),
+		"claudeLayer",
+	),
+	(got) => {
+		assert.deepStrictEqual(got, { decisions: 0, first: 1, name: "claude", second: 0 });
+	},
+);
+
 const refused = Effect.gen(function* refused() {
 	const failed = yield* Effect.flip(judgeFrom(lanes([forwarded, openaiFolder])));
 
@@ -155,6 +176,16 @@ const toolUse = (name: string, answer: string, stop = "tool_use"): Said =>
 /** What 1000 input and 2 output tokens cost on the Claude judge's model. */
 const billed = { calls: 1, cost: 0.000101, inputTokens: 1000 };
 
+const scoredAt = (inputTokens: number): Said =>
+	replied(
+		`{"content":[{"id":"toolu_1","input":{"probability":0},"name":"identifier","type":"tool_use"}],"stop_reason":"tool_use","usage":{"input_tokens":${String(inputTokens)},"output_tokens":2}}`,
+	);
+
+const prices = [
+	{ cost: 0.010001, inputTokens: 100_000 },
+	{ cost: 0.0500055, inputTokens: 100_001 },
+] as const;
+
 const threeQuarters = 0.75;
 
 const eachQuestion = Effect.gen(function* eachQuestion() {
@@ -180,6 +211,56 @@ const ownKey = Effect.gen(function* ownKey() {
 	assert.notProperty(sent.headers, "anthropic-beta");
 });
 
+const jsonFrom = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
+
+const requested = Effect.gen(function* requested() {
+	const { judge, mock } = yield* claudeAnswering(() => toolUse("kind", '{"kind":"apple"}'));
+
+	yield* judge.kind({ context: ["c"], images: [{ data: "aW1n", mimeType: "image/png" }], piece: "p" }, choices);
+
+	const received = yield* mock.received;
+	const sent = yield* Effect.fromOption(Array.head(received));
+	const body = yield* jsonFrom(sent.body);
+
+	assert.deepStrictEqual(body, {
+		max_tokens: 256,
+		messages: [
+			{
+				content: [
+					{ text: '{"piece":"p","context":["c"]}', type: "text" },
+					{ source: { data: "aW1n", media_type: "image/png", type: "base64" }, type: "image" },
+				],
+				role: "user",
+			},
+		],
+		model: "claude-haiku-5-5",
+		system: [
+			{ text: "You are Claude Code, Anthropic's official CLI for Claude.", type: "text" },
+			{ text: "Which one?\n\nChoices:\nzebra: Z\napple: A\n\nAnswer with one choice.", type: "text" },
+		],
+		tool_choice: { name: "kind", type: "tool" },
+		tools: [
+			{
+				input_schema: {
+					properties: { kind: { enum: ["zebra", "apple"], type: "string" } },
+					required: ["kind"],
+					type: "object",
+				},
+				name: "kind",
+			},
+		],
+	});
+});
+
+const unanswered = [
+	{ name: "an error status", said: failing, warning: "The judge call on baa failed: status 500" },
+	{
+		name: "a reply it does not read",
+		said: replied("{}"),
+		warning: "The judge call on baa failed: status 200 and no reply it reads",
+	},
+] as const;
+
 const trouble = "the piece in trouble";
 
 const pieceOf = (text: string): Piece<string> => ({
@@ -197,14 +278,31 @@ const failures = [
 	{
 		name: "a refusal",
 		said: replied('{"content":[],"stop_reason":"refusal","usage":{"input_tokens":1000,"output_tokens":2}}'),
+		usage: Option.some(billed),
 		why: "judge-refused",
 	},
-	{ name: "an answer cut off", said: toolUse("identifier", '{"probability":1}', "max_tokens"), why: "judge-error" },
-	{ name: "a probability above 1", said: toolUse("identifier", '{"probability":95}'), why: "judge-error" },
-	{ name: "a kind call to the score question", said: toolUse("kind", '{"kind":"apple"}'), why: "judge-error" },
+	{
+		name: "an answer cut off",
+		said: toolUse("identifier", '{"probability":1}', "max_tokens"),
+		usage: Option.some(billed),
+		why: "judge-error",
+	},
+	{
+		name: "a probability above 1",
+		said: toolUse("identifier", '{"probability":95}'),
+		usage: Option.some(billed),
+		why: "judge-error",
+	},
+	{
+		name: "a kind call to the score question",
+		said: toolUse("kind", '{"kind":"apple"}'),
+		usage: Option.some(billed),
+		why: "judge-error",
+	},
 	{
 		name: "an error status, though its body clears the piece",
 		said: Struct.assign(toolUse("identifier", '{"probability":0}'), { status: failing.status }),
+		usage: Option.none(),
 		why: "judge-error",
 	},
 ] as const;
@@ -239,11 +337,48 @@ it.layer(NodeServices.layer)("the Claude judge", (test) => {
 	);
 
 	test.effect(
+		"the Claude judge layer asks the first Anthropic account with its own credential, though the file names Decisions",
+		() => claudeWhateverNamed,
+	);
+	test.effect(
 		"with no judge block and no account the judge can run on, the file is refused with the reason",
 		() => refused,
 	);
 	test.effect("reads each question's answer from its forced tool call, with what it billed", () => eachQuestion);
 	test.effect("calls the Messages API with the account's own key and no login flag", () => ownKey);
+	test.effect(
+		"asks as Claude Code, the question as system, the piece then its images, and the answer forced through the question's tool",
+		() => requested,
+	);
+	test.effect.each(prices)("$inputTokens input and 2 output tokens cost $cost", ({ cost, inputTokens }) =>
+		Effect.gen(function* priced() {
+			const { judge } = yield* claudeAnswering(() => scoredAt(inputTokens));
+			const { usage } = yield* judge.identifier(input, scoreQuestion);
+
+			assert.deepStrictEqual(Struct.omit(usage, ["ms"]), { calls: 1, cost, inputTokens });
+		}),
+	);
+	test.effect.each(unanswered)(
+		"$name fails as judge-error with a warning that names the account",
+		({ said, warning }) =>
+			Effect.gen(function* warned() {
+				const warnings: unknown[] = [];
+
+				const capture = Logger.make(({ message }) => {
+					warnings.push(message);
+				});
+
+				const { judge } = yield* claudeAnswering(() => said);
+
+				const failure = yield* Effect.provideService(
+					Effect.flip(judge.identifier(input, scoreQuestion)),
+					Logger.CurrentLoggers,
+					new Set([capture]),
+				);
+
+				assert.deepStrictEqual([failure.why, warnings], ["judge-error", [[warning]]]);
+			}),
+	);
 
 	test.effect.each(failures)("$name seals the piece as $why", ({ said, why }) =>
 		Effect.map(
@@ -255,6 +390,18 @@ it.layer(NodeServices.layer)("the Claude judge", (test) => {
 				]);
 			},
 		),
+	);
+
+	test.effect.each(failures)("$name fails the call as $why with what it billed", ({ said, usage, why }) =>
+		Effect.gen(function* kept() {
+			const { judge } = yield* claudeAnswering(() => said);
+			const failure = yield* Effect.flip(judge.identifier(input, scoreQuestion));
+
+			assert.deepStrictEqual(
+				[failure.why, Option.map(Option.fromUndefinedOr(failure.usage), Struct.omit(["ms"]))],
+				[why, usage],
+			);
+		}),
 	);
 
 	test.effect("a kind the question does not list fails the call as judge-error", () =>

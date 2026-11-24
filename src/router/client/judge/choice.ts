@@ -86,7 +86,6 @@ const chosenJudge = Effect.gen(function* chosenJudge() {
 	);
 });
 
-/** The Claude judge on the first Anthropic account on `sealed` that holds its own credential, whatever else is named. */
 const claudeOnSealed = onSealed((sealed) => pipe(sealed, Array.findFirst(claudeOn)));
 
 export { chosenJudge, claudeOnSealed, defaultJudgeModels };
