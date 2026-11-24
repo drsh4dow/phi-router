@@ -17,7 +17,7 @@ const standIn = new URL("stand-in.ts", import.meta.url).pathname;
 type Codex = "posts" | "silent" | "absent";
 
 /** What a test does to the installed plugin's files before `doctor` runs. */
-type Install = "whole" | "none" | "launcherNotExecutable" | "truncatedBundle";
+type Install = "whole" | "none" | "noManifest" | "launcherNotExecutable" | "truncatedBundle";
 
 /** What a test does to the user's Codex home after `on codex`. */
 type Home =
@@ -48,7 +48,8 @@ const deadVariables = 5;
 /**
  * The line a test's `codex` runs first: it writes to `marker` the modes of the mocks' config folder and
  * `config.json`, the provider address of the `config.toml` it was given, how many folders and files of its plugin copy
- * are not private, the mode of the copy's launcher, and the proxy and the hosts kept off it that it was given.
+ * are not private, the mode of the copy's launcher, the proxy and the hosts kept off it that it was given, and how a
+ * read of its stdin ended.
  *
  * @param {string} marker The file.
  * @returns {string} The line.
@@ -63,7 +64,9 @@ const seenBy = (marker: string): string => {
 
 	const proxy = 'echo "$ALL_PROXY $HTTP_PROXY $HTTPS_PROXY $http_proxy $https_proxy $NO_PROXY $no_proxy"';
 
-	return `{ stat -c %a ${config}; ${address}; ${wide}; ${launcher}; ${proxy}; } > '${marker}'`;
+	const stdin = "timeout 1 cat > /dev/null; echo $?";
+
+	return `{ stat -c %a ${config}; ${address}; ${wide}; ${launcher}; ${proxy}; ${stdin}; } > '${marker}'`;
 };
 
 /**
@@ -95,6 +98,10 @@ const searchPath = Effect.fnUntraced(function* searchPath(codex: Codex) {
 const broken = Effect.fnUntraced(function* broken(version: string, install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 	const bundle = `${version}/phi-router.mjs`;
+
+	if (install === "noManifest") {
+		yield* fs.remove(`${version}/.codex-plugin/plugin.json`);
+	}
 
 	if (install === "launcherNotExecutable") {
 		yield* fs.chmod(`${version}/bin/phi-router`, notExecutable);
@@ -177,11 +184,11 @@ const doctored = Effect.fnUntraced(function* doctored(codex: Codex, home: Home, 
 
 const passes = Effect.gen(function* passes() {
 	const { doctor, kept, seen } = yield* doctored("posts", "whole", "whole");
-	const [folderMode, fileMode, address = "", notPrivate, launcherMode, proxy] = seen;
+	const [folderMode, fileMode, address = "", notPrivate, launcherMode, proxy, stdinRead] = seen;
 
 	assert.strictEqual(doctor.exitCode, ok, doctor.printed);
 	assert.deepStrictEqual(
-		{ fileMode, folderMode, kept, launcherMode, notPrivate, proxy },
+		{ fileMode, folderMode, kept, launcherMode, notPrivate, proxy, stdinRead },
 		{
 			fileMode: "600",
 			folderMode: "700",
@@ -189,8 +196,9 @@ const passes = Effect.gen(function* passes() {
 			launcherMode: "700",
 			notPrivate: "0",
 			proxy: `${Array.join(Array.replicate(dead, deadVariables), " ")} localhost localhost`,
+			stdinRead: "0",
 		},
-		"the mocks' config.json and codex's plugin copy are private, codex runs behind a dead proxy that localhost alone does not avoid, and the user's config.toml is as it was",
+		"the mocks' config.json and codex's plugin copy are private, codex runs behind a dead proxy that localhost alone does not avoid with its stdin at its end, and the user's config.toml is as it was",
 	);
 
 	const port = Number(new URL(address).port);
@@ -215,6 +223,7 @@ const statics: readonly Static[] = [
 	{ home: "noAddress", install: "whole", named: "model_providers.phi.base_url" },
 	{ home: "disabled", install: "whole", named: "phi-router@phi-router is enabled" },
 	{ home: "whole", install: "none", named: "phi-router@phi-router is installed" },
+	{ home: "whole", install: "noManifest", named: "phi-router@phi-router is installed" },
 	{ home: "untrusted", install: "whole", named: "hooks are trusted" },
 	{ home: "promptUntrusted", install: "whole", named: "hooks are trusted" },
 	{ home: "checkUntrusted", install: "whole", named: "hooks are trusted" },

@@ -13,10 +13,8 @@ interface Asked {
 	readonly env: Readonly<Record<string, string>>;
 }
 
-/** Codex's home folder: `named` when it is not empty, else `CODEX_HOME`, else `.codex` under the home folder. */
 const codexHome = harnessFolder({ fallback: ".codex", variable: "CODEX_HOME" });
 
-/** A file phi-router must change is not UTF-8 text, so it cannot change it without changing other bytes. */
 class NotUtf8 extends Schema.TaggedError<NotUtf8, { readonly brand: unique symbol }>()("NotUtf8", {
 	cause: Schema.Defect(),
 	path: Schema.String,
@@ -26,7 +24,6 @@ class NotUtf8 extends Schema.TaggedError<NotUtf8, { readonly brand: unique symbo
 	}
 }
 
-/** Decodes UTF-8 and keeps a byte order mark, so the text encodes back to the same bytes. */
 const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 const textIfPresent = Effect.fnUntraced(function* textIfPresent(file: string) {
@@ -69,17 +66,12 @@ const removedIfPresent = Effect.fnUntraced(function* removedIfPresent(file: stri
 	return exists;
 });
 
-/** Writes `after` over `file`, which holds `before`, unless the two are the same. */
 const rewritten = Effect.fnUntraced(function* rewritten(file: string, before: string, after: string) {
 	if (after !== before) {
 		yield* rewritePrivately(file, after);
 	}
 });
 
-/**
- * The folder Codex installed a plugin's version into, from its install cache `cache`, if it installed one: the first
- * version folder that holds `.codex-plugin/plugin.json`.
- */
 const codexPlugin = Effect.fnUntraced(function* codexPlugin(cache: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -104,11 +96,6 @@ const codexPlugin = Effect.fnUntraced(function* codexPlugin(cache: string) {
 	);
 });
 
-/**
- * `codex exec` in a fresh home and Codex home that hold `asked.config`, `asked.dotenv` and a copy of the installed
- * plugin, with nothing of the caller's environment but `PATH` and a dead proxy, so its own calls to GitHub and
- * chatgpt.com never leave the machine. Its stdin is closed, so it reads no more of the prompt.
- */
 const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -143,7 +130,6 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	});
 });
 
-/** Runs the installed `codex exec` once in a fresh home and Codex home, and ends the turn after 2 minutes. */
 const codexTurn = harnessTurn(commandOf);
 
 export { codexHome, codexPlugin, codexTurn, firstLine, removedIfPresent, rewritten, textOrEmpty };
