@@ -83,14 +83,7 @@ interface Asked {
 	readonly usage: typeof Usage.Type;
 }
 
-/**
- * What the judge reads as text: the JSON of `piece` then `context`, the order the original judge sent, where
- * `sort-keys` would reorder a literal.
- *
- * @param {JudgeInput} input The piece and its context.
- * @returns {Effect.Effect} The text.
- */
-const textOf = ({ piece, context }: JudgeInput): Effect.Effect<string> =>
+const calibratedText = ({ piece, context }: JudgeInput): Effect.Effect<string> =>
 	Effect.orDie(
 		jsonOf(
 			Record.fromEntries([
@@ -103,7 +96,7 @@ const textOf = ({ piece, context }: JudgeInput): Effect.Effect<string> =>
 const inputOf = (input: JudgeInput): Effect.Effect<(typeof Request.Type)["input"]> => {
 	const { images } = input;
 
-	return textOf(input).pipe(
+	return calibratedText(input).pipe(
 		Effect.map((text) => {
 			if (!Array.isReadonlyArrayNonEmpty(images)) {
 				return text;
@@ -224,4 +217,4 @@ const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJud
 	return asking;
 });
 
-export { decisions, defaultDecisionsModel, textOf };
+export { decisions, defaultDecisionsModel, calibratedText };

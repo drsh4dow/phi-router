@@ -6,7 +6,7 @@ import { JudgeFailed } from "./failed.ts";
 import type { NamedAccount } from "#router/client/configuration/index.ts";
 import type { Usage } from "./failed.ts";
 import { askingOf } from "#router/client/accounts/index.ts";
-import { textOf } from "./decisions.ts";
+import { calibratedText } from "./decisions.ts";
 
 const claudeCode = "You are Claude Code, Anthropic's official CLI for Claude.";
 
@@ -106,7 +106,7 @@ const kindAsked = <Kind extends string>({ instructions, criteria }: ChoiceQuesti
 };
 
 const requestOf = Effect.fnUntraced(function* requestOf(model: string, asked: ToolQuestion, input: JudgeInput) {
-	const text = yield* textOf(input);
+	const text = yield* calibratedText(input);
 
 	const images = pipe(
 		input.images,
