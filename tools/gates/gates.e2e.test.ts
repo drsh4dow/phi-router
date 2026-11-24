@@ -114,6 +114,7 @@ const gates: readonly Gate[] = [
 			"src/router/features/sample/bounded.test.ts:5:",
 			"src/router/features/sample/bounded.test.ts:7:",
 			"src/router/features/sample/bounded.test.ts:10:",
+			"src/router/features/sample/bounded.test.ts:13:",
 		],
 		script: "comments",
 	},

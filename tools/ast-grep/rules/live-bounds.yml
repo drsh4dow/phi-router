@@ -24,6 +24,9 @@ rule:
            - all:
                 - has: { field: function, pattern: TestClock.withLive }
                 - has: { field: arguments, has: { matches: timeout, stopBy: end } }
+           - all:
+                - has: { field: arguments, has: { pattern: TestClock.withLive } }
+                - has: { field: function, has: { matches: timeout, stopBy: end } }
       - kind: object
         all:
            - has: { kind: pair, has: { field: key, regex: "^schedule$" } }

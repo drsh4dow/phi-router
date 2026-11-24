@@ -9,3 +9,5 @@ it.effect("answers within two seconds", () => TestClock.withLive(Effect.timeout(
 it.effect("answers within 100 polls", () =>
 	Effect.void.pipe(Effect.retry({ schedule: Schedule.spaced("20 millis"), times: 100 }), TestClock.withLive),
 );
+
+it.effect("answers within three seconds", () => Effect.timeout(Effect.void, "3 seconds").pipe(TestClock.withLive));
