@@ -181,7 +181,6 @@ const keyFor = Effect.fnUntraced(function* keyFor(ask: KeyAsk) {
 	return yield* Option.match(taken, { onNone: () => pasted(ask), onSome: Effect.succeed });
 });
 
-/** The key saved for `vendor` when its vendor still accepts it. None when there is none, or `fresh` asks for a new one. */
 const stillHeld = Effect.fnUntraced(function* stillHeld(vendor: Vendor, fresh: boolean) {
 	const saved = yield* savedKey(vendor);
 

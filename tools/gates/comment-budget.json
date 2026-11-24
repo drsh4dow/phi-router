@@ -7,8 +7,6 @@
 	"src/router/features/cli/accounts/index.ts": 3,
 	"src/router/features/cli/adapters.ts": 1,
 	"src/router/features/cli/serve.ts": 1,
-	"src/router/features/cli/setup/install.ts": 2,
-	"src/router/features/cli/setup/keys.ts": 1,
 	"src/router/features/lanes/decide.test.ts": 4,
 	"src/router/features/lanes/decide.ts": 3,
 	"src/router/features/lanes/pin.ts": 9,

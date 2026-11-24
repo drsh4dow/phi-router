@@ -1,7 +1,20 @@
-import { Effect, FileSystem, Schedule } from "effect";
-import { argsOf, callsOf, keyAnswer, layer, ok, ownSettings, owned, patient, setUp, settled } from "./set-up.ts";
+import { Effect, FileSystem, Path, Schedule } from "effect";
+import {
+	argsOf,
+	callsOf,
+	claudeAnswers,
+	keyAnswer,
+	keyFiles,
+	layer,
+	ok,
+	ownSettings,
+	owned,
+	patient,
+	setUp,
+	settled,
+} from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
-import { keys, snapshot, world } from "./world.ts";
+import { keys, snapshot, typedRun, world } from "./world.ts";
 import type { World } from "./world.ts";
 import { phiRouter } from "#tools/cli/accounts-run.ts";
 
@@ -114,6 +127,62 @@ const failedTest = Effect.gen(function* failedTest() {
 	yield* untouched(of);
 }).pipe(Effect.scoped);
 
+const hollowInstaller = Effect.fnUntraced(function* hollowInstaller(of: World) {
+	const fs = yield* FileSystem.FileSystem;
+	const claude = `${of.bin}/claude`;
+
+	yield* fs.rename(claude, `${of.bin}/claude-real`);
+	yield* fs.writeFileString(
+		claude,
+		`#!/bin/sh\ncase "$1" in plugin) printf '%s\\n' "$*" >> "\${0%/*}/claude-args"; exit 0;; esac\nexec "\${0%/*}/claude-real" "$@"\n`,
+		{ mode: 0o755 },
+	);
+});
+
+const hollowInstall = Effect.gen(function* hollowInstall() {
+	const fs = yield* FileSystem.FileSystem;
+	const of = yield* world;
+
+	yield* settled(of);
+	yield* hollowInstaller(of);
+
+	const run = yield* setUp(of, "claude", claudeAnswers);
+	const calls = yield* callsOf(of, "claude");
+	const settings = yield* fs.readFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`);
+
+	assert.notStrictEqual(run.exitCode, ok, run.shown);
+	assert.include(run.shown, "Claude Code did not install phi-router. Your key is saved.");
+	assert.deepStrictEqual(calls, ["test", "install"], "nothing runs after the install");
+	assert.strictEqual(settings, ownSettings, "Claude Code is not switched on");
+}).pipe(Effect.scoped);
+
+interface SavedKey {
+	readonly flags: readonly string[];
+	readonly kind: string;
+	readonly saved: string;
+}
+
+const askedAgainFor: readonly SavedKey[] = [
+	{ flags: ["--new-key"], kind: "--new-key, though Anthropic accepts the saved key", saved: keys.anthropic },
+	{ flags: [], kind: "Anthropic now refuses the saved key", saved: keys.refused },
+];
+
+const askedAgain = Effect.fnUntraced(function* askedAgain({ flags, saved }: SavedKey) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const of = yield* world;
+	const { anthropic } = keyFiles(of);
+
+	yield* broken(of, "fail");
+	yield* fs.makeDirectory(path.dirname(anthropic), { recursive: true });
+	yield* fs.writeFileString(anthropic, `${saved}\n`);
+
+	const run = yield* typedRun(of, ["setup", "claude", ...flags], [{ after: "Key: ", typed: keys.subscription }]);
+
+	assert.include(run.shown, "Your BAA account           needs an API key", run.shown);
+	assert.include(run.shown, "Paste the Anthropic API key your organization gave you for patient data.");
+}, Effect.scoped);
+
 const stopped = Effect.gen(function* stopped() {
 	const fs = yield* FileSystem.FileSystem;
 	const of = yield* world;
@@ -138,6 +207,8 @@ it.layer(layer)("setup refused", (test) => {
 	test.effect("setup with no terminal says so and changes nothing", () => noTerminal, patient);
 	test.effect("input that ends at the key question saves and changes nothing", () => endedAtKey, patient);
 	test.effect("a failed test installs nothing and leaves Claude Code's folder as it was", () => failedTest, patient);
+	test.effect("an installer that exits 0 but installs nothing stops setup", () => hollowInstall, patient);
+	test.effect.each(askedAgainFor)("setup asks for a key again when $kind", askedAgain, patient);
 });
 
 it.layer(layer, { excludeTestServices: true })("setup stopped, on the real clock", (test) => {

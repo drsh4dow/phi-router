@@ -28,7 +28,6 @@ const installFailure = ({ name, turn }: { readonly name: HarnessName; readonly t
 	return Option.liftPredicate(`The install in ${title} failed:\n${turn.printed}`, () => turn.exitCode !== succeeded);
 };
 
-/** Runs the harness's installer when it has not installed phi-router yet, and checks that it did. */
 const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, source: InstallSource) {
 	const { installCommands, installed, title } = harnesses[name];
 	const before = yield* installed;
@@ -56,10 +55,6 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, s
 	yield* Console.log(`✓ Installed phi-router in ${title}`);
 });
 
-/**
- * What each installer takes: the checkout `--source` names, else the release of the version of the phi-router package
- * setup runs from, which is the repository at the tag `v<version>` and the npm package of that version.
- */
 const sourceOf = Effect.fnUntraced(function* sourceOf(checkout: string | undefined) {
 	if (Predicate.isNotUndefined(checkout)) {
 		return {
