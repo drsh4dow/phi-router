@@ -15,7 +15,6 @@ const sessions = ["17171717-1717-4717-8717-171717171717", "27272727-2727-4727-87
 
 const [first, second] = sessions;
 
-/** A turn: a prompt with `-p`, or a line pi's RPC mode reads, such as the `compact` command. */
 type PiTurn = { readonly prompt: string } | RpcLine;
 
 const compact = { stdinLine: `{"type":"compact"}\n`, turnEnd: rpcAnswered };

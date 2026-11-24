@@ -36,7 +36,6 @@ const userPath = Effect.map(Config.String("PATH"), (searchPath) =>
 	),
 );
 
-/** The folders a served snapshot uses: git's home, and the folder `git daemon` serves from. */
 interface SnapshotFolders {
 	readonly home: string;
 	readonly daemonBase: string;
@@ -133,7 +132,6 @@ type Place = Readonly<Effect.Success<typeof place>>;
 /** What pi's RPC mode prints once it has handled a command. */
 const rpcAnswered = `"type":"response"`;
 
-/** A line pi's RPC mode reads, and what pi prints once it has done with it, which ends the turn. */
 interface RpcLine {
 	readonly stdinLine: string;
 	readonly turnEnd: string;
