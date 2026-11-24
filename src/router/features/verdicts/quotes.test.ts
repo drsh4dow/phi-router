@@ -1,8 +1,9 @@
-import { Array, Effect } from "effect";
+import { Array, Effect, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import type { PieceKind } from "#router/features/policy/index.ts";
 import { contentKey } from "#router/primitives/content-key.ts";
+import { quoteMinChars } from "#router/features/policy/index.ts";
 import { quotingReplies } from "./index.ts";
 
 const record =
@@ -58,4 +59,21 @@ it.layer(Digest.layerWebCrypto)("quotingReplies", (test) => {
 		"a short shared line, an open-account reply, a user message and a reply before the sealed content do not count",
 		() => notQuoting,
 	);
+});
+
+const shortestQuote = Effect.gen(function* shortestQuote() {
+	const line = pipe("76696,U2546280,CANARY-DX", Str.takeLeft(quoteMinChars));
+	const sealedRow = yield* quotable("row", "tool-result", `id,license,dx\n  ${line}  `);
+	const reply = yield* quotable("reply", "reply-other", `Row:\n${line}`);
+
+	const found = quotingReplies({
+		isSealed: (key) => key === sealedRow.key,
+		pieces: [sealedRow, reply],
+	});
+
+	assert.deepStrictEqual(Array.fromIterable(found), [[reply.key, sealedRow.key]]);
+});
+
+it.layer(Digest.layerWebCrypto)("quotingReplies at the shortest quote", (test) => {
+	test.effect("a repeated line of exactly quoteMinChars characters, once trimmed, counts", () => shortestQuote);
 });

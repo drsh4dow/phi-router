@@ -12,7 +12,7 @@
 	"src/router/features/parts/parts.ts": 1,
 	"src/router/features/parts/pieces.ts": 4,
 	"src/router/features/policy/piece.ts": 3,
-	"src/router/features/policy/policy.ts": 3,
+	"src/router/features/policy/policy.ts": 2,
 	"src/router/features/policy/rules.ts": 1,
 	"src/router/features/route/failover.ts": 11,
 	"src/router/features/route/harness.ts": 18,

@@ -129,7 +129,6 @@ const thresholds = {
 
 type JudgeName = keyof typeof thresholds;
 
-/** The shortest line, trimmed, that counts as a BAA account's reply repeating sealed content. */
 const quoteMinChars = 16;
 
 const seamChars = 200;
