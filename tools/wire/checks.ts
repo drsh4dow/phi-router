@@ -26,8 +26,7 @@ interface Played {
 	readonly cleanText: string;
 	readonly phiCase: string;
 	readonly canaries: readonly string[];
-	/** Every token whose presence in a stored file is corpus text: canaries, sealed windows and prompt windows. */
-	readonly content: readonly string[];
+	readonly corpusTokens: readonly string[];
 }
 
 interface ClaudePlayed extends Played {
@@ -145,7 +144,7 @@ const leftOf = <Turns extends readonly Turned[]>(left: {
 }): Played & { readonly turns: Turns } => ({
 	canaries: left.run.tracked.wholeCanaryTokens,
 	cleanText: left.run.clean.text,
-	content: [
+	corpusTokens: [
 		...left.run.phi.subject.canaries,
 		...left.run.tracked.wholeCanaryTokens,
 		...left.run.tracked.sealedWindows,
@@ -165,7 +164,7 @@ const commonChecksOf =
 			name: `no open body holds a complete canary of ${played.phiCase}`,
 			ok: !someHold(played.canaries, sentIn(played.turns, "open")),
 		},
-		{ name: "no file under the state folder holds corpus text", ok: none(played.content, played.stored.files) },
+		{ name: "no file under the state folder holds corpus text", ok: none(played.corpusTokens, played.stored.files) },
 		{
 			name: "every folder under the XDG state and config folders is 0700 and every file 0600",
 			ok: Array.isReadonlyArrayEmpty(played.stored.notPrivate),
