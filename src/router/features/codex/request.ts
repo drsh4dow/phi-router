@@ -10,25 +10,14 @@ import { bridgesFor } from "#router/features/border/index.ts";
 import { rawText } from "./json.ts";
 import { wirePartsOf } from "./wire-parts.ts";
 
-/**
- * A body that is not a Codex request: not a JSON object, a top-level field Codex does not send, or `model` not a string,
- * not first or named twice. `reason` holds the path, never a value.
- */
 class CodexRequestRejected extends Schema.TaggedError<CodexRequestRejected, { readonly brand: unique symbol }>()(
 	"CodexRequestRejected",
 	{ reason: Schema.String },
 ) {}
 
 interface CodexRequest {
-	/** The model Codex named, such as `phi/auto`. */
 	readonly model: string;
 	readonly messages: readonly Message[];
-	/**
-	 * The body for one lane, in Codex's own key order, with the bridge as `instructions` right after `model` unless
-	 * pinned. The sealed lane gets Codex's bytes with only those changed. The clean lane gets each part the border
-	 * passed as sent, less the reasoning no clean-lane reply wrote, and every other part as the border's stub with each
-	 * item and its ids kept, or `CleanLaneRefused`. Dies when the messages do not line up with `messages`.
-	 */
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	readonly withoutReasoning: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	readonly title: boolean;
@@ -81,13 +70,6 @@ interface Encoding {
 
 const isReasoning = (item: typeof Raw.Type): boolean => item["type"] === "reasoning";
 
-/**
- * The clean lane's items, part by part from what the border returned.
- *
- * @param {Encoding} encoding What the request is written back from.
- * @param {readonly Message[]} messages What the border returned, one per wire part.
- * @returns {Effect.Effect<readonly Raw[], CleanLaneRefused>} The items.
- */
 const cleanInput = (
 	{ everyFieldRead, wireParts }: Encoding,
 	messages: readonly Message[],
@@ -174,16 +156,6 @@ const encoderOf = (encoding: Encoding): Pick<CodexRequest, "encode" | "withoutRe
 	withoutReasoning: encodeKeeping(encoding, (item) => !isReasoning(item)),
 });
 
-/**
- * Reads a Codex request into the engine's messages: each user, developer or agent message, each tool output, each
- * reply's items and the tool list is one message. It fails only on a body that is not a Codex request. Anything below
- * the top level the codec cannot read is unjudged: the clean lane gets the stub in its place, or refuses the request.
- *
- * @param {string} text The request body as Codex sent it.
- * @param {CleanLaneWrote} cleanLaneWrote Answers for the keys `cleanLaneKeys` gave for this session's clean-lane
- *   replies. It sets `writtenBy`, keeps their reasoning on the clean lane and lets their blobs through.
- * @returns The request, or the path it was refused at.
- */
 const decodeRequest = Effect.fnUntraced(function* decodeRequest(
 	text: string,
 	cleanLaneWrote: CleanLaneWrote,

@@ -65,12 +65,6 @@ const textBlocks = (texts: readonly string[]): readonly TextBlock[] =>
 		Array.map((text): TextBlock => ({ text, type: "text" })),
 	);
 
-/**
- * A user, developer or agent message, or a tool output, as one message.
- *
- * @param {LoneItem} item The item.
- * @returns {Read} A system message for a developer message, a tool result for an output, else a user message.
- */
 const loneMessage = (item: LoneItem): Read => {
 	switch (item.type) {
 		case "function_call_output":
@@ -141,10 +135,6 @@ const writerOf = (written: boolean): AssistantMessage["writtenBy"] => {
 	return "other";
 };
 
-/**
- * The key of one reply item: its id and the content the engine reads of it. The same for an item a clean-lane reply
- * streamed and for its echo, and none for an item with no id.
- */
 const itemKey = Effect.fnUntraced(function* itemKey(item: ReplyItem) {
 	const content = yield* replyContent(item);
 	const text = yield* Effect.orDie(encodeContent(content));
@@ -157,14 +147,6 @@ const itemKey = Effect.fnUntraced(function* itemKey(item: ReplyItem) {
 	return yield* Effect.transposeOption(key);
 });
 
-/**
- * One reply's run of items as one assistant message. Reasoning adds nothing to it. An open account wrote it when a
- * clean-lane reply wrote each of its items, id and content both.
- *
- * @param {CleanLaneWrote} wrote What the session's clean-lane replies wrote.
- * @returns {(items: readonly ReplyItem[]) => Effect.Effect<Read, never, Digest.Digest>} The reader
- *   for one run.
- */
 const replyMessage =
 	(wrote: CleanLaneWrote) =>
 	(items: readonly ReplyItem[]): Effect.Effect<Read, never, Digest.Digest> =>
@@ -179,12 +161,6 @@ const replyMessage =
 			};
 		});
 
-/**
- * A tool as the engine reads it: the whole entry as JSON text, so every field of it is judged.
- *
- * @param {Raw} entry One entry of a tool list.
- * @returns {Effect.Effect<Tool>} The tool.
- */
 const toolOf = (entry: typeof Raw.Type): Effect.Effect<Tool> =>
 	Effect.map(rawText(entry), (parameters) =>
 		Option.match(readToolEntry(entry), {
@@ -193,12 +169,6 @@ const toolOf = (entry: typeof Raw.Type): Effect.Effect<Tool> =>
 		}),
 	);
 
-/**
- * The tool list as a system message with tools and nothing else.
- *
- * @param {readonly Raw[]} tools The tool entries as sent.
- * @returns {Effect.Effect<SystemMessage>} The message.
- */
 const toolsMessage = (tools: readonly (typeof Raw.Type)[]): Effect.Effect<SystemMessage> =>
 	Effect.map(Effect.forEach(tools, toolOf, { concurrency: 1 }), (list): SystemMessage => ({
 		content: "",

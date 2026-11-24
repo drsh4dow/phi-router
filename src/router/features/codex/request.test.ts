@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Exit, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
 import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
 import { assert, it } from "@effect/vitest";
 import { bridgesFor, guard } from "#router/features/border/index.ts";
@@ -28,6 +28,8 @@ const decodeSent = Schema.decodeUnknownEffect(Sent);
 const sentOf = (text: string): Effect.Effect<typeof Sent.Type> => Effect.orDie(decodeSent(text));
 
 const realModel = "gpt-5.5";
+
+const canary = "chart 4471";
 
 const liteTools = 3;
 
@@ -126,6 +128,7 @@ const refused = (text: string, path: string): Effect.Effect<void, CodexRequest, 
 
 		assert.isTrue(Predicate.isTagged(error, "CodexRequestRejected"));
 		assert.include(error.reason, path);
+		assert.notInclude(error.reason, canary);
 	});
 
 const image = '{"type":"input_image","image_url":"https://example.com/scan.png"},';
@@ -207,16 +210,19 @@ const blobs = Effect.gen(function* blobs() {
 });
 
 const refusals = [
-	['["instructions"]', Str.replace('{"model":', '{"instructions":"be brief","model":')(requests.firstTurn)],
+	['["instructions"]', Str.replace('{"model":', `{"instructions":"${canary}","model":`)(requests.firstTurn)],
 	[
 		'["future_field"]',
-		Str.replace('"stream":true,', '"stream":true,"future_field":{"note":"x"},')(requests.firstTurn),
+		Str.replace('"stream":true,', `"stream":true,"future_field":{"note":"${canary}"},`)(requests.firstTurn),
 	],
+	['["model"]', Str.replace('{"model":"phi/auto"', `{"model":["${canary}"]`)(requests.firstTurn)],
 	[
 		"first field",
 		Str.replace('{"model":"phi/auto","stream":true,', '{"stream":true,"model":"phi/auto",')(requests.firstTurn),
 	],
 	["named twice", Str.replace('"stream":true,', '"stream":true,"model":"phi/auto",')(requests.firstTurn)],
+	["object", `["${canary}"]`],
+	["valid JSON", canary],
 ] as const;
 
 const encodeQuoted = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
@@ -246,6 +252,61 @@ const tokenFree = (text: string): Effect.Effect<void> =>
 		}
 	});
 
+const misaligned = Effect.gen(function* misaligned() {
+	const request = yield* decoded(requests.firstTurn);
+	const messages = [...request.messages, ...request.messages];
+	const exit = yield* Effect.exit(request.encode({ lane: "clean", messages, model: realModel }));
+
+	assert.isTrue(Exit.hasDies(exit));
+});
+
+const partKindOf = (message: Message): string => {
+	if (message.role !== "system") {
+		return message.role;
+	}
+
+	if (message.content === "" && Array.isReadonlyArrayEmpty(message.sections)) {
+		return "tools";
+	}
+
+	return "system";
+};
+
+const partKinds = Effect.gen(function* partKinds() {
+	const custom = yield* decoded(requests.customToolCall);
+	const parent = yield* decoded(requests.subagentParent);
+	const developerMessages = ["system", "system", "system", "system"];
+
+	assert.deepStrictEqual(
+		{ custom: pipe(custom.messages, Array.map(partKindOf)), parent: pipe(parent.messages, Array.map(partKindOf)) },
+		{
+			custom: ["tools", ...developerMessages, "user", "user", "assistant", "toolResult", "tools"],
+			parent: [
+				"tools",
+				...developerMessages,
+				"user",
+				"user",
+				"assistant",
+				"toolResult",
+				"assistant",
+				"toolResult",
+				"assistant",
+				"toolResult",
+				"user",
+				"tools",
+			],
+		},
+	);
+});
+
+const withoutMessageId = Str.replace(/"id":"msg_0dfca2[^"]*",/u, "");
+
+const unidentified = Effect.gen(function* unidentified() {
+	const request = yield* decodedAfter(withoutMessageId(requests.customToolCall), replies.customToolCallReply);
+
+	assert.deepStrictEqual(writersOf(request.messages), ["other"]);
+});
+
 it.layer(Digest.layerWebCrypto)("Codex codec", (test) => {
 	test.effect.each(captures)("%s holds nothing shaped like a token", ([, text]) => tokenFree(text));
 	test.effect.each(Record.toEntries(requests))("the sealed lane gets %s byte for byte but the bridge", ([, text]) =>
@@ -253,7 +314,10 @@ it.layer(Digest.layerWebCrypto)("Codex codec", (test) => {
 	);
 	test.effect("the sealed lane keeps a number past 2^53 as Codex wrote it", () => sealedIdentity(bigNumber));
 	test.effect.prop("decode then encode keeps any user text byte for byte", { text: Schema.String }, anyTextIdentity);
-	test.effect("the sealed lane gets only the model changed and the bridge added", () => sealedModel);
+	test.effect(
+		"a request's model is the one Codex named, and the sealed lane gets only it changed and the bridge added",
+		() => sealedModel,
+	);
 });
 
 it.layer(Digest.layerWebCrypto)("Codex codec rules", (test) => {
@@ -262,8 +326,19 @@ it.layer(Digest.layerWebCrypto)("Codex codec rules", (test) => {
 	test.effect("the fallback dialect's tool list is the first message", () =>
 		dialect(requests.functionCall, fallbackTools),
 	);
-	test.effect.each(refusals)("a request is refused at %s", ([path, text]) => refused(text, path));
+	test.effect.each(refusals)("a body is refused with a reason that names %s and no value it holds", ([path, text]) =>
+		refused(text, path),
+	);
 	test.effect("a part the codec cannot read goes to the clean lane as the stub, though cleared", () => unreadPart);
 	test.effect("reasoning the clean lane wrote stays on the clean lane, and any other goes", () => reasoning);
 	test.effect("a blob outside reasoning is unjudged unless a clean-lane reply wrote it", () => blobs);
+	test.effect("a clean body asked for messages that do not line up with the request's parts dies", () => misaligned);
+	test.effect(
+		"each item reads as one message: a developer message as system, a user or agent message as user, a tool output as a tool result, a reply's run as one assistant message, and the tool list as tools alone",
+		() => partKinds,
+	);
+	test.effect(
+		"a reply's run with an item that has no id is not the open account's, though a clean-lane reply wrote it",
+		() => unidentified,
+	);
 });

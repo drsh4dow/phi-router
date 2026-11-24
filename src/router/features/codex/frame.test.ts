@@ -110,6 +110,11 @@ const changes = [
 		withFormat("a title")(requests.firstTurn),
 		withFormat("chart 4471")(requests.firstTurn),
 	],
+	[
+		"description of a tool in a namespace",
+		requests.firstTurn,
+		Str.replace("Run JavaScript code to orchestrate", "Run chart_4471 code to orchestrate")(requests.firstTurn),
+	],
 ] as const;
 
 it.layer(Digest.layerWebCrypto)("what the clean lane gets unchanged", (test) => {
