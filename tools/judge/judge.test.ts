@@ -1,4 +1,4 @@
-import { Array, Effect, Schema, Struct, pipe } from "effect";
+import { Array, Effect, FileSystem, Schema, Struct, pipe } from "effect";
 import type { ChoiceQuestion, JudgeFailed, JudgeInput, ScoreQuestion } from "#router/client/judge/index.ts";
 import { assert, it } from "@effect/vitest";
 import { configuredJudge, mockedJudge } from "./configured.ts";
@@ -143,6 +143,11 @@ const keyless = [
 		source: "keyCommand printf '%s-%s' sk 4242; exit 3",
 	},
 	{ name: "a command that prints nothing", named: { keyCommand: "true" }, source: "keyCommand true" },
+	{
+		name: "a missing key file",
+		named: { keyFile: "/nonexistent/phi-router-key" },
+		source: "keyFile /nonexistent/phi-router-key",
+	},
 ] as const;
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
@@ -154,6 +159,26 @@ const keyUnread = Effect.fnUntraced(function* keyUnread({ named, source }: (type
 	assert.instanceOf(failed, KeyUnreadable);
 	assert.include(failed, { source });
 	assert.notInclude(shown, "sk-4242");
+});
+
+const fileKeyed = Effect.gen(function* fileKeyed() {
+	const fs = yield* FileSystem.FileSystem;
+	const keyFile = yield* fs.makeTempFileScoped({ prefix: "phi-router-key-" });
+	const blank = yield* fs.makeTempFileScoped({ prefix: "phi-router-key-" });
+
+	yield* fs.writeFileString(keyFile, "file-key\n");
+	yield* fs.writeFileString(blank, " \n");
+
+	const { judge, mock } = yield* mockedJudge(() => halfway, { keyFile });
+
+	yield* judge.identifier(input, scoreQuestion);
+
+	const received = yield* mock.received;
+	const failed = yield* Effect.flip(configuredJudge(nowhere, { keyFile: blank }));
+
+	assert.nestedPropertyVal(received, "[0].bearer", "file-key");
+	assert.instanceOf(failed, KeyUnreadable);
+	assert.include(failed, { source: `keyFile ${blank}` });
 });
 
 const withImages = Effect.gen(function* withImages() {
@@ -267,6 +292,7 @@ it.layer(NodeServices.layer)("the Decisions judge", (test) => {
 			assert.instanceOf(failed, Schema.SchemaError);
 		}),
 	);
+	test.effect("the key comes from the key file the file names, and a file of blanks builds no judge", () => fileKeyed);
 	test.effect.each(keyless)("$name builds no judge and names the source, not its output", keyUnread);
 	test.effect("images ride in one user message after the text", () => withImages);
 	test.effect.each(prices)("$inputTokens input tokens cost $cost", priced);

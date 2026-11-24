@@ -5,7 +5,7 @@ import { Judge } from "#router/client/judge/index.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { serveJudge } from "#router/client/mock-upstreams/index.ts";
 
-type Named = Readonly<Partial<Record<"keyCommand" | "keyEnv" | "model", string>>>;
+type Named = Readonly<Partial<Record<"keyCommand" | "keyEnv" | "keyFile" | "model", string>>>;
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 

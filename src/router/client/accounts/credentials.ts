@@ -59,11 +59,6 @@ const fileKey = Effect.fnUntraced(function* fileKey(file: string) {
 	return Redacted.make(key);
 });
 
-/**
- * Reads the key a source names and keeps it redacted. `keyEnv` reads the variable through `Config`. `keyCommand` runs
- * the text in a POSIX shell and takes its trimmed stdout. `keyFile` takes the file's trimmed text. An unset or empty
- * variable, a non-zero exit, empty output, or a missing or empty file fails.
- */
 const readKey = Effect.fn("readKey")(function* readKey(
 	source: KeySource,
 ): Effect.fn.Return<Redacted.Redacted, KeyUnreadable, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem> {
