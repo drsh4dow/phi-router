@@ -1,28 +1,6 @@
 [
 	{
 		"type": "dependency",
-		"from": "src/pi/index.ts",
-		"to": "src/pi/features/phi/phi.ts",
-		"unresolvedTo": "#pi/features/phi/phi.ts",
-		"dependencyTypes": ["aliased", "aliased-subpath-import", "local", "import"],
-		"rule": {
-			"severity": "error",
-			"name": "edge-file"
-		}
-	},
-	{
-		"type": "dependency",
-		"from": "src/pi/index.ts",
-		"to": "src/pi/features/phi/proof.ts",
-		"unresolvedTo": "#pi/features/phi/proof.ts",
-		"dependencyTypes": ["aliased", "aliased-subpath-import", "local", "import"],
-		"rule": {
-			"severity": "error",
-			"name": "edge-file"
-		}
-	},
-	{
-		"type": "dependency",
 		"from": "src/router/features/anthropic-messages/captures.test.ts",
 		"to": "src/router/features/anthropic-messages/captures/requests.ts",
 		"unresolvedTo": "./captures/requests.ts",

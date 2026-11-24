@@ -284,6 +284,4 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 
 export { answered, observerOn, printedLine, routed, routedProvider, usage };
 
-export { phiModels } from "./models.ts";
-
 export type { Observe, ShownContext };

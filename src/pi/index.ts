@@ -14,14 +14,21 @@ import type {
 	SessionManager,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
-import { answered, observerOn, phiModels, routedProvider, usage } from "#pi/features/phi/phi.ts";
+import {
+	answered,
+	compactionSent,
+	observerOn,
+	phiModels,
+	promptSent,
+	routedProvider,
+	usage,
+} from "#pi/features/phi/index.ts";
 import { blockUploads, recordUse } from "#pi/features/uploads/index.ts";
-import { compactionSent, promptSent } from "#pi/features/phi/proof.ts";
 import { loopback, phiCommand, productPort } from "#shared/cli.ts";
 import { BunServices } from "@effect/platform-bun";
 import type { ModelsJson } from "#shared/cli.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Observe } from "#pi/features/phi/phi.ts";
+import type { Observe } from "#pi/features/phi/index.ts";
 import { Router } from "#pi/client/router.ts";
 import { piWire } from "#shared/pi.ts";
 
