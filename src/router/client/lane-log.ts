@@ -42,7 +42,6 @@ const Line = Schema.Struct({
 
 const LineJson = Schema.fromJsonString(Line);
 
-/** What a route knows of its request. The log adds the time. */
 type Routed = Omit<typeof Line.Type, "time">;
 
 type Last = Pick<Routed, "account" | "model" | "substitute">;
@@ -52,18 +51,12 @@ const decodeLine = Schema.decodeUnknownOption(LineJson);
 class LaneLog extends Context.Service<
 	LaneLog,
 	{
-		/**
-		 * Opens the log for one request, and fails when the log cannot be opened for appending, so the route calls it
-		 * before the first send. What it returns appends the request's one line, which the route writes once its walk
-		 * across its accounts ends.
-		 */
 		readonly opened: (
 			session: string,
 		) => Effect.Effect<
 			(line: Omit<Routed, "session">) => Effect.Effect<void, PlatformError.PlatformError | Schema.SchemaError>,
 			PlatformError.PlatformError
 		>;
-		/** The session's last line. A line a crash cut short is skipped. */
 		readonly last: (session: string) => Effect.Effect<Option.Option<Last>, PlatformError.PlatformError>;
 	}
 >()("phi-router/router/client/lane-log/LaneLog") {

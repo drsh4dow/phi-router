@@ -85,6 +85,36 @@ const retired = Effect.gen(function* retired() {
 	);
 });
 
+const pinOutlivesVersion = Effect.gen(function* pinOutlivesVersion() {
+	const verdicts = yield* store;
+
+	yield* verdicts.record(session, "old", [["first", "sealed"]]);
+	yield* verdicts.pin(session, "old", true);
+
+	const known = yield* verdicts.read(session, "new");
+	const summary = yield* verdicts.summary(session, "new");
+
+	assert.deepStrictEqual(
+		{ pinned: known.pinned, standing: known.standing("first"), summary },
+		{ pinned: true, standing: "unknown", summary: { cleared: 0, pinned: true, sealed: 0 } },
+	);
+});
+
+const replyKeysAdd = Effect.gen(function* replyKeysAdd() {
+	const verdicts = yield* store;
+
+	yield* verdicts.wrote(session, "p", ["first-reply"]);
+	yield* verdicts.wrote(session, "p", ["second-reply"]);
+
+	const known = yield* verdicts.read(session, "p");
+
+	assert.deepStrictEqual(pipe(["first-reply", "second-reply", "never-streamed"], Array.map(known.openWrote)), [
+		true,
+		true,
+		false,
+	]);
+});
+
 it.layer(NodeServices.layer)("the verdict store", (test) => {
 	test.effect("judgments stored at once all land, and a sealed verdict wins over a racing cleared one", () => raced);
 	test.effect("a sealed verdict stays sealed whichever request stores first", () => ordered);
@@ -92,4 +122,9 @@ it.layer(NodeServices.layer)("the verdict store", (test) => {
 		"a verdict of another policy version reads as unknown, and a write under the new one retires it",
 		() => retired,
 	);
+	test.effect(
+		"a session's pin outlives a change of policy version, in its read and its summary",
+		() => pinOutlivesVersion,
+	);
+	test.effect("the reply keys of each completed open stream add to those stored before", () => replyKeysAdd);
 });

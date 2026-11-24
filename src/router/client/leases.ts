@@ -5,13 +5,8 @@ import { Started } from "./processes.ts";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "./private-file.ts";
 
-/**
- * An instance's registration: its pid, that process's start time, and the session id and working folder `start` gave.
- * It holds while a process with the pid runs, is no zombie, and has the start time.
- */
 const Lease = Schema.Struct({ folder: Schema.String, pid: Pid, session: Schema.NonEmptyString, started: Started });
 
-/** `phi-router/leases.json` under the XDG state folder. Never content, never a credential. */
 const StoredJson = Schema.fromJsonString(Schema.Struct({ leases: Schema.Array(Lease) }));
 
 type RegistryFailed = PlatformError.PlatformError | Schema.SchemaError;
@@ -19,9 +14,7 @@ type RegistryFailed = PlatformError.PlatformError | Schema.SchemaError;
 class LeaseRegistry extends Context.Service<
 	LeaseRegistry,
 	{
-		/** The stored leases. A missing file reads as none. */
 		readonly adopted: Effect.Effect<readonly (typeof Lease.Type)[], RegistryFailed>;
-		/** Replaces the file with a temp file, its sync and a rename, so it is on disk and whole before this returns. */
 		readonly store: (leases: readonly (typeof Lease.Type)[]) => Effect.Effect<void, RegistryFailed>;
 	}
 >()("phi-router/router/client/leases/LeaseRegistry") {

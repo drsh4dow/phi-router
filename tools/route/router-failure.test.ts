@@ -1,6 +1,7 @@
-import { Array, Effect, FileSystem, Path, String as Str, pipe } from "effect";
+import { Array, ConfigProvider, Context, Effect, FileSystem, Layer, Option, Path, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
+import { LaneLog } from "#router/client/lane-log.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
@@ -115,6 +116,33 @@ const unwritable = Effect.gen(function* unwritable() {
 	assert.deepStrictEqual({ reached: open.length + baa.length, status: response.status }, { reached: 0, status: 500 });
 });
 
+const cutShort = Effect.gen(function* cutShort() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-lanes-" });
+	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: { XDG_STATE_HOME: state } }));
+	const built = yield* Layer.build(Layer.provide(LaneLog.layer, env));
+	const log = Context.get(built, LaneLog);
+	const append = yield* log.opened("cut-1");
+
+	yield* append({
+		account: "baa",
+		judgeCost: 0,
+		judgeFailures: 0,
+		lane: "sealed",
+		model: "target",
+		reason: "pinned",
+		substitute: false,
+	});
+	yield* fs.writeFileString(path.join(state, "phi-router", "lanes.jsonl"), '{"account":"open","judgeCost":0,"judg', {
+		flag: "a",
+	});
+
+	const last = yield* log.last("cut-1");
+
+	assert.deepStrictEqual(last, Option.some({ account: "baa", model: "target", substitute: false }));
+});
+
 it.layer(NodeServices.layer)("a lane log the router cannot write", (test) => {
 	test.effect("fails the request before any account sees it", () => unwritable);
 });
@@ -124,4 +152,8 @@ it.layer(NodeServices.layer)("a clean body the router cannot build", (test) => {
 		"runs sealed, for a sealed tool list or a block the codec refuses, and its line says router failure",
 		() => toolsSealed,
 	);
+});
+
+it.layer(NodeServices.layer)("a lane log a crash cut short", (test) => {
+	test.effect("skips the cut line and gives the session's line before it", () => cutShort);
 });

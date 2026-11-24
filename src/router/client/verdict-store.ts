@@ -25,7 +25,6 @@ const StoredJson = Schema.fromJsonString(Stored);
 
 type StoreFailed = PlatformError.PlatformError | Schema.SchemaError;
 
-/** One read of one session's store. Each field answers from that read alone. */
 interface Known {
 	readonly standing: (key: string) => Verdict | "unknown";
 	readonly openWrote: (key: string) => boolean;
@@ -90,13 +89,6 @@ const storedIn = Effect.fnUntraced(function* storedIn(file: string) {
 	return Option.some(stored);
 });
 
-/**
- * The file under `policy`: empty when missing, and empty but for its pin when written under another version.
- *
- * @param {string} session The session id.
- * @param {string} policy The policy version the router runs.
- * @returns {Effect.Effect} The stored file.
- */
 const current = (session: string, policy: string): Effect.Effect<StoredFile, StoreFailed, Services> =>
 	Effect.map(
 		Effect.flatMap(fileOf(session), storedIn),
@@ -112,7 +104,6 @@ const current = (session: string, policy: string): Effect.Effect<StoredFile, Sto
 		}),
 	);
 
-/** Replaces the session's file through the private writer, so a read sees one whole file. */
 const replace = Effect.fnUntraced(function* replace(session: string, stored: StoredFile) {
 	const file = yield* fileOf(session);
 	const text = yield* Schema.encodeEffect(StoredJson)(stored);
@@ -120,29 +111,17 @@ const replace = Effect.fnUntraced(function* replace(session: string, stored: Sto
 	yield* writePrivately(file, text);
 });
 
-/**
- * One file per session under the XDG state folder, `phi-router/sessions/<id in base64url>.json`. The router process is
- * its only writer, and one lock for the process makes each read, merge and write a single step.
- */
 class VerdictStore extends Context.Service<
 	VerdictStore,
 	{
-		/** Counts the verdicts of the session's file as `read` gives it, and its pin. */
 		readonly summary: (session: string, policy: string) => Effect.Effect<Summary, StoreFailed>;
-		/** The session's file as it is now. A missing file, or one of another policy version, reads as empty. */
 		readonly read: (session: string, policy: string) => Effect.Effect<Known, StoreFailed>;
-		/**
-		 * Stores a request's judgments in one step, on disk before it returns. A stored `sealed` stays `sealed`. A file of
-		 * another policy version is replaced, its pin kept.
-		 */
 		readonly record: (
 			session: string,
 			policy: string,
 			found: readonly (readonly [string, Verdict])[],
 		) => Effect.Effect<void, StoreFailed>;
-		/** Sets the session's pin through the same one-step write. Setting it twice changes nothing. */
 		readonly pin: (session: string, policy: string, pinned: boolean) => Effect.Effect<void, StoreFailed>;
-		/** Adds the reply keys of one completed open-account stream, through the same one-step write. */
 		readonly wrote: (session: string, policy: string, keys: readonly string[]) => Effect.Effect<void, StoreFailed>;
 	}
 >()("phi-router/router/client/verdict-store/VerdictStore") {
