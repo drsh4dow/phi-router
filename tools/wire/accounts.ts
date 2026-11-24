@@ -29,7 +29,7 @@ const Harness = Schema.Literals(["claude", "codex", "pi"]);
 interface Ran {
 	readonly turns: readonly Turn[];
 	readonly lines: readonly LaneLogLine[];
-	readonly stored: readonly string[];
+	readonly stateFileTexts: readonly string[];
 }
 
 /** The router's environment: a fresh state folder, beside the caller's config folder when the caller names one. */
@@ -64,9 +64,9 @@ const sessionOf = Effect.fnUntraced(function* sessionOf(harness: typeof Harness.
 	const turns: readonly Turn[] = yield* turnsOn[harness]({ env, url: router.url });
 	const folder = path.join(env.XDG_STATE_HOME, "phi-router");
 	const lines = yield* laneLines(folder);
-	const stored = yield* textsUnder(folder);
+	const stateFileTexts = yield* textsUnder(folder);
 
-	return { lines, stored, turns } satisfies Ran;
+	return { lines, stateFileTexts, turns } satisfies Ran;
 });
 
 const cleanAt = 0;
@@ -104,7 +104,7 @@ const checksOf = (ran: Ran): readonly { readonly name: string; readonly ok: bool
 	},
 	{
 		name: "no file under the state folder holds the canary",
-		ok: !pipe(ran.stored, Array.some(Str.includes(voidedSsn))),
+		ok: !pipe(ran.stateFileTexts, Array.some(Str.includes(voidedSsn))),
 	},
 ];
 
