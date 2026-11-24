@@ -1,11 +1,11 @@
 import { Array, Effect, Option, Schema, pipe } from "effect";
 import type { Body, Raw } from "./wire.ts";
-import type { ContentEntry, Entry, Group } from "./groups.ts";
+import type { ContentEntry, Entry, ItemsOfOneMessage } from "./groups.ts";
 import { blobsIn, wroteAll } from "./clean-lane.ts";
 import { entriesOf, groupsOf } from "./groups.ts";
 import { loneMessage, replyMessage, toolsMessage } from "./read.ts";
-import type { CleanLaneWrote } from "./clean-lane.ts";
 import type { Digest } from "effect/crypto";
+import type { IsReplyKey } from "./clean-lane.ts";
 import type { Lists } from "./frame.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { Read } from "./read.ts";
@@ -16,17 +16,15 @@ type WirePart =
 			readonly kind: "tools";
 			readonly message: Message;
 			readonly entries: readonly Entry[];
-			/** It holds a blob no clean-lane reply wrote. */
-			readonly unjudged: boolean;
+			readonly unwrittenBlob: boolean;
 	  }
 	| {
 			readonly kind: "content";
 			readonly message: Message;
 			readonly entries: readonly ContentEntry[];
-			/** `entries` less the reasoning no clean-lane reply wrote. */
-			readonly kept: readonly ContentEntry[];
-			/** It holds a part the codec cannot read, or a blob no clean-lane reply wrote. */
-			readonly unjudged: boolean;
+			readonly withoutUnwrittenReasoning: readonly ContentEntry[];
+			readonly unreadPart: boolean;
+			readonly unwrittenBlob: boolean;
 	  }
 	| {
 			/** An input item the codec cannot read, which the engine reads as an empty user message with no key. */
@@ -75,7 +73,7 @@ const readSummary = Schema.decodeUnknownOption(Schema.Array(SummaryText));
  * @returns {Effect.Effect<boolean, never, Digest.Digest>} Whether it stays.
  */
 const reasoningKept = (
-	wrote: CleanLaneWrote,
+	wrote: IsReplyKey,
 	item: Extract<ContentEntry["item"], { readonly type: "reasoning" }>,
 ): Effect.Effect<boolean, never, Digest.Digest> => {
 	const plainText = Array.isReadonlyArrayNonEmpty(item.content ?? []);
@@ -94,7 +92,7 @@ const reasoningKept = (
 };
 
 const keptOnClean =
-	(wrote: CleanLaneWrote) =>
+	(wrote: IsReplyKey) =>
 	({ item }: ContentEntry): Effect.Effect<boolean, never, Digest.Digest> => {
 		if (item.type === "reasoning") {
 			return reasoningKept(wrote, item);
@@ -103,34 +101,39 @@ const keptOnClean =
 		return Effect.succeed(true);
 	};
 
-const unwrittenBlobIn = (message: Message, wrote: CleanLaneWrote): Effect.Effect<boolean, never, Digest.Digest> => {
+const unwrittenBlobIn = (message: Message, wrote: IsReplyKey): Effect.Effect<boolean, never, Digest.Digest> => {
 	const blobs = pipe(stringsOf(message), Array.flatMap(blobsIn));
 
 	return Effect.map(wroteAll(wrote)(blobs), (written) => !written);
 };
 
 const toolListPart = (
-	wrote: CleanLaneWrote,
+	wrote: IsReplyKey,
 	tools: readonly (typeof Raw.Type)[],
 	entries: readonly Entry[],
 ): Effect.Effect<WirePart, never, Digest.Digest> =>
 	Effect.gen(function* readTools() {
 		const message = yield* toolsMessage(tools);
-		const unjudged = yield* unwrittenBlobIn(message, wrote);
+		const unwrittenBlob = yield* unwrittenBlobIn(message, wrote);
 
-		return { entries, kind: "tools", message, unjudged };
+		return { entries, kind: "tools", message, unwrittenBlob };
 	});
 
 const contentPart =
-	(wrote: CleanLaneWrote, entries: readonly ContentEntry[]) =>
-	({ holdsUnreadPart: unread, message }: Read): Effect.Effect<WirePart, never, Digest.Digest> =>
+	(wrote: IsReplyKey, entries: readonly ContentEntry[]) =>
+	({ holdsUnreadPart, message }: Read): Effect.Effect<WirePart, never, Digest.Digest> =>
 		Effect.gen(function* readContent() {
 			const unwrittenBlob = yield* unwrittenBlobIn(message, wrote);
-			const kept = yield* Effect.filter(entries, keptOnClean(wrote), { concurrency: 1 });
+			const withoutUnwrittenReasoning = yield* Effect.filter(entries, keptOnClean(wrote), { concurrency: 1 });
 
-			const unjudged = unread || unwrittenBlob;
-
-			return { entries, kept, kind: "content", message, unjudged };
+			return {
+				entries,
+				kind: "content",
+				message,
+				unreadPart: holdsUnreadPart,
+				unwrittenBlob,
+				withoutUnwrittenReasoning,
+			};
 		});
 
 const noLists: Lists = { frame: [], tools: [] };
@@ -138,8 +141,8 @@ const noLists: Lists = { frame: [], tools: [] };
 const unreadMessage: Message = { content: [], role: "user" };
 
 const wirePartOf =
-	(wrote: CleanLaneWrote) =>
-	(group: Group): Effect.Effect<WirePart, never, Digest.Digest> => {
+	(wrote: IsReplyKey) =>
+	(group: ItemsOfOneMessage): Effect.Effect<WirePart, never, Digest.Digest> => {
 		switch (group.kind) {
 			case "tools": {
 				return toolListPart(wrote, group.tools, group.entries);
@@ -150,11 +153,7 @@ const wirePartOf =
 			}
 
 			case "unread": {
-				return Effect.succeed({
-					kind: "unread",
-					message: unreadMessage,
-					paired: group.paired,
-				});
+				return Effect.succeed({ kind: "unread", message: unreadMessage, paired: group.paired });
 			}
 
 			case "reply": {
@@ -175,7 +174,7 @@ const wirePartOf =
 	};
 
 const wirePartsOf =
-	(wrote: CleanLaneWrote) =>
+	(wrote: IsReplyKey) =>
 	({
 		body,
 		raw,

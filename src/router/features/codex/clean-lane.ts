@@ -3,8 +3,7 @@ import type { ContentKey } from "#router/primitives/content-key.ts";
 import type { Digest } from "effect/crypto";
 import { contentKey } from "#router/primitives/content-key.ts";
 
-/** Whether a clean-lane reply of this session wrote the item, blob or summary behind a key `cleanLaneKeys` gave. */
-type CleanLaneWrote = (key: typeof ContentKey.Type) => boolean;
+type IsReplyKey = (key: typeof ContentKey.Type) => boolean;
 
 /**
  * An encrypted blob as OpenAI writes it: a Fernet token, whose version byte and zero high time bytes always encode as
@@ -42,10 +41,10 @@ const cleanLaneItemKey = (item: {
 }): Effect.Effect<typeof ContentKey.Type, never, Digest.Digest> => contentKey(["clean-lane", item.id, item.content]);
 
 const wroteAll =
-	(wrote: CleanLaneWrote) =>
+	(wrote: IsReplyKey) =>
 	(values: readonly string[]): Effect.Effect<boolean, never, Digest.Digest> =>
 		Effect.map(Effect.forEach(values, cleanLaneKey, { concurrency: 1 }), Array.every(wrote));
 
 export { blobsIn, cleanLaneItemKey, cleanLaneKey, wroteAll };
 
-export type { CleanLaneWrote };
+export type { IsReplyKey };

@@ -19,11 +19,7 @@ type InputEntry = Entry | Unread;
 
 type ContentEntry = Entry<LoneItem> | Entry<ReplyItem>;
 
-/**
- * The items behind one message the engine reads: a tool list, one lone item, one reply's run of items, or one item the
- * codec cannot read.
- */
-type Group =
+type ItemsOfOneMessage =
 	| { readonly kind: "tools"; readonly tools: readonly (typeof Raw.Type)[]; readonly entries: readonly Entry[] }
 	| { readonly kind: "lone"; readonly entry: Entry<LoneItem> }
 	| { readonly kind: "reply"; readonly entries: readonly Entry<ReplyItem>[] }
@@ -64,7 +60,7 @@ const isReplyEntry = (entry: InputEntry): entry is Entry<ReplyItem> => entry.kin
 
 const bothReplies = (left: InputEntry, right: InputEntry): boolean => isReplyEntry(left) && isReplyEntry(right);
 
-const groupOf = (chunk: Array.NonEmptyReadonlyArray<InputEntry>): Group => {
+const groupOf = (chunk: Array.NonEmptyReadonlyArray<InputEntry>): ItemsOfOneMessage => {
 	const [first] = chunk;
 
 	if (first.kind === "unread") {
@@ -84,7 +80,7 @@ const groupOf = (chunk: Array.NonEmptyReadonlyArray<InputEntry>): Group => {
 	return { entry: { item, kind: "read", raw }, kind: "lone" };
 };
 
-const listGroups = Array.flatMap((list: readonly (typeof Raw.Type)[]): readonly Group[] =>
+const listGroups = Array.flatMap((list: readonly (typeof Raw.Type)[]): readonly ItemsOfOneMessage[] =>
 	Array.match(list, {
 		onEmpty: () => [],
 		onNonEmpty: (tools) => [{ entries: [], kind: "tools", tools }],
@@ -106,7 +102,7 @@ const groupsOf = ({
 }: {
 	readonly entries: readonly InputEntry[];
 	readonly lists: Lists;
-}): readonly Group[] => {
+}): readonly ItemsOfOneMessage[] => {
 	const items = Array.match(entries, {
 		onEmpty: () => [],
 		onNonEmpty: (list) => pipe(list, Array.groupWith(bothReplies), Array.map(groupOf)),
@@ -117,4 +113,4 @@ const groupsOf = ({
 
 export { entriesOf, groupsOf, isReplyItem };
 
-export type { ContentEntry, Entry, Group, InputEntry };
+export type { ContentEntry, Entry, ItemsOfOneMessage, InputEntry };

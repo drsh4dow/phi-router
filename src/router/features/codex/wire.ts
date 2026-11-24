@@ -4,7 +4,7 @@ import { Option, Schema } from "effect";
  * Content kept as sent. `messages.ts` reads the parts `ReadPart` names, and any other part makes its message
  * unjudged, so a new part type reaches the clean lane only as the stub.
  */
-const Opaque = Schema.Array(Schema.Unknown);
+const ContentAsSent = Schema.Array(Schema.Unknown);
 
 /** A JSON object as sent, its keys in their order, which is the form a request is written back in. */
 const Raw = Schema.Record(Schema.String, Schema.Unknown);
@@ -19,14 +19,14 @@ const AdditionalTools = Schema.Struct({
 });
 
 const InputMessage = Schema.Struct({
-	content: Opaque,
+	content: ContentAsSent,
 	id: optionalString,
 	role: Schema.Literals(["user", "developer"]),
 	type: Schema.Literal("message"),
 });
 
 const OutputMessage = Schema.Struct({
-	content: Opaque,
+	content: ContentAsSent,
 	id: optionalString,
 	phase: optionalString,
 	role: Schema.Literal("assistant"),
@@ -36,10 +36,10 @@ const OutputMessage = Schema.Struct({
 
 /** Never judged: the clean lane gets one only when a clean-lane reply wrote its blob, and never a rebuilt one. */
 const Reasoning = Schema.Struct({
-	content: Schema.optionalKey(Schema.NullOr(Opaque)),
+	content: Schema.optionalKey(Schema.NullOr(ContentAsSent)),
 	encrypted_content: Schema.String,
 	id: Schema.String,
-	summary: Opaque,
+	summary: ContentAsSent,
 	type: Schema.Literal("reasoning"),
 });
 
@@ -65,13 +65,13 @@ const CustomToolCall = Schema.Struct({
 const ToolOutput = Schema.Struct({
 	call_id: Schema.String,
 	id: optionalString,
-	output: Schema.Union([Schema.String, Opaque]),
+	output: Schema.Union([Schema.String, ContentAsSent]),
 	type: Schema.Literals(["function_call_output", "custom_tool_call_output"]),
 });
 
 const AgentMessage = Schema.Struct({
 	author: Schema.String,
-	content: Opaque,
+	content: ContentAsSent,
 	id: optionalString,
 	recipient: Schema.String,
 	type: Schema.Literal("agent_message"),

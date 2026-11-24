@@ -2,8 +2,8 @@ import { Array, Effect, Option, Predicate, Schema, pipe } from "effect";
 import type { AssistantMessage, Message } from "#router/features/parts/index.ts";
 import type { LoneItem, Raw, ReplyItem } from "./wire.ts";
 import { canonicalText, rawText } from "./json.ts";
-import type { CleanLaneWrote } from "./clean-lane.ts";
 import type { Digest } from "effect/crypto";
+import type { IsReplyKey } from "./clean-lane.ts";
 import { ReadPart } from "./wire.ts";
 import { cleanLaneItemKey } from "./clean-lane.ts";
 
@@ -148,7 +148,7 @@ const itemKey = Effect.fnUntraced(function* itemKey(item: ReplyItem) {
 });
 
 const replyMessage =
-	(wrote: CleanLaneWrote) =>
+	(wrote: IsReplyKey) =>
 	(items: readonly ReplyItem[]): Effect.Effect<Read, never, Digest.Digest> =>
 		Effect.gen(function* readReply() {
 			const contents = yield* Effect.forEach(items, replyContent, { concurrency: 1 });

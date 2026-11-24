@@ -2,8 +2,8 @@ import { Array, Effect, Option, Record, Schema, String as Str, Struct, pipe } fr
 import { Body, Raw } from "./wire.ts";
 import { CleanLaneRefused, cleanItems } from "./stub.ts";
 import type { Sealed, Target } from "#router/features/border/index.ts";
-import type { CleanLaneWrote } from "./clean-lane.ts";
 import type { Digest } from "effect/crypto";
+import type { IsReplyKey } from "./clean-lane.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { WirePart } from "./wire-parts.ts";
 import { bridgesFor } from "#router/features/border/index.ts";
@@ -158,7 +158,7 @@ const encoderOf = (encoding: Encoding): Pick<CodexRequest, "encode" | "withoutRe
 
 const decodeRequest = Effect.fnUntraced(function* decodeRequest(
 	text: string,
-	cleanLaneWrote: CleanLaneWrote,
+	cleanLaneWrote: IsReplyKey,
 ): Effect.fn.Return<CodexRequest, CodexRequestRejected, Digest.Digest> {
 	const { model, raw } = yield* Effect.mapError(decodeTop(text), (error) =>
 		CodexRequestRejected.make({ reason: error.message }),

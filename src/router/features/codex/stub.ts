@@ -140,13 +140,13 @@ const cleanItems =
 		}
 
 		if (wirePart.kind === "tools") {
-			return orRefused(!wirePart.unjudged, raws(wirePart.entries));
+			return orRefused(!wirePart.unwrittenBlob, raws(wirePart.entries));
 		}
 
 		const passed = Equal.equals(guarded, wirePart.message);
 
-		if (passed && !wirePart.unjudged) {
-			return Effect.succeed(raws(wirePart.kept));
+		if (passed && !wirePart.unreadPart && !wirePart.unwrittenBlob) {
+			return Effect.succeed(raws(wirePart.withoutUnwrittenReasoning));
 		}
 
 		const stub = stubOf(guarded, passed);
