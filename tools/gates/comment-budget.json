@@ -20,10 +20,5 @@
 	"tools/judge/probe.ts": 1,
 	"tools/judge/sealing.test.ts": 1,
 	"tools/pi/doctor.test.ts": 2,
-	"tools/pi/proof.test.ts": 1,
-	"tools/plugin/hooked.ts": 2,
-	"tools/plugin/phi-command.test.ts": 1,
-	"tools/plugin/prompt-hook.test.ts": 1,
-	"tools/plugin/seal-notice.test.ts": 1,
-	"tools/plugin/session-hook.ts": 5
+	"tools/pi/proof.test.ts": 1
 }

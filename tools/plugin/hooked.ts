@@ -8,7 +8,6 @@ import { routerProcess } from "#tools/route/router-process.ts";
 
 const session = "s-phi-hooks";
 
-/** A name the judge mock seals a piece for. */
 const canary = "Testperson";
 
 const HookCommand = Schema.Struct({ command: Schema.String, type: Schema.Literal("command") });
@@ -58,12 +57,8 @@ const commandOf = Effect.fnUntraced(function* commandOf(world: World, run: HookR
 	return command;
 });
 
-/**
- * Runs the plugin's own hook command for `run`, as the harness does, under umask 000 so a file written without its own
- * mode shows as 0666: `sh -c` with no environment but the plugin's
- * folder, the model address, the router's XDG folders, a home and `PATH`, and `run.input` on stdin. Returns its exit
- * code and what it printed on each stream.
- */
+const unmasked = "umask 000";
+
 const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const command = yield* commandOf(world, run);
@@ -82,7 +77,7 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	});
 
 	const options = { env, extendEnv: false, stdin: Stream.encodeText(Stream.make(run.input)) };
-	const handle = yield* spawner.spawn(ChildProcess.make("sh", ["-c", `umask 000 && ${command}`], options));
+	const handle = yield* spawner.spawn(ChildProcess.make("sh", ["-c", `${unmasked} && ${command}`], options));
 
 	const printed = yield* Effect.all(
 		{

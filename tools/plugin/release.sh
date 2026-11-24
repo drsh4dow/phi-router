@@ -1,15 +1,4 @@
 #!/bin/sh
-# Usage: tools/plugin/release.sh tag <version>
-#        tools/plugin/release.sh publish <version>
-#
-# tag: in a clone made for it, as the release workflow's runner is, sets <version> in the three manifests, builds the
-# bundles, commits them with the manifests on top of the commit checked out, tags that commit v<version>, and prints
-# what the tag holds. It then packs the npm package phi-router-<version>.tgz from the tag and lists its files with
-# npm publish --dry-run. It pushes and publishes nothing, so it is the dry run.
-#
-# publish: pushes the tag v<version> that tag made to origin, creates its GitHub release, and publishes
-# phi-router-<version>.tgz to npm with provenance through trusted publishing, which needs npm 11.5.1 or newer. Each
-# step it finds done, as after a run that stopped partway, it skips.
 set -eu
 
 step=${1-}

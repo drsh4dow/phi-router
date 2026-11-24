@@ -27,7 +27,6 @@ const unrecordedInput = '{"prompt":"a prompt","session_id":"s-prompt","transcrip
 const sessionMeta = (provider: string): string =>
 	`{"timestamp":"2026-11-22T10:43:10.000Z","type":"session_meta","payload":{"id":"s-prompt","cwd":"/work","originator":"codex_exec","cli_version":"0.166.0","model_provider":"${provider}"}}\n{"timestamp":"2026-11-22T10:43:11.000Z","type":"turn_context","payload":{"model":"phi/auto"}}\n`;
 
-/** A copy of the plugin, and the command of its second prompt hook, whose trust key is `user_prompt_submit:0:1`. */
 const promptHook = Effect.gen(function* promptHook() {
 	const fs = yield* FileSystem.FileSystem;
 	const copy = yield* pluginCopy;

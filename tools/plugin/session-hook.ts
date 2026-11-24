@@ -20,7 +20,6 @@ import { mocked } from "#tools/route/mocked-router.ts";
 import { pluginCopy } from "./copied.ts";
 import { secretKept } from "#tools/lifecycle/squatter.ts";
 
-/** What each harness writes to the hook of each event on its stdin. The prompt's canary must reach no listener. */
 const hookInputs = {
 	PreCompact: '{"session_id":"s-hook","cwd":"/work","hook_event_name":"PreCompact","trigger":"manual"}',
 	SessionStart: '{"session_id":"s-hook","cwd":"/work","hook_event_name":"SessionStart","source":"startup"}',
@@ -30,7 +29,6 @@ const hookInputs = {
 
 type Event = keyof typeof hookInputs;
 
-/** The events whose hook holds back what the harness would send to the port. */
 type Blocking = Exclude<Event, "SessionStart">;
 
 const deadProxy = "http://127.0.0.1:9";
@@ -51,10 +49,6 @@ const Events = Schema.Struct({
 
 const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Events }));
 
-/**
- * A stand-in instance: a shell that runs the hook as its child, as Claude Code does, writes the hook's stdout, stderr
- * and exit code to files, then becomes `sleep 300`, so `$PPID` in the hook is the instance's pid for good.
- */
 const instanceScript = 'sh -c "$HOOK" >"$1" 2>"$2"; echo $? >"$3.part"; mv "$3.part" "$3"; exec sleep 300';
 
 const harnesses = {
@@ -90,14 +84,6 @@ interface GuardRun {
 	readonly printed: readonly string[];
 }
 
-/**
- * Whether the harness holds back the prompt or compaction after its hook printed what `run` holds. Codex stops a
- * compaction only on `"continue":false` on stdout, and blocks a prompt on exit 2. Claude Code blocks on exit 2, and on
- * any other failure of a hook marked `onFailure: "block"`.
- *
- * @param {GuardRun} run The hook's run.
- * @returns {boolean} Whether the harness holds it back.
- */
 const blockedBy = (run: GuardRun): boolean => {
 	const [stdout = "", , exitCode = ""] = run.printed;
 
@@ -138,10 +124,6 @@ const loopback = (port: number): ModelAddress => Option.some(`http://127.0.0.1:$
 
 const unset = (): ModelAddress => Option.none();
 
-/**
- * A fresh Claude Code config folder whose user settings hold the model address `installed` gives for the router's
- * `port`, as `on claude` writes it.
- */
 const claudeConfig = Effect.fnUntraced(function* claudeConfig(installed: (port: number) => ModelAddress, port: number) {
 	const fs = yield* FileSystem.FileSystem;
 	const config = yield* fs.makeTempDirectoryScoped({ prefix: "phi-hook-claude-" });

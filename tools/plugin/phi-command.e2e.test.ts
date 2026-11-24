@@ -218,7 +218,6 @@ const BlockingHook = Schema.Struct({ hooks: Schema.NonEmptyArray(Blocking) });
 
 const PromptHooks = Schema.Struct({ UserPromptSubmit: Schema.Tuple([BlockingHook]) });
 
-/** Claude Code lets a prompt through to the model when its hook fails, unless the hook's entry says to block. */
 const FailsClosed = Schema.fromJsonString(Schema.Struct({ hooks: PromptHooks }));
 
 const failsClosed = Effect.gen(function* failsClosed() {

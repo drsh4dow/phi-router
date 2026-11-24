@@ -27,7 +27,6 @@ const Notice = Schema.fromJsonString(Schema.Struct({ systemMessage: Schema.Strin
 
 const stopInput = `{"session_id":"${session}","cwd":"/work","hook_event_name":"Stop","stop_hook_active":false}`;
 
-/** The session's id in base64url, the name of its notice file. */
 const noticeFile = "cy1waGktaG9va3M.json";
 
 const quiet = { exitCode: 0, stderr: "", stdout: "" };
