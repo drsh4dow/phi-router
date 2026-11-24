@@ -120,7 +120,7 @@ const tokensIn = {
 } as const;
 
 /** US dollars per million tokens of each model a BAA account may run in the live run, as pi 1.6.0's catalog lists them. */
-const prices = {
+const dollarsPerMillionTokens = {
 	"claude-haiku-5-5": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
 	"gpt-6-luna": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
 } satisfies Record<string, Tokens>;
@@ -138,7 +138,7 @@ const perMillion = 1_000_000;
 const costOf = ({ model, tokens }: { readonly model: string; readonly tokens: Tokens }): Option.Option<number> =>
 	Option.map(
 		pipe(
-			Record.toEntries(prices),
+			Record.toEntries(dollarsPerMillionTokens),
 			Array.findFirst(([name]) => name === model),
 		),
 		([, price]) =>
