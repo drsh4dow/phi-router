@@ -3,7 +3,7 @@ import type { Decoded, Serving } from "./harness.ts";
 import type { Lane, PinnedBy } from "#router/features/lanes/index.ts";
 import type { Digest } from "effect/crypto";
 import type { Harness } from "#router/features/border/index.ts";
-import type { Incoming } from "#router/client/server.ts";
+import type { Incoming } from "#router/client/router-port/index.ts";
 import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Reason } from "#router/client/lane-log.ts";
 import type { Walk } from "#router/features/accounts/index.ts";

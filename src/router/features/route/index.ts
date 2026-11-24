@@ -6,8 +6,8 @@ import { claude, codex, pi, piMessages } from "./harness.ts";
 import { judgingOf, routing, services } from "./routing.ts";
 import { LeaseRegistry } from "#router/client/leases.ts";
 import type { OpenAiAccounts } from "#router/client/accounts/index.ts";
-import type { Path } from "#router/client/server.ts";
-import { serve } from "#router/client/server.ts";
+import type { Path } from "#router/client/router-port/index.ts";
+import { serve } from "#router/client/router-port/index.ts";
 import { sessionRows } from "./session.ts";
 
 const hello: Path["answer"] = () => Effect.succeed({ body: "{}", kind: "whole", status: statuses.ok });

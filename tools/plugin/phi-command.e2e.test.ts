@@ -4,7 +4,7 @@ import { assert, it } from "@effect/vitest";
 import { hook, session, setUp } from "./hooked.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
-import { SessionRequests } from "#router/client/session-request.ts";
+import { SessionRequests } from "#router/client/router-port/index.ts";
 import { freePort } from "#tools/lifecycle/launched.ts";
 import { pluginCopy } from "./copied.ts";
 import { silent } from "#tools/route/resetting.ts";

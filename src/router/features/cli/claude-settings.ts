@@ -1,5 +1,5 @@
 import { Array, Config, Effect, Option, Record, String as Str, pipe } from "effect";
-import { loopback } from "#router/client/server.ts";
+import { loopback } from "#router/client/router-port/index.ts";
 import { productPort } from "#shared/cli.ts";
 
 /** One setting a plugin cannot set, which `on claude` writes into the `env` block of Claude Code's user settings. */

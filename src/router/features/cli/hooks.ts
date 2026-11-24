@@ -1,7 +1,7 @@
 import { Command } from "effect/cli";
 import { Layer } from "effect";
 import { SealNotices } from "#router/client/seal-notices.ts";
-import { SessionRequests } from "#router/client/session-request.ts";
+import { SessionRequests } from "#router/client/router-port/index.ts";
 import { address } from "./adapters.ts";
 import { promptSubmit } from "./prompt-submit.ts";
 import { turnEnd } from "./turn-end.ts";

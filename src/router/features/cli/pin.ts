@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import type { SessionId } from "#shared/cli.ts";
-import { SessionRequests } from "#router/client/session-request.ts";
-import type { Unanswered } from "#router/client/session-request.ts";
+import { SessionRequests } from "#router/client/router-port/index.ts";
+import type { Unanswered } from "#router/client/router-port/index.ts";
 
 /** A command that asks the router for a session got no usable answer. */
 class RouterUnanswered extends Schema.TaggedError<RouterUnanswered, { readonly brand: unique symbol }>()(

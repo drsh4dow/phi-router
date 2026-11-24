@@ -1,11 +1,10 @@
-import type { Answered, LeaseRequest } from "#router/client/lease-request.ts";
+import type { Answered, LeaseRequest } from "#router/client/router-port/index.ts";
 import { Effect, Option, Schedule, Schema } from "effect";
+import { LeaseRequests, Proofs } from "#router/client/router-port/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
-import { LeaseRequests } from "#router/client/lease-request.ts";
 import { Pid } from "#shared/cli.ts";
 import { Platform } from "./platform.ts";
 import { Processes } from "#router/client/processes.ts";
-import { Proofs } from "#router/client/proof.ts";
 import { noBaaKeyExit } from "./no-baa-key.ts";
 import { stopLines } from "#router/features/route/index.ts";
 

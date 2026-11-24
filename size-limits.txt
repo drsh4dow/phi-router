@@ -1,3 +1,2 @@
-src/router/client 22 baseline
 src/router/features/anthropic-messages 21 baseline
 src/router/features/cli 35 baseline

@@ -1,7 +1,7 @@
 import { Context, Effect, FileSystem, Layer, String as Str } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, postedIn, routed } from "./mocked-router.ts";
-import { Callers } from "#router/client/callers.ts";
+import { Callers } from "#router/client/router-port/index.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 

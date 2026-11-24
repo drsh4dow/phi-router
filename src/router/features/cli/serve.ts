@@ -1,7 +1,5 @@
+import { Callers, Listener, Proofs, listensOn } from "#router/client/router-port/index.ts";
 import { Console, Effect, Layer, Schedule, Schema, Scope } from "effect";
-import { Listener, listensOn } from "#router/client/server.ts";
-import { Callers } from "#router/client/callers.ts";
-import { Proofs } from "#router/client/proof.ts";
 import { Router } from "#router/features/route/index.ts";
 import { keyless } from "./no-baa-key.ts";
 import { lifecycle } from "#router/features/lifecycle/index.ts";

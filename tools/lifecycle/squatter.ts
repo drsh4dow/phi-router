@@ -2,7 +2,7 @@ import { Array, Context, Effect, Layer, Ref, Schema, String as Str, Stream, pipe
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { Digest } from "effect/crypto";
 import { NodeHttpServer } from "@effect/platform-node";
-import { proofOf } from "#router/client/proof.ts";
+import { proofOf } from "#router/client/router-port/index.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
 /** A secret that is not the developer's: another user's router answers under its own. */

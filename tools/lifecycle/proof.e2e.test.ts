@@ -2,7 +2,7 @@ import { Array, Effect, FileSystem, Layer, String as Str, Struct } from "effect"
 import { assert, it } from "@effect/vitest";
 import { bundled, instance, ran, routersOn, world } from "./launched.ts";
 import { flooder, secretKept, squatter } from "./squatter.ts";
-import { hmacOf, proofOf } from "#router/client/proof.ts";
+import { hmacOf, proofOf } from "#router/client/router-port/index.ts";
 import { Digest } from "effect/crypto";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";

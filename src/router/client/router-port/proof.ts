@@ -6,7 +6,7 @@ import { Hex } from "effect/encoding";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { loopback } from "./server.ts";
-import { writePrivately } from "./private-file.ts";
+import { writePrivately } from "#router/client/private-file.ts";
 
 /** The proof row of the router's path table. The nonce goes in the query. */
 const proofPath = "/phi-router/proof";
@@ -180,7 +180,7 @@ class Proofs extends Context.Service<
 		/** Sends the listener on `port` a fresh nonce and checks its answer against the stored secret. */
 		readonly ask: (port: number) => Effect.Effect<Proven>;
 	}
->()("phi-router/router/client/proof/Proofs") {
+>()("phi-router/router/client/router-port/proof/Proofs") {
 	public static readonly layer = Layer.effect(
 		Proofs,
 		Effect.gen(function* make() {

@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { SessionId } from "#shared/cli.ts";
-import { SessionRequests } from "#router/client/session-request.ts";
+import { SessionRequests } from "#router/client/router-port/index.ts";
 import { StatusJson } from "#shared/cli.ts";
 import { failedAs } from "./pin.ts";
 

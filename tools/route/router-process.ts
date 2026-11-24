@@ -1,6 +1,6 @@
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Context, Effect, Layer, Path, String as Str, Stream } from "effect";
-import { LeaseRequests } from "#router/client/lease-request.ts";
+import { LeaseRequests } from "#router/client/router-port/index.ts";
 
 const listening = "phi-router listens on ";
 

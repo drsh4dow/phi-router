@@ -1,5 +1,5 @@
 import { Array, Effect, Fiber, Latch, Layer, Number as Num, Option, PlatformError, Ref, pipe } from "effect";
-import type { Outgoing, Path } from "#router/client/server.ts";
+import type { Outgoing, Path } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
 import type { Lease } from "#router/client/leases.ts";
 import { LeaseRegistry } from "#router/client/leases.ts";

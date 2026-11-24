@@ -10,7 +10,7 @@ on:
          - src/router/client/accounts/account-state.ts
          - src/router/client/leases.ts
          - src/router/client/processes.ts
-         - src/router/client/server.ts
+         - src/router/client/router-port/server.ts
          - src/router/client/accounts/upstream.ts
          - src/router/client/verdict-store.ts
          - src/router/features/accounts/walk.ts

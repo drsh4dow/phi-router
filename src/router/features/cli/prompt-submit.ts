@@ -2,7 +2,7 @@ import { Console, Effect, Option, Schema, String as Str, pipe } from "effect";
 import { SessionId, phiCommand } from "#shared/cli.ts";
 import { failedAs, pin, unpin } from "./pin.ts";
 import { statusText, usage } from "./phi-text.ts";
-import { SessionRequests } from "#router/client/session-request.ts";
+import { SessionRequests } from "#router/client/router-port/index.ts";
 import { portOf } from "./session-start.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 

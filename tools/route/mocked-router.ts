@@ -12,6 +12,7 @@ import {
 	identity,
 	pipe,
 } from "effect";
+import { Callers, LeaseRequests } from "#router/client/router-port/index.ts";
 import { FetchHttpClient, HttpClient, HttpServer } from "effect/http";
 import type { Harness, Json, Lined, Scripts, Sent } from "./harnesses.ts";
 import type { HttpClientError, HttpClientResponse } from "effect/http";
@@ -26,8 +27,6 @@ import {
 	judgeOf,
 	lacksOf,
 } from "./harnesses.ts";
-import { Callers } from "#router/client/callers.ts";
-import { LeaseRequests } from "#router/client/lease-request.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { Router } from "#router/features/route/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";

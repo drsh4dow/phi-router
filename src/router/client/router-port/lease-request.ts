@@ -3,7 +3,7 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { ChildProcessSpawner } from "effect/process";
 import { Pid } from "#shared/cli.ts";
 import { loopback } from "./server.ts";
-import { realFolder } from "./processes.ts";
+import { realFolder } from "#router/client/processes.ts";
 
 /** What `start` sends the router. The router adds the start time. */
 const LeaseRequest = Schema.Struct({ folder: Schema.String, pid: Pid, session: Schema.NonEmptyString });
@@ -43,7 +43,7 @@ const answeredTo = (status: number): Answered => {
 class LeaseRequests extends Context.Service<
 	LeaseRequests,
 	{ readonly post: (port: number, request: typeof LeaseRequest.Type) => Effect.Effect<Answered> }
->()("phi-router/router/client/lease-request/LeaseRequests") {
+>()("phi-router/router/client/router-port/lease-request/LeaseRequests") {
 	public static readonly layer = Layer.effect(
 		LeaseRequests,
 		Effect.gen(function* make() {

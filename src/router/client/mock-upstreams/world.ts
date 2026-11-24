@@ -1,7 +1,7 @@
 import { Array, ConfigProvider, Effect, FileSystem, Formatter, Layer, Stream, Struct } from "effect";
 import { responseEvents, serveAnthropic, serveOpenAi, textEvents } from "./accounts.ts";
 import { sealingWhen, serveJudge } from "./judge.ts";
-import { Listener } from "#router/client/server.ts";
+import { Listener } from "#router/client/router-port/index.ts";
 import type { Said } from "./accounts.ts";
 import { UserDirectories } from "effect/persistence";
 import { configFile } from "#router/client/configuration/index.ts";

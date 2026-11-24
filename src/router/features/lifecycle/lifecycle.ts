@@ -1,8 +1,7 @@
 import { Array, Effect, Option, Schema, Struct, SynchronizedRef, pipe } from "effect";
 import { Lease, LeaseRegistry } from "#router/client/leases.ts";
-import type { LeaseRequest, Reply } from "#router/client/lease-request.ts";
-import { LeaseRequestJson, leasePath, statusOf } from "#router/client/lease-request.ts";
-import type { Outgoing, Path } from "#router/client/server.ts";
+import type { LeaseRequest, Outgoing, Path, Reply } from "#router/client/router-port/index.ts";
+import { LeaseRequestJson, leasePath, statusOf } from "#router/client/router-port/index.ts";
 import { Processes } from "#router/client/processes.ts";
 import type { RegistryFailed } from "#router/client/leases.ts";
 import type { Running } from "#router/client/processes.ts";

@@ -36,7 +36,7 @@ class SessionRequests extends Context.Service<
 		readonly pin: (port: number, request: typeof PinRequest.Type) => Effect.Effect<void, Unanswered>;
 		readonly status: (port: number, session: string) => Effect.Effect<typeof Status.Type, Unanswered>;
 	}
->()("phi-router/router/client/session-request/SessionRequests") {
+>()("phi-router/router/client/router-port/session-request/SessionRequests") {
 	public static readonly layer = Layer.effect(
 		SessionRequests,
 		Effect.gen(function* make() {

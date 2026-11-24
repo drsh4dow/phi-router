@@ -1,6 +1,6 @@
 import { Array, Context, Effect, FileSystem, Layer, Sink, Stream } from "effect";
 import { assert, it } from "@effect/vitest";
-import { Callers } from "#router/client/callers.ts";
+import { Callers } from "#router/client/router-port/index.ts";
 import { ChildProcessSpawner } from "effect/process";
 import { NodeServices } from "@effect/platform-node";
 

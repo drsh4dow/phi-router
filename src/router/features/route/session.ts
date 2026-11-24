@@ -1,7 +1,7 @@
 import type { Accounts, Served } from "#router/client/accounts/index.ts";
 import { Array, Effect, Option, Schema, pipe } from "effect";
-import type { Outgoing, Path } from "#router/client/server.ts";
-import { PinRequestJson, sessionPaths } from "#router/client/session-request.ts";
+import type { Outgoing, Path } from "#router/client/router-port/index.ts";
+import { PinRequestJson, sessionPaths } from "#router/client/router-port/index.ts";
 import { SessionId, StatusJson } from "#shared/cli.ts";
 import type { Routing } from "./routing.ts";
 import type { Status } from "#shared/cli.ts";

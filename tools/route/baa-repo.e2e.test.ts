@@ -1,10 +1,9 @@
 import { Array, Context, Effect, FileSystem, Layer, Path, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import { LeaseRequests, SessionRequests } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, fakes, laneLines, mocked } from "./mocked-router.ts";
-import { LeaseRequests } from "#router/client/lease-request.ts";
 import { NodeServices } from "@effect/platform-node";
-import { SessionRequests } from "#router/client/session-request.ts";
 import { routerProcess } from "./router-process.ts";
 
 /**

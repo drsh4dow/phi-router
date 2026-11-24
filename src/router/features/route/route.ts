@@ -2,7 +2,7 @@ import { Array, Effect, Option, Schema, Stream, Struct, pipe } from "effect";
 import type { Arrived, Choice } from "./send.ts";
 import type { Decoded, HarnessWire, Serving } from "./harness.ts";
 import { Findings, Fixtures, Verdicts, standingOf } from "#router/features/verdicts/index.ts";
-import type { Incoming, Outgoing, Path } from "#router/client/server.ts";
+import type { Incoming, Outgoing, Path } from "#router/client/router-port/index.ts";
 import { catalogQuery, catalogWith, fromCodex } from "#router/features/codex/index.ts";
 import type { Judging } from "./routing.ts";
 import type { Lookup } from "#router/features/verdicts/index.ts";

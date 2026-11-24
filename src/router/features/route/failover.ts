@@ -7,7 +7,7 @@ import { current, onward, walkOf } from "#router/features/accounts/index.ts";
 import { lineOf, stopped, unwalked } from "./walked.ts";
 import type { Account } from "#router/client/accounts/index.ts";
 import type { Digest } from "effect/crypto";
-import type { Outgoing } from "#router/client/server.ts";
+import type { Outgoing } from "#router/client/router-port/index.ts";
 import type { Walk } from "#router/features/accounts/index.ts";
 import { reasoningRejected } from "#router/features/codex/index.ts";
 import { stopLines } from "./stopped.ts";

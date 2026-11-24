@@ -2,7 +2,7 @@ import { Array, pipe } from "effect";
 import { Command, Flag } from "effect/cli";
 import { SessionId, productPort, spelling } from "#shared/cli.ts";
 import { pin, unpin } from "./pin.ts";
-import { SessionRequests } from "#router/client/session-request.ts";
+import { SessionRequests } from "#router/client/router-port/index.ts";
 import { status } from "./status.ts";
 
 const session = Flag.String(spelling.status.session).pipe(Flag.withSchema(SessionId));

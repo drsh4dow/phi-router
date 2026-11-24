@@ -13,7 +13,7 @@ import {
 	pipe,
 } from "effect";
 import type { Arrived, Vendor } from "#router/client/mock-upstreams/index.ts";
-import { Listener, listensOn } from "#router/client/server.ts";
+import { Listener, listensOn } from "#router/client/router-port/index.ts";
 import type { Turn, UserSettings } from "#router/client/harnesses/index.ts";
 import {
 	auto,
