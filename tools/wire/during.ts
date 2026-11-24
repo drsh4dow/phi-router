@@ -45,8 +45,7 @@ const withCredentialRule = Effect.fnUntraced(function* withCredentialRule(
 	return [...checks, { name: rule, ok: !Array.isReadonlyArrayNonEmpty(found) }];
 });
 
-/** What the open, BAA and judge mocks received, as the run's mocks hand it over. */
-type Received = readonly [readonly Sent[], readonly Sent[], readonly unknown[]];
+type Received = readonly [open: readonly Sent[], baa: readonly Sent[], judged: readonly unknown[]];
 
 /**
  * What the mocks received, with each Claude judge call on the BAA mock counted as the judge's, so the BAA mock's list
