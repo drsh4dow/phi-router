@@ -10,7 +10,7 @@
 	"src/router/features/lifecycle/lifecycle.ts": 7,
 	"src/router/features/parts/message.ts": 1,
 	"src/router/features/parts/parts.ts": 1,
-	"src/router/features/parts/pieces.ts": 4,
+	"src/router/features/parts/pieces.ts": 2,
 	"src/router/features/route/failover.ts": 11,
 	"src/router/features/route/harness.ts": 18,
 	"src/router/features/route/index.ts": 1,

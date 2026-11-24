@@ -43,7 +43,6 @@ const callsOf = (message: Item): readonly (readonly [string, string])[] => {
 	);
 };
 
-/** What later context reads of a message: its text for a seam, its item and its tool calls, a sealed one's as the stub. */
 interface Reading {
 	readonly text: string;
 	readonly item: string;
@@ -144,11 +143,6 @@ interface PieceAt {
 	readonly own: boolean;
 }
 
-/**
- * Every part of a request as a piece to judge, with at most `window` preceding items as context, nearest first. A tool
- * result's first item is its own tool call. A reply's `writtenBy` tells `reply-open` from `reply-other`. A message
- * `sealed` names reaches later context only as the stub.
- */
 const piecesOf = Effect.fnUntraced(function* piecesOf({
 	messages,
 	window = policyWindow,

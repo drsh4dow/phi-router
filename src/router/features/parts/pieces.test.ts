@@ -3,6 +3,7 @@ import type { AssistantMessage, Message, Part, ToolResultMessage } from "./index
 import { assert, it } from "@effect/vitest";
 import { partsOf, piecesOf } from "./index.ts";
 import { Digest } from "effect/crypto";
+import { stubs } from "#router/features/policy/index.ts";
 
 const reply = (writtenBy: AssistantMessage["writtenBy"], content: AssistantMessage["content"]): AssistantMessage => ({
 	content,
@@ -125,6 +126,10 @@ const twoTurns = [
 	result("id,name\n4471,asthma"),
 ];
 
+const sealedAsk = asked("Look up member 9001, ssn 523-61-1234.");
+
+const sealedRead = reply("other", [readCall]);
+
 const sealedCut = result("member 9001, ssn 523-61-12", "toolu_3");
 
 const cutExport = [
@@ -154,6 +159,26 @@ it.layer(Digest.layerWebCrypto)("piecesOf context", (test) => {
 					Option.map(({ piece }) => piece.context),
 				),
 				Option.some(['[tool call] read({"path":"notes/admissions.csv"})']),
+			);
+		}),
+	);
+
+	test.effect("a sealed message and its tool calls reach later context only as the stub, nearest first", () =>
+		Effect.gen(function* sealedContext() {
+			const sealedKeys = new Set([...(yield* keyOf(sealedAsk)), ...(yield* keyOf(sealedRead))]);
+
+			const pieces = yield* piecesOf({
+				messages: [sealedAsk, sealedRead, result("id,name\n4471,asthma")],
+				sealed: (key) => sealedKeys.has(key),
+				window: 3,
+			});
+
+			assert.deepStrictEqual(
+				pipe(
+					Array.last(pieces),
+					Option.map(({ piece }) => piece.context),
+				),
+				Option.some([`[tool call] ${stubs.sealed}`, `[assistant] ${stubs.sealed}`, `[user] ${stubs.sealed}`]),
 			);
 		}),
 	);
