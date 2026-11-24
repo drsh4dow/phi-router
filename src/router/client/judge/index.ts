@@ -82,7 +82,7 @@ export { Judge };
 
 export type { Asking, ChoiceQuestion, JudgeInput, JudgeName, ScoreQuestion };
 
-export { judgeModels } from "./choice.ts";
+export { defaultJudgeModels } from "./choice.ts";
 
 export { JudgeFailed } from "./failed.ts";
 

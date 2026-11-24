@@ -12,7 +12,7 @@ import {
 	pipe,
 } from "effect";
 import type { ChoiceQuestion, JudgeInput, JudgeName, Usage } from "#router/client/judge/index.ts";
-import { Judge, JudgeFailed, judgeModels } from "#router/client/judge/index.ts";
+import { Judge, JudgeFailed, defaultJudgeModels } from "#router/client/judge/index.ts";
 import { Digest } from "effect/crypto";
 import { decodeJsonLines } from "./jsonl.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
@@ -90,7 +90,7 @@ const lengthPrefixed = (fields: readonly string[]): string =>
  */
 const askerOf = Effect.fnUntraced(function* askerOf(name: JudgeName) {
 	const digest = yield* Digest.Digest;
-	const version = yield* policyVersion({ model: judgeModels[name], name });
+	const version = yield* policyVersion({ model: defaultJudgeModels[name], name });
 	const policy = Str.takeLeft(version, digestChars);
 
 	const digestOf = (fields: readonly string[]): Effect.Effect<string> => {
@@ -175,7 +175,7 @@ const replayingJudge = (
  * for, including every call recorded under another policy version, fails as a judge error and counts in `unrecorded`.
  */
 const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(contents: string, name: JudgeName) {
-	const judge = { model: judgeModels[name], name };
+	const judge = { model: defaultJudgeModels[name], name };
 	const lines = yield* decodeJsonLines({ schema: RecordingLine, source: "recordings.jsonl", text: contents });
 
 	const answers = new Map(

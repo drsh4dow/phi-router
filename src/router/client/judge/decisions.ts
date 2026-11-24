@@ -8,8 +8,7 @@ import { readKey } from "#router/client/accounts/index.ts";
 
 const names = { identifier: "identifier", kind: "kind" } as const;
 
-/** The model the Decisions judge runs when its `judge` block names none. */
-const decisionsModel = "gpt-6-luna";
+const defaultDecisionsModel = "gpt-6-luna";
 
 /**
  * What a call on `gpt-6-luna` costs in US dollars per million input tokens. A call above `tierTokens` pays the higher
@@ -239,4 +238,4 @@ const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJud
 	return asking;
 });
 
-export { decisions, decisionsModel, textOf };
+export { decisions, defaultDecisionsModel, textOf };

@@ -3,7 +3,7 @@ import { Configuration, configuredAccounts } from "#router/client/configuration/
 import type { KeySource, NamedAccount } from "#router/client/configuration/index.ts";
 import type { JudgeName } from "./index.ts";
 import { claudeModel } from "./claude.ts";
-import { decisionsModel } from "./decisions.ts";
+import { defaultDecisionsModel } from "./decisions.ts";
 
 type ChosenJudge =
 	| { readonly name: "decisions"; readonly endpoint: string; readonly key: KeySource; readonly model: string }
@@ -14,8 +14,10 @@ class NoJudge extends Schema.TaggedError<NoJudge, { readonly brand: unique symbo
 	message: Schema.String,
 }) {}
 
-/** Each judge's model when the configuration names none. */
-const judgeModels = { claude: claudeModel, decisions: decisionsModel } as const satisfies Record<JudgeName, string>;
+const defaultJudgeModels: Readonly<Record<JudgeName, string>> = {
+	claude: claudeModel,
+	decisions: defaultDecisionsModel,
+};
 
 const decisionsOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
 	if (account.vendor !== "openai" || account.credential.kind !== "key") {
@@ -25,7 +27,7 @@ const decisionsOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
 	return Option.some({
 		endpoint: account.endpoint,
 		key: account.credential.source,
-		model: judgeModels.decisions,
+		model: defaultJudgeModels.decisions,
 		name: "decisions",
 	});
 };
@@ -34,12 +36,12 @@ const claudeOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
 	if (
 		account.vendor !== "anthropic" ||
 		account.credential.kind === "forwarded" ||
-		Array.contains(account.lacks, judgeModels.claude)
+		Array.contains(account.lacks, defaultJudgeModels.claude)
 	) {
 		return Option.none();
 	}
 
-	return Option.some({ account, model: judgeModels.claude, name: "claude" });
+	return Option.some({ account, model: defaultJudgeModels.claude, name: "claude" });
 };
 
 const onSealed = Effect.fnUntraced(function* onSealed(
@@ -73,7 +75,12 @@ const chosenJudge = Effect.gen(function* chosenJudge() {
 	if (Option.isSome(judge)) {
 		const { endpoint, key, model } = judge.value;
 
-		return { endpoint, key, model: Option.getOrElse(model, () => judgeModels.decisions), name: "decisions" } as const;
+		return {
+			endpoint,
+			key,
+			model: Option.getOrElse(model, () => defaultJudgeModels.decisions),
+			name: "decisions",
+		} as const;
 	}
 
 	return yield* onSealed((sealed) =>
@@ -88,6 +95,6 @@ const chosenJudge = Effect.gen(function* chosenJudge() {
 /** The Claude judge on the first Anthropic account on `sealed` that holds its own credential, whatever else is named. */
 const claudeOnSealed = onSealed((sealed) => pipe(sealed, Array.findFirst(claudeOn)));
 
-export { chosenJudge, claudeOnSealed, judgeModels };
+export { chosenJudge, claudeOnSealed, defaultJudgeModels };
 
 export type { ChosenJudge };

@@ -67,8 +67,7 @@ type Replied = typeof Reply.Type;
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/** The JSON schema of a tool's input: one required property, a probability or one of a list of choices. */
-type ToolInput =
+type ToolInputSchema =
 	| {
 			readonly type: "object";
 			readonly properties: {
@@ -82,14 +81,13 @@ type ToolInput =
 			readonly required: readonly ["kind"];
 	  };
 
-/** One question as a forced tool call: the system text that asks it, and the tool whose input is the answer. */
-interface Asked {
+interface ToolQuestion {
 	readonly name: (typeof ScoreCall.Type | typeof KindCall.Type)["name"];
 	readonly system: string;
-	readonly input: ToolInput;
+	readonly input: ToolInputSchema;
 }
 
-const scoreAsked = ({ instructions, criteria }: ScoreQuestion): Asked => ({
+const scoreAsked = ({ instructions, criteria }: ScoreQuestion): ToolQuestion => ({
 	input: {
 		properties: { probability: { maximum: 1, minimum: 0, type: "number" } },
 		required: ["probability"],
@@ -99,7 +97,7 @@ const scoreAsked = ({ instructions, criteria }: ScoreQuestion): Asked => ({
 	system: `${instructions}\n\nTrue means: ${criteria.true}\nFalse means: ${criteria.false}\n\nAnswer with the probability, from 0 to 1, that true holds.`,
 });
 
-const kindAsked = <Kind extends string>({ instructions, criteria }: ChoiceQuestion<Kind>): Asked => {
+const kindAsked = <Kind extends string>({ instructions, criteria }: ChoiceQuestion<Kind>): ToolQuestion => {
 	const listed = pipe(
 		criteria,
 		Array.map(([choice, description]) => `${choice}: ${description}`),
@@ -123,11 +121,11 @@ const kindAsked = <Kind extends string>({ instructions, criteria }: ChoiceQuesti
  * then its images in one user message, and the answer forced through the question's one tool.
  *
  * @param {string} model The model the judge runs.
- * @param {Asked} asked The question.
+ * @param {ToolQuestion} asked The question.
  * @param {JudgeInput} input The piece, its context and its images.
  * @returns {Effect.Effect} The request's JSON text.
  */
-const requestOf = Effect.fnUntraced(function* requestOf(model: string, asked: Asked, input: JudgeInput) {
+const requestOf = Effect.fnUntraced(function* requestOf(model: string, asked: ToolQuestion, input: JudgeInput) {
 	const text = yield* textOf(input);
 
 	const images = pipe(
@@ -213,9 +211,8 @@ const kindIn = (blocks: Replied["content"]): Option.Option<string> =>
 		Option.map(({ input }) => input.kind),
 	);
 
-/** How one judge asks: the account's name for warnings, the model, and the sender on the account. */
 interface Asker {
-	readonly account: string;
+	readonly accountName: string;
 	readonly model: string;
 	readonly send: Effect.Success<ReturnType<typeof senderOn>>;
 }
@@ -228,10 +225,10 @@ interface Asker {
  * @returns {Function} Asks one question and reads its answer from the reply's blocks.
  */
 const askWith =
-	({ account, model, send }: Asker) =>
+	({ accountName, model, send }: Asker) =>
 	<Answer>(
 		input: JudgeInput,
-		asked: Asked,
+		asked: ToolQuestion,
 		answerIn: (blocks: Replied["content"]) => Option.Option<Answer>,
 	): Effect.Effect<{ answer: Answer; usage: typeof Usage.Type }, JudgeFailed> =>
 		requestOf(model, asked, input).pipe(
@@ -249,7 +246,7 @@ const askWith =
 					onNone: () =>
 						Effect.andThen(
 							Effect.logWarning(
-								`The judge on ${account} stopped on ${reply.stop_reason} with no ${asked.name} call`,
+								`The judge on ${accountName} stopped on ${reply.stop_reason} with no ${asked.name} call`,
 							),
 							Effect.fail(JudgeFailed.make({ usage, why: "judge-error" })),
 						),
@@ -260,7 +257,7 @@ const askWith =
 
 const claude = Effect.fnUntraced(function* claude(judge: Extract<ChosenJudge, { readonly name: "claude" }>) {
 	const send = yield* senderOn(judge.account);
-	const ask = askWith({ account: judge.account.name, model: judge.model, send });
+	const ask = askWith({ accountName: judge.account.name, model: judge.model, send });
 
 	const identifier: Asking["identifier"] = (input, question) =>
 		Effect.map(ask(input, scoreAsked(question), scoreIn), ({ answer, usage }) => ({ score: answer, usage }));
