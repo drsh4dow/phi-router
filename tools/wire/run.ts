@@ -10,7 +10,7 @@ import { plays } from "./plays.ts";
 const runtimeAndScript = 2;
 
 /** Turns count from 1 in the report. */
-const counting = 1;
+const firstTurnNumber = 1;
 
 const Harness = Schema.Literals(["claude", "codex", "pi"]);
 
@@ -47,7 +47,7 @@ const playing = Effect.fnUntraced(function* playing(harness: Played) {
 				exitCode,
 				open: open.length,
 				printed: printedTail,
-				turn: index + counting,
+				turn: index + firstTurnNumber,
 			})),
 		),
 	} satisfies Report;
