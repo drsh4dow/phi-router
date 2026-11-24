@@ -1,4 +1,4 @@
-import { Array, Effect, Exit, Layer, Schema, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Exit, FileSystem, Layer, Path, Schema, String as Str, Struct, pipe } from "effect";
 import type { Post, Turn } from "./mocked-router.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
@@ -256,10 +256,29 @@ const fixtures = Effect.gen(function* fixtures() {
 	);
 });
 
+const judgeEndpoint = "http://127.0.0.1:9/v1";
+
 const modes = Effect.gen(function* modes() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-judge-key-" });
+	const keyFile = path.join(folder, "judge");
+
+	yield* fs.writeFileString(keyFile, `${fakes.judgeKey}\n`);
+
+	const relativeKeyFile = path.relative(path.resolve(), keyFile);
+
 	const built = yield* Effect.forEach(
-		[{ mode: "shadow" }, { mode: "baa" }, { mode: false }, {}],
-		(configured) => Effect.exit(Effect.scoped(routed({ configured, holdsPhi: () => false }))),
+		[
+			{ mode: "shadow" },
+			{ mode: "baa" },
+			{ mode: false },
+			{ baaRepos: ["phi-repo"] },
+			{ judge: { endpoint: judgeEndpoint, keyFile: relativeKeyFile } },
+			{ judge: { endpoint: judgeEndpoint, keyFile } },
+			{},
+		],
+		(configured) => Effect.exit(Effect.scoped(routed({ configured, holdsPhi: () => false, judgeName: "claude" }))),
 		{ concurrency: 1 },
 	);
 
@@ -268,9 +287,9 @@ const modes = Effect.gen(function* modes() {
 			built,
 			Array.map((exit) => Exit.isSuccess(exit)),
 		),
-		[false, false, false, true],
+		[false, false, false, false, false, true, true],
 	);
-});
+}).pipe(Effect.scoped);
 
 it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClient.layer))(
 	"pin and fixtures",
@@ -287,6 +306,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 			"a request pinned on arrival runs on the BAA account with nothing judged when the unpin lands before its send",
 			() => lateUnpin,
 		);
-		test.effect("the configuration refuses a mode key, whatever its value", () => modes);
+		test.effect(
+			"the configuration refuses a mode key, whatever its value, a relative BAA repo and a relative judge key file",
+			() => modes,
+		);
 	},
 );

@@ -5,10 +5,6 @@ import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { realFolder } from "#router/client/processes.ts";
 
-/**
- * Where a key comes from: the name of an environment variable, a shell command that prints the key, or the absolute path
- * of a file that holds it, such as the one `setup` saves. Never the key.
- */
 type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string } | { readonly keyFile: string };
 
 interface NamedJudge {
@@ -17,12 +13,9 @@ interface NamedJudge {
 	readonly model: Option.Option<string>;
 }
 
-/** What the router reads from the file beside the accounts. */
-interface Configured {
-	/** None when the file names no judge, so the judge runs on a BAA account. */
+interface SettingsBesideLanes {
 	readonly judge: Option.Option<NamedJudge>;
 	readonly fixtures: readonly string[];
-	/** The folders whose sessions run wholly on the sealed lane, each an absolute path, its real path when it exists. */
 	readonly baaRepos: readonly string[];
 }
 
@@ -30,7 +23,6 @@ const absent = Schema.optionalKey(Schema.Never);
 
 const model = Schema.optionalKey(Schema.String);
 
-/** Each BAA repo and each key file is an absolute path, since the router runs in another folder than the session. */
 const AbsolutePath = Schema.String.check(Schema.isPattern(/^\//u));
 
 const KeyedByEnv = Schema.Struct({
@@ -67,7 +59,6 @@ const File = Schema.fromJsonString(
 	Schema.Struct({ baaRepos: BaaRepos, fixtures: Fixtures, judge: Schema.optionalKey(Named), mode: absent }),
 );
 
-/** `phi-router/config.json` under the XDG config folder. */
 const configFile = Effect.gen(function* configFile() {
 	const directories = yield* UserDirectories.UserDirectories;
 	const path = yield* Path.Path;
@@ -85,11 +76,7 @@ const configText = Effect.gen(function* configText() {
 		.pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.fail(NoConfigFile.make({ file }))));
 });
 
-/**
- * What `phi-router/config.json` under the XDG config folder says, read once when the layer is built. The file never
- * holds a key, only the key's source.
- */
-class Configuration extends Context.Service<Configuration, Configured>()(
+class Configuration extends Context.Service<Configuration, SettingsBesideLanes>()(
 	"phi-router/router/client/configuration/config-file/Configuration",
 ) {
 	public static readonly layer: Layer.Layer<
