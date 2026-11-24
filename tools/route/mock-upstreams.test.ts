@@ -1,9 +1,10 @@
 import type { AccountMock, Asked, Event, Reply, Said } from "#router/client/mock-upstreams/index.ts";
-import { Array, Context, Effect, Layer, Option, Ref, Schema, String as Str, Stream, pipe } from "effect";
+import { Array, Context, Effect, FileSystem, Layer, Option, Ref, Schema, String as Str, Stream, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import {
+	mockWorld,
 	responseEvents,
 	serveAnthropic,
 	serveJudge,
@@ -12,6 +13,7 @@ import {
 	toolEvents,
 } from "#router/client/mock-upstreams/index.ts";
 import type { HttpServer } from "effect/http";
+import { Listener } from "#router/client/router-port/index.ts";
 import type { Scope } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -331,6 +333,35 @@ const answeredAndRecorded = Effect.gen(function* answeredAndRecorded() {
 	);
 });
 
+const OpenAccount = Schema.Struct({ endpoint: Schema.String });
+
+const WorldConfig = Schema.fromJsonString(Schema.Struct({ clean: Schema.Tuple([OpenAccount]) }));
+
+const testListener = Listener.of({ on: () => NodeHttpServer.layerTest });
+
+const closedWithScope = Effect.gen(function* closedWithScope() {
+	const fs = yield* FileSystem.FileSystem;
+	const client = yield* HttpClient.HttpClient;
+
+	const { configHome, open } = yield* Effect.scoped(
+		Effect.gen(function* opened() {
+			const world = yield* mockWorld("anthropic", () => false);
+			const file = yield* fs.readFileString(`${world.env.XDG_CONFIG_HOME}/phi-router/config.json`);
+
+			const {
+				clean: [account],
+			} = yield* Schema.decodeEffect(WorldConfig)(file);
+
+			return { configHome: world.env.XDG_CONFIG_HOME, open: account.endpoint };
+		}),
+	);
+
+	const folderLeft = yield* fs.exists(configHome);
+	const openAnswers = yield* client.get(open).pipe(Effect.isSuccess);
+
+	assert.deepStrictEqual({ folderLeft, openAnswers }, { folderLeft: false, openAnswers: false });
+}).pipe(Effect.provideService(Listener, testListener));
+
 it.layer(NodeServices.layer)("an account mock", (test) => {
 	test.effect(
 		"writes a text reply as one SSE frame per event, one delta per text with a ping after each",
@@ -352,4 +383,8 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("a judge mock",
 		"answers a body reply with 200 and its JSON, and records each header under its lower-case name",
 		() => answeredAndRecorded,
 	);
+});
+
+it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the doctor's mock world", (test) => {
+	test.effect("closes its mocks and removes its folders when its scope closes", () => closedWithScope);
 });

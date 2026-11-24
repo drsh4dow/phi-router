@@ -7,20 +7,17 @@ import { UserDirectories } from "effect/persistence";
 import { configFile } from "#router/client/configuration/index.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
-/** The request bodies the open and the BAA mock received. Bodies only, so no header, and no login, leaves this file. */
 interface Arrived {
 	readonly open: readonly string[];
 	readonly baa: readonly string[];
 }
 
-/** The fake keys the world's `config.json` names. No real account ever sees them. */
 const fakeKeys = { PHI_DOCTOR_BAA_KEY: "phi-doctor-baa-key", PHI_DOCTOR_JUDGE_KEY: "phi-doctor-judge-key" };
 
 const anyFreePort = 0;
 
 type Vendor = "anthropic" | "openai";
 
-/** The model the router sends a sealed request to, which the OpenAI mocks' catalog lists. */
 const targetModel = "phi-doctor-target";
 
 const ok = 200;
@@ -33,7 +30,6 @@ const okMessage = {
 	type: "message",
 };
 
-/** Each vendor's account mock, which answers every model request `ok`. */
 const accounts = {
 	anthropic: serveAnthropic((): Said => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" })),
 	openai: serveOpenAi({
@@ -46,7 +42,6 @@ const accounts = {
 	}),
 };
 
-/** The three mocks, each on its own fresh loopback port from the entry file's `Listener`. */
 const mocks = Effect.fnUntraced(function* mocks(vendor: Vendor, holdsPhi: (piece: string) => boolean) {
 	const { on } = yield* Listener;
 	const freeServer = Layer.build(on(anyFreePort));
@@ -59,7 +54,6 @@ const mocks = Effect.fnUntraced(function* mocks(vendor: Vendor, holdsPhi: (piece
 	return { baa, judge, open };
 });
 
-/** Fresh XDG config and state folders, whose `config.json` names the open, BAA and judge mocks at `endpoints`. */
 const folders = Effect.fnUntraced(function* folders(
 	vendor: Vendor,
 	endpoints: {
@@ -90,13 +84,6 @@ const folders = Effect.fnUntraced(function* folders(
 	return xdg;
 });
 
-/**
- * The open mock, the BAA mock and the judge mock, each on its own loopback port, and the `env` of a router that calls
- * them alone: fresh XDG config and state folders whose `config.json` names the open mock as the forwarded clean
- * account, the BAA mock as the keyed sealed account and the judge mock, and the fake keys. Both accounts speak
- * `vendor`'s API. The judge seals each piece `holdsPhi` names and clears the rest. The mocks close and the folders go
- * with the scope.
- */
 const mockWorld = Effect.fnUntraced(function* mockWorld(vendor: Vendor, holdsPhi: (piece: string) => boolean) {
 	const { baa, judge, open } = yield* mocks(vendor, holdsPhi);
 	const xdg = yield* folders(vendor, { baa: baa.endpoint, judge: judge.endpoint, open: open.endpoint });

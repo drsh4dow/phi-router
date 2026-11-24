@@ -10,7 +10,6 @@
 	"src/pi/index.test.ts": 3,
 	"src/pi/index.ts": 18,
 	"src/router/client/judge/decisions.ts": 1,
-	"src/router/client/mock-upstreams/world.ts": 7,
 	"src/router/client/router-port/callers.ts": 12,
 	"src/router/client/router-port/lease-request.ts": 4,
 	"src/router/client/router-port/proof.ts": 13,

@@ -103,8 +103,8 @@ const hooksRan = Effect.fnUntraced(function* hooksRan(folder: string) {
 /**
  * A stand-in for `codex exec` in `check`, which has no real binary. It reads `$CODEX_HOME/config.toml`, runs the
  * SessionStart hooks of each installed plugin when the config holds the hook's trust or the run bypasses hook trust, as
- * `--dangerously-bypass-hook-trust` does, posts one streamed Responses
- * request with the prompt to the provider's `base_url`, reads the whole reply, and exits 0 when it was answered 200.
+ * `--dangerously-bypass-hook-trust` does, asks the provider's `base_url` for its model catalog as Codex does, posts one
+ * streamed Responses request with the prompt there, reads the whole reply, and exits 0 when both were answered 200.
  */
 const started = Effect.gen(function* started() {
 	const fs = yield* FileSystem.FileSystem;
@@ -119,19 +119,27 @@ const started = Effect.gen(function* started() {
 	return yield* valueIn(config, "base_url");
 });
 
+const codexHeaders = HttpClientRequest.setHeaders({
+	authorization: "Bearer phi-doctor-login",
+	"chatgpt-account-id": "phi-doctor-account",
+	originator: "codex_exec",
+	"session-id": session,
+});
+
 const program = Effect.gen(function* program() {
 	const client = yield* HttpClient.HttpClient;
 	const baseUrl = yield* started;
 	const prompt = yield* Effect.fromOption(Array.last(process.argv));
 	const body = yield* codexBodyOf([userMessage(prompt)]);
 
+	const catalog = yield* client.execute(
+		HttpClientRequest.get(`${baseUrl}/models?client_version=0.166.0`).pipe(codexHeaders),
+	);
+
+	yield* catalog.text;
+
 	const request = HttpClientRequest.post(`${baseUrl}/responses`).pipe(
-		HttpClientRequest.setHeaders({
-			authorization: "Bearer phi-doctor-login",
-			"chatgpt-account-id": "phi-doctor-account",
-			originator: "codex_exec",
-			"session-id": session,
-		}),
+		codexHeaders,
 		HttpClientRequest.bodyText(body, "application/json"),
 	);
 
@@ -140,9 +148,10 @@ const program = Effect.gen(function* program() {
 	yield* response.text;
 
 	return yield* Effect.filterOrFail(
-		Effect.succeed(response.status),
-		(status) => status === ok,
-		(status) => `the router answered ${String(status)}`,
+		Effect.succeed([catalog.status, response.status]),
+		Array.every((status) => status === ok),
+		([listed, answered]) =>
+			`the router answered the catalog with ${String(listed)} and the request with ${String(answered)}`,
 	);
 });
 
