@@ -4,12 +4,10 @@ import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { laneLines } from "#tools/route/mocked-router.ts";
 import { privacyUnder } from "#tools/route/private.ts";
 
-/** What a run left: every file in the router's state folder, the lane log's text and lines, and what is not private. */
 interface Stored {
 	readonly fileTexts: readonly string[];
 	readonly laneLogText: string;
 	readonly lines: readonly LaneLogLine[];
-	/** Each folder under the XDG state and config folders that is not 0700, and each file that is not 0600. */
 	readonly notPrivate: readonly string[];
 }
 
@@ -21,12 +19,10 @@ const windowsOf = (text: string): readonly string[] =>
 		Array.map((start) => Str.slice(start, start + windowWidth)(text)),
 	);
 
-/** A content key is a hex SHA-256. */
 const contentKeyLike = /[\da-f]{64}/u;
 
 const isModelPost = ({ method, path }: Sent): boolean => method === "POST" && /\/(?:messages|responses)$/u.test(path);
 
-/** Every file under the router's state folder, the lane log's text and lines, and what under the XDG `roots` is not private. */
 const storedIn = Effect.fnUntraced(function* storedIn(folder: string, roots: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -43,13 +39,6 @@ const storedIn = Effect.fnUntraced(function* storedIn(folder: string, roots: rea
 	return { fileTexts, laneLogText, lines, notPrivate } satisfies Stored;
 });
 
-/**
- * Whether the lane log has one line per model request an account mock received, and no content key. `laneLines`
- * already fails a line with a field it does not name, and the common checks search every stored file for corpus text.
- *
- * @param {object} run What the state folder holds, and what each account mock received in each turn.
- * @returns {boolean} Whether it holds.
- */
 const laneLogHolds = (run: {
 	readonly stored: Stored;
 	readonly turns: readonly { readonly open: readonly Sent[]; readonly baa: readonly Sent[] }[];
