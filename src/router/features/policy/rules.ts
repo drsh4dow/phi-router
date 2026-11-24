@@ -63,12 +63,6 @@ interface RuleHit {
 	readonly kind: IdentifierKind;
 }
 
-/**
- * The first of `active` that fires on a text: a piece's text with its decoded readings, after synthetic blanking.
- *
- * @param {readonly Rule[]} active The rules to apply.
- * @returns {Function} The rule's id and kind for a text, or none.
- */
 const firstHitOf =
 	(active: readonly PolicyRule[]) =>
 	(text: string): Option.Option<RuleHit> =>

@@ -4,6 +4,7 @@ import type { Question, Script } from "./scripted-judge.ts";
 import { Synthetic, thresholds } from "#router/features/policy/index.ts";
 import { assert, it } from "@effect/vitest";
 import { judgeAll, judgedOne, namedKind, pieceOf, ssnHit } from "./scripted-judge.ts";
+import { Base64 } from "effect/encoding";
 import { Digest } from "effect/crypto";
 import type { IdentifierKind } from "#router/features/policy/index.ts";
 import type { Verdict } from "./index.ts";
@@ -258,4 +259,15 @@ it.layer(Digest.layerWebCrypto)("verdictsFor at the judge's thresholds", (test) 
 			);
 		}),
 	);
+});
+
+const encodedHit = Effect.gen(function* encodedHit() {
+	const piece = yield* pieceOf(`token ${Base64.encode("Patient SSN 078-05-1120 on file")}`);
+	const { questions, verdicts } = yield* judgedOne({ piece, script: sealing });
+
+	assert.deepStrictEqual({ questions, verdicts }, { questions: [], verdicts: ruleSealed });
+});
+
+it.layer(Digest.layerWebCrypto)("verdictsFor rules on decoded text", (test) => {
+	test.effect("an SSN inside base64 text seals on its rule without a judge call", () => encodedHit);
 });
