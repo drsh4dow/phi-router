@@ -6,7 +6,6 @@ import { responseEvents, textEvents } from "#router/client/mock-accounts.ts";
 import type { Cause } from "effect";
 import type { Event } from "#router/client/mock-accounts.ts";
 import { NodeServices } from "@effect/platform-node";
-import { TestClock } from "effect/testing";
 
 const deltas = { first: 1, last: 10 } as const;
 
@@ -38,7 +37,8 @@ const eventLine = "event: ";
 
 /**
  * The open mock sends each event only when the test offers it, and the test offers the next only once the harness side
- * has read the last. A router that buffers the reply never delivers the first, and the take times out.
+ * has read the last. A router that buffers the reply never delivers the first, so the take waits until the test times
+ * out.
  */
 const streaming = Effect.fnUntraced(function* streaming(harness: keyof typeof harnesses) {
 	const { events } = harnesses[harness];
@@ -66,15 +66,7 @@ const streaming = Effect.fnUntraced(function* streaming(harness: keyof typeof ha
 
 	const seen = yield* Effect.forEach(
 		events,
-		(event, index) =>
-			Queue.offer(toSend, event).pipe(
-				Effect.andThen(Queue.take(arrived)),
-				Effect.timeoutOrElse({
-					duration: "2 seconds",
-					orElse: () => Effect.fail(`event ${String(index)} never reached the harness`),
-				}),
-				TestClock.withLive,
-			),
+		(event) => Queue.offer(toSend, event).pipe(Effect.andThen(Queue.take(arrived))),
 		{ concurrency: 1 },
 	);
 

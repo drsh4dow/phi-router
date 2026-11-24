@@ -108,6 +108,15 @@ const gates: readonly Gate[] = [
 		script: "comments",
 	},
 	{
+		fixture: "live-bounds",
+		messages: [
+			"A unit test bounds nothing by the real clock.",
+			"src/router/features/sample/bounded.test.ts:5:",
+			"src/router/features/sample/bounded.test.ts:7:",
+		],
+		script: "comments",
+	},
+	{
 		fixture: "private-writes",
 		messages: [
 			"Write files and make folders through src/router/client/private-file.ts",
