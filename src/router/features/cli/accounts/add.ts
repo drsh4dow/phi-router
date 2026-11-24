@@ -12,7 +12,6 @@ interface AddRequest {
 	readonly sealed: boolean;
 }
 
-/** `accounts add` changed nothing. The reason never holds a token. */
 class AddRefused extends Schema.TaggedError<AddRefused, { readonly brand: unique symbol }>()("AddRefused", {
 	reason: Schema.String,
 }) {
@@ -63,7 +62,6 @@ const tokenKindOf = (token: string): Option.Option<TokenKind> =>
 
 const refused = (reason: string): AddRefused => AddRefused.make({ reason });
 
-/** A login folder's vendor by its credential file. It runs no vendor CLI and reads no token. */
 const fromFolder = Effect.fnUntraced(function* fromFolder(folder: string) {
 	const seen = yield* loginIn(folder);
 
@@ -95,7 +93,6 @@ const fromFolder = Effect.fnUntraced(function* fromFolder(folder: string) {
 	} satisfies Found;
 });
 
-/** A token command's vendor and scheme by the prefix of what it prints, run once. Only the token's length is kept. */
 const fromCommand = Effect.fnUntraced(function* fromCommand(command: string) {
 	const token = yield* Effect.mapError(readKey({ keyCommand: command }), (error) =>
 		refused(

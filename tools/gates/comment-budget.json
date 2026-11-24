@@ -3,8 +3,6 @@
 	"src/router/features/border/guard.ts": 2,
 	"src/router/features/border/target.ts": 3,
 	"src/router/features/border/texts.ts": 5,
-	"src/router/features/cli/accounts/add.ts": 3,
-	"src/router/features/cli/accounts/index.ts": 3,
 	"src/router/features/cli/adapters.ts": 1,
 	"src/router/features/cli/serve.ts": 1,
 	"src/router/features/lanes/decide.test.ts": 4,

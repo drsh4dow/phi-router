@@ -95,10 +95,6 @@ const endOf = Effect.fnUntraced(function* endOf(end: number, fix: string) {
 	return { ending: Option.some(`ok. Login ends ${day}.`), gone: Option.none() };
 });
 
-/**
- * What a login folder says about its login, read without its token: `gone` when it holds none or it ended, `ending`
- * when it ends on a known day. Nothing for an account with no login folder.
- */
 const loginOf = Effect.fnUntraced(function* loginOf(account: NamedAccount) {
 	const nothing = { ending: Option.none<string>(), gone: Option.none<string>() };
 
@@ -124,7 +120,6 @@ const loginOf = Effect.fnUntraced(function* loginOf(account: NamedAccount) {
 	});
 });
 
-/** One account's row: a login gone first, then a 429 stamp, then a login's end, else `ok.`, and what it lacks. */
 const rowOf = Effect.fnUntraced(function* rowOf(lane: Lane, account: NamedAccount) {
 	const login = yield* loginOf(account);
 	const stamp = yield* stampOf(account.name);
@@ -215,10 +210,6 @@ const add = Command.make(
 		}),
 );
 
-/**
- * `phi-router accounts`: prints each lane's accounts in the file's order, a line each: name, vendor, kind and state. It
- * runs no vendor CLI and no key command, and reads no token. Its `add` adds one.
- */
 const accounts = Command.make("accounts", {}, () => listed).pipe(
 	Command.provide(AccountState.layer),
 	Command.withSubcommands([add]),

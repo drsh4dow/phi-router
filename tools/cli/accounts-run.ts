@@ -7,6 +7,7 @@ const tokens = {
 	codexFolder: "phi-test-codex-folder-token",
 	command: "sk-ant-oat01-phi-test-token-command",
 	key: "sk-phi-test-openai-key",
+	unknown: "phi-test-unknown-prefix-token",
 } as const;
 
 const later = 4_102_444_800_000;
@@ -61,7 +62,7 @@ interface Prepared {
 	readonly configFile: string;
 	readonly env: { readonly TZ: string; readonly XDG_CONFIG_HOME: string; readonly XDG_STATE_HOME: string };
 	readonly folders: { readonly claude: string; readonly codex: string; readonly none: string };
-	readonly commands: { readonly key: string; readonly token: string };
+	readonly commands: { readonly key: string; readonly token: string; readonly unknown: string };
 	readonly state: string;
 }
 
@@ -91,6 +92,7 @@ const loginsIn = Effect.fnUntraced(function* loginsIn(outside: string) {
 	yield* fs.writeFileString(path.join(folders.codex, "auth.json"), codex);
 	yield* fs.writeFileString(path.join(outside, "token"), `${tokens.command}\n`);
 	yield* fs.writeFileString(path.join(outside, "key"), `${tokens.key}\n`);
+	yield* fs.writeFileString(path.join(outside, "unknown"), `${tokens.unknown}\n`);
 
 	return folders;
 });
@@ -109,7 +111,11 @@ const prepared = Effect.fnUntraced(function* prepared(name: keyof typeof configs
 	yield* fs.writeFileString(configFile, text);
 
 	return {
-		commands: { key: `cat '${path.join(outside, "key")}'`, token: `cat '${path.join(outside, "token")}'` },
+		commands: {
+			key: `cat '${path.join(outside, "key")}'`,
+			token: `cat '${path.join(outside, "token")}'`,
+			unknown: `cat '${path.join(outside, "unknown")}'`,
+		},
 		configFile,
 		env: { TZ: "UTC", XDG_CONFIG_HOME: xdgConfig, XDG_STATE_HOME: xdgState },
 		folders: yield* loginsIn(outside),

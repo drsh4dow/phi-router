@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Path, Schema, String as Str, pipe } from "effect";
+import { Array, Config, Effect, FileSystem, Path, Schema, String as Str, Struct, pipe } from "effect";
 import { ConfigFile, claudeCredentials, leaks, phiRouter, prepared, tokens } from "./accounts-run.ts";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
@@ -213,33 +213,49 @@ const noLogin = refusedWith(
 	],
 );
 
+const unknownPrefix = refusedWith(
+	"both",
+	(run) => ["accounts", "add", "--command", run.commands.unknown],
+	() => ["prefix is unknown", "Nothing changed."],
+);
+
 const noSealedAccount = refusedWith(
 	"claudeOnly",
 	(run) => ["accounts", "add", run.folders.codex],
 	() => ["vendor openai needs an account in clean and an account in sealed", "Nothing changed."],
 );
 
-const troubled = Effect.fnUntraced(function* troubled(run: Prepared) {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
+const stamped =
+	'{"rateLimited":{"claude-1":"2099-01-01T14:52:00.000Z","claude-2":"2099-01-01T14:52:00.000Z","claude-3":"2099-01-01T14:52:00.000Z"}}';
 
-	yield* fs.writeFileString(path.join(run.folders.claude, ".credentials.json"), claudeCredentials(earlier));
-	yield* fs.makeDirectory(run.state, { recursive: true });
-	yield* fs.writeFileString(
-		path.join(run.state, "accounts.json"),
-		'{"rateLimited":{"claude-1":"2099-01-01T14:52:00.000Z"}}',
-	);
-});
+const fixOf = (folder: string): string => `CLAUDE_CONFIG_DIR=${folder} claude auth login`;
 
 const listsTrouble = Effect.gen(function* listsTrouble() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
 	const run = yield* prepared("claudeOnly");
-	const added = yield* phiRouter(run.env, ["accounts", "add", run.folders.claude]);
+	const { claude, codex, none } = run.folders;
+	const emptied = path.join(path.dirname(none), "emptied");
+	const credentials = (folder: string): string => path.join(folder, ".credentials.json");
 
-	yield* troubled(run);
+	yield* fs.makeDirectory(emptied);
+	yield* Effect.forEach([none, codex, emptied], (folder) => fs.copyFile(credentials(claude), credentials(folder)), {
+		concurrency: 1,
+	});
+
+	const added = yield* Effect.forEach(
+		[claude, none, codex, emptied],
+		(folder) => phiRouter(run.env, ["accounts", "add", folder]),
+		{ concurrency: 1 },
+	);
+
+	yield* fs.writeFileString(credentials(claude), claudeCredentials(earlier));
+	yield* Effect.forEach([codex, emptied], (folder) => fs.remove(credentials(folder)), { concurrency: 1 });
+	yield* fs.makeDirectory(run.state, { recursive: true });
+	yield* fs.writeFileString(path.join(run.state, "accounts.json"), stamped);
 
 	const listed = yield* phiRouter(run.env, ["accounts"]);
-	const leaked = yield* leaks(rootsOf(run), printedBy([added, listed]));
-	const fix = `CLAUDE_CONFIG_DIR=${run.folders.claude} claude auth login`;
+	const leaked = yield* leaks(rootsOf(run), printedBy([...added, listed]));
 
 	assert.deepStrictEqual(
 		{ leaked, listed },
@@ -252,7 +268,10 @@ const listsTrouble = Effect.gen(function* listsTrouble() {
 					[
 						"Clean lane",
 						"  claude-1    Claude  forwarded     rate-limited. Back at 14:52.",
-						`  claude-2    Claude  login folder  login ended 2020-01-01. Fix: ${fix}`,
+						`  claude-2    Claude  login folder  login ended 2020-01-01. Fix: ${fixOf(claude)}`,
+						"  claude-3    Claude  login folder  rate-limited. Back at 14:52.",
+						`  claude-4    Claude  login folder  no login. Fix: ${fixOf(codex)}`,
+						`  claude-5    Claude  login folder  no login. Fix: ${fixOf(emptied)}`,
 						"Sealed lane",
 						"  enterprise  Claude  forwarded     ok.",
 						"",
@@ -261,6 +280,51 @@ const listsTrouble = Effect.gen(function* listsTrouble() {
 				),
 			},
 		},
+	);
+});
+
+const runnable = 0o755;
+
+const recordsRuns = (log: string, name: string): string => `#!/bin/sh\necho ${name} >> '${log}'\n`;
+
+const runsOnlyTheTokenCommand = Effect.gen(function* runsOnlyTheTokenCommand() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const run = yield* prepared("both");
+	const bin = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-bin-" });
+	const log = path.join(bin, "ran");
+	const searchPath = yield* Config.String("PATH");
+	const env = Struct.assign(run.env, { PATH: `${bin}:${searchPath}` });
+	const counted = `echo command >> '${log}'; ${run.commands.token}`;
+
+	yield* Effect.forEach(
+		["claude", "codex"],
+		(cli) => fs.writeFileString(path.join(bin, cli), recordsRuns(log, cli), { mode: runnable }),
+		{ concurrency: 1 },
+	);
+
+	const runs = yield* Effect.forEach(
+		[
+			["accounts", "add", run.folders.claude],
+			["accounts", "add", run.folders.codex],
+			["accounts", "add", "--command", counted],
+			["accounts"],
+		],
+		(args) => phiRouter(env, args),
+		{ concurrency: 1 },
+	);
+
+	const ran = yield* textOf(log);
+
+	assert.deepStrictEqual(
+		{
+			exitCodes: pipe(
+				runs,
+				Array.map(({ exitCode }) => exitCode),
+			),
+			ran,
+		},
+		{ exitCodes: [succeeded, succeeded, succeeded, succeeded], ran: "command\n" },
 	);
 });
 
@@ -333,6 +397,16 @@ it.layer(NodeServices.layer)("phi-router accounts", (test) => {
 		patient,
 	);
 	test.effect(
+		"add refuses a token command that prints an unknown prefix without naming the token, and writes nothing",
+		() => unknownPrefix,
+		patient,
+	);
+	test.effect(
+		"add of a login folder and the list run no vendor CLI, and add runs a token command once and the list never",
+		() => runsOnlyTheTokenCommand,
+		patient,
+	);
+	test.effect(
 		"add refuses an account that leaves its vendor with no sealed account, and writes nothing",
 		() => noSealedAccount,
 		patient,
@@ -343,7 +417,7 @@ it.layer(NodeServices.layer)("phi-router accounts", (test) => {
 		patient,
 	);
 	test.effect(
-		"the list shows a stamped account rate-limited and an ended login with its fix",
+		"the list shows an ended login before a stamp, a stamp before a login's end, and a folder with no login or only the other vendor's as no login, each with its fix",
 		() => listsTrouble,
 		patient,
 	);
