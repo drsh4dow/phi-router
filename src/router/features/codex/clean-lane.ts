@@ -5,11 +5,6 @@ import { contentKey } from "#router/primitives/content-key.ts";
 
 type IsReplyKey = (key: typeof ContentKey.Type) => boolean;
 
-/**
- * An encrypted blob as OpenAI writes it: a Fernet token, whose version byte and zero high time bytes always encode as
- * `gAAAAA`. The other lane decrypts it (measured), so a blob reaches the clean lane only if a clean-lane reply
- * wrote it.
- */
 const blob = /gAAAAA[\w-]+=*/gu;
 
 const blobsIn = (text: string): readonly string[] =>
@@ -28,13 +23,6 @@ const blobsIn = (text: string): readonly string[] =>
 const cleanLaneKey = (value: string): Effect.Effect<typeof ContentKey.Type, never, Digest.Digest> =>
 	contentKey(["clean-lane", value]);
 
-/**
- * The key a clean-lane reply's item is remembered under: its id and what the engine reads of it, so other content
- * under the same id is not that reply's.
- *
- * @param {object} item The item's id, and the JSON of the content the engine reads of it.
- * @returns {Effect.Effect<ContentKey, never, Digest.Digest>} Its key.
- */
 const cleanLaneItemKey = (item: {
 	readonly id: string;
 	readonly content: string;

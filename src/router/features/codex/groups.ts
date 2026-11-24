@@ -9,7 +9,6 @@ interface Entry<Item extends WireItem = WireItem> {
 	readonly raw: typeof Raw.Type;
 }
 
-/** An input item the codec cannot read. `paired` when it carries a `call_id`, so no stub can take its place. */
 interface Unread {
 	readonly kind: "unread";
 	readonly paired: boolean;
@@ -87,15 +86,6 @@ const listGroups = Array.flatMap((list: readonly (typeof Raw.Type)[]): readonly 
 	}),
 );
 
-/**
- * The grouping, in order: the top-level tool list, each item on its own except that a run of reasoning,
- * assistant messages and calls is one reply, then each list of the frame.
- *
- * @param {object} request The request's items and lists.
- * @param {readonly InputEntry[]} request.entries The input items.
- * @param {Lists} request.lists The top-level tool list, and the other lists judged whole and never stubbed.
- * @returns {readonly Group[]} One group per message the engine reads.
- */
 const groupsOf = ({
 	entries,
 	lists: { frame, tools },

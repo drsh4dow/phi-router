@@ -5,23 +5,11 @@ import type { Raw } from "./wire.ts";
 import type { WirePart } from "./wire-parts.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
-/**
- * The clean lane cannot take this request, so it goes to the sealed lane: what no stub can stand in for is not cleared,
- * holds a blob no clean-lane reply wrote, or is not what the codec reads. That is a list judged whole, such as the tool
- * list, the body's other fields, or an item the codec cannot read that carries a call id.
- */
 class CleanLaneRefused extends Schema.TaggedError<CleanLaneRefused, { readonly brand: unique symbol }>()(
 	"CleanLaneRefused",
 	{},
 ) {}
 
-/**
- * The field that holds an item's content, and what it holds as the stub. Reasoning has none and goes.
- *
- * @param {ContentEntry} entry The item.
- * @param {string} stub The stub text.
- * @returns {Option.Option<readonly [string, unknown]>} The field and its stubbed value.
- */
 const stubField = ({ item }: ContentEntry, stub: string): Option.Option<readonly [string, unknown]> => {
 	switch (item.type) {
 		case "reasoning": {
@@ -66,14 +54,6 @@ const textOf = (block: Exclude<Message, { readonly role: "system" }>["content"][
 	return Option.none();
 };
 
-/**
- * The stub the border wrote in place of a part: its first text. A part the border passed is unjudged here, so it
- * takes the unknown stub.
- *
- * @param {Message} guarded What the border returned for the part.
- * @param {boolean} passed Whether the border passed the part as sent.
- * @returns {string} The stub text.
- */
 const stubOf = (guarded: Message, passed: boolean): string => {
 	if (passed) {
 		return stubs.unknown;
@@ -89,12 +69,6 @@ const stubOf = (guarded: Message, passed: boolean): string => {
 	);
 };
 
-/**
- * Each item keeps its place, its ids and its name, and its content becomes the stub.
- *
- * @param {string} stub The stub text.
- * @returns {(entry: ContentEntry) => readonly Raw[]} The item stubbed, or nothing for reasoning.
- */
 const stubbed =
 	(stub: string) =>
 	(entry: ContentEntry): readonly (typeof Raw.Type)[] =>
@@ -122,16 +96,6 @@ const raws = (entries: readonly Entry[]): readonly (typeof Raw.Type)[] =>
 		Array.map(({ raw }) => raw),
 	);
 
-/**
- * What the clean lane gets of one part, from what the border returned for it: as sent less the reasoning no
- * clean-lane reply wrote, when the border passed it and nothing in it is unjudged, else each item as the border's stub.
- * The border already refused a tool list that is not cleared. One that holds an unwritten blob, or an item the codec
- * cannot read that carries a call id, refuses the request.
- *
- * @param {WirePart} wirePart The part as wire items.
- * @returns {(guarded: Message) => Effect.Effect<readonly Raw[], CleanLaneRefused>} The items of the part, as sent or
- *   stubbed, from what the border returned for its message.
- */
 const cleanItems =
 	(wirePart: WirePart) =>
 	(guarded: Message): Effect.Effect<readonly (typeof Raw.Type)[], CleanLaneRefused> => {

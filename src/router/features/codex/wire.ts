@@ -1,12 +1,7 @@
 import { Option, Schema } from "effect";
 
-/**
- * Content kept as sent. `messages.ts` reads the parts `ReadPart` names, and any other part makes its message
- * unjudged, so a new part type reaches the clean lane only as the stub.
- */
 const ContentAsSent = Schema.Array(Schema.Unknown);
 
-/** A JSON object as sent, its keys in their order, which is the form a request is written back in. */
 const Raw = Schema.Record(Schema.String, Schema.Unknown);
 
 const optionalString = Schema.optionalKey(Schema.String);
@@ -34,7 +29,6 @@ const OutputMessage = Schema.Struct({
 	type: Schema.Literal("message"),
 });
 
-/** Never judged: the clean lane gets one only when a clean-lane reply wrote its blob, and never a rebuilt one. */
 const Reasoning = Schema.Struct({
 	content: Schema.optionalKey(Schema.NullOr(ContentAsSent)),
 	encrypted_content: Schema.String,
@@ -94,10 +88,8 @@ const Reasoned = Schema.Struct({
 	summary: optionalString,
 });
 
-/** The reply's verbosity, and the JSON schema Codex asks for when it writes a thread title. */
 const TextFormat = Schema.Struct({ format: Schema.optionalKey(Raw), verbosity: Schema.String });
 
-/** A session, turn or window id as Codex writes it: a UUID, and for a window its number after a colon. */
 const CodexId = Schema.String.check(Schema.isPattern(/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}(?::\d+)?$/u));
 
 const optionalId = Schema.optionalKey(CodexId);
@@ -114,11 +106,6 @@ const Compaction = Schema.Struct({ implementation: Word, phase: Word, reason: Wo
 
 const ModelSlug = Schema.String.check(Schema.isPattern(/^[\w./:-]+$/u));
 
-/**
- * Codex's JSON of the turn's ids and settings, held to the keys it writes. The agent's name is judged with the names.
- * `workspaces` holds each git folder of the turn by path, with its remotes and commit: free text that only the sealed
- * lane gets.
- */
 const TurnMetadata = Schema.Struct({
 	agent_name: optionalString,
 	analytics_enabled: optionalBoolean,
@@ -155,10 +142,6 @@ const readJson = Schema.decodeUnknownOption(AnyJson);
 
 const writeJson = Schema.encodeOption(AnyJson);
 
-/**
- * JSON written as Codex writes it, compact and with each key once. A parser keeps the last of two equal keys, so a
- * first one would reach the upstream unread.
- */
 const CompactJson = Schema.String.check(
 	Schema.makeFilter((text: string) => Option.contains(Option.flatMap(readJson(text), writeJson), text), {
 		expected: "compact JSON with each key once",
@@ -167,7 +150,6 @@ const CompactJson = Schema.String.check(
 
 const TurnMetadataJson = CompactJson.pipe(Schema.decodeTo(Schema.fromJsonString(TurnMetadata)));
 
-/** Codex's own bookkeeping, held to the keys it writes so no other text rides along. */
 const ClientMetadata = Schema.Struct({
 	parent_turn_id: optionalId,
 	root_turn_id: optionalId,
@@ -181,11 +163,6 @@ const ClientMetadata = Schema.Struct({
 	"x-openai-subagent": optionalWord,
 });
 
-/**
- * A Codex Responses request as the clean lane may get it. Its field names are the only ones a request may carry (ADR
- * 0001). A body whose fields hold anything else goes only to the sealed lane. `tools` is the fallback dialect's tool
- * list, where the lite dialect sends an `additional_tools` item. Each input item is read on its own.
- */
 const Body = Schema.Struct({
 	client_metadata: Schema.optionalKey(ClientMetadata),
 	include: Schema.Array(Schema.String),
@@ -212,12 +189,10 @@ const ReadPart = Schema.Union([
 
 type WireItem = typeof Item.Type;
 
-/** The items of one model reply, which make one part. */
 type ReplyItem =
 	| Extract<WireItem, { readonly type: "reasoning" | "function_call" | "custom_tool_call" }>
 	| typeof OutputMessage.Type;
 
-/** An item that makes a part on its own. */
 type LoneItem = Exclude<WireItem, ReplyItem | typeof AdditionalTools.Type>;
 
 export { Body, Item, Raw, ReadPart };

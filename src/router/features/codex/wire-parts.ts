@@ -64,14 +64,6 @@ const SummaryText = Schema.Struct({ text: Schema.String, type: Schema.Literal("s
 
 const readSummary = Schema.decodeUnknownOption(Schema.Array(SummaryText));
 
-/**
- * A reasoning item stays on the clean lane only when a clean-lane reply wrote its blob and each summary text, and it
- * holds no plain reasoning text.
- *
- * @param {CleanLaneWrote} wrote What the session's clean-lane replies wrote.
- * @param {Reasoning} item The reasoning item.
- * @returns {Effect.Effect<boolean, never, Digest.Digest>} Whether it stays.
- */
 const reasoningKept = (
 	wrote: IsReplyKey,
 	item: Extract<ContentEntry["item"], { readonly type: "reasoning" }>,

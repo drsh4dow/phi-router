@@ -49,7 +49,6 @@ const sortedKeys = (values: readonly unknown[]): readonly unknown[] =>
 
 const stringOrSpace = /(?<string>"(?:[^"\\]|\\.)*")|\s+/gu;
 
-/** JSON text without the spacing between its tokens. */
 const unspaced = Str.replaceAll(stringOrSpace, "$<string>");
 
 /**
@@ -78,12 +77,6 @@ const canonicalText = Effect.fnUntraced(function* canonicalText(text: string) {
 	return yield* encodeJson(sorted);
 }, Effect.orDie);
 
-/**
- * A JSON object as text, its keys in the order it was read in.
- *
- * @param {Raw} raw The object.
- * @returns {Effect.Effect<string>} Its JSON text.
- */
 const rawText = (raw: typeof Raw.Type): Effect.Effect<string> => Effect.orDie(encodeRaw(raw));
 
 export { canonicalText, rawText };
