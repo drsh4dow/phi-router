@@ -21,7 +21,6 @@ import { rules } from "./rules.ts";
 
 const PolicyVersion = Schema.String.pipe(Schema.brand("PolicyVersion"));
 
-/** A judge as a version reads it: its name, whose thresholds it hashes, and the model it runs. */
 interface VersionedJudge {
 	readonly name: JudgeName;
 	readonly model: string;

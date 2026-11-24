@@ -38,4 +38,13 @@ it.layer(Digest.layerWebCrypto)("policyVersion", (test) => {
 			assert.notStrictEqual(after, before);
 		}),
 	);
+
+	test.effect("changes when another judge runs the same model, since its thresholds differ", () =>
+		Effect.gen(function* changedJudge() {
+			const before = yield* policyVersion(decisions);
+			const after = yield* policyVersion({ model: decisions.model, name: "claude" });
+
+			assert.notStrictEqual(after, before);
+		}),
+	);
 });
