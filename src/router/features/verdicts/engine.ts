@@ -225,10 +225,6 @@ const verdictOf = Effect.fnUntraced(
 	Effect.match({ onFailure: Function.identity, onSuccess: Function.identity }),
 );
 
-/**
- * Verdicts for the pieces whose keys `known` does not hold, each key judged once. Never fails: a judge error, timeout,
- * refusal or unreadable input seals that one piece. An interruption propagates. Callers persist `found` themselves.
- */
 const verdictsFor = Effect.fn("verdictsFor")(function* verdictsFor<Key extends string>(
 	pieces: readonly Piece<Key>[],
 	known: (key: Key) => boolean,
