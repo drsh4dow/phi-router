@@ -1,8 +1,7 @@
 import { Array, Effect, Schema, Struct, pipe } from "effect";
-import type { ChoiceQuestion, JudgeInput, ScoreQuestion } from "#router/client/judge.ts";
+import type { ChoiceQuestion, JudgeFailed, JudgeInput, ScoreQuestion } from "#router/client/judge/index.ts";
 import { assert, it } from "@effect/vitest";
 import { configuredJudge, mockedJudge } from "./configured.ts";
-import type { JudgeFailed } from "#router/client/judge-failed.ts";
 import { KeyUnreadable } from "#router/client/accounts/index.ts";
 import type { Named } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";

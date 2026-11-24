@@ -1,11 +1,11 @@
 import { Context, Effect, Layer, Struct } from "effect";
-import type { JudgeFailed, Usage } from "./judge-failed.ts";
-import { chosenJudge, claudeOnSealed } from "./judge-choice.ts";
-import type { ChosenJudge } from "./judge-choice.ts";
+import type { JudgeFailed, Usage } from "./failed.ts";
+import { chosenJudge, claudeOnSealed } from "./choice.ts";
+import type { ChosenJudge } from "./choice.ts";
 import { UserDirectories } from "effect/persistence";
-import { claude } from "./judge-claude.ts";
-import { decisions } from "./judge-decisions.ts";
-import { upstreamHttp } from "./accounts/index.ts";
+import { claude } from "./claude.ts";
+import { decisions } from "./decisions.ts";
+import { upstreamHttp } from "#router/client/accounts/index.ts";
 
 /** What the judge reads: the piece's text, cleared context beside it, and the piece's images. */
 interface JudgeInput {
@@ -68,7 +68,7 @@ const judgeHttp = Layer.merge(upstreamHttp, UserDirectories.layer);
  * question does not list, fails as `judge-error`.
  */
 class Judge extends Context.Service<Judge, Asking & { readonly name: JudgeName; readonly model: string }>()(
-	"phi-router/router/client/judge",
+	"phi-router/router/client/judge/Judge",
 ) {
 	/** The judge the configuration picks. */
 	public static readonly layer = Layer.effect(Judge, chosenJudge.pipe(Effect.flatMap(askingOf))).pipe(
@@ -84,3 +84,9 @@ class Judge extends Context.Service<Judge, Asking & { readonly name: JudgeName; 
 export { Judge };
 
 export type { Asking, ChoiceQuestion, JudgeInput, JudgeName, ScoreQuestion };
+
+export { judgeModels } from "./choice.ts";
+
+export { JudgeFailed } from "./failed.ts";
+
+export type { Usage } from "./failed.ts";

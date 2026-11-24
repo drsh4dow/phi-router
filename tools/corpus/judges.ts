@@ -1,7 +1,7 @@
 import { Boolean, Console, Context, DateTime, Effect, FileSystem, Layer, pipe } from "effect";
 import type { PlatformError, Schema } from "effect";
 import { recordedJudge, recording, recordingsPaths } from "./recorded.ts";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import { liveJudge } from "#tools/judge/live.ts";
 
 /**

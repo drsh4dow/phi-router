@@ -4,7 +4,7 @@ import type { Case, PhiCase, PhiStrata } from "./manifest.ts";
 import type { Lane } from "#router/features/lanes/index.ts";
 import type { Seen } from "./seen.ts";
 import type { Tracked } from "./canary-tokens.ts";
-import type { Usage } from "#router/client/judge-failed.ts";
+import type { Usage } from "#router/client/judge/index.ts";
 import { seenOn } from "./seen.ts";
 
 interface Decided {

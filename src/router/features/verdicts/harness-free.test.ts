@@ -3,7 +3,7 @@ import { Findings, Verdicts, verdictsFor } from "./index.ts";
 import { assert, it } from "@effect/vitest";
 import { scripted, ssnHit } from "./scripted-judge.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { piecesOf } from "#router/features/parts/index.ts";
 

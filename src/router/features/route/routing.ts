@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from "effect";
 import { LaneChoice, pinning } from "#router/features/lanes/index.ts";
 import { Configuration } from "#router/client/configuration/index.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import { LaneLog } from "#router/client/lane-log.ts";
 import { Upstream } from "#router/client/accounts/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";

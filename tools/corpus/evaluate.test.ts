@@ -1,11 +1,10 @@
 import { Array, Effect, Layer, Option, String as Str, pipe } from "effect";
 import type { Case, Synthetic } from "./manifest.ts";
+import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
 import { Rules, firstHit, identifierKind, stubs } from "#router/features/policy/index.ts";
 import { assert, it } from "@effect/vitest";
 import { evaluate, play } from "./evaluate.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
-import { JudgeFailed } from "#router/client/judge-failed.ts";
 import { missRateUpperBound } from "./report.ts";
 
 /** Half a unit in the fourth decimal place, the tolerance of a bound given to four decimals. */

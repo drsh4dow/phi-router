@@ -1,9 +1,9 @@
 import { Array, Effect, Option, Schema, pipe } from "effect";
-import { Configuration, configuredAccounts } from "./configuration/index.ts";
-import type { KeySource, NamedAccount } from "./configuration/index.ts";
-import type { JudgeName } from "./judge.ts";
-import { claudeModel } from "./judge-claude.ts";
-import { decisionsModel } from "./judge-decisions.ts";
+import { Configuration, configuredAccounts } from "#router/client/configuration/index.ts";
+import type { KeySource, NamedAccount } from "#router/client/configuration/index.ts";
+import type { JudgeName } from "./index.ts";
+import { claudeModel } from "./claude.ts";
+import { decisionsModel } from "./decisions.ts";
 
 /** The judge a configuration picks, with the model it runs. */
 type ChosenJudge =

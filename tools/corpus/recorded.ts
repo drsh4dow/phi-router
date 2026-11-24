@@ -11,13 +11,10 @@ import {
 	String as Str,
 	pipe,
 } from "effect";
-import type { ChoiceQuestion, JudgeInput, JudgeName } from "#router/client/judge.ts";
+import type { ChoiceQuestion, JudgeInput, JudgeName, Usage } from "#router/client/judge/index.ts";
+import { Judge, JudgeFailed, judgeModels } from "#router/client/judge/index.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
-import { JudgeFailed } from "#router/client/judge-failed.ts";
-import type { Usage } from "#router/client/judge-failed.ts";
 import { decodeJsonLines } from "./jsonl.ts";
-import { judgeModels } from "#router/client/judge-choice.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
 
 /** The recordings kept beside this file, one file per judge. */

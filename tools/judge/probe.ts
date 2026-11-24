@@ -1,7 +1,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, Layer } from "effect";
 import { identifierQuestion, judgeLimits, thresholds } from "#router/features/policy/index.ts";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import { liveJudge } from "./live.ts";
 
 /** A canary SSN in a labelled sentence. Area 923 was never issued, so it names no one. */

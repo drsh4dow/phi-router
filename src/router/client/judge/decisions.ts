@@ -1,10 +1,10 @@
 import { Array, Duration, Effect, Option, Record, Schema, pipe } from "effect";
-import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./judge.ts";
+import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./index.ts";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import type { ChosenJudge } from "./judge-choice.ts";
-import { JudgeFailed } from "./judge-failed.ts";
-import type { Usage } from "./judge-failed.ts";
-import { readKey } from "./accounts/index.ts";
+import type { ChosenJudge } from "./choice.ts";
+import { JudgeFailed } from "./failed.ts";
+import type { Usage } from "./failed.ts";
+import { readKey } from "#router/client/accounts/index.ts";
 
 const names = { identifier: "identifier", kind: "kind" } as const;
 

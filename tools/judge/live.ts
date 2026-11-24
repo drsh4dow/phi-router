@@ -1,5 +1,5 @@
 import { Configuration } from "#router/client/configuration/index.ts";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import { Layer } from "effect";
 
 /** The judge the router's configuration picks. */

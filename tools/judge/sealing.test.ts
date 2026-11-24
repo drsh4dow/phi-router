@@ -3,7 +3,7 @@ import { Findings, Verdicts, verdictsFor } from "#router/features/verdicts/index
 import { assert, it } from "@effect/vitest";
 import { mockOn, mockedJudge } from "./configured.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import type { Named } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Piece } from "#router/features/policy/index.ts";

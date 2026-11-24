@@ -1,10 +1,9 @@
 import { Array, Effect, String as Str, pipe } from "effect";
+import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import { assert, it } from "@effect/vitest";
 import { guard, stubsFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
-import { JudgeFailed } from "#router/client/judge-failed.ts";
 import type { Lane } from "./index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { Verdicts } from "#router/features/verdicts/index.ts";

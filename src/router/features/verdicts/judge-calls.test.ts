@@ -4,7 +4,7 @@ import { assert, it } from "@effect/vitest";
 import { judgeAll, judgedOne, namedKind, pieceOf } from "./scripted-judge.ts";
 import { Digest } from "effect/crypto";
 import type { Image } from "#router/features/policy/index.ts";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import type { Script } from "./scripted-judge.ts";
 
 const clears = 0.1;

@@ -2,7 +2,7 @@ import { Array, Effect, Function, Number as Num, Option, Ref, Result, String as 
 import type { Call, Spend } from "./ask.ts";
 import { Findings, Verdicts } from "./verdict.ts";
 import type { IdentifierKind, Image, Piece, PieceKind } from "#router/features/policy/index.ts";
-import type { JudgeFailed, Usage } from "#router/client/judge-failed.ts";
+import type { JudgeFailed, JudgeInput, Usage } from "#router/client/judge/index.ts";
 import {
 	Rules,
 	Synthetic,
@@ -13,8 +13,7 @@ import {
 	kindQuestion,
 	thresholds,
 } from "#router/features/policy/index.ts";
-import { Judge } from "#router/client/judge.ts";
-import type { JudgeInput } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import type { Verdict } from "./verdict.ts";
 import { ask } from "./ask.ts";
 import { expand } from "./expand.ts";

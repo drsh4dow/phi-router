@@ -2,7 +2,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import { NodeServices } from "@effect/platform-node";
 import { encodeCorpus } from "./generate.ts";
 import { evaluate } from "./evaluate.ts";

@@ -4,7 +4,7 @@ import { judgingOn, sealingWhen } from "#router/client/mock-upstreams.ts";
 import { responseEvents, serveAnthropic, serveOpenAi, textEvents } from "#router/client/mock-accounts.ts";
 import { HttpClientRequest } from "effect/http";
 import type { HttpServer } from "effect/http";
-import type { JudgeName } from "#router/client/judge.ts";
+import type { JudgeName } from "#router/client/judge/index.ts";
 import type { Reply } from "#router/client/mock-upstreams.ts";
 import type { Scope } from "effect";
 import { fakes } from "./fake-credentials.ts";

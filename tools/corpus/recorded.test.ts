@@ -1,10 +1,9 @@
 import { Array, Effect, Option, pipe } from "effect";
+import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
 import { assert, it } from "@effect/vitest";
 import { identifierKind, identifierQuestion, kindQuestion } from "#router/features/policy/index.ts";
 import { recordedJudge, recording } from "./recorded.ts";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
-import { JudgeFailed } from "#router/client/judge-failed.ts";
 
 const usage = { calls: 1, cost: 0.002, inputTokens: 120, ms: 300 };
 

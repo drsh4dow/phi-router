@@ -2,7 +2,7 @@ import { Array, Cause, Console, Effect, FileSystem, Option, Path, Predicate, Sch
 import { CaseFromJsonLine, SyntheticIdentities } from "./manifest.ts";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Digest } from "effect/crypto";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import type { JudgeChoice } from "./judges.ts";
 import { decodeJsonLines } from "./jsonl.ts";
 import { defaultCorpus } from "./default-corpus.ts";

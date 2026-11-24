@@ -1,6 +1,6 @@
 import { Duration, Effect, Result } from "effect";
-import { JudgeFailed } from "#router/client/judge-failed.ts";
-import type { Usage } from "#router/client/judge-failed.ts";
+import { JudgeFailed } from "#router/client/judge/index.ts";
+import type { Usage } from "#router/client/judge/index.ts";
 import { judgeLimits } from "#router/features/policy/index.ts";
 
 /** Adds what one judge call cost to the verdicts' running total. */

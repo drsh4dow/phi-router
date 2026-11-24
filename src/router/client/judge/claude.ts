@@ -1,12 +1,12 @@
 import { Array, Duration, Effect, Option, Schema, Stream, pipe } from "effect";
-import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./judge.ts";
-import type { ChosenJudge } from "./judge-choice.ts";
+import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./index.ts";
+import type { ChosenJudge } from "./choice.ts";
 import { HttpClientRequest } from "effect/http";
-import { JudgeFailed } from "./judge-failed.ts";
-import type { NamedAccount } from "./configuration/index.ts";
-import type { Usage } from "./judge-failed.ts";
-import { askingOf } from "./accounts/index.ts";
-import { textOf } from "./judge-decisions.ts";
+import { JudgeFailed } from "./failed.ts";
+import type { NamedAccount } from "#router/client/configuration/index.ts";
+import type { Usage } from "./failed.ts";
+import { askingOf } from "#router/client/accounts/index.ts";
+import { textOf } from "./decisions.ts";
 
 /**
  * Claude Code's identity, the first block of every call's system prompt. A Claude login's token answers only a request

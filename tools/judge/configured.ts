@@ -1,7 +1,7 @@
 import { ConfigProvider, Context, Effect, FileSystem, Layer, Path, Schema, Struct } from "effect";
 import { Configuration } from "#router/client/configuration/index.ts";
 import type { Json } from "#router/client/mock-accounts.ts";
-import { Judge } from "#router/client/judge.ts";
+import { Judge } from "#router/client/judge/index.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams.ts";
 import { serveJudge } from "#router/client/mock-upstreams.ts";
