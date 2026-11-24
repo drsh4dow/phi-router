@@ -5,13 +5,8 @@ import { NodeHttpServer } from "@effect/platform-node";
 import { proofOf } from "#router/client/router-port/index.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
-/** A secret that is not the developer's: another user's router answers under its own. */
 const othersSecret = "7777777777777777777777777777777777777777777777777777777777777777";
 
-/**
- * Leaves the developer's own secret in the router's state folder `state`, as a router they ran before left it, so the
- * listener's answer is checked against a secret it does not hold rather than refused for a missing one.
- */
 const secretKept = Effect.fnUntraced(function* secretKept(state: string) {
 	yield* writePrivately(`${state}/secret`, "abababababababababababababababababababababababababababababababab");
 });
@@ -22,11 +17,6 @@ const ok = 200;
 
 const chunkBytes = 65_536;
 
-/**
- * Another user's listener on a fresh loopback port, the one it returns: it records each request's method and path, and
- * answers every request with 200 and the proof for its nonce and port under that user's own secret, as their router
- * would.
- */
 const squatter = Effect.gen(function* squatter() {
 	const built = yield* Layer.build(NodeHttpServer.layerTest);
 	const server = Context.get(built, HttpServer.HttpServer);
@@ -54,7 +44,6 @@ const squatter = Effect.gen(function* squatter() {
 	return { port: Number(port), received: Ref.get(received) };
 });
 
-/** A listener on a fresh loopback port, the one it returns, that answers every request with 200 and a body without end. */
 const flooder = Effect.gen(function* flooder() {
 	const built = yield* Layer.build(NodeHttpServer.layerTest);
 	const server = Context.get(built, HttpServer.HttpServer);

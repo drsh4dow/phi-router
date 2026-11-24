@@ -51,7 +51,6 @@ interface Rfc4231Case {
 	readonly key: readonly number[];
 }
 
-/** RFC 4231 section 4: test cases 1 and 2, and 6, whose 131-byte key is longer than a block. */
 const rfc4231 = [
 	{
 		case: 1,
@@ -124,7 +123,6 @@ const losses = {
 		fs.remove(file).pipe(Effect.andThen(fs.makeDirectory(file))),
 } as const;
 
-/** The router's own listener, which proves itself, and the modes of its secret and of the folder holding it. */
 const ownRouter = Effect.fnUntraced(function* ownRouter() {
 	const fs = yield* FileSystem.FileSystem;
 	const here = yield* bundled().pipe(Effect.flatMap(world));

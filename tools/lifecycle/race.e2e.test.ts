@@ -10,7 +10,6 @@ const together = 2;
 const clean = 0;
 const bothLaunches = 2;
 
-/** A launch that lost the race retries the bind for 2 s, then exits. */
 const settleLimit = "5 seconds";
 
 const sortedPids = (pids: readonly number[]): string =>
