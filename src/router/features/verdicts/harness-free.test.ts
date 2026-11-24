@@ -51,13 +51,6 @@ const plainRequest = Effect.gen(function* plainRequest() {
 	);
 });
 
-it.layer(Digest.layerWebCrypto)("verdictsFor without a harness", (test) => {
-	test.effect(
-		"plain messages seal an SSN on its rule and clear an internal id on the judge, asked once",
-		() => plainRequest,
-	);
-});
-
 const chart = "Patient Canary Fakesmith, SSN 078-05-1120";
 
 const question = "why does this fail?";
@@ -107,7 +100,11 @@ const fixtureBlock = Effect.gen(function* fixtureBlock() {
 	);
 });
 
-it.layer(Digest.layerWebCrypto)("verdictsFor with fixtures", (test) => {
+it.layer(Digest.layerWebCrypto)("verdictsFor without a harness", (test) => {
+	test.effect(
+		"plain messages seal an SSN on its rule and clear an internal id on the judge, asked once",
+		() => plainRequest,
+	);
 	test.effect(
 		"a text block that is a registered fixture is skipped, and the message's other block is judged",
 		() => fixtureBlock,
