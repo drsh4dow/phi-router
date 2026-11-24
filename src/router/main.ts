@@ -37,8 +37,7 @@ class Told extends Schema.TaggedError<Told, { readonly brand: unique symbol }>()
 	}
 }
 
-/** How a command exits that failed for any other reason than a missing BAA key. */
-const failedExit = 1;
+const startFailedExit = 1;
 
 const told = (line: string, code: number): Effect.Effect<never, Told> =>
 	Effect.andThen(Console.error(line), Effect.fail(Told.make({ code })));
@@ -49,7 +48,7 @@ const told = (line: string, code: number): Effect.Effect<never, Told> =>
  */
 const program = Effect.catchTags(cli, {
 	NoBaaKey: ({ message }) => told(message, noBaaKeyExit),
-	StartFailed: ({ message }) => told(message, failedExit),
+	StartFailed: ({ message }) => told(message, startFailedExit),
 });
 
 if ("Bun" in globalThis) {

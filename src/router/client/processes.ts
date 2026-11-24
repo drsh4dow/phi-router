@@ -19,14 +19,12 @@ import type { Pid } from "#shared/cli.ts";
 /** When a process started, as `ps` prints it under `LC_ALL=C TZ=UTC`. Only ever compared for equality. */
 const Started = Schema.NonEmptyString;
 
-/** A process that runs now, and is no zombie. */
-interface Running {
+interface LiveProcess {
 	readonly pid: number;
 	readonly started: typeof Started.Type;
 }
 
-/** A row `ps` printed. */
-interface Row extends Running {
+interface PsRow extends LiveProcess {
 	readonly zombie: boolean;
 }
 
@@ -44,8 +42,7 @@ const psOptions = {
 	stderr: "ignore",
 } as const;
 
-/** Month names at their number, as `DateTime` counts them. */
-const months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthsByNumber = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -67,7 +64,7 @@ const isReal = (started: Readonly<Record<string, string>>): boolean => {
 		hour: Number(hour),
 		millisecond: 0,
 		minute: Number(minute),
-		month: months.indexOf(month),
+		month: monthsByNumber.indexOf(month),
 		second: Number(second),
 		year: Number(year),
 	};
@@ -113,7 +110,7 @@ const realFolder = (folder: string): Effect.Effect<string, never, ChildProcessSp
 		Effect.orElseSucceed(() => folder),
 	);
 
-const rowOf = (line: string): Option.Option<Row> => {
+const rowOf = (line: string): Option.Option<PsRow> => {
 	const matched = rowPattern.exec(Str.trim(line));
 
 	return pipe(
@@ -136,9 +133,9 @@ const rowOf = (line: string): Option.Option<Row> => {
  * @param {string} printed What `ps` printed.
  * @param {number} exitCode How `ps` exited.
  * @param {number} self The pid of `ps`.
- * @returns {Option.Option<readonly Row[]>} Every row, or `None`.
+ * @returns {Option.Option<readonly PsRow[]>} Every row, or `None`.
  */
-const provenRows = (printed: string, exitCode: number, self: number): Option.Option<readonly Row[]> => {
+const provenRows = (printed: string, exitCode: number, self: number): Option.Option<readonly PsRow[]> => {
 	if (exitCode !== succeeded) {
 		return Option.none();
 	}
@@ -156,7 +153,7 @@ class Processes extends Context.Service<
 		 * `None` when the read did not prove it worked: `ps` was missing or could not be spawned, failed, printed what
 		 * does not parse, or took longer than 2 s. Then nothing is known of the processes.
 		 */
-		readonly running: (pids: readonly (typeof Pid.Type)[]) => Effect.Effect<Option.Option<readonly Running[]>>;
+		readonly running: (pids: readonly (typeof Pid.Type)[]) => Effect.Effect<Option.Option<readonly LiveProcess[]>>;
 		/**
 		 * Starts `command` in its own session with no stdio and lets go of it, so it outlives the caller. While the
 		 * caller's scope is open, `exited` reads, without waiting, the code the process exited with: none while it runs,
@@ -193,7 +190,7 @@ class Processes extends Context.Service<
 				);
 			}, Effect.scoped);
 
-			const running = (pids: readonly (typeof Pid.Type)[]): Effect.Effect<Option.Option<readonly Running[]>> =>
+			const running = (pids: readonly (typeof Pid.Type)[]): Effect.Effect<Option.Option<readonly LiveProcess[]>> =>
 				read(pids).pipe(
 					Effect.timeout(psPatience),
 					Effect.catchCause(() => Effect.succeedNone),
@@ -221,4 +218,4 @@ class Processes extends Context.Service<
 
 export { Processes, Started, realFolder };
 
-export type { Running };
+export type { LiveProcess };

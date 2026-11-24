@@ -2,9 +2,9 @@ import { Array, Effect, Option, Schema, Struct, SynchronizedRef, pipe } from "ef
 import { Lease, LeaseRegistry } from "#router/client/leases.ts";
 import type { LeaseRequest, Outgoing, Path, Reply } from "#router/client/router-port/index.ts";
 import { LeaseRequestJson, leasePath, statusOf } from "#router/client/router-port/index.ts";
+import type { LiveProcess } from "#router/client/processes.ts";
 import { Processes } from "#router/client/processes.ts";
 import type { RegistryFailed } from "#router/client/leases.ts";
-import type { Running } from "#router/client/processes.ts";
 
 /** How often the router checks its leases. A router with none left is gone before the next check would run. */
 const leaseInterval = "5 seconds";
@@ -26,10 +26,10 @@ const answered = (status: number, reply: string): Outgoing => ({ body: `{"lease"
  * The leases whose pid runs with the lease's start time.
  *
  * @param {Leases} leases The leases.
- * @param {readonly Running[]} running The processes that run now.
+ * @param {readonly LiveProcess[]} running The processes that run now.
  * @returns {Leases} The leases that hold.
  */
-const held = (leases: Leases, running: readonly Running[]): Leases =>
+const held = (leases: Leases, running: readonly LiveProcess[]): Leases =>
 	pipe(
 		leases,
 		Array.filter((lease) =>
@@ -40,7 +40,7 @@ const held = (leases: Leases, running: readonly Running[]): Leases =>
 		),
 	);
 
-const runningOf = (pids: readonly number[]): Effect.Effect<Option.Option<readonly Running[]>, never, Processes> =>
+const runningOf = (pids: readonly number[]): Effect.Effect<Option.Option<readonly LiveProcess[]>, never, Processes> =>
 	Processes.use((processes) => processes.running(pids));
 
 const pidsOf = (leases: Leases): readonly number[] =>

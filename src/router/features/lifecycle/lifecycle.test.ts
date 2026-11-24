@@ -3,8 +3,8 @@ import type { Outgoing, Path } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
 import type { Lease } from "#router/client/leases.ts";
 import { LeaseRegistry } from "#router/client/leases.ts";
+import type { LiveProcess } from "#router/client/processes.ts";
 import { Processes } from "#router/client/processes.ts";
-import type { Running } from "#router/client/processes.ts";
 import { TestClock } from "effect/testing";
 import { lifecycle } from "./lifecycle.ts";
 
@@ -25,7 +25,7 @@ const oneInterval = "5 seconds";
 
 const leaseLine = (pid: number): string => `{"folder":"/work","pid":${String(pid)},"session":"s1"}`;
 const leaseOf = (pid: number, started: string): typeof Lease.Type => ({ folder: "/work", pid, session: "s1", started });
-const runningAs = (pid: number, started: string): Running => ({ pid, started });
+const runningAs = (pid: number, started: string): LiveProcess => ({ pid, started });
 
 /** A fault the machine injects: none, a `ps` that reads nothing, or a full disk. */
 type Fault = "none" | "unread" | "full";
@@ -41,7 +41,7 @@ const diskFull = PlatformError.badArgument({
  * `harness` waits while `gate` is closed. While `fault` is `unread` every `ps` reads nothing, and while it is `full` every
  * write of the registry fails.
  */
-const processesOf = Effect.fnUntraced(function* processesOf(running: readonly Running[]) {
+const processesOf = Effect.fnUntraced(function* processesOf(running: readonly LiveProcess[]) {
 	const processes = yield* Ref.make(running);
 	const calls = yield* Ref.make(none);
 	const gate = yield* Latch.make(true);
@@ -77,7 +77,7 @@ const processesOf = Effect.fnUntraced(function* processesOf(running: readonly Ru
 });
 
 /** A machine whose processes are `running` and whose lease registry holds `stored`. `writes` counts the stores. */
-const machine = Effect.fnUntraced(function* machine(running: readonly Running[], stored: Leases) {
+const machine = Effect.fnUntraced(function* machine(running: readonly LiveProcess[], stored: Leases) {
 	const { calls, ends, fault, gate, ps } = yield* processesOf(running);
 	const registry = yield* Ref.make(stored);
 	const writes = yield* Ref.make(none);

@@ -4,8 +4,7 @@ import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "./private-file.ts";
 
-/** The sealed count of a session as the last turn-end notice saw it. */
-const SeenJson = Schema.fromJsonString(Schema.Struct({ sealed: Schema.Int }));
+const SealedAtLastNoticeJson = Schema.fromJsonString(Schema.Struct({ sealed: Schema.Int }));
 
 /**
  * One file per session under the XDG state folder, `phi-router/notices/<id in base64url>.json`, which holds the sealed
@@ -35,11 +34,11 @@ class SealNotices extends Context.Service<
 				const exists = yield* fs.exists(file);
 
 				const before = yield* Effect.when(
-					Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(SeenJson)),
+					Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(SealedAtLastNoticeJson)),
 					Effect.succeed(exists),
 				);
 
-				const written = yield* Schema.encodeEffect(SeenJson)({ sealed });
+				const written = yield* Schema.encodeEffect(SealedAtLastNoticeJson)({ sealed });
 
 				yield* writePrivately(file, written).pipe(
 					Effect.provideService(FileSystem.FileSystem, fs),

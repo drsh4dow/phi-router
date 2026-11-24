@@ -39,8 +39,7 @@ const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string
 	yield* fs.writeFileString(file, text, { flag: "a", mode: privateModes.file });
 });
 
-/** The permission bits of a file's mode, without its type. */
-const permissions = 0o1000;
+const permissionModulus = 0o1000;
 
 /**
  * Writes `text` over the file `file` resolves to, which is the file a symlink names when `file` is one, and keeps that
@@ -57,7 +56,7 @@ const rewritePrivately = Effect.fnUntraced(function* rewritePrivately(file: stri
 	const target = yield* fs.realPath(file);
 	const info = yield* fs.stat(target);
 
-	return yield* writePrivately(target, text, info.mode % permissions);
+	return yield* writePrivately(target, text, info.mode % permissionModulus);
 });
 
 const ownerBits = { execute: 0o100, write: 0o200 } as const;

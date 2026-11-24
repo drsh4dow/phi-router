@@ -167,7 +167,7 @@ A repository whose sessions run wholly on the sealed lane.
 Codex's request that names a thread, marked by `thread_source: "thread_title"` in its turn metadata. It runs sealed with the reason `title`, with no judge call and no bridge.
 
 **Lane log**:
-One line per routed request, which never holds content.
+One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, no sealed new content; `sealed new content`; `pinned`, the session's pin; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or a clean request had no open account left; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
 
 **Bridge**:
 The constant block the router adds to the system prompt of every request that is neither pinned nor a title request, on both lanes.

@@ -16,10 +16,6 @@ import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { appendPrivately } from "./private-file.ts";
 
-/**
- * Why a request ran on its lane: no sealed new content, sealed new content, the session's pin, a BAA repo, Codex's
- * thread-title request, a move to another account than its first, or the router unable to build a clean body.
- */
 const Reasons = Schema.Literals([
 	"clean",
 	"sealed new content",

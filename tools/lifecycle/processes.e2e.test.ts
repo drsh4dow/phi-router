@@ -1,9 +1,9 @@
 import { Array, Effect, Layer, Option, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { assert, it } from "@effect/vitest";
+import type { LiveProcess } from "#router/client/processes.ts";
 import { NodeServices } from "@effect/platform-node";
 import { Processes } from "#router/client/processes.ts";
-import type { Running } from "#router/client/processes.ts";
 import { TestClock } from "effect/testing";
 
 /** A shell that forks `sleep 0.1`, prints its pid and becomes `sleep 30` without reaping it: a zombie within 0.1 s. */
@@ -36,7 +36,7 @@ const zombieAndParent = Effect.fnUntraced(function* zombieAndParent() {
 	return { alive: Number(shell.pid), zombie: Number(Str.trim(printed)) };
 });
 
-const pidsOf = Array.map(({ pid }: Running) => pid);
+const pidsOf = Array.map(({ pid }: LiveProcess) => pid);
 
 it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this machine", (test) => {
 	test.effect("a running pid reads the same start time twice, and a pid that ended or is a zombie is absent", () =>
