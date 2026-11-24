@@ -7,15 +7,12 @@ import { claude } from "./claude.ts";
 import { decisions } from "./decisions.ts";
 import { upstreamHttp } from "#router/client/accounts/index.ts";
 
-/** What the judge reads: the piece's text, cleared context beside it, and the piece's images. */
 interface JudgeInput {
 	readonly piece: string;
 	readonly context: readonly string[];
-	/** At most `judgeLimits.maxImages`, each base64 `data` with its `mimeType`. */
 	readonly images: readonly { readonly mimeType: string; readonly data: string }[];
 }
 
-/** A question the judge answers with a score from 0 to 1, the chance that `true` holds. */
 interface ScoreQuestion {
 	readonly type: "bool";
 	readonly instructions: string;
@@ -58,16 +55,9 @@ const askingOf = Effect.fnUntraced(function* askingOf(chosen: ChosenJudge) {
 
 const judgeHttp = Layer.merge(upstreamHttp, UserDirectories.layer);
 
-/**
- * The transport-free judge, with its name and the model it runs. `identifier` asks the policy's one question, `kind`
- * the kind question. The engine owns the thresholds, one set per judge, and the timeout, so every adapter seals the
- * same way. An adapter checks each answer against the question it was handed: a score outside 0 to 1, or a choice the
- * question does not list, fails as `judge-error`.
- */
 class Judge extends Context.Service<Judge, Asking & { readonly name: JudgeName; readonly model: string }>()(
 	"phi-router/router/client/judge/Judge",
 ) {
-	/** The judge the configuration picks. */
 	public static readonly layer = Layer.effect(Judge, chosenJudge.pipe(Effect.flatMap(askingOf))).pipe(
 		Layer.provide(judgeHttp),
 	);

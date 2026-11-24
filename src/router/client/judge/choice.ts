@@ -9,7 +9,6 @@ type ChosenJudge =
 	| { readonly name: "decisions"; readonly endpoint: string; readonly key: KeySource; readonly model: string }
 	| { readonly name: "claude"; readonly account: NamedAccount; readonly model: string };
 
-/** A `config.json` that names no judge and no BAA account the judge can run on. The router refuses it. */
 class NoJudge extends Schema.TaggedError<NoJudge, { readonly brand: unique symbol }>()("NoJudge", {
 	message: Schema.String,
 }) {}
@@ -64,11 +63,6 @@ const onSealed = Effect.fnUntraced(function* onSealed(
 	return chosen.value;
 });
 
-/**
- * The judge the configuration picks. A `judge` block asks Decisions with its own key. With none, the first OpenAI
- * API-key account on `sealed` asks Decisions, else the first Anthropic account on `sealed` that holds its own
- * credential asks the Claude judge. A forwarded account holds none, and an OpenAI login folder reaches no Decisions.
- */
 const chosenJudge = Effect.gen(function* chosenJudge() {
 	const { judge } = yield* Configuration;
 

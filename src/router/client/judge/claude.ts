@@ -14,15 +14,12 @@ import { textOf } from "./decisions.ts";
  */
 const claudeCode = "You are Claude Code, Anthropic's official CLI for Claude.";
 
-/** What a Messages call names. The account drops the login's flag for an API key, and adds its own credential. */
 const messagesHeaders = { "anthropic-beta": "oauth-2025-04-20", "anthropic-version": "2023-06-01" };
 
 const claudeModel = "claude-haiku-5-5";
 
-/** The statuses of an answer the judge reads. */
 const okStatus = { below: 300, from: 200 } as const;
 
-/** Room for one tool call's answer. A call cut off here fails as `judge-error`. */
 const maxTokens = 256;
 
 /**

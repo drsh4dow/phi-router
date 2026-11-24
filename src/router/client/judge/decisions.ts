@@ -10,15 +10,10 @@ const names = { identifier: "identifier", kind: "kind" } as const;
 
 const defaultDecisionsModel = "gpt-6-luna";
 
-/**
- * What a call on `gpt-6-luna` costs in US dollars per million input tokens. A call above `tierTokens` pays the higher
- * rate on all of its tokens. Output tokens are free.
- */
 const lunaPrice = { perMillion: 0.1, perMillionAboveTier: 0.2, tierTokens: 272_000 } as const;
 
 const million = 1_000_000;
 
-/** A `bool` question on the wire. Decisions has no criteria field, so the meanings ride in the instructions. */
 const Predicate = Schema.Struct({
 	instructions: Schema.String,
 	name: Schema.String,
@@ -43,7 +38,6 @@ const Message = Schema.Struct({
 	role: Schema.Literal("user"),
 });
 
-/** One request. `questions` is a tuple of one, because Decisions refuses a request whole when it refuses any question. */
 const Request = Schema.Struct({
 	input: Schema.Union([Schema.String, Schema.Tuple([Message])]),
 	model: Schema.String,
@@ -73,7 +67,6 @@ const noTokens = 0;
 
 const TokenCount = Schema.Finite.check(Schema.isGreaterThan(noTokens));
 
-/** The usage of a response body. Decisions bills a call it refuses or answers badly. A count of 0 or less reads as none. */
 const Billed = Schema.Struct({ usage: Schema.Struct({ input_tokens: TokenCount }) });
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
@@ -108,12 +101,6 @@ const textOf = ({ piece, context }: JudgeInput): Effect.Effect<string> =>
 		),
 	);
 
-/**
- * What the judge reads, as Decisions takes it: `textOf` the input, and its images after the text in one user message.
- *
- * @param {JudgeInput} input The piece, its context and its images.
- * @returns {Effect.Effect} The request's `input`.
- */
 const inputOf = (input: JudgeInput): Effect.Effect<(typeof Request.Type)["input"]> => {
 	const { images } = input;
 
