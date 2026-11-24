@@ -27,6 +27,8 @@ const failureSealed = (why: "judge-error" | "judge-refused" | "too-large"): read
 	Verdicts.Sealed({ finding: Findings.Failure({ why }) }),
 ];
 
+const { decisions } = thresholds;
+
 type Case = readonly [name: string, script: Script, verdicts: readonly Verdict[], questions: readonly Question[]];
 
 const userCases: readonly Case[] = [
@@ -61,6 +63,18 @@ const userCases: readonly Case[] = [
 		{ score: () => "error" },
 		failureSealed("judge-error"),
 		["identifier"],
+	],
+	[
+		"a score at clearBelow asks the kind question",
+		{ kind: () => "none", score: () => decisions.clearBelow },
+		cleared,
+		["identifier", "kind"],
+	],
+	[
+		"a score at sealAtOrAbove seals whatever the kind call answers",
+		{ kind: () => "none", score: () => decisions.sealAtOrAbove },
+		judgeSealed("unlabelled", decisions.sealAtOrAbove),
+		["identifier", "kind"],
 	],
 ];
 
@@ -222,6 +236,13 @@ const fixtureDropped = Effect.gen(function* fixtureDropped() {
 	assert.deepStrictEqual(judgedPieces(asked), ["why does this fail?\nand where is it read?"]);
 });
 
+const encodedHit = Effect.gen(function* encodedHit() {
+	const piece = yield* pieceOf(`token ${Base64.encode("Patient SSN 078-05-1120 on file")}`);
+	const { questions, verdicts } = yield* judgedOne({ piece, script: sealing });
+
+	assert.deepStrictEqual({ questions, verdicts }, { questions: [], verdicts: ruleSealed });
+});
+
 it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 	test.effect.each(userCases)("a user message: %s", ([, script, verdicts, questions]) =>
 		Effect.gen(function* userMessage() {
@@ -263,46 +284,5 @@ it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 		() => nothingToJudge,
 	);
 	test.effect("the texts a fixture leaves reach the judge in their order", () => fixtureDropped);
-});
-
-const { decisions } = thresholds;
-
-const thresholdCases: readonly Case[] = [
-	[
-		"a score at clearBelow asks the kind question",
-		{ kind: () => "none", score: () => decisions.clearBelow },
-		cleared,
-		["identifier", "kind"],
-	],
-	[
-		"a score at sealAtOrAbove seals whatever the kind call answers",
-		{ kind: () => "none", score: () => decisions.sealAtOrAbove },
-		judgeSealed("unlabelled", decisions.sealAtOrAbove),
-		["identifier", "kind"],
-	],
-];
-
-it.layer(Digest.layerWebCrypto)("verdictsFor at the judge's thresholds", (test) => {
-	test.effect.each(thresholdCases)("a user message: %s", ([, script, verdicts, questions]) =>
-		Effect.gen(function* atThreshold() {
-			const piece = yield* pieceOf("Follow-up for the import job.");
-			const judged = yield* judgedOne({ piece, script });
-
-			assert.deepStrictEqual(
-				{ questions: judged.questions, verdicts: judged.verdicts },
-				{ questions: [...questions], verdicts: [...verdicts] },
-			);
-		}),
-	);
-});
-
-const encodedHit = Effect.gen(function* encodedHit() {
-	const piece = yield* pieceOf(`token ${Base64.encode("Patient SSN 078-05-1120 on file")}`);
-	const { questions, verdicts } = yield* judgedOne({ piece, script: sealing });
-
-	assert.deepStrictEqual({ questions, verdicts }, { questions: [], verdicts: ruleSealed });
-});
-
-it.layer(Digest.layerWebCrypto)("verdictsFor rules on decoded text", (test) => {
 	test.effect("an SSN inside base64 text seals on its rule without a judge call", () => encodedHit);
 });
