@@ -1,6 +1,6 @@
 import { Array, Console, Effect, Option, Predicate, String as Str, pipe } from "effect";
 import { Command, Flag } from "effect/cli";
-import type { HarnessName, Source } from "./harnesses.ts";
+import type { HarnessName, InstallSource } from "./harnesses.ts";
 import { baaAsk, keyFor, savedKeyFile, stillHeld, stopped, vendorWords } from "./keys.ts";
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
@@ -15,8 +15,7 @@ import { installRun } from "#router/client/harnesses/index.ts";
 /** The repository setup installs from unless `--source` names a checkout. */
 const repository = "drsh4dow/phi-router";
 
-/** What the screen says of the BAA account: a key saved and still accepted, or none yet. */
-const baaStates = { held: "already set up", needed: "needs an API key" } as const;
+const baaKeyStates = { missing: "needs an API key", stillAccepted: "already set up" } as const;
 
 const columnGap = 3;
 
@@ -27,12 +26,12 @@ const columnGap = 3;
  * @param {string} baa The BAA account's state.
  * @returns {string} The lines.
  */
-const header = (name: HarnessName, baa: keyof typeof baaStates): string => {
+const header = (name: HarnessName, baa: keyof typeof baaKeyStates): string => {
 	const { subscription } = harnesses[name];
 
 	const rows = [
 		[`Your ${subscription} subscription`, "already set up"],
-		["Your BAA account", baaStates[baa]],
+		["Your BAA account", baaKeyStates[baa]],
 	] as const;
 
 	const width =
@@ -52,17 +51,17 @@ const header = (name: HarnessName, baa: keyof typeof baaStates): string => {
 };
 
 const keyOf = Effect.fnUntraced(function* keyOf(name: HarnessName, fresh: boolean) {
-	const { title, vendor } = harnesses[name];
-	const saved = yield* stillHeld(vendor, fresh);
+	const { baaVendor, title } = harnesses[name];
+	const saved = yield* stillHeld(baaVendor, fresh);
 
-	yield* Console.log(header(name, Option.match(saved, { onNone: () => "needed", onSome: () => "held" })));
+	yield* Console.log(header(name, Option.match(saved, { onNone: () => "missing", onSome: () => "stillAccepted" })));
 
 	const key = yield* Option.match(saved, {
-		onNone: () => keyFor(baaAsk({ needer: title, vendor })),
+		onNone: () => keyFor(baaAsk({ harnessTitle: title, vendor: baaVendor })),
 		onSome: Effect.succeed,
 	});
 
-	yield* Console.log(`✓ ${vendorWords[vendor].name} accepted the key`);
+	yield* Console.log(`✓ ${vendorWords[baaVendor].name} accepted the key`);
 
 	return key;
 });
@@ -114,11 +113,11 @@ const installFailure = (name: HarnessName, turn: Turn): Option.Option<string> =>
 };
 
 /** Runs the harness's installer when it has not installed phi-router yet, and checks that it did. */
-const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, source: Source) {
-	const { install, installed, title } = harnesses[name];
+const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, source: InstallSource) {
+	const { installCommands, installed, title } = harnesses[name];
 	const before = yield* installed;
 
-	const installs = Option.match(before, { onNone: () => install(source), onSome: () => [] });
+	const installs = Option.match(before, { onNone: () => installCommands(source), onSome: () => [] });
 
 	yield* Effect.forEach(
 		installs,
@@ -146,7 +145,7 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, s
  * installed, and stops setup unless the canary reached the BAA mock alone.
  */
 const tested = Effect.fnUntraced(function* tested(name: HarnessName) {
-	const { test, title } = harnesses[name];
+	const { canary, title } = harnesses[name];
 
 	const failed = stopped(
 		`The test failed, so ${title} was left as it was. Your key is saved. For details, run: npx phi-router doctor ${name}`,
@@ -157,7 +156,7 @@ const tested = Effect.fnUntraced(function* tested(name: HarnessName) {
 	const checks = yield* pipe(
 		packageOf(entry),
 		Effect.flatMap(Effect.fromOption),
-		Effect.flatMap(test),
+		Effect.flatMap(canary),
 		Effect.mapError(() => failed),
 	);
 
@@ -174,7 +173,7 @@ const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
 	const { title } = harnesses[name];
 
 	const writing = Effect.gen(function* writing() {
-		const line = yield* harnesses[name].switched;
+		const line = yield* harnesses[name].switchOn;
 
 		yield* Effect.forEach(Option.toArray(line), (said) => Console.log(`✓ ${said}`), {
 			concurrency: 1,
@@ -193,7 +192,11 @@ const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
  */
 const sourceOf = Effect.fnUntraced(function* sourceOf(checkout: string | undefined) {
 	if (Predicate.isNotUndefined(checkout)) {
-		return { claude: checkout, codex: [checkout], pi: checkout } satisfies Source;
+		return {
+			claudeMarketplace: checkout,
+			codexMarketplaceArgs: [checkout],
+			piPackage: checkout,
+		} satisfies InstallSource;
 	}
 
 	const { entry } = yield* Platform;
@@ -201,10 +204,10 @@ const sourceOf = Effect.fnUntraced(function* sourceOf(checkout: string | undefin
 	const tag = `v${version}`;
 
 	return {
-		claude: `${repository}@${tag}`,
-		codex: [repository, "--ref", tag],
-		pi: `npm:phi-router@${version}`,
-	} satisfies Source;
+		claudeMarketplace: `${repository}@${tag}`,
+		codexMarketplaceArgs: [repository, "--ref", tag],
+		piPackage: `npm:phi-router@${version}`,
+	} satisfies InstallSource;
 });
 
 const noVersion = stopped(
@@ -223,7 +226,7 @@ const noTerminal = stopped(
  * differs, so a rerun with a saved key that still works asks nothing and changes no file.
  */
 const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: string | undefined, fresh: boolean) {
-	const { end, start } = harnesses[name];
+	const { closingLines, start } = harnesses[name];
 	const source = yield* Effect.mapError(sourceOf(checkout), () => noVersion);
 
 	yield* Effect.filterOrFail(isTerminal, Boolean, () => noTerminal);
@@ -233,7 +236,7 @@ const setup = Effect.fn("setup")(function* setup(name: HarnessName, checkout: st
 	yield* installedIn(name, source);
 	yield* Console.log("✓ Test passed: a fake patient record went to your BAA account, not your subscription");
 	yield* switched(name);
-	yield* Console.log(Array.join(["", ...end(source)], "\n"));
+	yield* Console.log(Array.join(["", ...closingLines(source)], "\n"));
 	yield* Effect.when(Effect.asVoid(handedOver(start)), enterPressed);
 });
 

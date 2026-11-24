@@ -7,35 +7,30 @@ import type { Harness } from "#router/features/border/index.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { codexSwitchedOn } from "#router/features/cli/codex/index.ts";
 
-/**
- * Where setup installs phi-router from, as each installer takes it: Claude Code's marketplace, what
- * `codex plugin marketplace add` takes, and pi's package.
- */
-interface Source {
-	readonly claude: string;
-	readonly codex: readonly string[];
-	readonly pi: string;
+interface InstallSource {
+	readonly claudeMarketplace: string;
+	readonly codexMarketplaceArgs: readonly string[];
+	readonly piPackage: string;
 }
 
 type Argv = readonly [string, ...string[]];
 
 interface HarnessSetup {
-	readonly end: (source: Source) => readonly string[];
-	readonly install: (source: Source) => readonly Argv[];
+	readonly baaVendor: Vendor;
+	readonly canary: (packageRoot: string) => Effect.Effect<readonly Check[], unknown, unknown>;
+	readonly closingLines: (source: InstallSource) => readonly string[];
+	readonly installCommands: (source: InstallSource) => readonly Argv[];
 	readonly installed: Effect.Effect<Option.Option<unknown>, unknown, unknown>;
 	readonly start: Argv;
 	readonly subscription: string;
-	readonly switched: Effect.Effect<Option.Option<string>, Error, unknown>;
-	readonly test: (root: string) => Effect.Effect<readonly Check[], unknown, unknown>;
+	readonly switchOn: Effect.Effect<Option.Option<string>, Error, unknown>;
 	readonly title: string;
-	readonly vendor: Vendor;
 }
 
-/** The Claude Code and Codex plugin in the phi-router package at `root`. */
-const pluginIn = Effect.fnUntraced(function* pluginIn(root: string) {
+const pluginFolderIn = Effect.fnUntraced(function* pluginFolderIn(packageRoot: string) {
 	const path = yield* Path.Path;
 
-	return path.join(root, "plugins", "claude");
+	return path.join(packageRoot, "plugins", "claude");
 });
 
 /**
@@ -46,34 +41,40 @@ const pluginIn = Effect.fnUntraced(function* pluginIn(root: string) {
  */
 const harnesses = {
 	claude: {
-		end: (): readonly string[] => [
+		baaVendor: "anthropic",
+		canary: (packageRoot: string) => Effect.flatMap(pluginFolderIn(packageRoot), claudeCanary),
+		closingLines: (): readonly string[] => [
 			"Done. Claude Code windows that were already open, including the one you",
 			"started from, stop answering. Close them.",
 			"Undo any time with: npx phi-router off claude",
 			"",
 			"Press Enter to start Claude Code with phi-router.",
 		],
-		install: (source: Source): readonly Argv[] => [
-			["claude", "plugin", "install", "phi-router", "--marketplace", source.claude, "--scope", "user"],
+		installCommands: (source: InstallSource): readonly Argv[] => [
+			["claude", "plugin", "install", "phi-router", "--marketplace", source.claudeMarketplace, "--scope", "user"],
 		],
 		installed: claudePlugin("", pluginId),
 		start: ["claude"] satisfies Argv,
 		subscription: "Claude",
-		switched: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
-		test: (root: string) => Effect.flatMap(pluginIn(root), claudeCanary),
+		switchOn: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
 		title: "Claude Code",
-		vendor: "anthropic",
 	},
 	codex: {
-		end: (): readonly string[] => [
+		baaVendor: "openai",
+		canary: Effect.fnUntraced(function* codexCanaryIn(packageRoot: string) {
+			const folder = yield* pluginFolderIn(packageRoot);
+
+			return yield* codexCanary({ folder, place: "plugins/cache/phi-router/phi-router/setup", trust: "" });
+		}),
+		closingLines: (): readonly string[] => [
 			"Done. Close any Codex window that was already open, and use the one setup starts.",
 			"Undo any time with: npx phi-router off codex",
 			"",
 			"Press Enter to start Codex. It asks once to review phi-router's hooks.",
 			'Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.',
 		],
-		install: (source: Source): readonly Argv[] => [
-			["codex", "plugin", "marketplace", "add", ...source.codex],
+		installCommands: (source: InstallSource): readonly Argv[] => [
+			["codex", "plugin", "marketplace", "add", ...source.codexMarketplaceArgs],
 			["codex", "plugin", "add", pluginId],
 		],
 		installed: Effect.gen(function* codexInstalled() {
@@ -84,33 +85,27 @@ const harnesses = {
 		}),
 		start: ["codex"] satisfies Argv,
 		subscription: "ChatGPT",
-		switched: Effect.as(codexSwitchedOn(""), Option.some("Codex now sends its requests through phi-router")),
-		test: Effect.fnUntraced(function* codexTest(root: string) {
-			const folder = yield* pluginIn(root);
-
-			return yield* codexCanary({ folder, place: "plugins/cache/phi-router/phi-router/setup", trust: "" });
-		}),
+		switchOn: Effect.as(codexSwitchedOn(""), Option.some("Codex now sends its requests through phi-router")),
 		title: "Codex",
-		vendor: "openai",
 	},
 	pi: {
-		end: (source: Source): readonly string[] => [
+		baaVendor: "anthropic",
+		canary: piCanary,
+		closingLines: (source: InstallSource): readonly string[] => [
 			"Done. Close any pi window that was already open, and use the one setup starts.",
-			`Undo any time with: pi remove ${source.pi}`,
+			`Undo any time with: pi remove ${source.piPackage}`,
 			"",
 			"Press Enter to start pi on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.",
 		],
-		install: (source: Source): readonly Argv[] => [["pi", "install", source.pi]],
+		installCommands: (source: InstallSource): readonly Argv[] => [["pi", "install", source.piPackage]],
 		installed: Effect.map(
 			installedPackage(""),
 			Option.map(({ folder }) => folder),
 		),
 		start: ["pi", "--model", "phi/auto"] satisfies Argv,
 		subscription: "Claude",
-		switched: Effect.succeed(Option.none<string>()),
-		test: piCanary,
+		switchOn: Effect.succeed(Option.none<string>()),
 		title: "pi",
-		vendor: "anthropic",
 	},
 } as const satisfies Record<Harness, HarnessSetup>;
 
@@ -118,4 +113,4 @@ type HarnessName = keyof typeof harnesses;
 
 export { harnesses };
 
-export type { HarnessName, Source };
+export type { HarnessName, InstallSource };

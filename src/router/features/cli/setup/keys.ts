@@ -22,11 +22,10 @@ const vendorWords = {
 	openai: { name: "OpenAI", prefix: "sk-" },
 } as const;
 
-/** One key setup needs: its vendor, who needs it, as a refusal names them, and the lines that ask for it. */
 interface KeyAsk {
 	readonly vendor: Vendor;
-	readonly needer: string;
-	readonly question: readonly string[];
+	readonly harnessTitle: string;
+	readonly questionLines: readonly string[];
 }
 
 interface HeldKey {
@@ -34,9 +33,9 @@ interface HeldKey {
 	readonly key: Readonly<Redacted.Redacted>;
 }
 
-const baaAsk = (asked: { readonly vendor: Vendor; readonly needer: string }): KeyAsk => ({
-	needer: asked.needer,
-	question: [
+const baaAsk = (asked: { readonly vendor: Vendor; readonly harnessTitle: string }): KeyAsk => ({
+	harnessTitle: asked.harnessTitle,
+	questionLines: [
 		`Paste the ${vendorWords[asked.vendor].name} API key your organization gave you for patient data.`,
 		`It starts with ${vendorWords[asked.vendor].prefix}. Nothing shows while you paste. Then press Enter.`,
 		"The key is saved only on this computer, in a file only you can read.",
@@ -73,7 +72,7 @@ const misfitOf = (ask: KeyAsk, key: string): Option.Option<string> => {
 		Option.flatMap(({ scheme, vendor }) => {
 			if (vendor !== ask.vendor) {
 				return Option.some(
-					`That is an ${vendorWords[vendor].name} key. ${ask.needer} needs an ${wanted.name} key, which starts with ${wanted.prefix}. Nothing was saved.`,
+					`That is an ${vendorWords[vendor].name} key. ${ask.harnessTitle} needs an ${wanted.name} key, which starts with ${wanted.prefix}. Nothing was saved.`,
 				);
 			}
 
@@ -122,7 +121,7 @@ const accepted = Effect.fnUntraced(function* accepted(vendor: Vendor, key: Reado
 
 /** Asks `ask`'s question, reads the key hidden, and keeps it once its prefix fits and its vendor accepts it. */
 const pasted = Effect.fnUntraced(function* pasted(ask: KeyAsk) {
-	yield* Console.log(Array.join(ask.question, "\n"));
+	yield* Console.log(Array.join(ask.questionLines, "\n"));
 
 	const line = yield* Effect.flatMap(hiddenLine("Key: "), (read) =>
 		Effect.mapError(Effect.fromOption(read), () => endedEarly),

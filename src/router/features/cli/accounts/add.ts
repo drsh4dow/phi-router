@@ -6,10 +6,9 @@ import type { NewAccount } from "#router/client/config-writer.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
 import { realFolder } from "#router/client/processes.ts";
 
-/** What `accounts add` was asked: a login folder or a command that prints a token, and whether the lane is sealed. */
 interface AddRequest {
-	readonly folder: string | undefined;
-	readonly command: string | undefined;
+	readonly loginFolder: string | undefined;
+	readonly keyCommand: string | undefined;
 	readonly sealed: boolean;
 }
 
@@ -22,20 +21,18 @@ class AddRefused extends Schema.TaggedError<AddRefused, { readonly brand: unique
 	}
 }
 
-/** An account found, the vendor's word for it, and the line that tells the human what it is. */
 interface Found {
 	readonly account: NewAccount;
-	readonly label: "Claude" | "Codex" | "OpenAI";
-	readonly told: string;
+	readonly vendorName: "Claude" | "Codex" | "OpenAI";
+	readonly summary: string;
 }
 
-/** What a token is, and the words that tell the human after its length. */
 interface TokenKind {
 	readonly vendor: Vendor;
 	readonly scheme: "apiKey" | "oauth";
-	readonly label: "Claude" | "OpenAI";
+	readonly vendorName: "Claude" | "OpenAI";
 	readonly noun: "token" | "key";
-	readonly lasts: string;
+	readonly lifetimeNote: string;
 }
 
 /** What a token's prefix says it is, the first prefix that matches. An `sk-ant-` token of no known kind is no OpenAI key. */
@@ -43,16 +40,19 @@ const tokenKinds: readonly (readonly [string, Option.Option<TokenKind>])[] = [
 	[
 		"sk-ant-oat",
 		Option.some({
-			label: "Claude",
-			lasts: " Lasts 1 year. Needs no refresh.",
+			lifetimeNote: " Lasts 1 year. Needs no refresh.",
 			noun: "token",
 			scheme: "oauth",
 			vendor: "anthropic",
+			vendorName: "Claude",
 		}),
 	],
-	["sk-ant-api", Option.some({ label: "Claude", lasts: "", noun: "key", scheme: "apiKey", vendor: "anthropic" })],
+	[
+		"sk-ant-api",
+		Option.some({ lifetimeNote: "", noun: "key", scheme: "apiKey", vendor: "anthropic", vendorName: "Claude" }),
+	],
 	["sk-ant-", Option.none()],
-	["sk-", Option.some({ label: "OpenAI", lasts: "", noun: "key", scheme: "apiKey", vendor: "openai" })],
+	["sk-", Option.some({ lifetimeNote: "", noun: "key", scheme: "apiKey", vendor: "openai", vendorName: "OpenAI" })],
 ];
 
 const refused = (reason: string): AddRefused => AddRefused.make({ reason });
@@ -70,9 +70,9 @@ const fromFolder = Effect.fnUntraced(function* fromFolder(folder: string) {
 	const { ends, vendor } = seen.value;
 
 	if (vendor === "openai") {
-		const told = "Codex home folder. codex refreshes it.";
+		const summary = "Codex home folder. codex refreshes it.";
 
-		return { account: { loginFolder: folder, vendor }, label: "Codex", told } satisfies Found;
+		return { account: { loginFolder: folder, vendor }, summary, vendorName: "Codex" } satisfies Found;
 	}
 
 	const day = yield* Effect.transposeOption(pipe(ends, Option.map(DateTime.setZoneCurrent)));
@@ -84,8 +84,8 @@ const fromFolder = Effect.fnUntraced(function* fromFolder(folder: string) {
 
 	return {
 		account: { loginFolder: folder, vendor },
-		label: "Claude",
-		told: `Claude login folder.${ending} claude refreshes it.`,
+		summary: `Claude login folder.${ending} claude refreshes it.`,
+		vendorName: "Claude",
 	} satisfies Found;
 });
 
@@ -112,10 +112,10 @@ const fromCommand = Effect.fnUntraced(function* fromCommand(command: string) {
 		return yield* refused("The command printed a token whose prefix is unknown. Known: sk-ant-oat, sk-ant-api, sk-.");
 	}
 
-	const { label, lasts, noun, scheme, vendor } = kind.value;
-	const told = `${label} ${noun}, ${String(value.length)} characters.${lasts}`;
+	const { lifetimeNote, noun, scheme, vendor, vendorName } = kind.value;
+	const summary = `${vendorName} ${noun}, ${String(value.length)} characters.${lifetimeNote}`;
 
-	return { account: { keyCommand: command, scheme, vendor }, label, told } satisfies Found;
+	return { account: { keyCommand: command, scheme, vendor }, summary, vendorName } satisfies Found;
 });
 
 const laneOf = (sealed: boolean): Lane => {
@@ -127,18 +127,18 @@ const laneOf = (sealed: boolean): Lane => {
 };
 
 const foundBy = Effect.fnUntraced(function* foundBy(request: AddRequest) {
-	const { command, folder } = request;
+	const { keyCommand, loginFolder } = request;
 
-	if (Predicate.isNotUndefined(folder) && Predicate.isNotUndefined(command)) {
+	if (Predicate.isNotUndefined(loginFolder) && Predicate.isNotUndefined(keyCommand)) {
 		return yield* refused("Name a login folder or --command, not both.");
 	}
 
-	if (Predicate.isNotUndefined(folder)) {
-		return yield* Effect.flatMap(realFolder(folder), fromFolder);
+	if (Predicate.isNotUndefined(loginFolder)) {
+		return yield* Effect.flatMap(realFolder(loginFolder), fromFolder);
 	}
 
-	if (Predicate.isNotUndefined(command)) {
-		return yield* fromCommand(command);
+	if (Predicate.isNotUndefined(keyCommand)) {
+		return yield* fromCommand(keyCommand);
 	}
 
 	return yield* refused('Name a login folder, or --command "<prints the token>".');
@@ -166,12 +166,12 @@ const accountsAdd = Effect.fn("accountsAdd")(function* accountsAdd(request: AddR
 	}
 
 	const where = Option.match(placed.vendorAccountBefore, {
-		onNone: () => `the first ${found.label} account there`,
+		onNone: () => `the first ${found.vendorName} account there`,
 		onSome: (before) => `after ${before}`,
 	});
 
 	return yield* Console.log(
-		`Added ${placed.name} to the ${lane} lane, ${where}.\n  ${found.told}\nA running router serves it from its next request.`,
+		`Added ${placed.name} to the ${lane} lane, ${where}.\n  ${found.summary}\nA running router serves it from its next request.`,
 	);
 }, DateTime.withCurrentZoneLocal);
 

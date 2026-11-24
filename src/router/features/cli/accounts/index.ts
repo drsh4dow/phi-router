@@ -22,11 +22,9 @@ const gap = 2;
 
 const twoDigits = Str.padStart(gap, "0");
 
-/** A day in the human's time zone, `YYYY-MM-DD`. */
-const dayOf = flow(DateTime.setZoneCurrent, Effect.map(DateTime.formatIsoDate));
+const localDayOf = flow(DateTime.setZoneCurrent, Effect.map(DateTime.formatIsoDate));
 
-/** A time of day in the human's time zone, `HH:MM`. */
-const clockOf = flow(
+const localTimeOf = flow(
 	DateTime.setZoneCurrent,
 	Effect.map(DateTime.toParts),
 	Effect.map(({ hour, minute }) => `${twoDigits(String(hour))}:${twoDigits(String(minute))}`),
@@ -71,7 +69,7 @@ const stampOf = Effect.fnUntraced(function* stampOf(name: string) {
 	const state = yield* AccountState;
 	const stamps = yield* state.stamps([name]);
 	const back = Option.fromUndefinedOr(stamps.get(name));
-	const clock = yield* Effect.transposeOption(pipe(back, Option.map(clockOf)));
+	const clock = yield* Effect.transposeOption(pipe(back, Option.map(localTimeOf)));
 
 	return pipe(
 		clock,
@@ -82,7 +80,7 @@ const stampOf = Effect.fnUntraced(function* stampOf(name: string) {
 /** A Claude login's end, at `end` in epoch milliseconds: ended, ending within 3 days, or later. */
 const endOf = Effect.fnUntraced(function* endOf(end: number, fix: string) {
 	const now = yield* Clock.currentTimeMillis;
-	const day = yield* dayOf(DateTime.makeUnsafe(end));
+	const day = yield* localDayOf(DateTime.makeUnsafe(end));
 	const days = Math.ceil((end - now) / millisPerDay);
 
 	if (end <= now) {
@@ -215,8 +213,8 @@ const add = Command.make(
 	},
 	(flags) =>
 		accountsAdd({
-			command: Option.getOrUndefined(flags.command),
-			folder: Option.getOrUndefined(flags.folder),
+			keyCommand: Option.getOrUndefined(flags.command),
+			loginFolder: Option.getOrUndefined(flags.folder),
 			sealed: flags.sealed,
 		}),
 );
