@@ -99,12 +99,6 @@ ${sealedInstructions}"""
 
 const dotenvFile = ".env";
 
-/**
- * The line `on codex` adds to `.env`. Codex reads `NO_PROXY` over `no_proxy`, so this one setting keeps the developer's
- * own list under either spelling, whatever it is when Codex starts, and adds 127.0.0.1, which takes Codex's requests
- * to the router off their proxy. Codex skips a host and port there, so the entry is the bare address. Its comment marks
- * it as the line `on` wrote, so `off` leaves a line of the developer's own alone.
- */
 const exemptionLine = `NO_PROXY="\${NO_PROXY},\${no_proxy},${loopback}" # added by phi-router on`;
 
 const exemptionReason =
