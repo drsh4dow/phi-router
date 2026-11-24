@@ -164,7 +164,7 @@ recipes/iso.sh hostile-wire hostile-wire.sh pi
 recipes/iso.sh hostile-wire-no-newline env "ODD=-quote' \$HOME \`backtick\` é" hostile-wire.sh pi
 ```
 
-Without the newline every check passes. With it, the two `doctor pi` checks fail, because `src/router/client/pi.ts` splits `pi list` output on newlines.
+Without the newline every check passes. With it, the two `doctor pi` checks fail, because `src/router/client/harnesses/pi.ts` splits `pi list` output on newlines.
 
 ## 7. A repository's Claude Code settings
 

@@ -14,7 +14,7 @@ We chose this because two of the three harnesses leave no other place to stand. 
 
 - The router is on the path of every byte, so it must stream. It relays an upstream's body chunk by chunk, `ping` events included, and passes an error answer unchanged once its walk has no account left (`tools/route/streaming.test.ts`, `tools/route/lanes.test.ts`). Before that, a 429 or a 5xx is a failover: the router leaves its body unread, closed with the request, and sends to the next account before any byte reaches the harness (`tools/route/failover.test.ts`).
 - A router that is down fails the harness's requests. Nothing falls back to a direct call.
-- The router handles two credentials on one request. A keyed account never receives the credential the harness sent, and that swap lives in one file, `src/router/client/upstream.ts`.
+- The router handles two credentials on one request. A keyed account never receives the credential the harness sent, and that swap lives in one file, `src/router/client/accounts/upstream.ts`.
 - An account can name an `endpoint`. Without one it is the vendor's own address. The mocks, the wire run and a company gateway are reached this way.
 - The entry file imports `createServer` from `node:http`, the one builtin the gates allow it, because Node's server layer takes it. The dependency-cruiser rule `entry-builtins` still bans every other builtin there, and one `.oxlintrc.jsonc` override lifts the two lint rules for that file alone.
 - The loopback port is the attack surface ADR 0002 covers.

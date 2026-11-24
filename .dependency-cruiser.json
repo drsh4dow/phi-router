@@ -79,7 +79,7 @@
 		{
 			"name": "cli-writes-through-the-router",
 			"severity": "error",
-			"comment": "A command never imports the verdict store or the lease registry, so it cannot write them. Only the router writes them; a command asks the running router through client/session-request.ts or client/lease-request.ts (ADRs 0005 and 0007).",
+			"comment": "A command never imports the verdict store or the lease registry, so it cannot write them. Only the router writes them; a command asks the running router through client/router-port/index.ts (ADRs 0005 and 0007).",
 			"from": {
 				"path": "^src/router/features/cli/"
 			},

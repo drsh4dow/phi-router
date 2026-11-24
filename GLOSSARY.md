@@ -16,6 +16,12 @@ _Avoid_: client, tool
 **Instance**:
 One running process of a harness.
 
+**Session**:
+One conversation in an instance, named by the session id its harness sends with each request. pi sends none of its own, so the pi package adds a session header. The verdict store, the pin and the lane log are kept per session.
+
+**Provider `phi`**:
+The provider the pi package adds to pi, at the router's address, with the models `phi/auto` and `phi/sealed`. Only a request of this provider is routed.
+
 **Router**:
 The local program that receives every model request of a protected instance and picks its lane.
 _Avoid_: gateway, proxy, daemon
