@@ -19,7 +19,7 @@ import { laneLines } from "#tools/route/mocked-router.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { succeeded } from "./checks.ts";
 import { turnsOn } from "./account-turns.ts";
-import { voidedNumber } from "./cases.ts";
+import { voidedSsn } from "./cases.ts";
 
 const runtimeAndScript = 2;
 
@@ -104,7 +104,7 @@ const checksOf = (ran: Ran): readonly { readonly name: string; readonly ok: bool
 	},
 	{
 		name: "no file under the state folder holds the canary",
-		ok: !pipe(ran.stored, Array.some(Str.includes(voidedNumber))),
+		ok: !pipe(ran.stored, Array.some(Str.includes(voidedSsn))),
 	},
 ];
 

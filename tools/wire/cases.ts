@@ -11,7 +11,7 @@ const phiCaseId = "h-0051";
  * A Social Security number the SSA voided after a wallet insert printed it, so it names nobody. Of the policy, only its
  * rule for these numbers seals it.
  */
-const voidedNumber = "078-05-1120";
+const voidedSsn = "078-05-1120";
 
 const onlyTextOf = (subject: Case): readonly string[] => {
 	const [first, ...rest] = subject.messages;
@@ -55,13 +55,13 @@ const casesOfRun = Effect.gen(function* casesOfRun() {
 	const [memberNumber] = member.subject.canaries;
 
 	const text = yield* Effect.filterOrFail(
-		Effect.succeed(Str.replace(`Member ID: ${memberNumber}`, `SSN: ${voidedNumber}`)(member.text)),
-		Str.includes(voidedNumber),
+		Effect.succeed(Str.replace(`Member ID: ${memberNumber}`, `SSN: ${voidedSsn}`)(member.text)),
+		Str.includes(voidedSsn),
 		() => `${phiCaseId} no longer reads "Member ID: ${memberNumber}"`,
 	);
 
 	const subject = Struct.assign(member.subject, {
-		canaries: Array.of(voidedNumber),
+		canaries: Array.of(voidedSsn),
 		fragments: [],
 		id: `${phiCaseId}-ssn`,
 		messages: Array.of({ role: "user" as const, text }),
@@ -74,4 +74,4 @@ const casesOfRun = Effect.gen(function* casesOfRun() {
 	return run;
 });
 
-export { casesOfRun, voidedNumber };
+export { casesOfRun, voidedSsn };

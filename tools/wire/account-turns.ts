@@ -5,11 +5,11 @@ import { place as piPlace, piRun, rpcAnswered } from "./pi-run.ts";
 import type { Tokens } from "./spent.ts";
 import { piWire } from "#router/features/route/index.ts";
 import { tokensIn } from "./spent.ts";
-import { voidedNumber } from "./cases.ts";
+import { voidedSsn } from "./cases.ts";
 
 const clean = "Reply with the single word ok.";
 
-const canary = `Reply with the single word ok. The member's SSN is ${voidedNumber}.`;
+const canary = `Reply with the single word ok. The member's SSN is ${voidedSsn}.`;
 
 const session = "29292929-2929-4929-8929-292929292929";
 

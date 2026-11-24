@@ -6,7 +6,7 @@ import { everyOf } from "./checks.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { pinnedLine } from "#router/features/lanes/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
-import { voidedNumber } from "./cases.ts";
+import { voidedSsn } from "./cases.ts";
 
 const typed = { pin: "/phi pin", status: "/phi", unpin: "/phi unpin" } as const;
 
@@ -133,7 +133,7 @@ const phiTurns = Effect.fnUntraced(function* phiTurns<Turn extends PhiTurned, Fa
 const handOff = "Hand the member lookup to the pinned subagent.";
 
 const subagent = {
-	answer: `The member's SSN is ${voidedNumber}. Their internal id is p-17.`,
+	answer: `The member's SSN is ${voidedSsn}. Their internal id is p-17.`,
 	prompt: "Find the member's internal id.",
 } as const;
 
@@ -144,7 +144,7 @@ const naming =
 	(sent) =>
 		Str.includes(`"model":"${model}"`)(sent.body);
 
-const holdsAnswer = ({ body }: Sent): boolean => Str.includes(voidedNumber)(body);
+const holdsAnswer = ({ body }: Sent): boolean => Str.includes(voidedSsn)(body);
 
 const vendorOf = { claude: "anthropic", codex: "openai" } as const;
 
