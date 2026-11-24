@@ -23,7 +23,6 @@
 	"src/router/features/verdicts/fixtures.ts": 2,
 	"src/router/features/verdicts/quotes.ts": 2,
 	"src/router/features/verdicts/scripted-judge.ts": 1,
-	"src/router/features/verdicts/verdict.ts": 1,
 	"tools/claude/configured.ts": 9,
 	"tools/claude/doctor.test.ts": 5,
 	"tools/claude/exemption.test.ts": 3,

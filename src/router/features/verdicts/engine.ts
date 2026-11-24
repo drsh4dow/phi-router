@@ -178,7 +178,7 @@ const clearIfNothingLeft = (
 		return Effect.fail(Verdicts.Cleared({ by: "fixture" }));
 	}
 
-	return Effect.fail(Verdicts.Cleared({ by: "empty" }));
+	return Effect.fail(Verdicts.Cleared({ by: "nothing-to-judge" }));
 };
 
 /** Settles a piece before the judge. Failing with a verdict ends the piece there. */

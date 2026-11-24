@@ -13,8 +13,7 @@ type Finding = Data.TaggedEnum<{
 
 const Findings = Data.taggedEnum<Finding>();
 
-/** `empty` is a piece with no text and no image left to judge. */
-type ClearedBy = "judge" | "rules-only" | "fixture" | "empty";
+type ClearedBy = "judge" | "rules-only" | "fixture" | "nothing-to-judge";
 
 type Verdict = Data.TaggedEnum<{
 	Cleared: { readonly by: ClearedBy };
