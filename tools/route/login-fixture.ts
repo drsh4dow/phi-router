@@ -20,11 +20,6 @@ const renewedUntil = start + tenDays;
 const jwt = (expires: number, label: string): string =>
 	`e30.${Base64Url.encode(`{"exp":${String(Math.floor(expires / millisPerSecond))}}`)}.phi-test-codex-signature-${label}`;
 
-/**
- * What a login with `token` that expires at `expires` and ends at `ends` writes in its folder, per vendor, and the lines
- * of a stand-in CLI that writes `renewed` there. The Codex stand-in answers the `account/read` line a moment later, and
- * exits with no answer when its stdin closes first, as `codex app-server` does.
- */
 const logins = {
 	claude: {
 		account: Option.none<string>(),

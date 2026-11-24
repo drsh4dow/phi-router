@@ -28,7 +28,6 @@ const rows = {
 		"   3: 0100007F:8286 0100007F:DD8D 01 00000000:00000000 00:00000000 00000000  1000        0 49675693 1 00000000f548b403 20 4 30 10 -1",
 };
 
-/** What the check answers when `/proc/net/tcp` holds the router's two rows and `callerRows`. */
 const answerFor = Effect.fnUntraced(function* answerFor(callerRows: readonly string[], asked: Caller = connection) {
 	const text = Array.join([heading, rows.listening, rows.routerEnd, ...callerRows, ""], "\n");
 
@@ -61,7 +60,6 @@ const lsofPrintedForAnotherUsersCaller =
 const exitsWith = (exitCode: number): Effect.Effect<ChildProcessSpawner.ExitCode> =>
 	Effect.succeed(ChildProcessSpawner.ExitCode(exitCode));
 
-/** What the check answers where there is no `/proc/net/tcp`, when `lsof` prints `printed` and exits as `exitCode` gives. */
 const lsofAnswerFor = Effect.fnUntraced(function* lsofAnswerFor(
 	printed: string,
 	exitCode: () => Effect.Effect<ChildProcessSpawner.ExitCode>,

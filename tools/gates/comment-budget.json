@@ -218,8 +218,6 @@
 	"tools/plugin/prompt-hook.test.ts": 4,
 	"tools/plugin/seal-notice.test.ts": 3,
 	"tools/plugin/session-hook.ts": 8,
-	"tools/route/callers.test.ts": 2,
-	"tools/route/login-fixture.ts": 1,
 	"tools/setup/set-up.ts": 15,
 	"tools/setup/setup-claude.test.ts": 9,
 	"tools/setup/setup-codex-pi.test.ts": 5,
