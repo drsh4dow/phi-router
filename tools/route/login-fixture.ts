@@ -22,14 +22,17 @@ const jwt = (expires: number, label: string): string =>
 
 /**
  * What a login with `token` that expires at `expires` and ends at `ends` writes in its folder, per vendor, and the lines
- * of a stand-in CLI that writes `renewed` there. The Codex stand-in answers the `account/read` line and waits for its
- * stdin to close, as `codex app-server` does.
+ * of a stand-in CLI that writes `renewed` there. The Codex stand-in answers the `account/read` line a moment later, and
+ * exits with no answer when its stdin closes first, as `codex app-server` does.
  */
 const logins = {
 	claude: {
 		account: Option.none<string>(),
 		file: ".credentials.json",
-		renews: (renewed: string) => [`printf '%s' '${renewed}' > "$CLAUDE_CONFIG_DIR/.credentials.json"`],
+		renews: (renewed: string) => [
+			'[ "$*" = "auth status --json" ] || exit 4',
+			`printf '%s' '${renewed}' > "$CLAUDE_CONFIG_DIR/.credentials.json"`,
+		],
 		standIn: "claude",
 		text: (token: string, expires: number, ends: number) =>
 			`{"claudeAiOauth":{"accessToken":"${token}","expiresAt":${String(expires)},"refreshTokenExpiresAt":${String(ends)}}}`,
@@ -39,12 +42,15 @@ const logins = {
 		account: Option.some("phi-test-codex-account"),
 		file: "auth.json",
 		renews: (renewed: string) => [
+			'[ "$*" = "app-server" ] || exit 4',
+			'PATH="$PATH:/usr/bin:/bin"',
 			"read -r initialize",
 			"read -r initialized",
 			"read -r account",
-			`printf '%s' '${renewed}' > "$CODEX_HOME/auth.json"`,
-			`printf '%s\\n' '{"id":2,"result":{"account":null}}'`,
-			"read -r closed",
+			`case "$account" in *'"refreshToken":true'*) ;; *) exit 5 ;; esac`,
+			`(sleep 0.2; printf '%s' '${renewed}' > "$CODEX_HOME/auth.json"; printf '%s\\n' '{"id":2,"result":{"account":null}}') &`,
+			"while read -r line; do :; done",
+			"kill $!",
 		],
 		standIn: "codex",
 		text: (token: string) =>

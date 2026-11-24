@@ -1,13 +1,14 @@
 import { Array, Effect, FileSystem, Option, Path, String as Str, Struct, pipe } from "effect";
 import type { Lifetime, Tokens, Vendor } from "./login-fixture.ts";
 import { assert, it } from "@effect/vitest";
+import { claudeRequest, routed } from "./mocked-router.ts";
 import { codexBodyOf, harnesses, userMessage } from "./harnesses.ts";
 import { day, dayLong, loggedIn, logins, start, thirtyDays } from "./login-fixture.ts";
+import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import type { Script } from "./harnesses.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
-import { routed } from "./mocked-router.ts";
 
 const minute = 60_000;
 
@@ -160,6 +161,61 @@ const ended = Effect.gen(function* ended() {
 	);
 });
 
+const twoAtOnce = Effect.gen(function* twoAtOnce() {
+	yield* TestClock.setTime(start);
+
+	const login = yield* loggedIn("claude", {
+		ends: start + thirtyDays,
+		expires: start + minute,
+		standInRuns: "sleep 1",
+	});
+
+	const { mocks, post } = yield* routed({
+		env: { PATH: `${login.bin}:/usr/bin:/bin` },
+		holdsPhi: () => false,
+		open: answersOk("claude"),
+		openFolder: login.folder,
+	});
+
+	const body = yield* bodies.claude;
+
+	const statuses = yield* Effect.forEach(
+		["logins-first", "logins-second"],
+		(session) => Effect.flatMap(post({ body, session }), (response) => Effect.as(response.text, response.status)),
+		{ concurrency: "unbounded" },
+	);
+
+	const [opened = []] = yield* mocks.accounts;
+	const renewed = `Bearer ${login.tokens.renewed}`;
+
+	assert.deepStrictEqual<unknown>(
+		{ opened: bearersOf(opened), ran: yield* login.ran, statuses },
+		{ opened: [renewed, renewed], ran: "run\n", statuses: [status.ok, status.ok] },
+	);
+});
+
+const harnessKey = Effect.gen(function* harnessKey() {
+	yield* TestClock.setTime(start);
+
+	const login = yield* loggedIn("claude", dayLong);
+	const { client, mocks } = yield* routed({ holdsPhi: () => false, openFolder: login.folder });
+	const body = yield* bodies.claude;
+	const request = claudeRequest({ body, session: "logins-harness-key" });
+	const response = yield* client.execute(HttpClientRequest.setHeader(request, "x-api-key", "phi-test-harness-key"));
+
+	yield* response.text;
+
+	const [opened = []] = yield* mocks.accounts;
+
+	assert.deepStrictEqual<unknown>(
+		pipe(
+			opened,
+			Array.map(({ headers }) => [headers["authorization"], Option.fromUndefinedOr(headers["x-api-key"])]),
+		),
+		[[`Bearer ${login.tokens.first}`, Option.none()]],
+	);
+});
+
 const resendsOnEachAccount = Effect.gen(function* resendsOnEachAccount() {
 	const fs = yield* FileSystem.FileSystem;
 
@@ -203,6 +259,11 @@ it.layer(NodeServices.layer)("a login-folder account", (test) => {
 		() => keptToken,
 	);
 	test.effect("of claude whose login ended sends the request to the next account and runs nothing", () => ended);
+	test.effect(
+		"of claude whose token expires within 5 minutes runs the vendor CLI once for two requests at once",
+		() => twoAtOnce,
+	);
+	test.effect("of claude sends its own token and never the harness's x-api-key", () => harnessKey);
 	test.effect(
 		"answered 401 twice, once open and once BAA after the resend went sealed, resends to each once",
 		() => resendsOnEachAccount,

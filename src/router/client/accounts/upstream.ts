@@ -138,12 +138,6 @@ interface Asking {
 	readonly ready: Account["ready"];
 }
 
-/**
- * How one account is asked. A login folder is read before each request, and its account receives the copied headers,
- * never the harness's credential, and the token read for this send. A Codex home folder adds its ChatGPT account. On a
- * 401 the folder's token is marked rejected and the ask fails with `Rejected`. Any other answer of any account passes
- * as it came.
- */
 const askingOf = Effect.fnUntraced(function* askingOf(named: NamedAccount) {
 	const call = yield* callerOf(named);
 	const { credential, name, vendor } = named;

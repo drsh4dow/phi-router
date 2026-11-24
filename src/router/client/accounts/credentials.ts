@@ -167,13 +167,6 @@ interface LoginToSend {
 }
 
 interface FolderLogin {
-	/**
-	 * Makes the folder's token fit to send, before the send reads the verdict store, so no vendor CLI runs between that
-	 * read and the send. When the token is under 5 minutes from expiry or is the token last rejected, the vendor's CLI
-	 * runs once and the folder is read again. That run spends the rejection, so the resend takes whatever token the
-	 * folder holds. A login past its end, or a token still near expiry, fails. One permit per folder, so one CLI runs at
-	 * a time. A CLI that fails or is missing is no error by itself: the read after it decides.
-	 */
 	readonly ready: Effect.Effect<void, LoginEnded>;
 	readonly current: Effect.Effect<LoginToSend, LoginEnded>;
 }

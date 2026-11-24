@@ -105,7 +105,6 @@ const accountReadAnswer = '"id":2';
 
 const forceKillAfter = "1 second";
 
-/** `claude auth status --json`, which refreshes a Claude config folder's token in place. */
 const claudeRefresh = Effect.fnUntraced(function* claudeRefresh(env: Readonly<Record<string, string | undefined>>) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
@@ -123,10 +122,6 @@ const claudeRefresh = Effect.fnUntraced(function* claudeRefresh(env: Readonly<Re
 	yield* handle.exitCode;
 });
 
-/**
- * `codex app-server` asked `account/read` with `refreshToken`, which refreshes a Codex home folder's token in place. Its
- * stdin stays open until the answer comes, since it exits with no answer when stdin closes first.
- */
 const codexRefresh = Effect.fnUntraced(function* codexRefresh(env: Readonly<Record<string, string | undefined>>) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const stdin = { endOnDone: false, stream: Stream.encodeText(Stream.fromIterable(accountRead)) };
