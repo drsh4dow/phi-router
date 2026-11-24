@@ -4,30 +4,18 @@ import type { Scope } from "effect";
 
 type Json = boolean | number | string | null | readonly Json[] | { readonly [key: string]: Json };
 
-/** One SSE event of a reply, written as `event: <type>` and `data: <json>`. */
 interface Event {
 	readonly type: string;
 	readonly [key: string]: Json;
 }
 
-/**
- * What an account mock is asked: the model, and as JSON text the last message's content, tool results included, or for
- * OpenAI the last input item.
- */
 interface Asked {
 	readonly model: string;
 	readonly last: string;
 	readonly body: string;
-	/** Every header under its lower-case name, for a script that answers by the credential it got. */
 	readonly headers: Readonly<Record<string, string>>;
 }
 
-/**
- * What an account mock answers. `events` is an SSE reply, each event written as its own chunk when the stream emits it,
- * so a test that feeds the stream from a queue decides when each event leaves. `status` is a whole JSON answer, such as
- * an error or a model catalog. `stalled` is a `status` whose body stops after its first byte and never ends. `redirect`
- * is a 302 to `location`.
- */
 type Said =
 	| { readonly kind: "events"; readonly events: Stream.Stream<Event> }
 	| {
@@ -39,7 +27,6 @@ type Said =
 	| { readonly kind: "stalled"; readonly status: number }
 	| { readonly kind: "redirect"; readonly location: string };
 
-/** One request an account mock received: every header under its lower-case name, its query string, and the raw body. */
 interface Sent {
 	readonly method: string;
 	readonly path: string;
@@ -49,7 +36,6 @@ interface Sent {
 }
 
 interface AccountMock {
-	/** `http://127.0.0.1:<port>`, an account's `endpoint`. */
 	readonly endpoint: string;
 	readonly received: Effect.Effect<readonly Sent[]>;
 }
@@ -97,12 +83,6 @@ const message = {
 
 const ping: Event = { type: "ping" };
 
-/**
- * The events of a text reply, as the pi harness mock wrote them, with one delta per text and a `ping` after each.
- *
- * @param {readonly string[]} texts The text of each delta.
- * @returns {readonly Event[]} The events.
- */
 const textEvents = (texts: readonly string[]): readonly Event[] => [
 	{ message, type: "message_start" },
 	{ content_block: { text: "", type: "text" }, index: 0, type: "content_block_start" },
@@ -115,12 +95,6 @@ const textEvents = (texts: readonly string[]): readonly Event[] => [
 	{ type: "message_stop" },
 ];
 
-/**
- * The events of one tool call, its whole input in one delta.
- *
- * @param {object} call The call's id and tool name, and its input as JSON text.
- * @returns {readonly Event[]} The events.
- */
 const toolEvents = (call: { readonly id: string; readonly name: string; readonly input: string }): readonly Event[] => [
 	{ message, type: "message_start" },
 	{
@@ -134,13 +108,6 @@ const toolEvents = (call: { readonly id: string; readonly name: string; readonly
 	{ type: "message_stop" },
 ];
 
-/**
- * The events of a Responses reply holding `items`, each written whole once added and once done, as Codex 0.166.0
- * reads them (measured in the wire run).
- *
- * @param {readonly Json[]} items The reply's output items.
- * @returns {readonly Event[]} The events.
- */
 const responseEvents = (items: readonly Json[]): readonly Event[] => {
 	const usage = {
 		input_tokens: 1,
@@ -187,7 +154,6 @@ const responseTo = Match.type<Said>().pipe(
 	}),
 );
 
-/** An account mock on the caller's `HttpServer` that records every request before `answerOf` answers it. */
 const recording = Effect.fnUntraced(function* recording(
 	answerOf: (sent: Sent) => Effect.Effect<HttpServerResponse.HttpServerResponse>,
 ): Effect.fn.Return<AccountMock, never, HttpServer.HttpServer | Scope.Scope> {
@@ -213,13 +179,6 @@ const recording = Effect.fnUntraced(function* recording(
 
 const unknownPath = Effect.succeed(HttpServerResponse.empty({ status: notFound }));
 
-/**
- * An Anthropic account mock, for the open and the BAA account alike. It answers `POST /v1/messages` by `script` and
- * every other request with 404.
- *
- * @param {Function} script How it answers a model request.
- * @returns {Effect.Effect<AccountMock, never, HttpServer.HttpServer | Scope.Scope>} The mock.
- */
 const serveAnthropic = (
 	script: (asked: Asked) => Said,
 ): Effect.Effect<AccountMock, never, HttpServer.HttpServer | Scope.Scope> =>
@@ -231,13 +190,6 @@ const serveAnthropic = (
 		return Effect.orDie(Effect.map(askedOf(sent), (asked) => responseTo(script(asked))));
 	});
 
-/**
- * An OpenAI account mock, for the open (ChatGPT) and the BAA (API) account alike, at the endpoint its account names. It
- * answers `POST /responses` by `script`, `GET /models` by `catalog`, and every other request with 404.
- *
- * @param {object} scripts How it answers a model request and a catalog request.
- * @returns {Effect.Effect<AccountMock, never, HttpServer.HttpServer | Scope.Scope>} The mock.
- */
 const serveOpenAi = (scripts: {
 	readonly script: (asked: Asked) => Said;
 	readonly catalog: () => Said;
