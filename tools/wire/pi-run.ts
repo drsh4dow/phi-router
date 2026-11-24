@@ -87,10 +87,6 @@ const gitServed = Effect.fnUntraced(function* gitServed(where: SnapshotFolders) 
 
 const entry = decodeURIComponent(new URL("../../src/router/main.ts", import.meta.url).pathname);
 
-/**
- * Gives the agent folder `agent` a fake subscription login, and settings that turn retries off, so a request the router
- * does not take fails its turn, and keep one recent token, so `/compact` has turns to summarize.
- */
 const agentFolder = Effect.fnUntraced(function* agentFolder(agent: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
