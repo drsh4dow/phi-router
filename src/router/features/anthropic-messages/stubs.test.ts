@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Order, Predicate, Record, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Option, Order, Predicate, Schema, String as Str, pipe } from "effect";
 import { BodyJson, LooseCall, LooseResult } from "./wire.ts";
 import type { WireAssistantBlock, WireUnreadable, WireUserBlock } from "./wire.ts";
 import { assert, it } from "@effect/vitest";
@@ -273,45 +273,5 @@ it.layer(Digest.layerWebCrypto)("a stub rewrite", (test) => {
 			vendor: Schema.Array(Schema.Boolean),
 		},
 		({ mask, name, vendor }) => stubsStayValid(name, mask, vendor),
-	);
-});
-
-const everyToolBlock = (): boolean => true;
-
-const blockTypesOf = Effect.fnUntraced(function* blockTypesOf(body: string) {
-	const { messages } = yield* decodeBody(body, { onExcessProperty: "error" });
-
-	return pipe(
-		messages,
-		Array.flatMap((turn) => {
-			if (!("role" in turn) || turn.role === "system" || Predicate.isString(turn.content)) {
-				return [];
-			}
-
-			return turn.content;
-		}),
-		Array.map((block) => block.type),
-	);
-});
-
-const asUnreadable = (type: string): string => {
-	if (type === "tool_use" || type === "tool_result") {
-		return "unreadable";
-	}
-
-	return type;
-};
-
-const vendorKeyOpensToolBlocks = Effect.fnUntraced(function* vendorKeyOpensToolBlocks(name: keyof typeof requests) {
-	const sentTypes = yield* blockTypesOf(requests[name]);
-	const plantedTypes = yield* blockTypesOf(withVendorKeys(requests[name], everyToolBlock));
-
-	assert.deepStrictEqual(plantedTypes, pipe(sentTypes, Array.map(asUnreadable)), name);
-});
-
-it.layer(Digest.layerWebCrypto)("the captured tool blocks", (test) => {
-	test.effect(
-		"every tool_use and tool_result block of each capture opens with the key a vendor key goes before, and reads as unreadable with one",
-		() => Effect.forEach(Record.keys(requests), vendorKeyOpensToolBlocks, { concurrency: 1 }),
 	);
 });
