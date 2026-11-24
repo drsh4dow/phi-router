@@ -218,7 +218,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 
 		return Struct.assign(ran, {
 			blocked: Str.includes(promptBlocked)(ran.stderr),
-			warned: Str.includes(fallback)(`${ran.stdout}${ran.stderr}`),
+			fellBackToDefaultMetadata: Str.includes(fallback)(`${ran.stdout}${ran.stderr}`),
 		}) satisfies CodexTurned;
 	});
 

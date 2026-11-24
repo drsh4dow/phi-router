@@ -33,11 +33,10 @@ interface ClaudePlayed extends Played {
 	readonly turns: readonly [clean: Turned, canary: Turned, followUp: Turned, tool: Turned, ...phi: Turned[]];
 }
 
-/** What one `codex` run left, with both streams whole and whether it fell back to default model metadata. */
 interface CodexTurned extends Turned {
 	readonly stdout: string;
 	readonly stderr: string;
-	readonly warned: boolean;
+	readonly fellBackToDefaultMetadata: boolean;
 }
 
 /** The slugs `codex debug models` listed, the ones the open mock's catalog served, and the working folder's remote. */
@@ -229,7 +228,7 @@ const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 			name: "no codex run fell back to default model metadata",
 			ok: !pipe(
 				played.turns,
-				Array.some((turn) => turn.warned),
+				Array.some((turn) => turn.fellBackToDefaultMetadata),
 			),
 		},
 		{
