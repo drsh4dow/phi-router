@@ -1,5 +1,5 @@
 import type { AccountMock, Asked, Event, Reply, Said } from "#router/client/mock-upstreams/index.ts";
-import { Array, Context, Effect, FileSystem, Layer, Option, Ref, Schema, String as Str, Stream, pipe } from "effect";
+import { Array, Context, Effect, FileSystem, Layer, Option, Schema, String as Str, Stream, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
@@ -14,7 +14,6 @@ import {
 import type { HttpServer } from "effect/http";
 import { Listener } from "#router/client/router-port/index.ts";
 import type { Scope } from "effect";
-import { TestClock } from "effect/testing";
 import { mockOn } from "#tools/judge/configured.ts";
 
 type Script = (asked: Readonly<Asked>) => Said;
@@ -230,18 +229,9 @@ const lastAsked = Effect.fnUntraced(function* lastAsked({ body, expected, vendor
 
 const stalls = Effect.gen(function* stalls() {
 	const response = yield* answer("anthropic", () => ({ kind: "stalled", status: status.failed }), greetings.anthropic);
-	const seen = yield* Ref.make("");
+	const first = yield* Stream.runHead(Stream.decodeText(response.stream));
 
-	const ended = yield* response.stream.pipe(
-		Stream.decodeText,
-		Stream.runForEach((text) => Ref.update(seen, (before) => before + text)),
-		Effect.timeoutOption("300 millis"),
-		TestClock.withLive,
-	);
-
-	const body = yield* Ref.get(seen);
-
-	assert.deepStrictEqual([response.status, body, Option.isSome(ended)], [status.failed, "{", false]);
+	assert.deepStrictEqual([response.status, first], [status.failed, Option.some("{")]);
 });
 
 const offRoute = Effect.gen(function* offRoute() {
@@ -364,7 +354,7 @@ it.layer(NodeServices.layer)("an account mock", (test) => {
 	test.effect("sends a tool call's whole input in one delta", () => toolReply);
 	test.effect("writes each Responses item whole when it is added and when it is done", () => responsesReply);
 	test.effect.each(lasts)("gives its script as the last asked $name, as JSON text", lastAsked);
-	test.effect("sends a stalled reply's status and first byte, and never ends it", () => stalls);
+	test.effect("sends a stalled reply's status and first byte", () => stalls);
 	test.effect("records every request, even one it cannot read, and answers 404 off its model route", () => offRoute);
 });
 

@@ -44,7 +44,6 @@ const repo = Effect.gen(function* repo() {
 	return path.resolve(import.meta.dirname, "../..");
 });
 
-/** Runs a command in a folder, and returns its exit code and everything it printed. */
 const run = Effect.fn("run")(function* run(folder: string, command: string, args: readonly string[]) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const handle = yield* spawner.spawn(ChildProcess.make(command, args, { cwd: folder }));
@@ -54,7 +53,6 @@ const run = Effect.fn("run")(function* run(folder: string, command: string, args
 	return { exitCode, output };
 }, Effect.scoped);
 
-/** A fresh repository with the installed tools, the repository's format config and a lint config. */
 const repository = Effect.gen(function* repository() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -70,7 +68,6 @@ const repository = Effect.gen(function* repository() {
 	return tree;
 });
 
-/** Stages `staged` in a fresh repository, leaves `unstaged` in its working copy, and runs the hook there. */
 const committing = Effect.fn("committing")(function* committing(commit: Commit) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
