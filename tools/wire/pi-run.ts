@@ -24,10 +24,6 @@ const checkout = decodeURIComponent(new URL("../..", import.meta.url).pathname);
 /** The repository `pi install` takes, served by `git daemon` on loopback under the path GitHub gives it. */
 const repository = "drsh4dow/phi-router";
 
-/**
- * The caller's `PATH` without the `node_modules/.bin` folders that `bun run` puts first, this checkout's and those of
- * every folder above it, so `pi`, `npm` and the scripts of `pi install` find only the tools a user has.
- */
 const userPath = Effect.map(Config.String("PATH"), (searchPath) =>
 	pipe(
 		Str.split(searchPath, ":"),
@@ -41,7 +37,6 @@ interface SnapshotFolders {
 	readonly daemonBase: string;
 }
 
-/** Runs `git` with no config beyond the repository's own, and fails naming the command unless it exits 0. */
 const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], where: SnapshotFolders) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const searchPath = yield* userPath;
@@ -73,10 +68,6 @@ const snapshot = Effect.fnUntraced(function* snapshot(where: SnapshotFolders) {
 	yield* gitAsks([...author, ...tree, "commit", "--quiet", "--no-verify", "-m", "the tree under test"], where);
 });
 
-/**
- * `git daemon` serving a snapshot of the tree under test on a free loopback port until the scope ends. Returns the
- * address `pi install` takes.
- */
 const gitServed = Effect.fnUntraced(function* gitServed(where: SnapshotFolders) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const port = yield* freePort;
@@ -113,7 +104,6 @@ const agentFolder = Effect.fnUntraced(function* agentFolder(agent: string) {
 	yield* fs.writeFileString(path.join(agent, "settings.json"), Formatter.formatJson(settings));
 });
 
-/** A fresh home, pi agent folder and working folder for `pi`, and a folder `git daemon` serves from. */
 const place = Effect.gen(function* place() {
 	const fs = yield* FileSystem.FileSystem;
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-home-" });
@@ -196,12 +186,6 @@ const piRun = Effect.fnUntraced(
 	Effect.timeout("3 minutes"),
 );
 
-/**
- * Mounts an empty `/tmp` and runs a command in it. Its arguments are the file that receives the listing, the number of
- * folders to keep, those folders relative to `/tmp`, then the command. It binds each kept folder back from the old
- * `/tmp`, runs the command with no `TMPDIR`, and writes the name of each entry `/tmp` then holds to the listing, each
- * ended by a NUL. It exits as the command did. No path passes through a shell string, so any byte but NUL may be in one.
- */
 const emptyTmpScript = `set -eu
 listing=$1
 kept=$2
@@ -221,7 +205,6 @@ code=0
 find /tmp -mindepth 1 -maxdepth 1 -printf '%f\\0' > "$listing"
 exit "$code"`;
 
-/** The entries `/tmp` held after the command, from the listing at `listing`, but for those `kept` lie in. */
 const leftBeside = Effect.fnUntraced(function* leftBeside(listing: string, kept: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const listed = yield* fs.readFileString(listing).pipe(Effect.orElseSucceed(() => ""));
@@ -234,11 +217,6 @@ const leftBeside = Effect.fnUntraced(function* leftBeside(listing: string, kept:
 	return pipe(Str.split(listed, "\0"), Array.filter(Str.isNonEmpty), Array.difference(keptEntries));
 });
 
-/**
- * Runs `command` with `home` as its home and no variable of the caller's but `PATH`, in a mount namespace whose `/tmp`
- * starts empty but for each of `folders` that lives there. Returns its exit code, what it printed, and each entry of
- * `/tmp` it left beside those folders, wherever the harness it runs chose to write.
- */
 const inEmptyTmp = Effect.fnUntraced(function* inEmptyTmp(
 	command: readonly string[],
 	home: string,
@@ -295,6 +273,6 @@ const installedIn = Effect.fnUntraced(function* installedIn(where: Place) {
 	};
 }, Effect.scoped);
 
-export { inEmptyTmp, installedIn, piRun, place, rpcAnswered };
+export { gitServed, inEmptyTmp, installedIn, piRun, place, rpcAnswered };
 
 export type { RpcLine };
