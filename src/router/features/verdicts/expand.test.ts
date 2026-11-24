@@ -194,6 +194,13 @@ const leftAsIs = Effect.gen(function* leftAsIs() {
 	assert.deepStrictEqual(fresh, [lookAlikes]);
 });
 
+const shortGzipLookAlike = Effect.gen(function* shortGzipLookAlike() {
+	const text = "id 1f8b0800112233445566778899aabbccddeeff";
+	const { fresh, verdicts } = yield* judgedText(text);
+
+	assert.deepStrictEqual({ fresh, verdicts }, { fresh: [text], verdicts: [Verdicts.Cleared({ by: "judge" })] });
+});
+
 it.layer(Digest.layerWebCrypto)("expand reads encoded text", (test) => {
 	test.effect("base64 text reaches the judge decoded, after the original", () => base64Text);
 	test.effect(
@@ -206,6 +213,10 @@ it.layer(Digest.layerWebCrypto)("expand reads encoded text", (test) => {
 	test.effect("percent-encoded text reaches the judge decoded", () => percentText);
 	test.effect("a payload nested three levels deep is decoded at every level", () => threeLevels);
 	test.effect("hex digests, UUIDs, versions, paths and identifiers are left as they are", () => leftAsIs);
+	test.effect(
+		"a hex run that starts like gzip but is shorter than an empty gzip member is left as it is",
+		() => shortGzipLookAlike,
+	);
 });
 
 it.layer(Digest.layerWebCrypto)("expand fails closed", (test) => {

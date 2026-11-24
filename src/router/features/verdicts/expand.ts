@@ -25,7 +25,6 @@ const byteValues = { carriageReturn: 13, del: 127, lineFeed: 10, pastC0: 32, tab
 
 const base64Run = /[\w+/-]{16,}={0,2}/gu;
 
-/** Hex gzip: the magic `1f 8b`, deflate (`08`), and at least the 20 bytes of an empty member. */
 const gzipHex = /(?<![\da-f])1f8b08(?:[\da-f]{2}){17,}(?![\da-f])/giu;
 
 const percentRun = /(?<![!-~])[!-$&-~]*(?:%[\dA-Fa-f]{2}[!-$&-~]*)+/gu;
@@ -162,10 +161,6 @@ const legacyReadings = (bytes: Bytes): string[] =>
 		Array.map((decoder) => decoder.decode(bytes)),
 	);
 
-/**
- * A character text in that encoding would not hold: a control, a surrogate, a private-use or unassigned code point, or
- * a decoding error. NUL is allowed, since it pads ASCII read as UTF-16 and ends C strings.
- */
 const outsideText = /[^\P{C}\p{Cf}\0\t\n\r]|\uFFFD/u;
 
 const isText = (reading: string): boolean => !outsideText.test(reading);
@@ -176,13 +171,6 @@ const readsAsText = (bytes: Bytes): boolean =>
 const legible = (reading: string): string =>
 	Str.replaceAll(/[^\P{Cc}\t\n\r]/gu, " ")(Str.replaceAll("\0", "")(reading));
 
-/**
- * What the judge reads for decoded bytes: the text when they are printable UTF-8, else every legacy reading side by
- * side, since no test can tell which one is meant. Long bytes that read as text in no encoding have none.
- *
- * @param {Bytes} bytes Decoded bytes.
- * @returns {Option.Option<readonly string[]>} The readings, or none for binary.
- */
 const readingsOf = (bytes: Bytes): Option.Option<readonly string[]> =>
 	Option.orElse(Option.map(printable(bytes), Array.of), () => {
 		const readings = legacyReadings(bytes);
@@ -217,14 +205,6 @@ const decoders: readonly {
 	{ decode: (run) => Option.some(fromPercent(run)), pattern: percentRun },
 ];
 
-/**
- * Every payload one decoder finds in `text`, in the order they appear. Node's regex engine throws on a run of millions
- * of characters, such as a base64 run over about 5.59 million, so a search that cannot finish fails closed.
- *
- * @param {object} decoder The decoder's pattern and decoding.
- * @param {string} text A text as sent or a reading of a payload.
- * @returns {Effect.Effect} The decoded payloads.
- */
 const payloadsIn = (decoder: (typeof decoders)[number], text: string): Effect.Effect<Uint8Array[], Unexpandable> =>
 	Effect.try({
 		catch: (): Unexpandable => "undecodable",
@@ -236,12 +216,6 @@ const payloadsIn = (decoder: (typeof decoders)[number], text: string): Effect.Ef
 			),
 	});
 
-/**
- * Turns each text into scannable text: the text followed by every reading of every payload decoded from it, recursively.
- * Fails closed as `binary` on decoded bytes over `shortBytes` that read as text in no encoding, and as `undecodable` on a
- * corrupt gzip, on more than `maxDecodedBytes` decoded, or on a payload that still decodes to text below `maxDepth`
- * levels.
- */
 const expand = Effect.fn("expand")(function* expand(texts: readonly string[]) {
 	let room = maxDecodedBytes;
 

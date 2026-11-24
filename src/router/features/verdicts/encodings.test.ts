@@ -58,6 +58,15 @@ const longUtf16 = Effect.gen(function* longUtf16() {
 	assert.include(Array.join(fresh, ""), text);
 });
 
+const longNulTerminated = Effect.gen(function* longNulTerminated() {
+	const text = "Discharge note: Canary Fakesmith, admitted with pneumonia, discharged on day four.";
+	const encoded = Base64.encode(utf16(`${text}\0`, true));
+	const { verdicts, fresh } = yield* judged(`blob ${encoded}`, { score: () => scoreZero });
+
+	assert.deepStrictEqual(verdicts, [Verdicts.Cleared({ by: "judge" })]);
+	assert.include(Array.join(fresh, ""), text);
+});
+
 const percentEncoded = (bytes: Readonly<Uint8Array<Readonly<ArrayBufferLike>>>): string =>
 	pipe(
 		Array.fromIterable(bytes),
@@ -99,6 +108,7 @@ it.layer(Digest.layerWebCrypto)("legacy encodings", (test) => {
 	);
 
 	test.effect("long UTF-16LE text is judged, not sealed as binary", () => longUtf16);
+	test.effect("long NUL-terminated UTF-16LE text is judged, not sealed as binary", () => longNulTerminated);
 
 	test.effect.each(asWritten)("%s text reaches the judge as written: %s", ([, plain, bytes]) =>
 		Effect.gen(function* writtenText() {
