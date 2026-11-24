@@ -1,10 +1,10 @@
 import { Context, Effect, Layer } from "effect";
-import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge/index.ts";
 import type { JudgeName } from "#router/client/judge/index.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Report } from "./report.ts";
+import { assert } from "@effect/vitest";
 import { defaultCorpus } from "./default-corpus.ts";
 import { evaluate } from "./evaluate.ts";
 import { judgeOf } from "./judges.ts";
@@ -12,7 +12,7 @@ import { judgeOf } from "./judges.ts";
 class DefaultCorpusPlay extends Context.Service<
 	DefaultCorpusPlay,
 	{ readonly leaks: Report["leaks"]; readonly unrecorded: number }
->()("phi-router/tools/corpus/corpus.test/DefaultCorpusPlay") {}
+>()("phi-router/tools/corpus/default-corpus-replay/DefaultCorpusPlay") {}
 
 const allRecorded = 0;
 
@@ -41,14 +41,4 @@ const noLeaks = Effect.gen(function* noLeaks() {
 	assert.deepStrictEqual(leaks, []);
 });
 
-it.layer(playedWith("decisions"), { timeout: "10 minutes" })("the default corpus with the Decisions judge", (test) => {
-	test.effect("the recorded answers cover every judge call of the default corpus", () => covered);
-
-	test.effect("no complete identifier in the default corpus reaches an open account in one message", () => noLeaks);
-});
-
-it.layer(playedWith("claude"), { timeout: "10 minutes" })("the default corpus with the Claude judge", (test) => {
-	test.effect("the recorded answers cover every judge call of the default corpus", () => covered);
-
-	test.effect("no complete identifier in the default corpus reaches an open account in one message", () => noLeaks);
-});
+export { covered, noLeaks, playedWith };

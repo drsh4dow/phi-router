@@ -46,4 +46,4 @@ Haiku's identifier scores fall in clusters, at 0.02 (560 answers), 0.05 (183), 0
 - The policy version hashes the judge's name, model and its own thresholds. Changing the judge judges every stored verdict again.
 - The Claude judge's calls count against the BAA account's usage and rate limits, beside its sealed requests.
 - The judge is built once at start (ADR 0008). Adding a BAA account the judge would pick needs a restart.
-- `corpus.test.ts` replays both judges' recordings, and `bun run eval:live --claude` asks the Claude judge on the first Anthropic account on `sealed`.
+- `corpus-decisions.test.ts` and `corpus-claude.test.ts` replay the two judges' recordings, and `bun run eval:live --claude` asks the Claude judge on the first Anthropic account on `sealed`.
