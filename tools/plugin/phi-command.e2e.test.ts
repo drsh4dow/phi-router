@@ -1,4 +1,4 @@
-import { Array, Effect, Fiber, FileSystem, Layer, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Fiber, FileSystem, Layer, Schema, String as Str, Struct, pipe } from "effect";
 import type { Harness, World } from "./hooked.ts";
 import { assert, it } from "@effect/vitest";
 import { hook, session, setUp } from "./hooked.ts";
@@ -28,22 +28,19 @@ const inputOf = (prompt: string): Effect.Effect<string, Schema.SchemaError> =>
 
 const submitted = Effect.fnUntraced(function* submitted(
 	world: World,
-	typed: { readonly harness: Harness; readonly prompt: string; readonly address: string },
+	typed: { readonly harness: Harness; readonly prompt: string; readonly address?: string },
 ) {
 	const input = yield* inputOf(typed.prompt);
+	const run = Struct.assign(Struct.omit(typed, ["prompt"]), { event: "UserPromptSubmit" as const, input });
 
-	return yield* hook(world, { address: typed.address, event: "UserPromptSubmit", harness: typed.harness, input });
+	return yield* hook(world, run);
 });
 
 const blockedWith = Effect.fnUntraced(function* blockedWith(
 	world: World,
 	typed: { readonly harness: Harness; readonly prompt: string; readonly address?: string },
 ) {
-	const hooked = yield* submitted(world, {
-		address: typed.address ?? world.url,
-		harness: typed.harness,
-		prompt: typed.prompt,
-	});
+	const hooked = yield* submitted(world, typed);
 
 	const { reason } = yield* Schema.decodeEffect(Blocked)(hooked.stdout);
 
@@ -107,12 +104,15 @@ const answers = Effect.gen(function* answers() {
 	const answered = yield* Effect.forEach(
 		spellings,
 		({ harness, prompt }) =>
-			Effect.map(Effect.zip(blockedWith(world, { harness, prompt }), pinnedAt(world.url)), ([lines, pinned]) => ({
-				harness,
-				lines,
-				pinned,
-				prompt,
-			})),
+			Effect.map(
+				Effect.zip(blockedWith(world, { address: world.routerUrl, harness, prompt }), pinnedAt(world.routerUrl)),
+				([lines, pinned]) => ({
+					harness,
+					lines,
+					pinned,
+					prompt,
+				}),
+			),
 		{ concurrency: 1 },
 	);
 
@@ -121,8 +121,8 @@ const answers = Effect.gen(function* answers() {
 
 const unknownWords = Effect.gen(function* unknownWords() {
 	const world = yield* setUp;
-	const lines = yield* blockedWith(world, { harness: "claude", prompt: "/phi pinned" });
-	const pinned = yield* pinnedAt(world.url);
+	const lines = yield* blockedWith(world, { address: world.routerUrl, harness: "claude", prompt: "/phi pinned" });
+	const pinned = yield* pinnedAt(world.routerUrl);
 
 	assert.deepStrictEqual({ lines, pinned }, { lines: [usage], pinned: false });
 }).pipe(Effect.scoped);
@@ -141,13 +141,13 @@ const passes = Effect.fnUntraced(function* passes(harness: Harness) {
 
 	const hooked = yield* Effect.forEach(
 		otherPrompts,
-		(prompt) => submitted(world, { address: world.url, harness, prompt }),
+		(prompt) => submitted(world, { address: world.routerUrl, harness, prompt }),
 		{
 			concurrency: 1,
 		},
 	);
 
-	const pinned = yield* pinnedAt(world.url);
+	const pinned = yield* pinnedAt(world.routerUrl);
 
 	assert.deepStrictEqual(
 		{ hooked, pinned },
@@ -181,7 +181,7 @@ const down = Effect.gen(function* down() {
 	const status = yield* blockedWith(world, { address: addressOf(port), harness: "claude", prompt: "/phi" });
 	const pinned = yield* blockedWith(world, { address: addressOf(port), harness: "codex", prompt: "phi pin" });
 	const stalled = yield* blockedWith(world, { address: addressOf(stalledPort), harness: "claude", prompt: "/phi" });
-	const unrouted = yield* blockedWith(world, { address: "", harness: "claude", prompt: "/phi" });
+	const unrouted = yield* blockedWith(world, { harness: "claude", prompt: "/phi" });
 
 	assert.deepStrictEqual(
 		{ pinned, stalled, status, unrouted },

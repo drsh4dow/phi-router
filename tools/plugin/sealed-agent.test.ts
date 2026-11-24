@@ -2,12 +2,12 @@ import { Effect, String as Str } from "effect";
 import { assert, it } from "@effect/vitest";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import { NodeServices } from "@effect/platform-node";
-import { agentFile } from "./agent-file.ts";
+import { pinnedSubagent } from "./agent-file.ts";
 import { sealedRole } from "#router/features/cli/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 
 const shipped = Effect.gen(function* shipped() {
-	const agent = yield* agentFile;
+	const agent = yield* pinnedSubagent;
 
 	assert.deepStrictEqual(
 		{

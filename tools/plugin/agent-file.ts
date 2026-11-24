@@ -4,8 +4,7 @@ const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 
 const plugin = decodeURIComponent(new URL("../../plugins/claude", import.meta.url).pathname);
 
-/** The plugin's pinned subagent: its agent file's front matter fields and body, and the plugin's name. */
-const agentFile = Effect.gen(function* agentFile() {
+const pinnedSubagent = Effect.gen(function* pinnedSubagent() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const text = yield* fs.readFileString(path.join(plugin, "agents", "phi-sealed.md"));
@@ -39,4 +38,4 @@ const agentFile = Effect.gen(function* agentFile() {
 	};
 });
 
-export { agentFile };
+export { pinnedSubagent };

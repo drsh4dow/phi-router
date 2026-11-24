@@ -1,4 +1,4 @@
-import { Array, Config, Effect, FileSystem, Schema, String as Str, Stream, Struct } from "effect";
+import { Array, Config, Effect, FileSystem, Option, Record, Schema, String as Str, Stream, Struct } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { Harness } from "./session-hook.ts";
 import { harnesses } from "./session-hook.ts";
@@ -19,23 +19,20 @@ const Events = Schema.Struct({ Stop: Schema.Tuple([Matcher]), UserPromptSubmit: 
 
 const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Events }));
 
-/** One run of a hook: the harness whose hook file names it, its event, its stdin and the model address, empty for none. */
 interface HookRun {
 	readonly harness: Harness;
 	readonly event: "Stop" | "UserPromptSubmit";
 	readonly input: string;
-	readonly address: string;
+	readonly address?: string;
 }
 
-/** Where a hook runs: the plugin's copy, the router's XDG folders, a home, and the router's address. */
 interface World {
-	readonly copy: string;
+	readonly pluginCopy: string;
 	readonly folders: Readonly<Record<"XDG_CONFIG_HOME" | "XDG_STATE_HOME", string>>;
 	readonly home: string;
-	readonly url: string;
+	readonly routerUrl: string;
 }
 
-/** The plugin's copy, the router's XDG folders, a home, and the router with its mocks as its own process at `url`. */
 const setUp = Effect.gen(function* setUp() {
 	const fs = yield* FileSystem.FileSystem;
 	const copy = yield* pluginCopy;
@@ -44,18 +41,17 @@ const setUp = Effect.gen(function* setUp() {
 	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 	const folders = { XDG_CONFIG_HOME: env.XDG_CONFIG_HOME, XDG_STATE_HOME: env.XDG_STATE_HOME };
 
-	return { copy, folders, home, url: router.url } satisfies World;
+	return { folders, home, pluginCopy: copy, routerUrl: router.url } satisfies World;
 });
 
-/** The phi-router subcommand each event runs for `/phi`, beside the router check before each prompt. */
-const subcommands = { Stop: "turn-end", UserPromptSubmit: "prompt-submit" } as const;
+const subcommandBesideRouterCheck = { Stop: "turn-end", UserPromptSubmit: "prompt-submit" } as const;
 
 const commandOf = Effect.fnUntraced(function* commandOf(world: World, run: HookRun) {
 	const fs = yield* FileSystem.FileSystem;
-	const text = yield* fs.readFileString(`${world.copy}/${harnesses[run.harness].hooksFile}`);
+	const text = yield* fs.readFileString(`${world.pluginCopy}/${harnesses[run.harness].hooksFile}`);
 	const { hooks } = yield* Schema.decodeEffect(Hooks)(text);
 	const [{ hooks: matched }] = hooks[run.event];
-	const ran = Str.includes(` ${subcommands[run.event]} `);
+	const ran = Str.includes(` ${subcommandBesideRouterCheck[run.event]} `);
 
 	const { command } = yield* Effect.fromOption(Array.findFirst(matched, ({ command: line }) => ran(line)));
 
@@ -74,11 +70,15 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	const searchPath = yield* Config.String("PATH");
 	const named = harnesses[run.harness];
 
-	const env = Struct.assign(world.folders, {
+	const base = Struct.assign(world.folders, {
 		HOME: world.home,
 		PATH: searchPath,
-		[named.modelAddressVariable]: run.address,
-		[named.pluginFolderVariable]: world.copy,
+		[named.pluginFolderVariable]: world.pluginCopy,
+	});
+
+	const env = Option.match(Option.fromUndefinedOr(run.address), {
+		onNone: () => base,
+		onSome: (url) => Record.set(base, named.modelAddressVariable, url),
 	});
 
 	const options = { env, extendEnv: false, stdin: Stream.encodeText(Stream.make(run.input)) };

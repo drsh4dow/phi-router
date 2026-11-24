@@ -32,12 +32,16 @@ const noticeFile = "cy1waGktaG9va3M.json";
 
 const quiet = { exitCode: 0, stderr: "", stdout: "" };
 
-const turnEnd = Effect.fnUntraced(function* turnEnd(world: World, harness: Harness, address: string) {
-	return yield* hook(world, { address, event: "Stop", harness, input: stopInput });
+const turnEnd = Effect.fnUntraced(function* turnEnd(
+	world: World,
+	harness: Harness,
+	addressed: { readonly address?: string },
+) {
+	return yield* hook(world, Struct.assign(addressed, { event: "Stop" as const, harness, input: stopInput }));
 });
 
 const noticed = Effect.fnUntraced(function* noticed(world: World, harness: Harness, address: string) {
-	const hooked = yield* turnEnd(world, harness, address);
+	const hooked = yield* turnEnd(world, harness, { address });
 	const { systemMessage } = yield* Schema.decodeEffect(Notice)(hooked.stdout);
 
 	return Struct.assign(hooked, { stdout: systemMessage });
@@ -53,12 +57,12 @@ const sealedTurn = Effect.fnUntraced(function* sealedTurn(url: string) {
 
 const announced = Effect.fnUntraced(function* announced(harness: Harness) {
 	const world = yield* setUp;
-	const before = yield* turnEnd(world, harness, world.url);
+	const before = yield* turnEnd(world, harness, { address: world.routerUrl });
 
-	yield* sealedTurn(world.url);
+	yield* sealedTurn(world.routerUrl);
 
-	const sealed = yield* noticed(world, harness, world.url);
-	const after = yield* turnEnd(world, harness, world.url);
+	const sealed = yield* noticed(world, harness, world.routerUrl);
+	const after = yield* turnEnd(world, harness, { address: world.routerUrl });
 	const { notPrivate, shown } = yield* privacyUnder([world.folders.XDG_STATE_HOME]);
 	const notices = pipe(shown, Array.filter(Str.includes("/phi-router/notices")));
 
@@ -86,7 +90,7 @@ const down = Effect.gen(function* down() {
 	const world = yield* setUp;
 	const port = yield* freePort;
 	const told = yield* noticed(world, "claude", `http://127.0.0.1:${String(port)}`);
-	const unrouted = yield* turnEnd(world, "claude", "");
+	const unrouted = yield* turnEnd(world, "claude", {});
 
 	assert.deepStrictEqual(
 		{ told, unrouted },

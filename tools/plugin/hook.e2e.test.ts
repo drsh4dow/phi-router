@@ -22,7 +22,13 @@ const leased = Effect.fnUntraced(function* leased(
 	event: Event,
 	installed: (port: number) => ModelAddress = unset,
 ) {
-	const hook = yield* hooked({ addressed: loopback, event, harness, installed, stdin: hookInputs[event] });
+	const hook = yield* hooked({
+		event,
+		harness,
+		instanceAddress: loopback,
+		stdin: hookInputs[event],
+		userSettingsAddress: installed,
+	});
 
 	assert.deepStrictEqual(hook.printed, quiet);
 
@@ -64,12 +70,12 @@ const unprotected = Effect.fnUntraced(function* unprotected(unrouted: Unaddresse
 	const fs = yield* FileSystem.FileSystem;
 
 	const hook = yield* hooked({
-		addressed: unrouted.addressed,
-		env: unrouted.env ?? {},
 		event: "SessionStart",
 		harness: "claude",
-		installed: unrouted.installed ?? unset,
+		instanceAddress: unrouted.addressed,
+		instanceEnv: unrouted.env ?? {},
 		stdin: hookInput,
+		userSettingsAddress: unrouted.installed ?? unset,
 	});
 
 	const listening = yield* answers(hook.port);
@@ -83,7 +89,13 @@ const unprotected = Effect.fnUntraced(function* unprotected(unrouted: Unaddresse
 
 const squatted = Effect.fnUntraced(function* squatted([harness, event]: readonly [Harness, Blocking]) {
 	const other = yield* squatter;
-	const hook = yield* hooked({ addressed: () => loopback(other.port), event, harness, stdin: hookInputs[event] });
+
+	const hook = yield* hooked({
+		event,
+		harness,
+		instanceAddress: () => loopback(other.port),
+		stdin: hookInputs[event],
+	});
 
 	const [, stderr] = hook.printed;
 	const received = yield* other.received;
@@ -105,10 +117,10 @@ const keyless = Effect.fnUntraced(function* keyless(harness: Harness) {
 	const event = "UserPromptSubmit";
 
 	const hook = yield* hooked({
-		addressed: loopback,
-		env: { XDG_CONFIG_HOME: config },
 		event,
 		harness,
+		instanceAddress: loopback,
+		instanceEnv: { XDG_CONFIG_HOME: config },
 		stdin: hookInputs[event],
 	});
 
@@ -122,7 +134,13 @@ const keyless = Effect.fnUntraced(function* keyless(harness: Harness) {
 }, Effect.scoped);
 
 const unreadable = Effect.gen(function* unreadable() {
-	const hook = yield* hooked({ addressed: loopback, event: "SessionStart", harness: "claude", stdin: "not json" });
+	const hook = yield* hooked({
+		event: "SessionStart",
+		harness: "claude",
+		instanceAddress: loopback,
+		stdin: "not json",
+	});
+
 	const [stdout, , exitCode] = hook.printed;
 
 	assert.deepStrictEqual({ failed: exitCode !== "0\n", stdout }, { failed: true, stdout: "" });

@@ -18,12 +18,12 @@ const moved = Effect.fnUntraced(function* moved([event, path]: readonly [Blockin
 	const other = yield* squatter;
 
 	const hook = yield* hooked({
-		addressed: () => Option.some(`http://127.0.0.1:${String(other.port)}${path}`),
-		env: { ANTHROPIC_AUTH_TOKEN: credential },
 		event,
 		harness: "claude",
-		installed: loopback,
+		instanceAddress: () => Option.some(`http://127.0.0.1:${String(other.port)}${path}`),
+		instanceEnv: { ANTHROPIC_AUTH_TOKEN: credential },
 		stdin: hookInputs[event],
+		userSettingsAddress: loopback,
 	});
 
 	const [, stderr] = hook.printed;
@@ -59,12 +59,12 @@ const switches: readonly Switched[] = [
 
 const switched = Effect.fnUntraced(function* switched(on: Switched) {
 	const hook = yield* hooked({
-		addressed: loopback,
-		env: { [on.name]: on.value },
 		event: on.event,
 		harness: "claude",
-		installed: on.installed,
+		instanceAddress: loopback,
+		instanceEnv: { [on.name]: on.value },
 		stdin: hookInputs[on.event],
+		userSettingsAddress: on.installed,
 	});
 
 	const [, stderr] = hook.printed;

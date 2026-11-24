@@ -156,26 +156,22 @@ const claudeConfig = Effect.fnUntraced(function* claudeConfig(installed: (port: 
 	return config;
 });
 
-/**
- * One run of a hook: the harness and event it is for, what its stdin holds, the model address the instance has, the one
- * Claude Code's user settings hold, as `on claude` writes it, and more of the instance's environment.
- */
 interface HookRun {
 	readonly harness: Harness;
 	readonly event: Event;
 	readonly stdin: string;
-	readonly addressed: (port: number) => ModelAddress;
-	readonly installed?: (port: number) => ModelAddress;
-	readonly env?: Readonly<Record<string, string>>;
+	readonly instanceAddress: (port: number) => ModelAddress;
+	readonly userSettingsAddress?: (port: number) => ModelAddress;
+	readonly instanceEnv?: Readonly<Record<string, string>>;
 }
 
 const hooked = Effect.fnUntraced(function* hooked({
-	addressed,
-	env: more = {},
 	event,
 	harness,
-	installed = unset,
+	instanceAddress,
+	instanceEnv = {},
 	stdin,
+	userSettingsAddress = unset,
 }: HookRun) {
 	const copy = yield* pluginCopy;
 	const hook = yield* hookOf(copy, harness, event);
@@ -185,11 +181,11 @@ const hooked = Effect.fnUntraced(function* hooked({
 	);
 
 	const [port, searchPath] = yield* Effect.all([freePort, Config.String("PATH")], { concurrency: 1 });
-	const config = yield* claudeConfig(installed, port);
+	const config = yield* claudeConfig(userSettingsAddress, port);
 
 	yield* Effect.addFinalizer(() => ran(["pkill", "-9", "-f", copy], {}).pipe(Effect.orDie));
 
-	const base = Struct.assign(Struct.assign(world, more), {
+	const base = Struct.assign(Struct.assign(world, instanceEnv), {
 		[harnesses[harness].pluginFolderVariable]: copy,
 		CLAUDE_CONFIG_DIR: config,
 		HOME: copy,
@@ -204,7 +200,7 @@ const hooked = Effect.fnUntraced(function* hooked({
 	});
 
 	const env = pipe(
-		addressed(port),
+		instanceAddress(port),
 		Option.match({
 			onNone: () => base,
 			onSome: (url) => Record.set(base, harnesses[harness].modelAddressVariable, url),
