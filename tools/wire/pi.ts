@@ -27,8 +27,9 @@ const storesIn = Effect.fnUntraced(function* storesIn(state: string) {
 	return yield* fs.readDirectory(path.join(state, "sessions"));
 });
 
-/** How long the router may outlive the last pi, by ADR 0005, with a second for the poll. */
-const outlives = 11_000;
+const routerOutlivesLastLease = 10_000;
+
+const pollMargin = 1000;
 
 const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const where = yield* place;
@@ -72,7 +73,10 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 		install,
 		roots,
 		state,
-		stopped: Effect.provideContext(refusedWithin(port, outlives).pipe(Effect.option), http),
+		stopped: Effect.provideContext(
+			refusedWithin(port, routerOutlivesLastLease + pollMargin).pipe(Effect.option),
+			http,
+		),
 		turn,
 	};
 });
