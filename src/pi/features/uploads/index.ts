@@ -22,10 +22,6 @@ interface UploadCommand {
 	readonly sends: string;
 }
 
-/**
- * `/share` and `/bug`, matched as pi's own submit handler matches them, so a line pi would send to the model passes.
- * `/bug` reaches this list because it can upload the transcript and a model's summary of it.
- */
 const uploads: readonly UploadCommand[] = [
 	{
 		command: "/share",
@@ -39,22 +35,12 @@ const uploads: readonly UploadCommand[] = [
 	},
 ];
 
-/** The entry the package adds to a session before a request of the router's provider that pi left no record of. */
 const usedEntry = "phi-router-used";
 
 interface UsageContext {
 	readonly sessionManager: Pick<SessionManager, "getEntries">;
 }
 
-/**
- * Whether the session holds a record, on any branch, that it used `provider` before or as a request left. pi records
- * that a session selected the model when it starts on it or switches to it, and records each reply. A session resumed
- * with `--model` gets no selection from pi, so `recordUse` adds the package's own entry before its first request.
- *
- * @param {UsageContext} ctx The session.
- * @param {string} provider The router's provider in pi.
- * @returns {boolean} Whether the session used `provider`.
- */
 const used = (ctx: UsageContext, provider: string): boolean =>
 	Array.some(
 		ctx.sessionManager.getEntries(),
@@ -73,14 +59,6 @@ interface Recorder {
 	readonly routedProvider: string;
 }
 
-/**
- * The header hook that adds the package's entry to a session before a request of the router's provider leaves, unless
- * the session already records a use of it. The session header marks a request of that provider. pi writes the entry to
- * the session file before the hook returns.
- *
- * @param {Recorder} recorder Where the entry goes, and the router's provider in pi.
- * @returns {(event: Sent, ctx: UsageContext) => void} The hook.
- */
 const recordUse =
 	({ pi, routedProvider }: Recorder) =>
 	(event: Sent, ctx: UsageContext): void => {
@@ -93,14 +71,6 @@ interface UploadContext extends UsageContext {
 	readonly ui: Pick<ExtensionUIContext, "notify">;
 }
 
-/**
- * Why the router refuses `line` in the session of `ctx`: the line runs an upload and the session used `provider`.
- *
- * @param {UploadContext} ctx The session.
- * @param {string} provider The router's provider in pi.
- * @param {string} line The line the user submitted.
- * @returns {Option.Option<string>} Why it is refused, or none when pi may run it.
- */
 const refusal = (ctx: UploadContext, provider: string, line: string): Option.Option<string> =>
 	pipe(
 		Array.findFirst(uploads, (upload) => upload.runs(Str.trim(line))),
@@ -117,12 +87,6 @@ interface Guarded {
 	readonly routedProvider: string;
 }
 
-/**
- * Checks each line `editor` submits before pi's handler sees it, and tells the user why when it refuses one. pi sets
- * `onSubmit` once it has the editor, so a setter keeps pi's handler and the getter hands out the check in front of it.
- *
- * @param {Guarded} guarded The editor, which gains the check in place, the session and the router's provider in pi.
- */
 const guardSubmits = ({ ctx, editor, routedProvider }: Guarded): void => {
 	let submit: Submit = editor.onSubmit ?? Function.constVoid;
 
@@ -145,14 +109,6 @@ const guardSubmits = ({ ctx, editor, routedProvider }: Guarded): void => {
 	});
 };
 
-/**
- * The session hook that keeps a session that used `provider` from leaving the machine through `/share` or `/bug`. It
- * guards the editor another extension set, or pi's own, which pi builds with its status in the border. pi drops the
- * editor when the session is replaced, and this hook runs again for the next one.
- *
- * @param {string} provider The router's provider in pi.
- * @returns {ExtensionHandler<SessionStartEvent>} The hook.
- */
 const blockUploads =
 	(routedProvider: string): ExtensionHandler<SessionStartEvent> =>
 	(_event, ctx) => {

@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Layer, Option, Sink, Stream, pipe } from "effect";
+import { Array, Effect, Equal, Layer, Option, PlatformError, Sink, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CommandFailed, SessionId } from "#shared/cli.ts";
 import { assert, it } from "@effect/vitest";
@@ -7,6 +7,7 @@ import { Router } from "#pi/client/router.ts";
 interface Reply {
 	readonly exitCode: number;
 	readonly stdout: string;
+	readonly stderr?: string;
 }
 
 const clean = 0;
@@ -19,7 +20,6 @@ const anyPid = 1;
 
 const routerPort = 47_499;
 
-/** `start` through `sh`, so the lease names the pid of the process that runs the client, pi's own. */
 const leasing = [
 	"sh",
 	"-c",
@@ -33,6 +33,9 @@ const leasing = [
 	"--port",
 	String(routerPort),
 ];
+
+const exitedLine =
+	'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"pinned":true,"sealed":1,"session":"exits"}';
 
 const replies: readonly { readonly argv: readonly string[]; readonly reply: Reply }[] = [
 	{ argv: leasing, reply: { exitCode: clean, stdout: "" } },
@@ -48,13 +51,25 @@ const replies: readonly { readonly argv: readonly string[]; readonly reply: Repl
 		argv: ["phi-router", "status", "--session", "exits", "--port", String(routerPort)],
 		reply: {
 			exitCode: failed,
-			stdout:
-				'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"pinned":true,"sealed":1,"session":"exits"}',
+			stderr: "phi-router: the router refused the session",
+			stdout: exitedLine,
 		},
 	},
 	{
 		argv: ["phi-router", "status", "--session", "garbled", "--port", String(routerPort)],
 		reply: { exitCode: clean, stdout: "phi-router: no such session" },
+	},
+	{
+		argv: ["phi-router", "status", "--session", "fresh", "--port", String(routerPort)],
+		reply: {
+			exitCode: clean,
+			stdout:
+				'{"accounts":{"clean":[],"sealed":[]},"cleared":0,"last":null,"pinned":false,"sealed":0,"session":"fresh"}',
+		},
+	},
+	{
+		argv: ["phi-router", "models"],
+		reply: { exitCode: clean, stdout: '{"anthropic":{"auto":"claude-auto","sealed":"claude-baa"}}' },
 	},
 	{
 		argv: ["phi-router", "pin", "--session", "s1", "--port", String(routerPort)],
@@ -73,7 +88,7 @@ const replies: readonly { readonly argv: readonly string[]; readonly reply: Repl
 const usage: Reply = { exitCode: misused, stdout: "" };
 
 const handle = (reply: Reply): ChildProcessSpawner.ChildProcessHandle => {
-	const stdout = new TextEncoder().encode(reply.stdout);
+	const encoder = new TextEncoder();
 
 	return ChildProcessSpawner.makeHandle({
 		all: Stream.empty,
@@ -83,9 +98,9 @@ const handle = (reply: Reply): ChildProcessSpawner.ChildProcessHandle => {
 		isRunning: Effect.succeed(false),
 		kill: () => Effect.void,
 		pid: ChildProcessSpawner.ProcessId(anyPid),
-		stderr: Stream.empty,
+		stderr: Stream.make(encoder.encode(reply.stderr ?? "")),
 		stdin: Sink.drain,
-		stdout: Stream.make(stdout),
+		stdout: Stream.make(encoder.encode(reply.stdout)),
 		unref: Effect.die("the router client never unrefs"),
 	});
 };
@@ -135,12 +150,28 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client",
 		}),
 	);
 
+	test.effect("decodes the status line of a session before its first request", () =>
+		Effect.gen(function* fresh() {
+			const router = yield* Router;
+			const status = yield* router.status(SessionId.make("fresh"), routerPort);
+
+			assert.isNull(status.last);
+		}),
+	);
+
 	test.effect("fails with CommandFailed when the CLI exits non-zero, even after printing a status line", () =>
 		Effect.gen(function* exited() {
 			const router = yield* Router;
 			const failure = yield* Effect.flip(router.status(SessionId.make("exits"), routerPort));
 
 			assert.instanceOf(failure, CommandFailed);
+			assert.deepStrictEqual(
+				{ cause: failure.cause, command: failure.command },
+				{
+					cause: `${exitedLine}phi-router: the router refused the session`,
+					command: "status",
+				},
+			);
 		}),
 	);
 
@@ -150,6 +181,33 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client",
 			const failure = yield* Effect.flip(router.status(SessionId.make("garbled"), routerPort));
 
 			assert.instanceOf(failure, CommandFailed);
+			assert.strictEqual(failure.command, "status");
+		}),
+	);
+
+	test.effect("reads the models phi-router models prints, asking no router", () =>
+		Effect.gen(function* models() {
+			const router = yield* Router;
+			const named = yield* router.models;
+
+			assert.deepStrictEqual(named, { anthropic: { auto: "claude-auto", sealed: "claude-baa" } });
+		}),
+	);
+});
+
+const unspawned = Layer.succeed(
+	ChildProcessSpawner.ChildProcessSpawner,
+	ChildProcessSpawner.make(() => Effect.fail(PlatformError.badArgument({ method: "spawn", module: "ChildProcess" }))),
+);
+
+it.layer(Layer.provide(Router.layer("phi-router"), unspawned))("the pi router client without a CLI", (test) => {
+	test.effect("fails with CommandFailed naming the command when the CLI does not start", () =>
+		Effect.gen(function* notStarted() {
+			const router = yield* Router;
+			const failure = yield* Effect.flip(router.status(SessionId.make("s1"), routerPort));
+
+			assert.instanceOf(failure, CommandFailed);
+			assert.strictEqual(failure.command, "status");
 		}),
 	);
 });

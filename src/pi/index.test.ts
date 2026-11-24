@@ -1,8 +1,10 @@
-import { Array, Effect, Option, pipe } from "effect";
-import { addedHeaders, provider } from "#pi/index.ts";
+import { Array, Config, ConfigProvider, Effect, Function, Option, Record, pipe } from "effect";
+import { CommandFailed, productPort } from "#shared/cli.ts";
+import { addedHeaders, bypassProxies, configured, hooked, provider } from "#pi/index.ts";
 import { assert, it } from "@effect/vitest";
+import type { ModelsJson } from "#shared/cli.ts";
+import { Router } from "#pi/client/router.ts";
 import { getBuiltinModels } from "@earendil-works/pi-ai/providers/all";
-import { productPort } from "#shared/cli.ts";
 
 const session = "pi-session-1";
 
@@ -23,7 +25,8 @@ const added = addedHeaders({
 
 it.effect("gives a request of the provider phi its session and pi's Anthropic login", () =>
 	Effect.gen(function* phiRequest() {
-		const headers = yield* added({ "x-other": "kept", "x-phi-session": "" });
+		const marked = provider({ models: {}, port: productPort }).headers ?? {};
+		const headers = yield* added(Record.set(marked, "x-other", "kept"));
 
 		assert.deepStrictEqual(headers, { authorization: `Bearer ${login}`, "x-phi-session": session });
 	}),
@@ -71,4 +74,111 @@ it.effect(
 			);
 			assert.includeMembers(ids, ["claude-opus-5-5", "claude-fable-5-2"]);
 		}),
+);
+
+const ownModels = ["auto", "sealed"];
+
+it.effect("gives auto and sealed the catalog's limits of the models config.json names, and 200K and 32K past it", () =>
+	Effect.sync(() => {
+		const [named = { contextWindow: 0, id: "", maxTokens: 0 }] = getBuiltinModels("anthropic");
+		const anthropic = { auto: named.id, sealed: "not-in-the-catalog" };
+		const offered = provider({ models: { anthropic }, port: productPort }).models ?? [];
+
+		const own = pipe(
+			offered,
+			Array.filter(({ id }) => Array.contains(ownModels, id)),
+			Array.map(listed),
+		);
+
+		assert.deepStrictEqual(own, [
+			{ contextWindow: named.contextWindow, id: "auto", maxTokens: named.maxTokens },
+			{ contextWindow: 200_000, id: "sealed", maxTokens: 32_000 },
+		]);
+	}),
+);
+
+const routerPort = 47_497;
+
+const routed = { anthropic: { auto: "claude-auto", sealed: "claude-baa" } };
+
+const routerOf = (printed: { readonly models?: typeof ModelsJson.Type }): Router["Service"] =>
+	Router.of({
+		models: Effect.mapError(Effect.fromNullishOr(printed.models), () =>
+			CommandFailed.make({ cause: "refused", command: "models" }),
+		),
+		pin: () => Effect.void,
+		start: () => Effect.void,
+		status: () => Effect.die("configured asks no status"),
+		unpin: () => Effect.void,
+	});
+
+const answers = routerOf({ models: routed });
+
+const refuses = routerOf({});
+
+it.effect(
+	"runs on the port PHI_ROUTER_PORT names with the models phi-router models prints, else the product port with none",
+	() =>
+		Effect.gen(function* ports() {
+			const environment = ConfigProvider.fromUnknown({ PHI_ROUTER_PORT: String(routerPort) });
+
+			const named = yield* configured.pipe(
+				Effect.provideService(Router, answers),
+				Effect.provideService(ConfigProvider.ConfigProvider, environment),
+			);
+
+			const unnamed = yield* configured.pipe(
+				Effect.provideService(Router, refuses),
+				Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown({})),
+			);
+
+			assert.deepStrictEqual(
+				{ named, unnamed },
+				{ named: { models: routed, port: routerPort }, unnamed: { models: {}, port: productPort } },
+			);
+		}),
+);
+
+it.effect("keeps the router's address off any proxy pi's process names, beside the hosts already there", () =>
+	Effect.gen(function* proxies() {
+		const environment = ConfigProvider.fromUnknown({ NO_PROXY: "localhost" });
+
+		yield* Effect.provideService(bypassProxies, ConfigProvider.ConfigProvider, environment);
+
+		const bypassed = yield* Config.all({ lower: Config.String("no_proxy"), upper: Config.String("NO_PROXY") });
+
+		assert.deepStrictEqual(bypassed, { lower: "127.0.0.1", upper: "localhost,127.0.0.1" });
+	}),
+);
+
+it.effect("adds /phi and hooks each session's start, prompts, compactions, turns, model switches and headers", () =>
+	Effect.gen(function* hookedOnPi() {
+		const hooks: string[] = [];
+
+		const pi = {
+			appendEntry: Function.constVoid,
+			on: (event: string): (() => void) => {
+				hooks.push(`on ${event}`);
+
+				return Function.constVoid;
+			},
+			registerCommand: (name: string): void => {
+				hooks.push(`command ${name}`);
+			},
+		};
+
+		yield* Effect.provideService(hooked(pi, productPort), Router, refuses);
+
+		assert.deepStrictEqual(hooks, [
+			"on session_start",
+			"on session_start",
+			"on input",
+			"on session_before_compact",
+			"on turn_end",
+			"on model_select",
+			"on before_provider_headers",
+			"on before_provider_headers",
+			"command phi",
+		]);
+	}),
 );

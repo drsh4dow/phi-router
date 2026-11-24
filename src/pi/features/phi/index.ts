@@ -1,6 +1,6 @@
 export { answered, observerOn, routedProvider, usage } from "./phi.ts";
 
-export { compactionSent, promptSent } from "./proof.ts";
+export { compactionSent, promptSent, sessionLeased } from "./proof.ts";
 
 export { phiModels } from "./models.ts";
 

@@ -89,12 +89,6 @@ const contextOf = (hasUI: boolean, provider = "phi"): Shows => {
 	return { ctx, shown };
 };
 
-const kindsIn = (shown: Shown): readonly string[] =>
-	pipe(
-		shown,
-		Array.map(([kind]) => kind),
-	);
-
 const noticesIn = (shown: Shown): Shown =>
 	pipe(
 		shown,
@@ -151,6 +145,16 @@ it.effect("/phi pin pins the session before it shows the status, and /phi unpin 
 		assert.deepStrictEqual(asked, ["pin 47498", "status 47498", "unpin 47498", "status 47498"]);
 		assert.deepStrictEqual(
 			pipe(
+				shown,
+				Array.filter(([kind]) => kind === "status"),
+			),
+			[
+				["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared · pinned"],
+				["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared"],
+			],
+		);
+		assert.deepStrictEqual(
+			pipe(
 				noticesIn(shown),
 				Array.map(([, text]) => Str.split(text, "\n")[one]),
 			),
@@ -183,7 +187,18 @@ it.effect("/phi with a word it does not know shows its usage and asks the router
 
 		const asked = yield* Ref.get(router.asked);
 
-		assert.deepStrictEqual({ asked, kinds: kindsIn(shown) }, { asked: [], kinds: ["warning"] });
+		assert.deepStrictEqual(
+			{ asked, shown },
+			{
+				asked: [],
+				shown: [
+					[
+						"warning",
+						"/phi shows this session's routing, /phi pin pins it to the sealed lane, /phi unpin clears the pin.",
+					],
+				],
+			},
+		);
 	}),
 );
 

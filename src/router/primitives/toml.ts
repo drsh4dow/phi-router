@@ -2,9 +2,7 @@ import { Array, Option, Record, String as Str, pipe } from "effect";
 
 interface Statement {
 	readonly kind: "table" | "arrayOfTables" | "pair";
-	/** A header's key, or a pair's key behind the key of the header above it. */
 	readonly path: readonly string[];
-	/** A pair's value as written, trimmed, without a comment. Empty for a header. */
 	readonly value: string;
 	readonly start: number;
 	readonly end: number;
@@ -86,13 +84,6 @@ const placed = (place: Place, token: Token): readonly [Place, Placed] => {
 	];
 };
 
-/**
- * The tokens of each statement, with where its first line starts and its last line ends. A statement ends at a line
- * break outside brackets and strings.
- *
- * @param {string} text The file.
- * @returns {readonly Group[]} The statements' tokens.
- */
 const groupsOf = (text: string): readonly Group[] => {
 	const [, tokens] = Array.mapAccum(tokensOf(text), { bracketDepth: textStart, statementStart: textStart }, placed);
 
@@ -112,12 +103,6 @@ const groupsOf = (text: string): readonly Group[] => {
 	);
 };
 
-/**
- * The segments of a dotted key, each unquoted.
- *
- * @param {string} key The key as written.
- * @returns {readonly string[]} Its segments.
- */
 const keyOf = (key: string): readonly string[] =>
 	pipe(
 		Array.fromIterable(Str.matchAll(keyPattern)(key)),
@@ -131,12 +116,6 @@ const joined = (tokens: readonly Token[]): string =>
 		Array.join(""),
 	);
 
-/**
- * A header's kind and key, from its tokens past the opening brackets up to the first closing one.
- *
- * @param {readonly Token[]} tokens The header's tokens.
- * @returns {object} Its kind and key.
- */
 const headerOf = (tokens: readonly Token[]): Pick<Statement, "kind" | "path"> => {
 	const opened = pipe(
 		tokens,
@@ -163,12 +142,6 @@ const headerOf = (tokens: readonly Token[]): Pick<Statement, "kind" | "path"> =>
 	return { kind: "table", path };
 };
 
-/**
- * A pair's key and value, split at the first `=` outside a string.
- *
- * @param {readonly Token[]} tokens The pair's tokens.
- * @returns {object} Its key and value.
- */
 const pairOf = (tokens: readonly Token[]): Pick<Statement, "path" | "value"> => {
 	const signed = (token: Token): boolean => !quoted.test(token.text) && Str.includes("=")(token.text);
 
@@ -193,13 +166,6 @@ const pairOf = (tokens: readonly Token[]): Pick<Statement, "path" | "value"> => 
 	return { path: keyOf(`${joined(before)}${key}`), value: Str.trim(`${Array.join(value, "=")}${rest}`) };
 };
 
-/**
- * Each statement of a TOML file in order. A pair's path starts with the key of the header above it, so a dotted key
- * and the same key under a header give the same path. Blank lines and comments are no statement.
- *
- * @param {string} text The file.
- * @returns {readonly Statement[]} Its statements.
- */
 const statementsOf = (text: string): readonly Statement[] => {
 	const groups = pipe(
 		groupsOf(text),

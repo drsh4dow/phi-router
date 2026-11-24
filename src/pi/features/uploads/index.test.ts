@@ -52,13 +52,6 @@ const served = {
 	resumedAndAnswered: (): SessionEntry[] => [...otherProvider(), prompt, reply("phi")],
 };
 
-/**
- * A session that `otherProvider` served, resumed for one more prompt, after pi ran the header hook twice with `headers`,
- * as it does before each request leaves. Entries the package adds go in as pi adds them, as custom entries.
- *
- * @param {Readonly<Record<string, string>>} headers The headers of each request.
- * @returns {Entries} The session's entries after both requests.
- */
 const afterRequests = (headers: Readonly<Record<string, string>>): Entries => {
 	const entries = [...otherProvider(), prompt];
 	const session = { sessionManager: { getEntries: (): SessionEntry[] => [...entries] } };
@@ -78,7 +71,6 @@ const afterRequests = (headers: Readonly<Record<string, string>>): Entries => {
 	return () => [...entries];
 };
 
-/** An editor as the guard sees it: pi sets the handler it calls with each submitted line. */
 interface LineEditor {
 	onSubmit?: (text: string) => void;
 }
@@ -88,14 +80,6 @@ interface Submitted {
 	readonly told: readonly string[];
 }
 
-/**
- * Guards an editor in a session with the entries `getEntries` returns, sets pi's handler on it as pi does once the
- * factory returns, and submits `line`.
- *
- * @param {Entries} getEntries The session's entries.
- * @param {string} line The line the user submits.
- * @returns {Submitted} What the line led to.
- */
 const submitted = (getEntries: Entries, line: string): Submitted => {
 	const handled: string[] = [];
 	const told: string[] = [];

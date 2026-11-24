@@ -5,16 +5,8 @@ import type { SessionId, Status } from "#shared/cli.ts";
 
 const successExitCode = 0;
 
-/**
- * `start` through `sh`, whose `$PPID` is pi's own pid, since pi spawns it directly. The lease is on that pid, as every
- * adapter's is on `$PPID`.
- */
 const onParentPid = `exec "$0" "$@" --${spelling.start.pid} "$PPID"`;
 
-/**
- * What `command` printed on stdout, or `CommandFailed` naming `name`, with what it printed on stdout and stderr, when it
- * did not run or exit 0.
- */
 const printed = Effect.fn("Router.printed")(function* printed(name: string, command: string, args: readonly string[]) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
@@ -47,13 +39,6 @@ const printed = Effect.fn("Router.printed")(function* printed(name: string, comm
 	return ran.success.output;
 }, Effect.scoped);
 
-/**
- * Decodes what the command `name` printed, a failure as `CommandFailed` naming `name`.
- *
- * @param {string} name The command.
- * @param {Function} decode The contract's decoder of what it prints.
- * @returns {Function} The decoder.
- */
 const decodedAs =
 	<Decoded>(name: string, decode: (output: string) => Effect.Effect<Decoded, Schema.SchemaError>) =>
 	(output: string): Effect.Effect<Decoded, CommandFailed> =>
@@ -63,16 +48,13 @@ const decodedModels = decodedAs(spelling.models.name, Schema.decodeEffect(Models
 
 type Asking<Answer> = (session: typeof SessionId.Type, port: number) => Effect.Effect<Answer, CommandFailed>;
 
-/** Runs the `phi-router` CLI at `program`, checks its exit code and decodes what it printed with the contract's schemas. */
 class Router extends Context.Service<
 	Router,
 	{
-		/** Leaves a lease for pi's process and `session` with the router on `port`, starting one when none runs there. */
 		readonly start: (session: string, folder: string, port: number) => Effect.Effect<void, CommandFailed>;
 		readonly status: Asking<typeof Status.Type>;
 		readonly pin: Asking<void>;
 		readonly unpin: Asking<void>;
-		/** The models `phi/auto` and `phi/sealed` run for each vendor `config.json` names, without asking a router. */
 		readonly models: Effect.Effect<typeof ModelsJson.Type, CommandFailed>;
 	}
 >()("phi-router/pi/client/router") {

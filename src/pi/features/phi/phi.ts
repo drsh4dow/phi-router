@@ -7,29 +7,20 @@ type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string
 
 const routedProvider = "phi";
 
-/** What `/phi` answers when the session's model is another provider's, whose requests never reach the router. */
 const unrouted = `phi-router: this session's model is not a ${routedProvider} model, so phi-router does not route it.`;
 
 const statusBarEntry = "phi";
 
-/** What `setStatus` takes to clear the router's entry. */
 const noLine = Option.getOrUndefined(Option.none<string>());
 
 const noneSealed = 0;
 
 const oneMessage = 1;
 
-/** What `/phi` answers to a word it does not know, and the command's description. */
 const usage = `/${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
 
 type Shows = (status: Reported) => string;
 
-/**
- * The account and the model of a last request, and that the model was a substitute when it was.
- *
- * @param {object} last The last request.
- * @returns {string} The text.
- */
 const ranOn = (last: NonNullable<Reported["last"]>): string => {
 	const ran = `${last.account}, model ${last.model}`;
 
@@ -60,13 +51,6 @@ const pinOf: Shows = (status) => {
 	return "off";
 };
 
-/**
- * What `/phi` shows: the session's pin, its last request's account and model, its sealed and cleared counts, and each
- * lane's accounts. The status holds no word of a message, so neither does this.
- *
- * @param {Reported} status What `phi-router status` reported.
- * @returns {string} The lines.
- */
 const statusText: Shows = (status) =>
 	Array.join(
 		[
@@ -80,12 +64,6 @@ const statusText: Shows = (status) =>
 		"\n",
 	);
 
-/**
- * The status bar's line: the last request's account and model, the counts, and the pin when it is on.
- *
- * @param {Reported} status What `phi-router status` reported.
- * @returns {string} The line.
- */
 const statusLine: Shows = (status) =>
 	Array.join(
 		[
@@ -119,13 +97,6 @@ interface ShownContext {
 	};
 }
 
-/**
- * The first line a `phi-router` command that failed printed, which names why, such as `RouterUnanswered`'s line when no
- * router answers. The stack trace after it is left out.
- *
- * @param {CommandFailed} failed The failure.
- * @returns {string} The line.
- */
 const printedLine: (failed: Pick<CommandFailed, "cause">) => string = (failed) =>
 	pipe(
 		Str.split(String(failed.cause), "\n"),
@@ -134,19 +105,12 @@ const printedLine: (failed: Pick<CommandFailed, "cause">) => string = (failed) =
 		Option.getOrElse(() => "it printed nothing"),
 	);
 
-/**
- * `printedLine` after the command's name.
- *
- * @param {CommandFailed} failed The failure.
- * @returns {string} The text pi shows.
- */
 const failureText: (failed: Pick<CommandFailed, "cause" | "command">) => string = (failed) =>
 	`phi-router ${failed.command} failed: ${printedLine(failed)}`;
 
 const sessionOf: (ctx: ShownContext) => typeof SessionId.Type = (ctx) =>
 	SessionId.make(ctx.sessionManager.getSessionId());
 
-/** The session's status, after pinning or unpinning it when `asked` says so. */
 const askedOf = Effect.fnUntraced(function* askedOf(
 	asked: "status" | "pin" | "unpin",
 	session: typeof SessionId.Type,
@@ -161,12 +125,6 @@ const askedOf = Effect.fnUntraced(function* askedOf(
 	return yield* client.status(session, port);
 });
 
-/**
- * What the words after `/phi` ask, and none for a word it does not know.
- *
- * @param {string} words The words.
- * @returns {Option.Option<"status" | "pin" | "unpin">} What they ask.
- */
 const askedBy = (words: string): Option.Option<"status" | "pin" | "unpin"> => {
 	const word = Str.trim(words);
 
@@ -183,14 +141,6 @@ const routed = (ctx: Pick<ShownContext, "model">): boolean =>
 		Option.exists(({ provider }) => provider === routedProvider),
 	);
 
-/**
- * `/phi` for a router on `port`: shows the session's status, after pinning or unpinning it when the words ask, as a
- * notice and in the status bar. A failed command shows as an error that says why. On another provider's model it only
- * says the router does not route the session. It never sends a prompt.
- *
- * @param {number} port The router's port.
- * @returns {Function} The command's handler.
- */
 const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.Effect<void, never, Router> =
 	(port) => (words, ctx) => {
 		if (!routed(ctx)) {
@@ -219,16 +169,8 @@ const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.E
 		});
 	};
 
-/** Shows a session's routing for a context: in the status bar, and in a notice when a turn sealed. */
 type Observe = (ctx: ShownContext) => Effect.Effect<void, never, Router>;
 
-/**
- * The status refreshes of a router on `port`, which share the sealed count of each session pi last showed. Each shows
- * the session's last request in the status bar, when pi has a UI, and a router that does not answer there, with why.
- * On another provider's model it asks the router nothing and clears the status bar's entry. `afterTurn` also shows a
- * notice when the count grew, counting a session pi has not shown from none. `atStart`, also run on a model switch,
- * only sets the count, so a resumed session does not announce its old seals.
- */
 const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 	const seen = yield* Ref.make<Readonly<Record<string, number>>>({});
 
