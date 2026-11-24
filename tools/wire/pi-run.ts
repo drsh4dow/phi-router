@@ -5,6 +5,7 @@ import {
 	Effect,
 	FileSystem,
 	Formatter,
+	Option,
 	Path,
 	Schedule,
 	String as Str,
@@ -148,14 +149,18 @@ const piRun = Effect.fnUntraced(
 	function* piRun(
 		where: Place,
 		args: readonly string[],
-		given: RpcLine & { readonly env: Readonly<Record<string, string>> },
+		given: { readonly env: Readonly<Record<string, string>>; readonly rpc?: RpcLine },
 	) {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const searchPath = yield* userPath;
 		const answered = yield* Deferred.make<boolean>();
-		const input = Stream.concat(Stream.make(given.stdinLine), Stream.fromEffectDrain(Deferred.await(answered)));
+		const rpc = Option.fromUndefinedOr(given.rpc);
 
-		yield* Effect.when(Deferred.succeed(answered, true), Effect.succeed(Str.isEmpty(given.stdinLine)));
+		const input = Option.match(rpc, {
+			onNone: () => Stream.empty,
+			onSome: ({ stdinLine }) =>
+				Stream.concat(Stream.make(stdinLine), Stream.fromEffectDrain(Deferred.await(answered))),
+		});
 
 		const command = ChildProcess.make("pi", args, {
 			cwd: where.work,
@@ -177,7 +182,10 @@ const piRun = Effect.fnUntraced(
 		const printed = yield* Stream.merge(handle.stdout, handle.stderr).pipe(
 			Stream.decodeText,
 			Stream.tap((text) =>
-				Effect.when(Deferred.succeed(answered, true), Effect.succeed(Str.includes(given.turnEnd)(text))),
+				Effect.when(
+					Deferred.succeed(answered, true),
+					Effect.succeed(Option.exists(rpc, ({ turnEnd }) => Str.includes(turnEnd)(text))),
+				),
 			),
 			Stream.mkString,
 		);
@@ -264,7 +272,7 @@ const inEmptyTmp = Effect.fnUntraced(function* inEmptyTmp(
  * exit 0. Returns whether pi lists the package, whether the doctor passed, and what it left in `/tmp`.
  */
 const installedIn = Effect.fnUntraced(function* installedIn(where: Place) {
-	const none = { env: {}, stdinLine: "", turnEnd: rpcAnswered };
+	const none = { env: {} };
 	const source = yield* gitServed(where);
 
 	yield* piRun(where, ["install", source], none).pipe(

@@ -18,21 +18,6 @@ const [first, second] = sessions;
 /** A turn: a prompt with `-p`, or a line pi's RPC mode reads, such as the `compact` command. */
 type PiTurn = { readonly prompt: string } | RpcLine;
 
-/** How pi runs a turn: its arguments, the RPC line its stdin holds, empty for a prompt, and what ends the turn. */
-interface PiArgs extends RpcLine {
-	readonly args: readonly string[];
-}
-
-const runOf = (session: string, asked: PiTurn): PiArgs => {
-	const on = ["--model", "phi/auto", "--session-id", session];
-
-	if ("prompt" in asked) {
-		return { args: ["-p", asked.prompt, ...on], stdinLine: "", turnEnd: rpcAnswered };
-	}
-
-	return Struct.assign(asked, { args: ["--mode", "rpc", ...on] });
-};
-
 const compact = { stdinLine: `{"type":"compact"}\n`, turnEnd: rpcAnswered };
 
 const storesIn = Effect.fnUntraced(function* storesIn(state: string) {
@@ -59,12 +44,20 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const install = yield* installedIn(where);
 	const answering = Effect.provideContext(answers(port), http);
 
-	const turn = Effect.fnUntraced(function* turn(asked: PiTurn, session: string) {
-		const { args, stdinLine, turnEnd } = runOf(session, asked);
+	const runOf = (asked: PiTurn, session: string): ReturnType<typeof piRun> => {
+		const on = ["--model", "phi/auto", "--session-id", session];
 
+		if ("prompt" in asked) {
+			return piRun(where, ["-p", asked.prompt, ...on], { env: routed });
+		}
+
+		return piRun(where, ["--mode", "rpc", ...on], { env: routed, rpc: asked });
+	};
+
+	const turn = Effect.fnUntraced(function* turn(asked: PiTurn, session: string) {
 		const played = yield* during(
 			() => received,
-			() => piRun(where, args, { env: routed, stdinLine, turnEnd }),
+			() => runOf(asked, session),
 		);
 
 		const leasedAfterExit = yield* leasedPids(state).pipe(Effect.orElseSucceed((): readonly number[] => []));

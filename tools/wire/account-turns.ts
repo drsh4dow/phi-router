@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Path, Struct } from "effect";
 import { place as claudePlace, claudeTurn } from "./claude.ts";
 import { place as codexPlace, codexRun, configOf } from "./codex.ts";
-import { place as piPlace, piRun, rpcAnswered } from "./pi-run.ts";
+import { place as piPlace, piRun } from "./pi-run.ts";
 import type { Tokens } from "./spent.ts";
 import { piWire } from "#router/features/route/index.ts";
 import { tokensIn } from "./spent.ts";
@@ -77,11 +77,7 @@ const turnsOn = {
 		const flags = ["--model", "phi/auto", "--session-id", session, "--mode", "json"];
 
 		const turn = Effect.fnUntraced(function* turn(prompt: string) {
-			const ran = yield* piRun(where, ["-e", extension, "-p", prompt, ...flags], {
-				env,
-				stdinLine: "",
-				turnEnd: rpcAnswered,
-			});
+			const ran = yield* piRun(where, ["-e", extension, "-p", prompt, ...flags], { env });
 
 			return { exitCode: ran.exitCode, reportedTokens: tokensIn.pi(ran.printed) } satisfies Turn;
 		});
