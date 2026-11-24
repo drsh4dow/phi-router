@@ -3,7 +3,7 @@ import { assert, it } from "@effect/vitest";
 import { fakes, headersNamed } from "./harnesses.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
-import type { Said } from "#router/client/mock-accounts.ts";
+import type { Said } from "#router/client/mock-upstreams/index.ts";
 import { routed } from "./mocked-router.ts";
 
 const status = { notFound: 404, ok: 200, refused: 502, unauthorized: 401, unreadable: 400 } as const;

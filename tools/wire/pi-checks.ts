@@ -5,7 +5,7 @@ import { phiChecksOf, phiTurns, sealCheckOf, shownChecksOf } from "./phi-checks.
 import { Base64Url } from "effect/encoding";
 import type { PhiTurned } from "./phi-checks.ts";
 import type { RpcLine } from "./pi-run.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { foundIn } from "#tools/corpus/request-bodies.ts";
 import { rpcAnswered } from "./pi-run.ts";

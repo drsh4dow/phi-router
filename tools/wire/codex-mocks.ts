@@ -1,5 +1,5 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Struct, pipe } from "effect";
-import type { Asked, Json, Said } from "#router/client/mock-accounts.ts";
+import type { Asked, Json, Said } from "#router/client/mock-upstreams/index.ts";
 import { handOff, isSubagent, subagent } from "./phi-checks.ts";
 import { replyMessage, replying } from "#tools/route/harnesses.ts";
 import { roleFile, sealedRole } from "#router/features/cli/index.ts";

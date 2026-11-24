@@ -12,7 +12,7 @@ import {
 	Struct,
 	pipe,
 } from "effect";
-import type { Arrived, Vendor } from "#router/client/mock-world.ts";
+import type { Arrived, Vendor } from "#router/client/mock-upstreams/index.ts";
 import { Listener, listensOn } from "#router/client/server.ts";
 import type { Turn, UserSettings } from "#router/client/harnesses/index.ts";
 import {
@@ -28,7 +28,7 @@ import {
 } from "./claude-settings.ts";
 import { claudePlugin, claudeTurn, userSettings } from "#router/client/harnesses/index.ts";
 import type { Own } from "./claude-settings.ts";
-import { mockWorld } from "#router/client/mock-world.ts";
+import { mockWorld } from "#router/client/mock-upstreams/index.ts";
 
 /** One line of the doctor's report: a claim about the installation, and whether it holds. */
 interface Check {

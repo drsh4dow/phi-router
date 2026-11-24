@@ -6,7 +6,7 @@ import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import { handOff, phiChecksOf, phiTurns, subagentChecksOf } from "./phi-checks.ts";
-import type { Said } from "#router/client/mock-accounts.ts";
+import type { Said } from "#router/client/mock-upstreams/index.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { storedIn } from "./stored.ts";
 

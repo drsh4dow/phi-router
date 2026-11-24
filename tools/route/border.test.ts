@@ -4,7 +4,7 @@ import { bodyOf, routed } from "./mocked-router.ts";
 import type { LaneChoice } from "#router/features/lanes/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Sent as Received } from "#router/client/mock-accounts.ts";
+import type { Sent as Received } from "#router/client/mock-upstreams/index.ts";
 import type { Turn } from "./mocked-router.ts";
 import { decide } from "#router/features/lanes/index.ts";
 import { stubs } from "#router/features/policy/index.ts";

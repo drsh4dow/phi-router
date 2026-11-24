@@ -1,8 +1,8 @@
 import { Array, Effect, String as Str, Struct, pipe } from "effect";
 import type { Check } from "./checks.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { fakes } from "#tools/route/fake-credentials.ts";
-import { isClaudeJudgeCall } from "#router/client/mock-upstreams.ts";
+import { isClaudeJudgeCall } from "#router/client/mock-upstreams/index.ts";
 import { shownIn } from "./phi-checks.ts";
 
 /** How much of what a harness printed the report keeps. */

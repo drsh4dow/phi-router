@@ -1,7 +1,7 @@
 import { Array, Effect, String as Str, pipe } from "effect";
 import type { Check, Turned } from "./checks.ts";
 import { isModelPost, windowsOf } from "./stored.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { pinnedLine } from "#router/features/lanes/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";

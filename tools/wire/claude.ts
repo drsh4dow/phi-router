@@ -1,4 +1,4 @@
-import type { Asked, Said } from "#router/client/mock-accounts.ts";
+import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Config, Effect, FileSystem, Path, String as Str, Stream, Struct } from "effect";
 import type { Outcome, Run } from "./checks.ts";
@@ -15,7 +15,7 @@ import {
 	subagent,
 	subagentChecksOf,
 } from "./phi-checks.ts";
-import { textEvents, toolEvents } from "#router/client/mock-accounts.ts";
+import { textEvents, toolEvents } from "#router/client/mock-upstreams/index.ts";
 import { pluginCopy } from "#tools/plugin/copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { storedIn } from "./stored.ts";

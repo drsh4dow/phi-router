@@ -2,7 +2,7 @@ import { Array, Effect, FileSystem, Path, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Reply } from "#router/client/mock-upstreams.ts";
+import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 import { jsonText } from "./harnesses.ts";
 

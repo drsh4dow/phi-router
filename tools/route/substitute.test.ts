@@ -8,7 +8,7 @@ import type { Turn } from "./mocked-router.ts";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
 import { fakes } from "./harnesses.ts";
 import { routed } from "./mocked-router.ts";
-import { textEvents } from "#router/client/mock-accounts.ts";
+import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const ok = 200;
 

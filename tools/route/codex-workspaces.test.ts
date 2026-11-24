@@ -2,7 +2,7 @@ import { Array, Effect, Schema, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { codexBodyOf, userMessage } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { routed } from "./mocked-router.ts";
 
 const canary = "PATIENT-CANARY-6J3W";

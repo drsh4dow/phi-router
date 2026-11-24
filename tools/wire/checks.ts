@@ -1,7 +1,7 @@
 import { Array, Option, String as Str, pipe } from "effect";
 import { laneLogHolds, windowsOf } from "./stored.ts";
 import type { Case } from "#tools/corpus/manifest.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import type { Stored } from "./stored.ts";
 import type { Tracked } from "#tools/corpus/canary-tokens.ts";
 import { fakes } from "#tools/route/mocked-router.ts";

@@ -1,5 +1,5 @@
 import { Array, Effect, FileSystem, Option, Path, Struct } from "effect";
-import type { Said, Sent } from "#router/client/mock-accounts.ts";
+import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { dayLong, loggedIn, start } from "./login-fixture.ts";
 import { NodeServices } from "@effect/platform-node";

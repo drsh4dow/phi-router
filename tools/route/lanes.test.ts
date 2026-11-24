@@ -1,13 +1,13 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Stream, Struct, pipe } from "effect";
 import type { LaneLogLine, Post, Turn } from "./mocked-router.ts";
-import type { Said, Sent } from "#router/client/mock-accounts.ts";
+import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { beta, bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { headersNamed } from "./harnesses.ts";
 import { stubsFor } from "#router/features/border/index.ts";
-import { textEvents } from "#router/client/mock-accounts.ts";
+import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-7Q4K";
 

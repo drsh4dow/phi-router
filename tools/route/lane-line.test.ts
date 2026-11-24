@@ -7,7 +7,7 @@ import { TestClock } from "effect/testing";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
 import { homeOf } from "#router/features/accounts/index.ts";
 import { silent } from "./resetting.ts";
-import { textEvents } from "#router/client/mock-accounts.ts";
+import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const badGateway = 502;
 

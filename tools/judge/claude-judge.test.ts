@@ -1,14 +1,13 @@
 import { Array, Effect, Layer, String as Str, Struct, pipe } from "effect";
-import type { Asked, Json, Said } from "#router/client/mock-accounts.ts";
+import type { Asked, Json, Said } from "#router/client/mock-upstreams/index.ts";
 import type { ChoiceQuestion, JudgeInput, ScoreQuestion } from "#router/client/judge/index.ts";
 import { Findings, Verdicts, verdictsFor } from "#router/features/verdicts/index.ts";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { judgeFrom, mockOn } from "./configured.ts";
-import { judgingOn, sealingWhen } from "#router/client/mock-upstreams.ts";
+import { judgingOn, sealingWhen, serveAnthropic } from "#router/client/mock-upstreams/index.ts";
 import { Judge } from "#router/client/judge/index.ts";
 import type { Piece } from "#router/features/policy/index.ts";
-import { serveAnthropic } from "#router/client/mock-accounts.ts";
 
 const scoreQuestion: ScoreQuestion = { criteria: { false: "F", true: "T" }, instructions: "Is it so?", type: "bool" };
 

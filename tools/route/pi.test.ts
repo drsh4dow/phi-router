@@ -3,7 +3,7 @@ import { assert, it } from "@effect/vitest";
 import { bridgesFor, stubsFor } from "#router/features/border/index.ts";
 import { fakes, jsonText } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Sent as Received } from "#router/client/mock-accounts.ts";
+import type { Sent as Received } from "#router/client/mock-upstreams/index.ts";
 import type { Turn } from "./mocked-router.ts";
 import { routed } from "./mocked-router.ts";
 

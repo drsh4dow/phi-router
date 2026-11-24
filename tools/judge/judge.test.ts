@@ -5,7 +5,7 @@ import { configuredJudge, mockedJudge } from "./configured.ts";
 import { KeyUnreadable } from "#router/client/accounts/index.ts";
 import type { Named } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Reply } from "#router/client/mock-upstreams.ts";
+import type { Reply } from "#router/client/mock-upstreams/index.ts";
 
 const fromEnv: Named = { keyEnv: "PHI_TEST_KEY", model: "judge-under-test" };
 

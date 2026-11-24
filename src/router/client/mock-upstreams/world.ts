@@ -1,11 +1,11 @@
 import { Array, ConfigProvider, Effect, FileSystem, Formatter, Layer, Stream, Struct } from "effect";
-import { responseEvents, serveAnthropic, serveOpenAi, textEvents } from "./mock-accounts.ts";
-import { sealingWhen, serveJudge } from "./mock-upstreams.ts";
-import { Listener } from "./server.ts";
-import type { Said } from "./mock-accounts.ts";
+import { responseEvents, serveAnthropic, serveOpenAi, textEvents } from "./accounts.ts";
+import { sealingWhen, serveJudge } from "./judge.ts";
+import { Listener } from "#router/client/server.ts";
+import type { Said } from "./accounts.ts";
 import { UserDirectories } from "effect/persistence";
-import { configFile } from "./configuration/index.ts";
-import { writePrivately } from "./private-file.ts";
+import { configFile } from "#router/client/configuration/index.ts";
+import { writePrivately } from "#router/client/private-file.ts";
 
 /** The request bodies the open and the BAA mock received. Bodies only, so no header, and no login, leaves this file. */
 interface Arrived {

@@ -2,9 +2,9 @@ import { Array, Effect, Fiber, Queue, String as Str, Stream, pipe } from "effect
 import { assert, it } from "@effect/vitest";
 import { bodyOf, routed } from "./mocked-router.ts";
 import { codexBodyOf, replyMessage, userMessage } from "./harnesses.ts";
-import { responseEvents, textEvents } from "#router/client/mock-accounts.ts";
+import { responseEvents, textEvents } from "#router/client/mock-upstreams/index.ts";
 import type { Cause } from "effect";
-import type { Event } from "#router/client/mock-accounts.ts";
+import type { Event } from "#router/client/mock-upstreams/index.ts";
 import { NodeServices } from "@effect/platform-node";
 
 const deltas = { first: 1, last: 10 } as const;

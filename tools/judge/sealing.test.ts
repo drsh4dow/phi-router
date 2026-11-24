@@ -7,7 +7,7 @@ import { Judge } from "#router/client/judge/index.ts";
 import type { Named } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Piece } from "#router/features/policy/index.ts";
-import type { Reply } from "#router/client/mock-upstreams.ts";
+import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 import type { Verdict } from "#router/features/verdicts/index.ts";
 import { judgeLimits } from "#router/features/policy/index.ts";

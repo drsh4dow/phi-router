@@ -3,7 +3,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { assert, it } from "@effect/vitest";
 import { configuredEnv, mockOn } from "#tools/judge/configured.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Reply } from "#router/client/mock-upstreams.ts";
+import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { encodeCorpus } from "./generate.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 

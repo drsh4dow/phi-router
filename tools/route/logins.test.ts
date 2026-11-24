@@ -5,7 +5,7 @@ import { codexBodyOf, harnesses, userMessage } from "./harnesses.ts";
 import { day, dayLong, loggedIn, logins, start, thirtyDays } from "./login-fixture.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Script } from "./harnesses.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 import { routed } from "./mocked-router.ts";
 

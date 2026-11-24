@@ -1,5 +1,5 @@
 import { Array, Effect, Latch, Predicate, Schedule, String as Str, Stream, identity, pipe } from "effect";
-import type { Asked, Said } from "#router/client/mock-accounts.ts";
+import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
 import { assert, it, vi } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
 import { FetchHttpClient } from "effect/http";
@@ -7,7 +7,7 @@ import type { HttpClientError } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import type { Post } from "./mocked-router.ts";
 import { TestClock } from "effect/testing";
-import { textEvents } from "#router/client/mock-accounts.ts";
+import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const ok = 200;
 

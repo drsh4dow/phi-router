@@ -3,7 +3,7 @@ import type { Json, Scripts } from "./harnesses.ts";
 import type { Post, Turn } from "./mocked-router.ts";
 import { bodyOf, laneLines } from "./mocked-router.ts";
 import { codexBodyOf, jsonText, replyMessage, userMessage } from "./harnesses.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-25K7";
 

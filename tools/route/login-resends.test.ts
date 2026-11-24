@@ -1,5 +1,5 @@
 import { Array, Effect, Option, Struct } from "effect";
-import type { Said, Sent } from "#router/client/mock-accounts.ts";
+import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { dayLong, loggedIn, start, thirtyDays } from "./login-fixture.ts";
 import { postedIn, routed } from "./mocked-router.ts";

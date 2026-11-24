@@ -1,12 +1,12 @@
 import { Array, Effect, FileSystem, Stream, Struct, pipe } from "effect";
 import type { LaneLogLine, Post } from "./mocked-router.ts";
-import type { Said, Sent } from "#router/client/mock-accounts.ts";
+import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
 import { leased } from "./target-models.ts";
-import { textEvents } from "#router/client/mock-accounts.ts";
+import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const once = 1;
 

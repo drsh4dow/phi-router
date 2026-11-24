@@ -1,4 +1,4 @@
-import type { Said as Answered, Asked } from "./mock-accounts.ts";
+import type { Said as Answered, Asked } from "./accounts.ts";
 import { Boolean, Effect, Latch, Match, Option, Ref, Schema, String as Str, pipe } from "effect";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Scope } from "effect";

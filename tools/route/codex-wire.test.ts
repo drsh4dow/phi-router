@@ -1,12 +1,12 @@
 import { Array, Effect, Layer, Option, Record, Schema, String as Str, pipe } from "effect";
 import { Headers, HttpClient, HttpClientRequest } from "effect/http";
-import type { Json, Said, Sent } from "#router/client/mock-accounts.ts";
+import type { Json, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { NodeHttpClient, NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { codexBodyOf, codexCatalog, codexRequest, fakes, headersNamed, userMessage } from "./harnesses.ts";
 import { postedIn, routed } from "./mocked-router.ts";
 import type { Post } from "./mocked-router.ts";
-import { serveOpenAi } from "#router/client/mock-accounts.ts";
+import { serveOpenAi } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-5T9V";
 

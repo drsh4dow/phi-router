@@ -4,7 +4,7 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "#tools/route/mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { Said } from "#router/client/mock-accounts.ts";
+import type { Said } from "#router/client/mock-upstreams/index.ts";
 import { harnesses } from "#tools/route/harnesses.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 

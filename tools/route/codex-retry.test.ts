@@ -1,5 +1,5 @@
 import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
-import type { Asked, Said } from "#router/client/mock-accounts.ts";
+import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { codexBodyOf, replyMessage, replying, userMessage } from "./harnesses.ts";
 import { laneLines, postedIn, routed } from "./mocked-router.ts";

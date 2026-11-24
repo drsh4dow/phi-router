@@ -1,11 +1,16 @@
-import type { AccountMock, Asked, Json, Said } from "#router/client/mock-accounts.ts";
+import type { AccountMock, Asked, Json, Reply, Said } from "#router/client/mock-upstreams/index.ts";
 import { Array, Effect, Option, Record, Schema, String as Str, Stream, Struct, pipe } from "effect";
-import { judgingOn, sealingWhen } from "#router/client/mock-upstreams.ts";
-import { responseEvents, serveAnthropic, serveOpenAi, textEvents } from "#router/client/mock-accounts.ts";
+import {
+	judgingOn,
+	responseEvents,
+	sealingWhen,
+	serveAnthropic,
+	serveOpenAi,
+	textEvents,
+} from "#router/client/mock-upstreams/index.ts";
 import { HttpClientRequest } from "effect/http";
 import type { HttpServer } from "effect/http";
 import type { JudgeName } from "#router/client/judge/index.ts";
-import type { Reply } from "#router/client/mock-upstreams.ts";
 import type { Scope } from "effect";
 import { fakes } from "./fake-credentials.ts";
 
@@ -276,6 +281,6 @@ export {
 
 export type { Harness, Lined, Script, Scripts, Sent };
 
-export type { Json } from "#router/client/mock-accounts.ts";
+export type { Json } from "#router/client/mock-upstreams/index.ts";
 
 export { credentialBreaches, fakes } from "./fake-credentials.ts";

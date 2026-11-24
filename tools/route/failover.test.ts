@@ -4,12 +4,12 @@ import { assert, it } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
 import type { Cause } from "effect";
 import { NodeServices } from "@effect/platform-node";
-import type { Said } from "#router/client/mock-accounts.ts";
+import type { Said } from "#router/client/mock-upstreams/index.ts";
 import type { Script } from "./harnesses.ts";
 import { TestClock } from "effect/testing";
 import { homeOf } from "#router/features/accounts/index.ts";
 import { resetting } from "./resetting.ts";
-import { textEvents } from "#router/client/mock-accounts.ts";
+import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-8F3D";
 

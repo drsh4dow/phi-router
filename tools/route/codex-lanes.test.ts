@@ -1,10 +1,10 @@
 import { Array, Effect, Schema, String as Str, Stream, Struct, pipe } from "effect";
-import type { Asked, Json, Said, Sent } from "#router/client/mock-accounts.ts";
+import type { Asked, Json, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { codexBodyOf, fakes, headersNamed, jsonText, replyMessage, replying, userMessage } from "./harnesses.ts";
 import { laneLines, postedIn, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
-import { responseEvents } from "#router/client/mock-accounts.ts";
+import { responseEvents } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-8R2M";
 

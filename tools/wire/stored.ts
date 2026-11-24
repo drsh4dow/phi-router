@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Path, String as Str, pipe } from "effect";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
-import type { Sent } from "#router/client/mock-accounts.ts";
+import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { laneLines } from "#tools/route/mocked-router.ts";
 import { privacyUnder } from "#tools/route/private.ts";
 

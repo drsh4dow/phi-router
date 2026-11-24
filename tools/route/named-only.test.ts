@@ -7,7 +7,7 @@ import type { Json } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { capturedFirstTurn as claudeCapture } from "#router/features/anthropic-messages/index.ts";
 import { capturedFirstTurn as codexCapture } from "#router/features/codex/index.ts";
-import { responseEvents } from "#router/client/mock-accounts.ts";
+import { responseEvents } from "#router/client/mock-upstreams/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const canary = "PATIENT-CANARY-2H6N";
