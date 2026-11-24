@@ -37,7 +37,6 @@
 	"src/router/client/mock-upstreams/world.ts": 7,
 	"src/router/client/own-package.ts": 2,
 	"src/router/client/private-file.ts": 6,
-	"src/router/client/processes.ts": 11,
 	"src/router/client/router-port/callers.ts": 12,
 	"src/router/client/router-port/lease-request.ts": 4,
 	"src/router/client/router-port/proof.ts": 13,
