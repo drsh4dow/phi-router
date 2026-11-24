@@ -21,12 +21,6 @@ const holds =
 			Array.some(({ path, value }) => sameKey(path, setting.path) && value === setting.value),
 		);
 
-/**
- * Whether `text` enables the plugin, `[plugins."phi-router@phi-router"] enabled = true`.
- *
- * @param {string} text The file.
- * @returns {boolean} Whether it does.
- */
 const pluginEnabled = (text: string): boolean =>
 	holds(text)({ path: ["plugins", pluginId, "enabled"], reason: "", value: "true" });
 
@@ -53,12 +47,6 @@ const trustOf =
 		return Option.some(Array.join([`[${dotted(trustKey)}]`, ...hashes], "\n"));
 	};
 
-/**
- * The trust Codex stored for each of the plugin's hooks, one table each: empty unless the human trusted them all.
- *
- * @param {string} text The file.
- * @returns {string} The tables, or empty.
- */
 const hookTrust = (text: string): string =>
 	pipe(hookKeys, Array.map(trustOf(text)), Option.all, Option.match({ onNone: () => "", onSome: Array.join("\n") }));
 

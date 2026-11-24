@@ -8,22 +8,14 @@ interface Setting {
 	readonly reason: string;
 }
 
-/** The id of the router's provider, which a session's transcript names when the session sends to the router. */
 const providerId = "phi";
 
-/** The provider entry, every key under which `on codex` owns. */
 const provider = ["model_providers", providerId];
 
 const routerUrl = `"http://${loopback}:${String(productPort)}/v1"`;
 
 const pluginId = "phi-router@phi-router";
 
-/**
- * The keys Codex stores the trust of the plugin's hooks under, in `[hooks.state]`, one per hook in `hooks/codex.json`:
- * the session-start hook, which starts the router, the three prompt hooks, which answer `/phi`, block a prompt of a
- * session that sends elsewhere and block a prompt the router's port cannot prove is yours, the turn-end hook, and the
- * compaction hook, which blocks a compaction the port cannot prove is yours.
- */
 const hookKeys = pipe(
 	[
 		"session_start:0:0",
@@ -38,15 +30,10 @@ const hookKeys = pipe(
 
 const doctorModel = "phi/auto";
 
-/**
- * The environment variable that gives the plugin's hook the router's address. Codex tells a hook nothing of its
- * provider, so the hook reads this, and `http://127.0.0.1:47411` when it is unset. Only `doctor codex` sets it.
- */
 const addressEnv = "PHI_ROUTER_ADDRESS";
 
 const pinnedRoleFile = ["agents", "phi-sealed.toml"];
 
-/** The settings `on codex` writes and prints, `off codex` removes and `doctor codex` checks. */
 const codexSettings: readonly Setting[] = [
 	{
 		path: ["model_provider"],
@@ -99,15 +86,10 @@ const codexSettings: readonly Setting[] = [
 	},
 ];
 
-/**
- * The pinned subagent's instructions, the same in Codex's role and in Claude Code's agent file. The description, which
- * each main agent sees, leaves out `pinnedLine`, so the main session never pins itself.
- */
 const sealedInstructions = `${pinnedLine}
 You run on a BAA account and may read PHI. You start with a fresh context, so read your sources again with your tools. Answer with internal ids, your organization's own record ids such as a patient_id, never with names, SSNs, MRNs or other direct identifiers.
 `;
 
-/** The pinned subagent's role, which a plugin cannot ship, so `on codex` writes it to `agents/phi-sealed.toml`. */
 const sealedRole = `name = "phi-sealed"
 description = "Works with PHI on the BAA account. Start it when a task needs the content of a sealed message. It reads its sources again with its own tools and answers with internal ids only."
 model = "${pinnedModel}"
@@ -115,10 +97,6 @@ developer_instructions = """
 ${sealedInstructions}"""
 `;
 
-/**
- * The file under Codex's home that Codex loads into its own environment when it starts, each `${NAME}` in a value taken
- * from the environment it already has.
- */
 const dotenvFile = ".env";
 
 /**
@@ -134,32 +112,13 @@ const exemptionReason =
 
 const linesOf = Str.split("\n");
 
-/**
- * Whether `line` is the router's exemption line, also as an editor that ends lines with CRLF saves it.
- *
- * @param {string} line A line of `.env`.
- * @returns {boolean} Whether it is the line.
- */
 const isExemption = (line: string): boolean => Str.trimEnd(line) === exemptionLine;
 
 const holdsExemption = (text: string): boolean => Array.some(linesOf(text), isExemption);
 
-/**
- * Whether the router's exemption line is the last line of `.env` that is not blank, so no later line of the
- * developer's sets `NO_PROXY` over it.
- *
- * @param {string} text The file's text.
- * @returns {boolean} Whether it ends with the line.
- */
 const endsWithExemption = (text: string): boolean =>
 	pipe(linesOf(text), Array.filter(Str.isNonEmpty), Array.last, Option.exists(isExemption));
 
-/**
- * `.env` without the router's exemption line, every other line and every newline kept.
- *
- * @param {string} text The file's text.
- * @returns {Option.Option<string>} The text `off codex` leaves, none when the line was all the file held.
- */
 const withoutExemption = (text: string): Option.Option<string> =>
 	pipe(
 		linesOf(text),
@@ -168,13 +127,6 @@ const withoutExemption = (text: string): Option.Option<string> =>
 		Option.liftPredicate(Str.isNonEmpty),
 	);
 
-/**
- * `.env` with the router's exemption line moved or added to its end, so no line of the developer's sets `NO_PROXY`
- * after it. The line ends with a newline, so a line the developer appends later stays its own line.
- *
- * @param {string} text The file's text, empty when there is no file.
- * @returns {string} The text `on codex` writes.
- */
 const withExemption = (text: string): string => {
 	const rest = Option.getOrElse(withoutExemption(text), () => "");
 
@@ -187,12 +139,6 @@ const withExemption = (text: string): string => {
 
 const bare = /^[\w-]+$/u;
 
-/**
- * A key as TOML spells it with dots, each segment quoted unless it is bare.
- *
- * @param {readonly string[]} path The key's segments.
- * @returns {string} The dotted key.
- */
 const dotted = (path: readonly string[]): string =>
 	pipe(
 		path,

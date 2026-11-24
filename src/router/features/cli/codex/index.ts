@@ -24,7 +24,6 @@ class InlineTable extends Schema.TaggedError<InlineTable, { readonly brand: uniq
 	}
 }
 
-/** The files `on codex` and `off codex` change: `config.toml`, `.env` and the role file in Codex's home. */
 const filesOf = Effect.fnUntraced(function* filesOf(named: string) {
 	const path = yield* Path.Path;
 	const home = yield* codexHome(named);
@@ -93,7 +92,6 @@ const codexSwitchedOn = Effect.fnUntraced(function* codexSwitchedOn(named: strin
 	return { after, files };
 });
 
-/** Writes what `codexSwitchedOn` writes, and prints each setting with its reason, and whether the human must still trust the plugin's hook. */
 const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
 	const { after, files } = yield* codexSwitchedOn(named);
 

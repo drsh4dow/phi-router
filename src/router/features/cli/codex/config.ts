@@ -26,43 +26,22 @@ const settingOf = (statement: Statement): Option.Option<Setting> =>
 		Array.findFirst(({ path }) => statement.kind === "pair" && sameKey(path, statement.path)),
 	);
 
-/** The comment that ends each line `on codex` writes. It is the record of what `off` removes. */
 const ownMark = "# phi-router";
 
-/** What `on codex` puts before each line of a statement of the developer's that it replaces, the record `off` restores. */
 const keptMark = "# phi-router kept: ";
 
 const keptLine = new RegExp(`^${keptMark}`, "gmu");
 
 const lineStart = /^(?=.)/gmu;
 
-/**
- * Whether `on codex` wrote the statement: its last line ends with {@link ownMark}.
- *
- * @param {string} text The file.
- * @param {Statement} statement The statement.
- * @returns {boolean} Whether `on` wrote it.
- */
 const ours = (text: string, statement: Statement): boolean =>
 	Str.endsWith(ownMark)(Str.trimEnd(Str.slice(statement.start, statement.end)(text)));
 
-/**
- * A statement that `on codex` replaces: anything under the provider, and a setting's pair whatever its value.
- *
- * @param {Statement} statement The statement.
- * @returns {boolean} Whether `on` replaces it.
- */
 const replacesIt = (statement: Statement): boolean =>
 	under(provider)(statement.path) || Option.isSome(settingOf(statement));
 
 const blankAbove = /(?<=^|\n)(?:[\t ]*\r?\n)+$/u;
 
-/**
- * Where a statement's cut starts: a header takes the blank lines above it along, since `on` writes one there.
- *
- * @param {string} text The file.
- * @returns {Function} Where the cut of a statement starts.
- */
 const cutFrom =
 	(text: string) =>
 	(statement: Statement): number => {
@@ -111,10 +90,6 @@ const rewritten =
 
 const withoutOurs = rewritten(ours, (text, statement) => ({ replacedFrom: cutFrom(text)(statement), replacement: "" }));
 
-/**
- * `text` with each statement `on codex` replaces turned into lines of {@link keptMark}, so `off` can restore it. It runs
- * on a file {@link withoutOurs} already cleared, so every statement it records is the developer's.
- */
 const recorded = rewritten(
 	(_text, statement) => replacesIt(statement),
 	(text, statement) => ({
@@ -123,12 +98,6 @@ const recorded = rewritten(
 	}),
 );
 
-/**
- * `text` with `lines` put in at `at`, each on a line of its own.
- *
- * @param {object} insert Where the lines go, and the lines.
- * @returns {Function} The file with them.
- */
 const inserted =
 	(insert: { readonly at: number; readonly lines: readonly string[] }) =>
 	(text: string): string => {
@@ -152,13 +121,6 @@ const lineIn =
 	({ path, value }: Setting): string =>
 		`${dotted(Array.drop(path, table.length))} = ${value} ${ownMark}`;
 
-/**
- * The first pair that holds a table `on` writes into as one value, such as `model_providers = { ... }`, which `on`
- * cannot add a line to.
- *
- * @param {string} text The file.
- * @returns {Option.Option<string>} Its dotted key.
- */
 const inlineOwner = (text: string): Option.Option<string> =>
 	pipe(
 		statementsOf(text),
@@ -193,13 +155,6 @@ const linesIn = (table: Statement): readonly string[] =>
 		Array.map(lineIn(table.path)),
 	);
 
-/**
- * `text` with each setting outside the provider in the table that holds its key when the file has one, such as
- * `[features]`, and the rest after the last root pair.
- *
- * @param {string} text The file.
- * @returns {string} The file with them.
- */
 const outsideWritten = (text: string): string => {
 	const statements = statementsOf(text);
 
@@ -228,15 +183,6 @@ const outsideWritten = (text: string): string => {
 	return inserted({ at: rootEnd, lines: atRoot })(file);
 };
 
-/**
- * `config.toml` with each setting written once, whatever it held before: each setting in the table that holds its key
- * when one exists, the rest after the last root pair, and the provider's table at the end, each line ending with
- * {@link ownMark}. A statement of the developer's that a setting replaces stays where it was, behind {@link keptMark}.
- * Every other line is kept as it was.
- *
- * @param {string} text The file. It holds no pair {@link inlineOwner} names.
- * @returns {string} The file with the settings.
- */
 const switchedOn = (text: string): string => {
 	const written = outsideWritten(recorded(withoutOurs(text).text).text);
 
@@ -249,12 +195,6 @@ const switchedOn = (text: string): string => {
 	return inserted({ at: written.length, lines: ["", `[${dotted(provider)}] ${ownMark}`, ...lines] })(written);
 };
 
-/**
- * `config.toml` without the lines `on codex` wrote, and with each statement it replaced back as it was.
- *
- * @param {string} text The file.
- * @returns {Cut} The file left, and the keys removed.
- */
 const switchedOff = (text: string): Cut => {
 	const cut = withoutOurs(text);
 

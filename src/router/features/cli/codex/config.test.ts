@@ -159,6 +159,16 @@ it.effect.each(spellings)(
 		}),
 );
 
+it.effect("on over a file whose last line has no newline puts each setting on a line of its own", () =>
+	Effect.sync(() => {
+		const unended = 'model = "gpt-6-sol"';
+		const on = switchedOn(unended);
+
+		assert.strictEqual(on, `${unended}\n${emptyOn}`);
+		assert.strictEqual(switchedOff(on).text, `${unended}\n`);
+	}),
+);
+
 it.effect("off leaves a setting the user changed after on", () =>
 	Effect.sync(() => {
 		const changed = 'model_provider = "openai"\nfeatures.unbounded_connection_retries = true\n';
