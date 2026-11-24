@@ -20,7 +20,6 @@ import type { LiveProcess } from "#router/client/processes.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 
-/** A shell that forks `sleep 0.1`, prints its pid and becomes `sleep 30` without reaping it: a zombie within 0.1 s. */
 const zombieMaker = ChildProcess.make("sh", ["-c", "sleep 0.1 & echo $!; exec sleep 30"]);
 
 const endedPid = Effect.fnUntraced(function* endedPid() {
@@ -48,6 +47,13 @@ const zombieAndParent = Effect.fnUntraced(function* zombieAndParent() {
 	return { alive: Number(shell.pid), zombie: Number(Str.trim(printed)) };
 });
 
+const stateOf = Effect.fnUntraced(function* stateOf(pid: number) {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const ps = yield* spawner.spawn(ChildProcess.make("ps", ["-o", "stat=", "-p", String(pid)]));
+
+	return yield* Stream.mkString(Stream.decodeText(ps.stdout));
+}, Effect.scoped);
+
 const pidsOf = Array.map(({ pid }: LiveProcess) => pid);
 
 it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this machine", (test) => {
@@ -56,28 +62,26 @@ it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes
 			const processes = yield* Processes;
 			const ended = yield* endedPid();
 			const { alive, zombie } = yield* zombieAndParent();
+			const zombieState = yield* stateOf(zombie);
 			const first = yield* processes.running([alive, ended, zombie]);
 			const again = yield* processes.running([alive]);
 
+			assert.isTrue(Str.startsWith("Z")(zombieState), `the forked sleep is a zombie, not ${zombieState}`);
 			assert.deepStrictEqual(pipe(first, Option.map(pidsOf)), Option.some([alive]));
 			assert.deepStrictEqual(again, first);
 		}).pipe(Effect.scoped),
 	);
 });
 
-/** A spawner whose every spawn throws, as Node's does for E2BIG or ENOMEM: a defect, not a failure. */
-const throwing = Layer.succeed(
-	ChildProcessSpawner.ChildProcessSpawner,
-	ChildProcessSpawner.make(() => Effect.die(new Error("spawn E2BIG"))),
-);
-
 const init = 1;
 
-it.layer(Layer.provide(Processes.layer, throwing))("a ps that could not be spawned", (test) => {
-	test.effect("reads nothing, so no lease is dropped", () =>
+const pastArgMax = 400_000;
+
+it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("a ps that could not be spawned", (test) => {
+	test.effect("reads nothing when its pids pass ARG_MAX, so no lease is dropped", () =>
 		Effect.gen(function* unspawned() {
 			const processes = yield* Processes;
-			const read = yield* processes.running([init]);
+			const read = yield* processes.running(Array.makeBy(pastArgMax, (index) => index + init));
 
 			assert.isTrue(Option.isNone(read));
 		}),

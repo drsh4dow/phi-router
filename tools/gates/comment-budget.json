@@ -149,7 +149,6 @@
 	"tools/judge/live.ts": 1,
 	"tools/judge/probe.ts": 1,
 	"tools/judge/sealing.test.ts": 1,
-	"tools/lifecycle/processes.test.ts": 2,
 	"tools/lifecycle/proof.test.ts": 2,
 	"tools/lifecycle/race.test.ts": 1,
 	"tools/lifecycle/squatter.ts": 4,
