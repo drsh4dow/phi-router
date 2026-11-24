@@ -256,7 +256,13 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	);
 
 	const [models, clean] = turns;
-	const listing = { listed: yield* listedIn(models.stdout), remote, served } satisfies Listing;
+
+	const listing = {
+		listedByCodex: yield* listedIn(models.stdout),
+		remote,
+		servedByOpenMock: served,
+	} satisfies Listing;
+
 	const stored = yield* storedIn(state, roots);
 
 	const left = leftOf({

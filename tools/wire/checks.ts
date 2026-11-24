@@ -39,10 +39,9 @@ interface CodexTurned extends Turned {
 	readonly fellBackToDefaultMetadata: boolean;
 }
 
-/** The slugs `codex debug models` listed, the ones the open mock's catalog served, and the working folder's remote. */
 interface Listing {
-	readonly listed: readonly string[];
-	readonly served: readonly string[];
+	readonly listedByCodex: readonly string[];
+	readonly servedByOpenMock: readonly string[];
 	/** The working folder's git remote, which Codex sends in its turn metadata. */
 	readonly remote: string;
 }
@@ -213,12 +212,12 @@ const checksOf = (played: ClaudePlayed): readonly Check[] => {
 
 const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 	const [models, clean, canary, followUp, tool] = played.turns;
-	const isListed = (slug: string): boolean => pipe(played.listed, Array.contains(slug));
+	const isListed = (slug: string): boolean => pipe(played.listedByCodex, Array.contains(slug));
 
 	return [
 		{
 			name: "codex debug models lists phi/auto beside every model the open mock served",
-			ok: everyOf(["phi/auto", ...played.served], isListed),
+			ok: everyOf(["phi/auto", ...played.servedByOpenMock], isListed),
 		},
 		{
 			name: "the open mock's catalog request carries the forwarded login",
