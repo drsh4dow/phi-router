@@ -133,10 +133,6 @@ const quoteMinChars = 16;
 
 const seamChars = 200;
 
-/**
- * How many preceding rendered items the judge sees beside a piece. For a tool result the first is its own call. None:
- * on the v2 corpus, context never caught a leak that no context missed, made a screenshot score lower, and cost more.
- */
 const window = 0;
 
 interface JudgeCallLimits {
