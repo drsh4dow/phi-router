@@ -141,7 +141,7 @@ A hash of one part's role and content, the name its verdict is stored under.
 What the router concluded about one part: **sealed**, it holds PHI, or **cleared**, it does not.
 
 **New content**:
-The parts of a request that arrived after the last reply. They decide the request's lane.
+The parts of a request from its last reply on: that reply and every part after it. They decide the request's lane.
 
 **Seam**:
 The end of the previous message of the same role, read in front of a message that goes on from it mid-word.
