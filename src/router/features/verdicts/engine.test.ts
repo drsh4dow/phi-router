@@ -198,6 +198,26 @@ const fixtureSkipped = Effect.gen(function* fixtureSkipped() {
 	assert.deepStrictEqual(judgedPieces(asked), ["why does this fail?"]);
 });
 
+const nothingToJudge = Effect.gen(function* nothingToJudge() {
+	const blank = yield* pieceOf(" \n\t");
+	const screenshot = yield* pieceOf("\n");
+	const blankWithImage = Struct.assign(screenshot, { images: [{ data: "iVBORw0KGgo", mimeType: "image/png" }] });
+	const { found, asked } = yield* judgeAll({ pieces: [blank, blankWithImage], script: { score: () => clears } });
+
+	assert.deepStrictEqual(found, [
+		[blank.key, Verdicts.Cleared({ by: "nothing-to-judge" })],
+		[blankWithImage.key, Verdicts.Cleared({ by: "judge" })],
+	]);
+
+	assert.deepStrictEqual(
+		pipe(
+			asked,
+			Array.map(({ question }) => question),
+		),
+		["identifier"],
+	);
+});
+
 it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 	test.effect.each(userCases)("a user message: %s", ([, script, verdicts, questions]) =>
 		Effect.gen(function* userMessage() {
@@ -233,6 +253,10 @@ it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 	test.effect(
 		"a registered fixture part is skipped, and a piece of nothing else clears without the judge",
 		() => fixtureSkipped,
+	);
+	test.effect(
+		"a piece of blank text clears with nothing to judge and no judge call, but blank text with an image is judged",
+		() => nothingToJudge,
 	);
 });
 

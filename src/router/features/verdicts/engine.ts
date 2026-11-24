@@ -119,14 +119,6 @@ const judged = Effect.fn("judged")(function* judged({
 	});
 });
 
-/**
- * Clears a piece with no text and no image left once fixtures are dropped: a fixture took its text, or it had none.
- *
- * @param {readonly string[]} kept The texts left once fixtures are dropped.
- * @param {readonly string[]} sent The texts as sent.
- * @param {readonly Image[]} images The piece's images.
- * @returns {Effect.Effect} Fails with the cleared verdict, or succeeds when something is left to read.
- */
 const clearIfNothingLeft = (
 	kept: readonly string[],
 	sent: readonly string[],
