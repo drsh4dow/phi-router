@@ -92,7 +92,7 @@ const gitServed = Effect.fnUntraced(function* gitServed(where: SnapshotFolders) 
 		Effect.timeout("10 seconds"),
 	);
 
-	return `git:${address}`;
+	return address;
 });
 
 const entry = decodeURIComponent(new URL("../../src/router/main.ts", import.meta.url).pathname);
@@ -271,7 +271,8 @@ const inEmptyTmp = Effect.fnUntraced(function* inEmptyTmp(
  */
 const installedIn = Effect.fnUntraced(function* installedIn(where: Place) {
 	const none = { env: {} };
-	const source = yield* gitServed(where);
+	const address = yield* gitServed(where);
+	const source = `git:${address}`;
 
 	yield* piRun(where, ["install", source], none).pipe(
 		Effect.filterOrFail(
