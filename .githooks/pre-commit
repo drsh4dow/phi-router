@@ -1,4 +1,11 @@
 #!/bin/sh
 set -e
-git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 -r node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern
-git diff --cached --name-only --diff-filter=ACMR -z -- 'src/*.ts' 'tools/*.ts' | xargs -0 -r node_modules/.bin/oxlint --no-error-on-unmatched-pattern --format default
+root=$(mktemp -d)
+trap 'rm -rf "$root"' EXIT
+git diff --cached --name-only --diff-filter=ACMR -z > "$root/files"
+git diff --cached --name-only --diff-filter=ACMR -z -- 'src/*.ts' 'tools/*.ts' > "$root/code"
+git checkout-index --all --prefix="$root/index/"
+ln -s "$PWD/node_modules" "$root/index/node_modules"
+cd "$root/index"
+xargs -0 -r node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern < ../files
+xargs -0 -r node_modules/.bin/oxlint --no-error-on-unmatched-pattern --format default < ../code
