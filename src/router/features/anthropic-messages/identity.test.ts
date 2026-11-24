@@ -1,15 +1,10 @@
-import { Array, Effect, Record, String as Str, pipe } from "effect";
+import { Array, Effect, Record, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
 
-const requests = {
-	compaction: captured.compaction,
-	firstTurn: captured.firstTurn,
-	subagent: captured.subagent,
-	toolResult: captured.toolResult,
-};
+const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "toolResult"]);
 
 const bridge =
 	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-router:phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.";

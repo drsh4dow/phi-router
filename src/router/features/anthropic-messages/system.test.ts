@@ -173,15 +173,7 @@ it.layer(Digest.layerWebCrypto)("the system blocks and the model", (test) => {
 	);
 });
 
-const claudeCodeRequests = {
-	autoMode: requests.autoMode,
-	compaction: requests.compaction,
-	firstTurn: requests.firstTurn,
-	subagent: requests.subagent,
-	toolResult: requests.toolResult,
-	toolSearch: requests.toolSearch,
-	webSearch: requests.webSearch,
-};
+const claudeCodeRequests = Struct.omit(requests, ["piCompaction", "piFirstTurn", "piThinkingOff", "piToolResult"]);
 
 const attributionBlocks = 1;
 

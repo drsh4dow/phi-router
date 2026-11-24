@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Order, Predicate, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Option, Order, Predicate, Schema, String as Str, Struct, pipe } from "effect";
 import { BodyJson, LooseCall, LooseResult } from "./wire.ts";
 import type { WireAssistantBlock, WireUnreadable, WireUserBlock } from "./wire.ts";
 import { assert, it } from "@effect/vitest";
@@ -7,12 +7,7 @@ import type { Message } from "#router/features/parts/index.ts";
 import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
 
-const requests = {
-	compaction: captured.compaction,
-	firstTurn: captured.firstTurn,
-	subagent: captured.subagent,
-	toolResult: captured.toolResult,
-};
+const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "toolResult"]);
 
 const sealedStub =
 	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
