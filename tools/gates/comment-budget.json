@@ -165,7 +165,6 @@
 	"src/router/features/verdicts/quotes.ts": 3,
 	"src/router/features/verdicts/scripted-judge.ts": 6,
 	"src/router/features/verdicts/verdict.ts": 1,
-	"src/router/main.ts": 4,
 	"src/router/primitives/content-key.ts": 2,
 	"src/router/primitives/toml.ts": 13,
 	"src/shared/cli.ts": 13,
