@@ -1,7 +1,7 @@
 id: no-comments
 language: TypeScript
 severity: error
-message: Delete this comment. Say it with a type, a test, a lint rule, or a doc comment on the declaration.
+message: Delete this comment. Say it with a name, a type, a test, an issue or an ADR.
 ignores:
    - tools/oxlint/anti-slop/**
    - tools/gates/fixtures/**
@@ -9,25 +9,23 @@ rule:
    kind: comment
    not:
       any:
+         - regex: '^///\s*<reference '
          - all:
-              - regex: '^/\*\*[^*]'
-              - not: { inside: { kind: statement_block, stopBy: end } }
-              - precedes:
-                   stopBy: neighbor
-                   any:
-                      - kind: lexical_declaration
-                      - kind: function_declaration
-                      - kind: generator_function_declaration
-                      - kind: class_declaration
-                      - kind: abstract_class_declaration
-                      - kind: interface_declaration
-                      - kind: type_alias_declaration
-                      - kind: enum_declaration
-                      - kind: export_statement
-                      - kind: method_definition
-                      - kind: public_field_definition
-                      - kind: property_signature
-                      - kind: method_signature
+              - regex: '^(//|/\*)[\s\S]*(Copyright|SPDX-License-Identifier)'
+              - inside: { kind: program }
+              - not: { follows: { not: { any: [kind: comment, kind: hash_bang_line] }, stopBy: end } }
+---
+id: no-comments-tsx
+language: Tsx
+severity: error
+message: Delete this comment. Say it with a name, a type, a test, an issue or an ADR.
+ignores:
+   - tools/oxlint/anti-slop/**
+   - tools/gates/fixtures/**
+rule:
+   kind: comment
+   not:
+      any:
          - regex: '^///\s*<reference '
          - all:
               - regex: '^(//|/\*)[\s\S]*(Copyright|SPDX-License-Identifier)'

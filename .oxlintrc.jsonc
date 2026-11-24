@@ -1,7 +1,7 @@
 {
 	"$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
 	"extends": ["./oxlint-effect.json"],
-	"plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node", "jsdoc"],
+	"plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
 	"categories": {
 		"correctness": "error",
 		"suspicious": "error",
@@ -42,6 +42,12 @@
 		"anti-slop-effect/no-service-constructor-imports": "error",
 		"anti-slop-effect/prefer-effect-match": "error",
 		// The ledger. Each rule that is off or narrowed names the rules it collides with, or waits on the owner.
+		// approved by the owner: the file cap, 600 lines, past which the folder rule splits the file
+		"eslint/max-lines": ["error", { "max": 600 }],
+		// approved off by the owner: the user's standing choice
+		"eslint/max-lines-per-function": "off",
+		// approved off by the owner: the user's standing choice
+		"eslint/max-statements": "off",
 		// collides with import/no-default-export: a module that exports by name fails this one, and a default export fails that one
 		"import/no-named-export": "off",
 		// collides with import/no-default-export: a module with one named export fails this one, and a default export fails that one

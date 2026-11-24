@@ -30,8 +30,10 @@
 		"prepack": "bun run build",
 		"fmt": "oxfmt",
 		"lint": "oxlint --format default src tools",
-		"boundaries": "depcruise src tools --output-type err-long",
-		"comments": "ast-grep scan src tools",
+		"boundaries": "depcruise src tools --ignore-known --output-type err-long",
+		"boundaries:shrink": "depcruise src tools --baseline --baseline-mode shrink-only >/dev/null && oxfmt .dependency-cruiser-known-violations.json >/dev/null && git diff --exit-code .dependency-cruiser-known-violations.json",
+		"comments": "bun tools/gates/comment-budget.ts",
+		"width": "sh tools/width.sh size-limits.txt src",
 		"suppressions": "grep -rnE 'ast-grep-ignore|(oxlint|eslint)-(disable|enable)|oxfmt-ignore|@ts-(expect-error|ignore|nocheck)|@effect-diagnostics' src tools --exclude-dir=fixtures --exclude-dir=anti-slop && echo 'Fix the code the rule caught. A rule that is wrong for this repo goes to the owner, and its off line goes in .oxlintrc.jsonc with the reason.' && exit 1 || true",
 		"unused": "knip",
 		"test": "vitest run --no-isolate --testTimeout 30000 --hookTimeout 30000 src tools --exclude 'tools/gates/fixtures/**' --exclude '.worktrees/**' --exclude 'tools/formal/**' --exclude '**/*.e2e.test.ts' --exclude '**/*.perf.test.ts'",
@@ -44,7 +46,7 @@
 		"judge:probe": "bun tools/judge/probe.ts",
 		"wire": "bun run build && bun tools/wire/run.ts",
 		"wire:accounts": "bun run build && bun tools/wire/accounts.ts",
-		"check": "oxfmt --check && bun run lint && bun run boundaries && bun run comments && bun run suppressions && bun run unused && bun run test"
+		"check": "oxfmt --check && bun run lint && bun run boundaries && bun run boundaries:shrink && bun run comments && bun run width && bun run suppressions && bun run unused && bun run test"
 	},
 	"devDependencies": {
 		"@ast-grep/cli": "0.51.3",

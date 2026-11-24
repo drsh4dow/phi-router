@@ -126,6 +126,22 @@
 			}
 		},
 		{
+			"name": "edge-file",
+			"severity": "error",
+			"comment": "Import a folder from outside it only through its edge file, index.ts. Export what callers need from that index.ts.",
+			"from": {
+				"path": "^(src/)([^/]+/|)([^/]+/|)([^/]+/|)([^/]+/|)([^/]+/|)([^/]+/|)(.*/|)[^/]+$",
+				"pathNot": "[\\[\\]()+*?^$|{}\\\\.][^/]*/"
+			},
+			"to": {
+				"path": "^src/",
+				"pathNot": [
+					"^$1(?:$2(?:$3(?:$4(?:$5(?:$6(?:$7(?:$8|)|)|)|)|)|)|)[^/]+(?:/index\\.tsx|/index\\.ts|)$",
+					"^src/(?:(?!features/|client/|primitives/)[^/]+/|)(?:features|client|primitives|shared)/[^/]+(?:/index\\.tsx|/index\\.ts|)$"
+				]
+			}
+		},
+		{
 			"name": "production-imports-test",
 			"severity": "error",
 			"comment": "Production code never imports a test. Move what both need into a file beside them.",
@@ -195,6 +211,18 @@
 			},
 			"to": {
 				"path": "^src/router/client/config-writer\\.ts$"
+			}
+		},
+		{
+			"name": "private-file-in-client",
+			"severity": "error",
+			"comment": "Only src/router/client/ writes to disk. Write a durable value through the client/ file that owns it; Codex's files belong to client/harnesses/.",
+			"from": {
+				"path": "^src/",
+				"pathNot": ["^src/router/client/"]
+			},
+			"to": {
+				"path": "^src/router/client/private-file\\.ts$"
 			}
 		},
 		{
@@ -271,13 +299,17 @@
 		{
 			"name": "tools-imports",
 			"severity": "error",
-			"comment": "tools/ imports the router only through a feature's index.ts, client/ and primitives/.",
+			"comment": "tools/ imports the router only through edge files: a feature's index.ts, and a client/ or primitives/ file or the index.ts of a folder there.",
 			"from": {
 				"path": "^tools/"
 			},
 			"to": {
 				"path": "^src/",
-				"pathNot": ["^src/router/features/[^/]+/index\\.ts$", "^src/router/(client|primitives)/"]
+				"pathNot": [
+					"^src/router/features/[^/]+/index\\.ts$",
+					"^src/router/(client|primitives)/[^/]+\\.ts$",
+					"^src/router/(client|primitives)/[^/]+/index\\.ts$"
+				]
 			}
 		},
 		{
@@ -296,14 +328,14 @@
 		{
 			"name": "unmapped-source",
 			"severity": "error",
-			"comment": "This file fits no row of the layout map in docs/adr/0003. A file under src/ is a .ts file: router/main.ts, pi/index.ts, <runtime>/features/<name>/..., <runtime>/client/<file>.ts, router/primitives/... or shared/<contract>.ts, with its test beside it. Move it into the row whose job it does.",
+			"comment": "This file fits no row of the layout map in CODING_STANDARDS.md. A file under src/ is a .ts file: router/main.ts, pi/index.ts, <runtime>/features/<name>/..., <runtime>/client/<file>.ts or <runtime>/client/<folder>/..., router/primitives/... or shared/<contract>.ts, with its test beside it. Move it into the row whose job it does.",
 			"module": {
 				"path": "^src/",
 				"pathNot": [
 					"^src/router/main(\\.test)?\\.ts$",
 					"^src/pi/index(\\.test)?\\.ts$",
 					"^src/(router|pi)/features/[^/]+/.+\\.ts$",
-					"^src/(router|pi)/client/[^/]+\\.ts$",
+					"^src/(router|pi)/client/.+\\.ts$",
 					"^src/router/primitives/.+\\.ts$",
 					"^src/shared/[^/]+\\.ts$"
 				]

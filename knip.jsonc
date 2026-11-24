@@ -8,5 +8,7 @@
 		"@effect/language-service",
 		// dependency-cruiser loads it for "parser": "swc"
 		"@swc/core",
+		// tools/gates/comment-budget.ts runs its ast-grep binary
+		"@ast-grep/cli",
 	],
 }

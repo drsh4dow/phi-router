@@ -9,10 +9,13 @@ interface Gate {
 	readonly script: string;
 }
 
-const linked = ["node_modules", "tools/oxlint", "tools/ast-grep"];
+const linked = ["node_modules"];
 
 const copied = [
 	"src",
+	"tools",
+	"size-limits.txt",
+	".dependency-cruiser-known-violations.json",
 	"package.json",
 	"tsconfig.json",
 	".oxlintrc.jsonc",
@@ -30,6 +33,8 @@ const gates: readonly Gate[] = [
 			"error router-entry-imports: src/router/main.test.ts",
 			"error pi-entry-imports: ",
 			"error feature-imports: ",
+			"error edge-file: src/router/features/other/reaches-nested.ts",
+			"error private-file-in-client: src/router/features/other/writes-disk.ts",
 			"error cli-writes-through-the-router: src/router/features/cli/writes-store.ts",
 			"error policy-imports: src/router/features/policy/reaches-client.test.ts",
 			"error policy-imports: src/router/features/policy/reaches-vendor-types.ts",
@@ -94,8 +99,17 @@ const gates: readonly Gate[] = [
 	},
 	{
 		fixture: "comments",
-		messages: ["Delete this comment.", "src/router/features/sample/narration.ts"],
+		messages: [
+			"Delete this comment.",
+			"src/router/features/sample/narration.ts",
+			"src/router/features/sample/documented.ts:1:",
+		],
 		script: "comments",
+	},
+	{
+		fixture: "width",
+		messages: ["src/router/features/wide holds 21 entries, over 20. Folder rule"],
+		script: "width",
 	},
 	{
 		fixture: "identifier-kinds",
@@ -156,8 +170,6 @@ const mirror = Effect.fn("mirror")(function* mirror() {
 	const path = yield* Path.Path;
 	const repo = path.resolve(import.meta.dirname, "../..");
 	const tree = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-gate-" });
-
-	yield* fs.makeDirectory(path.join(tree, "tools"));
 
 	yield* Effect.forEach(linked, (name) => fs.symlink(path.join(repo, name), path.join(tree, name)), {
 		concurrency: 1,
