@@ -2,7 +2,7 @@ import { Command } from "effect/cli";
 import { Layer } from "effect";
 import { SealNotices } from "#router/client/seal-notices.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
-import { address } from "#router/features/cli/adapters.ts";
+import { modelAddress } from "#router/features/cli/adapters.ts";
 import { promptSubmit } from "./prompt-submit.ts";
 import { turnEnd } from "./turn-end.ts";
 
@@ -11,11 +11,11 @@ import { turnEnd } from "./turn-end.ts";
  * `turn-end` announces a turn that sealed.
  */
 const hookCommands = [
-	Command.make("prompt-submit", { address }, (flags) => promptSubmit(flags)).pipe(
+	Command.make("prompt-submit", { address: modelAddress }, (flags) => promptSubmit(flags)).pipe(
 		Command.provide(SessionRequests.layer),
 		Command.unlisted,
 	),
-	Command.make("turn-end", { address }, (flags) => turnEnd(flags)).pipe(
+	Command.make("turn-end", { address: modelAddress }, (flags) => turnEnd(flags)).pipe(
 		Command.provide(Layer.merge(SessionRequests.layer, SealNotices.layer)),
 		Command.unlisted,
 	),

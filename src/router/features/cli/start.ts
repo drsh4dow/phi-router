@@ -8,8 +8,7 @@ import { Processes } from "#router/client/processes.ts";
 import { noBaaKeyExit } from "./no-baa-key.ts";
 import { stopLines } from "#router/features/route/index.ts";
 
-/** How long `start` waits for a router to take the lease. */
-const patience = "10 seconds";
+const leaseTakenWithin = "10 seconds";
 
 const pause = "50 millis";
 
@@ -94,7 +93,7 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 		Effect.tap((asked) => Effect.when(unanswered, Effect.succeed(asked === "unanswered"))),
 		Effect.repeat({ schedule: Schedule.spaced(pause), until: settled }),
 		Effect.timeoutOrElse({
-			duration: patience,
+			duration: leaseTakenWithin,
 			orElse: () => Effect.fail(failed("notStarted")),
 		}),
 	);

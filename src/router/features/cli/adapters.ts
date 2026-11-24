@@ -5,8 +5,7 @@ import { doctorClaude, doctorCodex, doctorPi } from "./doctor/index.ts";
 import { off, on } from "./claude/index.ts";
 import { setupCommand } from "./setup/index.ts";
 
-/** The model address a hook read from its harness. An empty value means none. */
-const address = Flag.String("address");
+const modelAddress = Flag.String("address");
 
 const pid = Flag.Int(spelling.start.pid).pipe(Flag.withSchema(Pid));
 
@@ -45,4 +44,4 @@ const adapterCommands = [
 	setupCommand,
 ] as const;
 
-export { address, adapterCommands, pid };
+export { adapterCommands, modelAddress, pid };

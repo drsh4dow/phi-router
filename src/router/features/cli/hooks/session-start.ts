@@ -41,7 +41,6 @@ const hookHarness = { false: "codex", true: "claude" } as const;
 /** The values Claude Code reads a switch as on by, once trimmed and lowercased. */
 const switchedOn = ["1", "true", "yes", "on"];
 
-/** A setting of the session moves a protected Claude Code instance's model requests off the router. */
 class MovedOff extends Schema.TaggedError<MovedOff, { readonly brand: unique symbol }>()("MovedOff", {
 	setting: Schema.String,
 }) {
