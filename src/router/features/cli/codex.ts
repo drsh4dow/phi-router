@@ -1,5 +1,5 @@
 import { Array, Console, Effect, Option, Path, Schema, String as Str, pipe } from "effect";
-import { codexHome, removed, textOf } from "#router/client/harnesses/index.ts";
+import { codexHome, removed, rewritten, textOf } from "#router/client/harnesses/index.ts";
 import {
 	codexSettings,
 	dotenvFile,
@@ -14,7 +14,6 @@ import {
 } from "./codex-settings.ts";
 import { inlineOwner, switchedOff, switchedOn } from "./codex-config.ts";
 import { hookTrust } from "./codex-holds.ts";
-import { rewritePrivately } from "#router/client/private-file.ts";
 
 class InlineTable extends Schema.TaggedError<InlineTable, { readonly brand: unique symbol }>()("InlineTable", {
 	file: Schema.String,
@@ -53,7 +52,7 @@ const unexempt = Effect.fnUntraced(function* unexempt(file: string) {
 
 	yield* Option.match(withoutExemption(text), {
 		onNone: () => removed(file),
-		onSome: (kept) => rewritePrivately(file, kept),
+		onSome: (kept) => rewritten(file, text, kept),
 	});
 
 	return true;
@@ -66,13 +65,6 @@ const trustLine = (config: string): string => {
 
 	return 'Trust the plugin\'s hooks: start codex and pick "Trust all and continue" at "Hooks need review". Until you do, no hook starts the router, so every prompt ends in a connection error, and no hook blocks a prompt of a session that sends to another provider. A plugin update asks again.';
 };
-
-/** Writes `after` over `file`, which holds `before`, unless the two are the same. */
-const changed = Effect.fnUntraced(function* changed(file: string, before: string, after: string) {
-	if (after !== before) {
-		yield* rewritePrivately(file, after);
-	}
-});
 
 /**
  * Writes the settings a plugin cannot set into Codex's `config.toml`, keeping every other line, the router's exemption
@@ -97,7 +89,7 @@ const codexSwitchedOn = Effect.fnUntraced(function* codexSwitchedOn(named: strin
 		[files.role, role, sealedRole],
 	] as const;
 
-	yield* Effect.forEach(writes, ([file, was, now]) => changed(file, was, now), { concurrency: 1, discard: true });
+	yield* Effect.forEach(writes, ([file, was, now]) => rewritten(file, was, now), { concurrency: 1, discard: true });
 
 	return { after, files };
 });
@@ -135,9 +127,7 @@ const offCodex = Effect.fn("off codex")(function* offCodex(named: string) {
 	const before = yield* textOf(files.config);
 	const { removed: keys, text } = switchedOff(before);
 
-	if (text !== before) {
-		yield* rewritePrivately(files.config, text);
-	}
+	yield* rewritten(files.config, before, text);
 
 	const exempted = yield* unexempt(files.dotenv);
 	const role = yield* removed(files.role);

@@ -218,16 +218,5 @@
 			"severity": "error",
 			"name": "edge-file"
 		}
-	},
-	{
-		"type": "dependency",
-		"from": "src/router/features/cli/codex.ts",
-		"to": "src/router/client/private-file.ts",
-		"unresolvedTo": "#router/client/private-file.ts",
-		"dependencyTypes": ["aliased", "aliased-subpath-import", "local", "import"],
-		"rule": {
-			"severity": "error",
-			"name": "private-file-in-client"
-		}
 	}
 ]

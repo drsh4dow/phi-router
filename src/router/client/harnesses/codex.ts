@@ -1,6 +1,6 @@
 import { Array, Config, Effect, FileSystem, Option, Path, Schema, Stream, Struct, pipe } from "effect";
 import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
-import { copyPrivately, writePrivately } from "#router/client/private-file.ts";
+import { copyPrivately, rewritePrivately, writePrivately } from "#router/client/private-file.ts";
 import { ChildProcess } from "effect/process";
 
 /**
@@ -78,6 +78,13 @@ const removed = Effect.fnUntraced(function* removed(file: string) {
 	return exists;
 });
 
+/** Writes `after` over `file`, which holds `before`, unless the two are the same. */
+const rewritten = Effect.fnUntraced(function* rewritten(file: string, before: string, after: string) {
+	if (after !== before) {
+		yield* rewritePrivately(file, after);
+	}
+});
+
 /**
  * The folder Codex installed a plugin's version into, from its install cache `cache`, if it installed one: the first
  * version folder that holds `.codex-plugin/plugin.json`.
@@ -148,4 +155,4 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 /** Runs the installed `codex exec` once in a fresh home and Codex home, and ends the turn after 2 minutes. */
 const codexTurn = harnessTurn(commandOf);
 
-export { codexHome, codexTurn, firstLine, codexPlugin, removed, textOf };
+export { codexHome, codexPlugin, codexTurn, firstLine, removed, rewritten, textOf };
