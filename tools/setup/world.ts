@@ -29,16 +29,26 @@ const keys = {
 
 const accepted: ReadonlySet<string> = new Set([keys.anthropic, keys.openai]);
 
-const statuses = { ok: 200, unauthorized: 401 } as const;
+const statuses = { notFound: 404, ok: 200, unauthorized: 401 } as const;
 
-/** A vendor's `GET /v1/models`, which answers 200 to an accepted key in either vendor's header and 401 to the rest. */
+/**
+ * A vendor's `GET /v1/models`, which records the key in either vendor's header, answers 200 to an accepted key and 401
+ * to the rest, and 404 to any other request.
+ */
 const keyMock = Effect.gen(function* keyMock() {
 	const server = yield* Layer.build(NodeHttpServer.layerTest);
+	const checked = yield* Ref.make<readonly string[]>([]);
 
 	const answer = Effect.gen(function* answer() {
 		const request = yield* HttpServerRequest.HttpServerRequest;
 		const bearer = Str.replace(/^Bearer /u, "")(request.headers["authorization"] ?? "");
 		const key = request.headers["x-api-key"] ?? bearer;
+
+		if (request.method !== "GET" || request.url !== "/v1/models") {
+			return HttpServerResponse.empty({ status: statuses.notFound });
+		}
+
+		yield* Ref.update(checked, Array.append(key));
 
 		if (accepted.has(key)) {
 			return HttpServerResponse.empty({ status: statuses.ok });
@@ -47,7 +57,7 @@ const keyMock = Effect.gen(function* keyMock() {
 		return HttpServerResponse.empty({ status: statuses.unauthorized });
 	});
 
-	return yield* Effect.provideContext(
+	const endpoint = yield* Effect.provideContext(
 		Effect.gen(function* serve() {
 			const http = yield* HttpServer.HttpServer;
 
@@ -57,6 +67,8 @@ const keyMock = Effect.gen(function* keyMock() {
 		}),
 		server,
 	);
+
+	return { checkedKeys: (): Effect.Effect<readonly string[]> => Ref.get(checked), endpoint };
 });
 
 const claudeStandIn = new URL("../claude/stand-in.ts", import.meta.url).pathname;
@@ -167,6 +179,7 @@ const rootFolders = Effect.gen(function* rootFolders() {
  */
 interface World {
 	readonly bin: string;
+	readonly checkedKeys: () => Effect.Effect<readonly string[]>;
 	readonly copies: Copies;
 	readonly env: Readonly<Record<string, string>>;
 	readonly folders: Readonly<Record<"CLAUDE_CONFIG_DIR" | "CODEX_HOME" | "HOME" | "PI_CODING_AGENT_DIR", string>>;
@@ -179,7 +192,7 @@ const world = Effect.gen(function* world() {
 	const copies = { pkg: yield* packageCopy, plugin: yield* pluginCopy };
 	const bin = yield* fakeBin(copies);
 	const { folders, root, xdg } = yield* rootFolders;
-	const endpoint = yield* keyMock;
+	const { checkedKeys, endpoint } = yield* keyMock;
 
 	const env = Struct.assign(Struct.assign(folders, xdg), {
 		NO_PROXY: "",
@@ -188,7 +201,7 @@ const world = Effect.gen(function* world() {
 		no_proxy: "",
 	});
 
-	return { bin, copies, env, folders, root, xdg };
+	return { bin, checkedKeys, copies, env, folders, root, xdg };
 });
 
 /** What the terminal showed in a {@link typedRun}, and its exit code. */

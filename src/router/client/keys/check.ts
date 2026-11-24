@@ -33,11 +33,6 @@ const checkOf = (status: number): KeyCheck => {
 	return "unanswered";
 };
 
-/**
- * Asks a vendor whether it takes a key, with one request for its model list, which runs no model. A test points it at
- * a mock with `PHI_ROUTER_KEY_CHECK_ENDPOINT`, which stands for both vendors' API. The key goes only in the request's
- * header.
- */
 class KeyChecks extends Context.Service<
 	KeyChecks,
 	{ readonly check: (vendor: Vendor, key: Readonly<Redacted.Redacted>) => Effect.Effect<KeyCheck> }

@@ -156,7 +156,9 @@ const claudeSetUp = Effect.gen(function* claudeSetUp() {
 	yield* settled(of);
 
 	const run = yield* setUp(of, "claude", claudeAnswers);
+	const checked = yield* of.checkedKeys();
 
+	assert.deepStrictEqual(checked, [keys.anthropic], "setup asked the vendor about the pasted key alone");
 	assertClaudeScreens(run);
 	yield* configuredClaude(of);
 	yield* switchedClaude(of);
