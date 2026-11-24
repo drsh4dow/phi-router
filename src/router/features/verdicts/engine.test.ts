@@ -45,6 +45,12 @@ const userCases: readonly Case[] = [
 		["identifier", "kind"],
 	],
 	[
+		"0.6 with none still seals, unlabelled",
+		{ kind: () => "none", score: () => sealsAnyPiece },
+		judgeSealed("unlabelled", sealsAnyPiece),
+		["identifier", "kind"],
+	],
+	[
 		"0.6 seals unlabelled when the kind call refuses",
 		{ kind: () => "refused", score: () => sealsAnyPiece },
 		judgeSealed("unlabelled", sealsAnyPiece),

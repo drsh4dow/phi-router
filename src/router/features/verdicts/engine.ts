@@ -37,15 +37,6 @@ interface Asking extends Call {
 
 type Thresholds = (typeof thresholds)[keyof typeof thresholds];
 
-/**
- * A system part goes on to the kind question only at a score that would seal any other piece, and a failed call on it is
- * asked once more.
- *
- * @param {boolean} system Whether the piece is a system part.
- * @param {Spend} spend Where the calls' cost goes.
- * @param {Thresholds} thresholds The judge's thresholds.
- * @returns {Asking} How the judge is asked about it.
- */
 const askingOf = (system: boolean, spend: Spend, { clearBelow, sealAtOrAbove }: Thresholds): Asking => {
 	if (system) {
 		return { askKindAtOrAbove: sealAtOrAbove, retries: 1, sealAtOrAbove, spend };
@@ -62,23 +53,8 @@ interface Scored {
 	readonly sealAtOrAbove: number;
 }
 
-/**
- * A high score seals any piece but a system part, and the kind only labels it.
- *
- * @param {Scored} scored The identifier question's score, whether the piece is a system part, and the threshold.
- * @returns {boolean} Whether the score seals whatever the kind call answers.
- */
 const sealsOnScore = ({ score, system, sealAtOrAbove }: Scored): boolean => !system && score >= sealAtOrAbove;
 
-/**
- * The verdict once a score reached the band and the kind call answered. Unless the score seals on its own, the kind
- * decides: a named kind seals, `none` clears.
- *
- * @param {object} root0 The kind call's answer and the scored piece.
- * @param {string} root0.kind The kind the judge named, or `none`.
- * @param {Scored} root0.scored The scored piece.
- * @returns {Verdict} The piece's verdict.
- */
 const verdictOfKind = ({
 	kind,
 	scored,
@@ -97,15 +73,6 @@ const verdictOfKind = ({
 	return clearedByJudge;
 };
 
-/**
- * The verdict once a score reached the band and the kind call failed: unlabelled when the score seals on its own, else
- * sealed as the failure.
- *
- * @param {object} root0 Why the kind call failed and the scored piece.
- * @param {string} root0.why Why the kind call failed.
- * @param {Scored} root0.scored The scored piece.
- * @returns {Verdict} The piece's verdict.
- */
 const verdictOfFailedKind = ({
 	why,
 	scored,
