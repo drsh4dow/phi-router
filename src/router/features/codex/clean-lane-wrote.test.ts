@@ -12,14 +12,7 @@ const realModel = "gpt-5.5";
 
 const allCleared: Lookup = () => "cleared";
 
-/**
- * The clean lane's body as the route builds it: the border's messages under `lookup`, then the codec.
- *
- * @param {CodexRequest} request The request.
- * @param {Lookup} lookup What the border knows of each key.
- * @returns {Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest>} The body.
- */
-const cleanOf = (
+const cleanBodyPastBorder = (
 	request: Pick<CodexRequest, "encode" | "messages">,
 	lookup: Lookup,
 ): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
@@ -47,7 +40,7 @@ const cleanAfter = (
 		const written = new Set(keys);
 		const request = yield* decodeRequest(text, (key) => written.has(key));
 
-		return yield* cleanOf(request, allCleared);
+		return yield* cleanBodyPastBorder(request, allCleared);
 	});
 
 const withCallBlob = Str.replace('"name":"exec_command","arguments"', `"name":"${blob}","arguments"`);

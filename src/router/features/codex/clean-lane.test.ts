@@ -45,14 +45,7 @@ const nothingWritten = (): boolean => false;
 
 const isCall = ({ type }: Item): boolean => type === "function_call" || type === "custom_tool_call";
 
-/**
- * The clean lane's body as the route builds it: the border's messages under `lookup`, then the codec.
- *
- * @param {CodexRequest} request The request.
- * @param {Lookup} lookup What the border knows of each key.
- * @returns {Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest>} The body.
- */
-const cleanOf = (
+const cleanBodyPastBorder = (
 	request: Pick<CodexRequest, "encode" | "messages">,
 	lookup: Lookup,
 ): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
@@ -76,7 +69,7 @@ const keysSeen = (
 			return "cleared";
 		};
 
-		yield* cleanOf(request, lookup);
+		yield* cleanBodyPastBorder(request, lookup);
 
 		return seen;
 	});
@@ -156,7 +149,7 @@ const twiceKeys = Effect.gen(function* twiceKeys() {
 const toolListRefused = (text: string): Effect.Effect<void, CodexRequestRejected | string, Digest.Digest> =>
 	Effect.gen(function* refuseToolList() {
 		const request = yield* decodeRequest(text, nothingWritten);
-		const error = yield* Effect.flip(cleanOf(request, () => "sealed"));
+		const error = yield* Effect.flip(cleanBodyPastBorder(request, () => "sealed"));
 
 		assert.isTrue(Predicate.isTagged(error, "ToolsNotCleared"));
 	});
@@ -200,7 +193,7 @@ const allSealed = Effect.gen(function* allSealed() {
 		return "sealed";
 	};
 
-	const encoded = yield* cleanOf(request, lookup);
+	const encoded = yield* cleanBodyPastBorder(request, lookup);
 	const sent = yield* sentItems(encoded);
 	const carried = pipe(sent, Array.drop(toolListCount), Array.map(Struct.omit(["id", "arguments"])));
 
@@ -253,7 +246,7 @@ const anyLookup = ({
 			lookupOf((key) => toolList.has(key), verdicts),
 		);
 
-		const encoded = yield* cleanOf(request, lookup);
+		const encoded = yield* cleanBodyPastBorder(request, lookup);
 
 		const original = yield* Effect.map(sentItems(text), Array.filter(isCall));
 		const sent = yield* sentItems(encoded);
