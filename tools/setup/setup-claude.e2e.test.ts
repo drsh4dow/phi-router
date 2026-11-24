@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Formatter, Path, String as Str, Struct } from "effect";
+import { Array, Effect, FileSystem, Formatter, Option, Path, String as Str, Struct } from "effect";
 import type { TypedRan, World } from "./world.ts";
 import {
 	argsOf,
@@ -20,6 +20,7 @@ import {
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
+import { packageOf, versionOf } from "#router/client/own-package.ts";
 import type { Schema } from "effect";
 
 const step3 = `phi-router keeps patient data off your Claude subscription.
@@ -201,5 +202,51 @@ it.layer(layer)("setup claude", (test) => {
 		"setup claude gives the terminal its echo back after the hidden key, and starts nothing when the input ends at its last question",
 		() => echoedThenEnded,
 		patient,
+	);
+});
+
+const bundled = ["plugins", "claude", "phi-router.mjs"] as const;
+
+const ownPackages = Effect.gen(function* ownPackages() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const root = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-package-" });
+	const installed = path.join(root, "node_modules", "phi-router");
+	const other = path.join(root, "node_modules", "other");
+	const nowhere = path.join(path.dirname(root), "nowhere.js");
+
+	const made = Effect.fnUntraced(function* made(folder: string, release: string) {
+		yield* fs.makeDirectory(path.join(folder, "plugins", "claude"), { recursive: true });
+		yield* fs.writeFileString(path.join(folder, ...bundled), "");
+		yield* fs.writeFileString(path.join(folder, "package.json"), `{"version":"${release}"}`);
+	});
+
+	yield* made(root, "1.0.0");
+	yield* made(installed, "2.0.0");
+	yield* fs.makeDirectory(other, { recursive: true });
+	yield* fs.writeFileString(path.join(other, "package.json"), '{"version":"3.0.0"}');
+
+	const found = yield* Effect.all(
+		{
+			installed: packageOf(path.join(installed, ...bundled)),
+			nowhere: packageOf(nowhere),
+			other: packageOf(path.join(other, "index.js")),
+			version: versionOf(path.join(installed, ...bundled)),
+		},
+		{ concurrency: 1 },
+	);
+
+	assert.deepStrictEqual(found, {
+		installed: Option.some(installed),
+		nowhere: Option.none(),
+		other: Option.some(root),
+		version: "2.0.0",
+	});
+}).pipe(Effect.scoped);
+
+it.layer(layer)("the phi-router package a file belongs to", (test) => {
+	test.effect(
+		"is the nearest folder above it that holds the plugin's bundle, and none when no folder does",
+		() => ownPackages,
 	);
 });
