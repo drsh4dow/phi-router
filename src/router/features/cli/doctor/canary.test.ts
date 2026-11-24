@@ -1,6 +1,7 @@
 import { Array, Effect, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { canaryChecks } from "./canary.ts";
+import { canaryChecks, turnCheck } from "./canary.ts";
+import type { Turn } from "#router/client/harnesses/index.ts";
 
 const canary = "phi-doctor-canary-42";
 
@@ -29,5 +30,18 @@ it.effect.each(cases)("the canary checks pass when the canary arrived at $what: 
 			),
 			passed,
 		);
+	}),
+);
+
+const turns: readonly { readonly turn: Turn; readonly passed: boolean }[] = [
+	{ passed: true, turn: { exitCode: 0, kind: "exited", printed: "ok" } },
+	{ passed: false, turn: { exitCode: 1, kind: "exited", printed: "refused" } },
+	{ passed: false, turn: { kind: "notStarted" } },
+	{ passed: false, turn: { kind: "timedOut" } },
+];
+
+it.effect.each(turns)("the turn check passes only when the headless command exited 0: $turn", ({ passed, turn }) =>
+	Effect.sync(() => {
+		assert.strictEqual(turnCheck({ binary: "claude", headless: "claude -p" })(turn).passed, passed);
 	}),
 );

@@ -16,12 +16,6 @@ const piCanary = Effect.fnUntraced(function* piCanary(folder: string) {
 	);
 });
 
-/**
- * Checks that pi installed the package, from pi's own record, and loads it unfiltered, and stops there when not. Then
- * it runs the canary through the installed package, and passes only when `pi -p` exited 0, the canary arrived at the
- * BAA mock, and it arrived at no open mock. It changes nothing in pi's agent folder, and never touches the product port, the user's
- * router configuration, or a real account.
- */
 const doctorPi = Effect.fn("doctor pi")(function* doctorPi(agentDir: string) {
 	const installed = yield* installedPackage(agentDir);
 

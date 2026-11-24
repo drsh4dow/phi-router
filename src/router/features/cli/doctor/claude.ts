@@ -22,17 +22,6 @@ interface Found {
 	readonly shell: NoProxyLists["shell"];
 }
 
-/**
- * One check per setting `on claude` writes, which holds when the `env` block has its value, one that holds when the list
- * of hosts Claude Code reaches without a proxy, from its settings over the shell, takes it to the router, and two for
- * the plugin, which hold when `enabledPlugins` holds its id at `true` and Claude Code installed it.
- *
- * @param {object} found What the user's settings and shell hold, and whether Claude Code installed the plugin.
- * @param {boolean} found.installed Whether Claude Code installed the plugin.
- * @param {UserSettings} found.settings What the user's settings hold.
- * @param {object} found.shell `no_proxy` and `NO_PROXY` as the shell gives them.
- * @returns {readonly Check[]} The checks.
- */
 const settingsChecks = ({ installed, settings, shell }: Found): readonly Check[] => [
 	...pipe(
 		claudeSettings,
@@ -46,10 +35,6 @@ const settingsChecks = ({ installed, settings, shell }: Found): readonly Check[]
 	{ name: `the plugin ${pluginId} is installed`, passed: installed },
 ];
 
-/**
- * The canary run of `claude -p` through the plugin Claude Code installed in `folder`, with the settings `on claude`
- * writes and the router at the run's own address.
- */
 const claudeCanary = Effect.fnUntraced(function* claudeCanary(folder: string) {
 	return yield* canaryRun({ binary: "claude", headless: "claude -p", vendor: "anthropic" }, (canaried) =>
 		claudeTurn({

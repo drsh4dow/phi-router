@@ -26,13 +26,6 @@ interface Install {
 	readonly installed: boolean;
 }
 
-/**
- * One check per setting `on codex` writes, and one each for the exemption line in `.env`, the role file, the plugin's
- * enabling, its install in Codex's cache, and the human's trust of its hook.
- *
- * @param {Install} install What Codex's home holds.
- * @returns {readonly Check[]} The checks.
- */
 const installChecks = (install: Install): readonly Check[] => [
 	...pipe(
 		codexSettings,
@@ -48,13 +41,6 @@ const installChecks = (install: Install): readonly Check[] => [
 	{ name: "the plugin's hooks are trusted", passed: Str.isNonEmpty(hookTrust(install.config)) },
 ];
 
-/**
- * The `config.toml` of the headless turn: the router at `address` as its provider with retries off, a fake key-command
- * login, analytics and the update check off, the plugin enabled, and the user's trust of its hook.
- *
- * @param {object} turn The router's address, and the trust table from the user's `config.toml`.
- * @returns {string} The file.
- */
 const turnConfig = (turn: { readonly address: string; readonly trust: string }): string =>
 	Array.join(
 		[
@@ -83,10 +69,6 @@ const turnConfig = (turn: { readonly address: string; readonly trust: string }):
 		"\n",
 	);
 
-/**
- * The canary run of `codex exec` through the plugin in `folder`, copied to `place` in the turn's Codex home, on the hook
- * trust `trust` from the user's `config.toml`, or with no trust needed when it is empty.
- */
 const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
 	readonly folder: string;
 	readonly place: string;
@@ -112,12 +94,6 @@ const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
 	);
 });
 
-/**
- * Checks the settings, the role, and the plugin's install and trust first, and stops there when one fails, since an
- * untrusted hook looks like a network failure. Then it runs the canary through the installed plugin, and passes only
- * when `codex exec` exited 0, the canary arrived at the BAA mock, and it arrived at no open mock. It changes no setting,
- * and never touches the product port, the user's router configuration, or a real account.
- */
 const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: string) {
 	const path = yield* Path.Path;
 	const home = yield* codexHome(named);
@@ -144,4 +120,4 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 	);
 });
 
-export { codexCanary, doctorCodex };
+export { codexCanary, doctorCodex, turnConfig };

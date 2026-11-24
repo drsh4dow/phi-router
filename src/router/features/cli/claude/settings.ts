@@ -2,7 +2,6 @@ import { Array, Config, Effect, Option, Record, String as Str, pipe } from "effe
 import { loopback } from "#router/client/router-port/index.ts";
 import { productPort } from "#shared/cli.ts";
 
-/** One setting a plugin cannot set, which `on claude` writes into the `env` block of Claude Code's user settings. */
 interface Setting {
 	readonly name: string;
 	readonly value: string;
@@ -17,7 +16,6 @@ const pickerModel = "phi/auto";
 
 const routerAddress = `http://${loopback}:${String(productPort)}`;
 
-/** The settings `on claude` writes and prints, `off claude` removes and `doctor claude` checks. */
 const claudeSettings: readonly Setting[] = [
 	{
 		name: modelAddressSetting,
@@ -52,19 +50,10 @@ const claudeEnv = pipe(
 	Record.fromEntries,
 );
 
-/**
- * The two spellings of the list of hosts Claude Code reaches without the developer's proxy. A value in the `env` block of
- * its settings replaces the one its shell gives it, and it reads `no_proxy` first and `NO_PROXY` when that is empty.
- */
 const exemptionNames = ["no_proxy", "NO_PROXY"] as const;
 
-/** The one setting `on claude` writes when Claude Code would send its requests to the router through a proxy. */
 const exemptionName = "no_proxy";
 
-/**
- * What `on claude` records beside its `no_proxy`, so `off claude` gives back exactly what was there: the value it wrote,
- * and the developer's own `no_proxy` setting it replaced, when there was one.
- */
 const exemptionRecord = { replaced: "PHI_ROUTER_REPLACED_no_proxy", wrote: "PHI_ROUTER_WROTE_no_proxy" } as const;
 
 const exemptionReason =
@@ -102,12 +91,6 @@ interface NoProxyLists {
 	readonly shell: Variables;
 }
 
-/**
- * The list of hosts Claude Code reaches without a proxy, as it reads it from its settings over its shell.
- *
- * @param {NoProxyLists} lists The developer's settings and shell.
- * @returns {string} The list, empty when there is none.
- */
 const exemptList = (lists: NoProxyLists): string =>
 	pipe(
 		exemptionNames,
@@ -122,13 +105,6 @@ const exemptList = (lists: NoProxyLists): string =>
 		Option.getOrElse(() => ""),
 	);
 
-/**
- * Whether the list `list` takes Claude Code to the router at `address` without a proxy. Each entry counts that was
- * measured to: `*`, `127.0.0.1`, `127.0.0.0/8`, and the router's host and port.
- *
- * @param {string} address The router's address.
- * @returns {Function} The check of a list.
- */
 const keepsDirect =
 	(address: string) =>
 	(list: string): boolean =>
@@ -137,13 +113,6 @@ const keepsDirect =
 			Array.some((entry) => Array.contains(["*", "127.0.0.1", "127.0.0.0/8", new URL(address).host], entry)),
 		);
 
-/**
- * The `no_proxy` `on claude` writes for the router at `address`: the list Claude Code reads now, then the router's host
- * and port. None when that list already takes Claude Code to the router without a proxy.
- *
- * @param {string} address The router's address.
- * @returns {Function} The value, from the developer's settings and shell.
- */
 const exemption =
 	(address: string) =>
 	(lists: NoProxyLists): Option.Option<string> => {
@@ -166,13 +135,6 @@ interface EnvChange {
 	readonly unset: readonly string[];
 }
 
-/**
- * What `on claude` does for the router's exemption: it writes the `no_proxy` that `exemption` gives, if any, and records
- * that value and the developer's own `no_proxy` setting it replaces, or drops a stale record of one when there is none.
- *
- * @param {string} address The router's address.
- * @returns {Function} The change, from the developer's settings and shell.
- */
 const exempted =
 	(address: string) =>
 	(lists: NoProxyLists): EnvChange =>
@@ -191,14 +153,6 @@ const exempted =
 				}),
 		});
 
-/**
- * What `off claude` does with what `on claude` recorded in the settings' `env` block. While `no_proxy` still holds the
- * value `on` wrote, it gives back the developer's own value, or removes `no_proxy` when there was none. It leaves a
- * `no_proxy` changed since, and removes the record either way. Without a record it changes nothing.
- *
- * @param {Variables} env The `env` block of the settings.
- * @returns {EnvChange} The values it gives back and the keys it removes.
- */
 const restored = (env: Variables): EnvChange => {
 	const record = [exemptionRecord.wrote, exemptionRecord.replaced];
 	const wrote = Record.get(env, exemptionRecord.wrote);
