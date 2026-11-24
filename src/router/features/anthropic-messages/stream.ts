@@ -12,7 +12,6 @@ type BlockStart = Extract<WireEvent, { readonly type: "content_block_start" }>;
 
 const jsonText = Schema.encodeEffect(JsonText);
 
-/** A streamed reply the codec cannot fold: an `error` event, an unknown event or delta, or no `message_stop`. */
 class UnreadableReply extends Schema.TaggedError<UnreadableReply, { readonly brand: unique symbol }>()(
 	"UnreadableReply",
 	{ reason: Schema.String },
@@ -23,13 +22,6 @@ interface Building {
 	readonly partialInputJson: string;
 }
 
-/**
- * A block with one more delta applied.
- *
- * @param {Building} building The block so far.
- * @param {WireDelta} delta The next delta at its index.
- * @returns {Option.Option<Building>} The block, or none when the delta fits no block of its type.
- */
 const applied = ({ block, partialInputJson }: Building, delta: WireDelta): Option.Option<Building> => {
 	if (delta.type === "text_delta" && block.type === "text") {
 		return Option.some({ block: Struct.assign(block, { text: block.text + delta.text }), partialInputJson });

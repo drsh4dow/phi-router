@@ -134,12 +134,6 @@ const resultRun = Effect.fnUntraced(function* resultRun({
 	};
 });
 
-/**
- * A tool result the codec cannot read: it keeps its call id, so its call stays paired, and reads the unknown stub.
- *
- * @param {Located<WireUnreadable["unreadable"]>} block The block as parsed, and where it sits.
- * @returns {Option.Option<Run>} The run, or none when the block is no tool result.
- */
 const unreadableResult = ({ span, wire }: Located<WireUnreadable["unreadable"]>): Option.Option<Run> => {
 	if (!isLooseResult(wire)) {
 		return Option.none();

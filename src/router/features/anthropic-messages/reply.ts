@@ -82,13 +82,6 @@ const withheldOf = (visible: ReplyContent): ReplyContent => {
 
 const blank = /^\s*$/u;
 
-/**
- * What of one block the content key reads: non-blank text, which Claude Code echoes as streamed, and each tool call's
- * id, name and input. A blank text block, which Claude Code drops, and thinking, which has keys of its own, add nothing.
- *
- * @param {ReplyBlock} block A block of the reply and its input text.
- * @returns {readonly string[]} Its fields in the key.
- */
 const contentFieldsOf = (block: ReplyBlock): readonly string[] => {
 	switch (block.type) {
 		case "text": {
@@ -120,12 +113,6 @@ const contentFieldsOf = (block: ReplyBlock): readonly string[] => {
 	}
 };
 
-/**
- * A thinking block's own key: its text and signature, or a redacted block's data.
- *
- * @param {WireAssistantBlock} block A block of the reply.
- * @returns {Option.Option<Effect.Effect<Key, never, Digest.Digest>>} The key, none for a block that is not thinking.
- */
 const thinkingKeyOf = (block: WireAssistantBlock): Option.Option<Effect.Effect<Key, never, Digest.Digest>> => {
 	if (block.type === "thinking") {
 		return Option.some(contentKey(["thinking", block.thinking, block.signature]));

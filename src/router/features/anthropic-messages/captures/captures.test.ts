@@ -352,3 +352,67 @@ it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 
 	test.effect("a pi request gets pi's bridge, not Claude Code's", () => piBridge);
 });
+
+const blankBlock =
+	'event: content_block_start\ndata: {"type":"content_block_start","index":2,"content_block":{"type":"text","text":""}}\n\nevent: content_block_delta\ndata: {"type":"content_block_delta","index":2,"delta":{"type":"text_delta","text":"\\n\\n"}}\n\nevent: content_block_stop\ndata: {"type":"content_block_stop","index":2}\n\n';
+
+const beforeMessageDelta =
+	(event: string) =>
+	(reply: string): string =>
+		Str.replace("event: message_delta", `${event}event: message_delta`)(reply);
+
+const blankText = Effect.gen(function* blankText() {
+	const withBlank = yield* replyKeys(beforeMessageDelta(blankBlock)(replies.toolCallReply));
+	const without = yield* replyKeys(replies.toolCallReply);
+
+	assert.deepStrictEqual(withBlank, without);
+});
+
+const alteredThinking = Effect.gen(function* alteredThinking() {
+	const resigned = Str.replaceAll(
+		openThinking,
+		'{"type":"thinking","thinking":"","signature":"forged-signature"}',
+	)(requests.toolResult);
+
+	const rethought = Str.replaceAll(
+		openThinking,
+		'{"type":"thinking","thinking":"ALTERED-THOUGHT","signature":"signature-placeholder"}',
+	)(requests.toolResult);
+
+	const fromResigned = yield* echoOf(resigned);
+	const fromRethought = yield* echoOf(rethought);
+
+	assert.notInclude(fromResigned.clean, "forged-signature");
+	assert.notInclude(fromRethought.clean, "ALTERED-THOUGHT");
+});
+
+const unfoldable = [
+	'event: new_event\ndata: {"type":"new_event"}\n\n',
+	'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"new_delta"}}\n\n',
+	'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"x"}}\n\n',
+];
+
+const unfoldableReply = Effect.gen(function* unfoldableReply() {
+	for (const event of unfoldable) {
+		const failure = yield* Effect.flip(replyKeys(beforeMessageDelta(event)(replies.toolCallReply)));
+
+		assert.instanceOf(failure, UnreadableReply);
+	}
+});
+
+it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
+	test.effect(
+		"a blank text block, which Claude Code drops from its echo, leaves a streamed reply's keys alone",
+		() => blankText,
+	);
+
+	test.effect(
+		"thinking whose text or signature differs from the block the open account streamed never reaches the clean lane",
+		() => alteredThinking,
+	);
+
+	test.effect(
+		"a streamed reply with an unknown event, an unknown delta, or a delta its block cannot take gives no key",
+		() => unfoldableReply,
+	);
+});
