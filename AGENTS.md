@@ -16,7 +16,7 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents
 
 ## Check
 
-`bun run check` runs every gate and the unit tests. The tests include `tools/corpus/corpus.test.ts`, which plays the default corpus through lane choice and the border with the recorded judge and fails on a leak or an unrecorded judge call; `bun run eval:recorded` prints that replay's full report. It passes before you hand back a change.
+`bun run check` runs every gate and the unit tests. The tests include `tools/corpus/corpus.test.ts`, which plays the default corpus through lane choice and the border with the recorded judge and fails on a leak or an unrecorded judge call; `bun run eval:recorded` prints that replay's full report. It passes before you hand back a change. The pre-commit hook in `.githooks`, which `bun install` turns on, checks the format and lint of the staged files.
 
 `check` leaves out two suites that CI runs on every pull request. `bun run test:e2e` runs each `*.e2e.test.ts`, a test that builds the plugin or starts a process; it takes minutes. `bun run test:perf` runs each `*.perf.test.ts`, a test that times code on the wall clock. Run the tests a change touches while you work, and each suite once at the head you hand back, or let CI run it.
 

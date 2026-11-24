@@ -26,7 +26,7 @@
 		"#tools/*": "./tools/*"
 	},
 	"scripts": {
-		"prepare": "[ -x node_modules/.bin/effect-tsgo ] || exit 0; effect-tsgo patch --oxlint && bun tools/formal/install.ts",
+		"prepare": "[ -x node_modules/.bin/effect-tsgo ] || exit 0; effect-tsgo patch --oxlint && bun tools/formal/install.ts && (git config core.hooksPath .githooks || true)",
 		"prepack": "bun run build",
 		"fmt": "oxfmt",
 		"lint": "oxlint --format default src tools",

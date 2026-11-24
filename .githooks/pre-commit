@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 -r node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern
+git diff --cached --name-only --diff-filter=ACMR -z -- 'src/*.ts' 'tools/*.ts' | xargs -0 -r node_modules/.bin/oxlint --no-error-on-unmatched-pattern --format default
