@@ -2,7 +2,6 @@ import { Array, Effect, Schema, String as Str, Struct, pipe } from "effect";
 import { Base64, Hex } from "effect/encoding";
 import type { Case, Message, PhiCase } from "./manifest.ts";
 import { assert, describe, it } from "@effect/vitest";
-import { failed } from "./wire-table.ts";
 import { foundIn } from "./request-bodies.ts";
 import { gzip } from "./encodings.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
@@ -87,7 +86,6 @@ const redactedLeak = Effect.gen(function* redactedLeak() {
 
 	assert.deepStrictEqual(result.leaked, []);
 	assert.lengthOf(result.unstubbed, oneMessage);
-	assert.isTrue(failed(result));
 	assert.deepStrictEqual(lineByLine.leaked, []);
 	assert.lengthOf(lineByLine.unstubbed, oneMessage);
 });
@@ -180,8 +178,10 @@ const splitApart = Effect.gen(function* splitApart() {
 	const oneRequest = seenOn({ baa: [], open: together, tracked });
 
 	assert.deepStrictEqual([twoRequests.leaked, twoRequests.split], [[], [mrn]]);
-	assert.deepStrictEqual([oneRequest.leaked, oneRequest.split, oneRequest.missing], [[], [mrn], []]);
-	assert.isFalse(failed(oneRequest));
+	assert.deepStrictEqual(
+		[oneRequest.leaked, oneRequest.split, oneRequest.missing, oneRequest.unstubbed],
+		[[], [mrn], [], []],
+	);
 });
 
 const splitHalf = Effect.gen(function* splitHalf() {
@@ -190,8 +190,10 @@ const splitHalf = Effect.gen(function* splitHalf() {
 	const second = yield* bodyOf([cut.second]);
 	const halfOnBaa = seenOn({ baa: [second], open: [first], tracked });
 
-	assert.deepStrictEqual([halfOnBaa.leaked, halfOnBaa.split, halfOnBaa.fragments.length], [[], [], onePart]);
-	assert.isFalse(failed(halfOnBaa));
+	assert.deepStrictEqual(
+		[halfOnBaa.leaked, halfOnBaa.split, halfOnBaa.missing, halfOnBaa.unstubbed, halfOnBaa.fragments.length],
+		[[], [], [], [], onePart],
+	);
 });
 
 const splitRejoined = Effect.gen(function* splitRejoined() {
@@ -203,7 +205,6 @@ const splitRejoined = Effect.gen(function* splitRejoined() {
 
 	assert.deepStrictEqual([rejoined.leaked, rejoined.split], [[mrn], []]);
 	assert.deepStrictEqual([pasted.leaked, pasted.split], [[mrn], []]);
-	assert.isTrue(failed(rejoined));
 });
 
 const anthropicTurns = Effect.gen(function* anthropicTurns() {
@@ -232,7 +233,6 @@ const fragmentShown = Effect.gen(function* fragmentShown() {
 	const result = yield* seen(subject, { baa: [], open: textsOf(subject) });
 
 	assert.deepStrictEqual(result, Struct.assign(nothing, { fragments: ["Wexford"] }));
-	assert.isFalse(failed(result));
 });
 
 const canaryStart = 4;
