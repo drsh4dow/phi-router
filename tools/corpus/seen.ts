@@ -79,7 +79,7 @@ const seenOn = ({ tracked, open, baa }: Bodies): Seen => {
 		Array.flatMap((split) => split.parts),
 	);
 
-	const delivered = [...tracked.complete, ...parts, ...tracked.sealed];
+	const delivered = [...tracked.wholeCanaryTokens, ...parts, ...tracked.sealedWindows];
 	const reached = [...foundIn({ bodies: baa, tokens: delivered }), ...inOpen(parts)];
 
 	return {
@@ -90,10 +90,10 @@ const seenOn = ({ tracked, open, baa }: Bodies): Seen => {
 				Array.flatMap((split) => split.parts),
 			),
 		]),
-		leaked: Array.dedupe([...inOpen(tracked.complete), ...canaries("whole")]),
+		leaked: Array.dedupe([...inOpen(tracked.wholeCanaryTokens), ...canaries("whole")]),
 		missing: [...Array.difference(delivered, reached), ...tracked.untracked],
 		split: canaries("split"),
-		unstubbed: inOpen(tracked.sealed),
+		unstubbed: inOpen(tracked.sealedWindows),
 	};
 };
 

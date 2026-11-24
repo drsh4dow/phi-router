@@ -9,13 +9,10 @@ interface Split {
 }
 
 interface Tracked {
-	/** Tokens that show a canary whole. */
-	readonly complete: readonly string[];
+	readonly wholeCanaryTokens: readonly string[];
 	readonly splits: readonly Split[];
 	readonly fragments: readonly string[];
-	/** One distinctive piece of each message that holds a complete canary. */
-	readonly sealed: readonly string[];
-	/** Canaries no message carries in a form this module finds, so the run cannot vouch for them. */
+	readonly sealedWindows: readonly string[];
 	readonly untracked: readonly string[];
 }
 
@@ -28,8 +25,7 @@ interface Window {
 
 const textStart = 0;
 
-/** Characters kept on each side of a split canary's part, so the token that holds it is distinctive. */
-const context = 40;
+const splitPartContextChars = 40;
 
 const sealedWidth = 40;
 
@@ -50,12 +46,6 @@ const isGzip = (bytes: Bytes): boolean => {
 const inflated = (bytes: Bytes): PromiseLike<string> =>
 	new Response(new Blob([new Uint8Array(bytes)]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
 
-/**
- * The text of decoded bytes, gunzipped when they are gzip.
- *
- * @param {Bytes} bytes Decoded bytes.
- * @returns {Effect.Effect} The text, or none when the bytes start like gzip but are not a whole gzip stream.
- */
 const textOfBytes = (bytes: Bytes): Effect.Effect<Option.Option<string>> => {
 	if (isGzip(bytes)) {
 		return Effect.option(Effect.tryPromise({ catch: () => "not gzip" as const, try: () => inflated(bytes) }));
@@ -81,7 +71,6 @@ const runsOf = (text: string): { readonly bytes: ReturnType<typeof Hex.decode>; 
 	),
 ];
 
-/** The first base64 or hex run whose bytes, gunzipped when they are gzip, hold the canary. */
 const encoded = Effect.fnUntraced(function* encoded(canary: string, texts: readonly string[]) {
 	const found = yield* Effect.findFirst(pipe(texts, Array.flatMap(runsOf)), ({ bytes }) =>
 		Result.match(bytes, {
@@ -102,7 +91,12 @@ const partToken = (part: string, texts: readonly string[]): Option.Option<string
 		Array.findFirst((text) =>
 			pipe(
 				Str.indexOf(part)(text),
-				Option.map((at) => Str.slice(Math.max(textStart, at - context), at + part.length + context)(text)),
+				Option.map((at) =>
+					Str.slice(
+						Math.max(textStart, at - splitPartContextChars),
+						at + part.length + splitPartContextChars,
+					)(text),
+				),
 			),
 		),
 	);
@@ -136,17 +130,6 @@ const spansOf = (text: string, canary: string): { readonly from: number; readonl
 		Array.map((at) => ({ from: at, to: at + canary.length })),
 	);
 
-/**
- * A 40-character window of `text` that no message without a complete canary holds. A window clear of every canary is
- * preferred, so a message sent with its identifier redacted is still caught, and then one on a single line. A message
- * that is all canary, such as one encoded run, falls back to a window inside it. The search stops at the first match,
- * since a page of a long output is checked against every other page.
- *
- * @param {string} text A message that holds a complete canary.
- * @param {readonly string[]} canaries The complete canary tokens.
- * @param {readonly string[]} others The messages that hold no complete canary.
- * @returns {Option.Option<string>} The window, or none.
- */
 const distinctive = (text: string, canaries: readonly string[], others: readonly string[]): Option.Option<string> => {
 	const taken = pipe(
 		canaries,
@@ -193,10 +176,10 @@ const imagesOf = (subject: Case): string[] =>
 const wholeIn = (texts: readonly string[], canary: string): Option.Option<string[]> =>
 	Option.liftPredicate([canary], () => pipe(texts, Array.some(Str.includes(canary))));
 
-const sealedOf = (sent: readonly string[], complete: readonly string[]): string[] => {
+const sealedOf = (sent: readonly string[], wholeTokens: readonly string[]): string[] => {
 	const holdsComplete = (text: string): boolean =>
 		pipe(
-			complete,
+			wholeTokens,
 			Array.some((token) => Str.includes(token)(text)),
 		);
 
@@ -208,7 +191,7 @@ const sealedOf = (sent: readonly string[], complete: readonly string[]): string[
 	return pipe(
 		sent,
 		Array.filter(holdsComplete),
-		Array.flatMap((text) => Option.toArray(distinctive(text, complete, others))),
+		Array.flatMap((text) => Option.toArray(distinctive(text, wholeTokens, others))),
 	);
 };
 
@@ -223,31 +206,31 @@ const tokensOf = Effect.fn("tokensOf")(function* tokensOf(subject: Case) {
 				encoded(canary, texts),
 				Effect.map((run) => ({
 					canary,
-					complete: Option.orElse(wholeIn(sent, canary), () => run),
 					split: splitOf(subject, canary, texts),
+					wholeTokens: Option.orElse(wholeIn(sent, canary), () => run),
 				})),
 			),
 		{ concurrency: 1 },
 	);
 
-	const complete = pipe(
+	const wholeCanaryTokens = pipe(
 		found,
-		Array.flatMap(({ complete: tokens }) => Option.getOrElse(tokens, () => [])),
+		Array.flatMap(({ wholeTokens: tokens }) => Option.getOrElse(tokens, () => [])),
 	);
 
 	return {
-		complete,
 		fragments: subject.fragments,
-		sealed: sealedOf(sent, complete),
+		sealedWindows: sealedOf(sent, wholeCanaryTokens),
 		splits: pipe(
 			found,
 			Array.flatMap(({ split }) => Option.toArray(split)),
 		),
 		untracked: pipe(
 			found,
-			Array.filter(({ complete: tokens, split }) => Option.isNone(tokens) && Option.isNone(split)),
+			Array.filter(({ wholeTokens: tokens, split }) => Option.isNone(tokens) && Option.isNone(split)),
 			Array.map(({ canary }) => canary),
 		),
+		wholeCanaryTokens,
 	} satisfies Tracked;
 });
 

@@ -4,12 +4,10 @@ import { compactJson, gzip, prettyJson } from "./encodings.ts";
 import type { Random } from "./random.ts";
 import { uuid } from "./record.ts";
 
-const typo = { first: 1, lastLettersKept: 3 } as const;
+const typo = { lettersKeptAtEnd: 1, lettersKeptAtStart: 1, touchedLetters: 2 } as const;
 
-/** How often a word of five letters or more gets a typo. */
-const typoShare = 0.3;
+const longWordTypoShare = 0.3;
 
-/** Splits a text around its words of five letters or more, keeping the words. */
 const aroundLongWords = /(?<word>\p{L}{5,})/u;
 
 const receiptHandleHexDigits = 24;
@@ -27,7 +25,7 @@ const halves = 2;
 const payloadStart = 0;
 
 const misspell = (rng: Random, word: string): string => {
-	const at = rng.between(typo.first, word.length - typo.lastLettersKept);
+	const at = rng.between(typo.lettersKeptAtStart, word.length - typo.touchedLetters - typo.lettersKeptAtEnd);
 	const next = Num.increment(at);
 
 	const [head, here, after, tail] = [
@@ -48,7 +46,7 @@ const misspellWords = (rng: Random, text: string): string =>
 	pipe(
 		Str.split(aroundLongWords)(text),
 		Array.map((piece) => {
-			if (!isLongWord(piece) || isKeyword(piece) || !rng.chance(typoShare)) {
+			if (!isLongWord(piece) || isKeyword(piece) || !rng.chance(longWordTypoShare)) {
 				return piece;
 			}
 
@@ -57,14 +55,6 @@ const misspellWords = (rng: Random, text: string): string =>
 		Array.join(""),
 	);
 
-/**
- * Misspells labels and words of five letters or more, and never a canary.
- *
- * @param {object} root0 The draw source and the canaries to keep whole.
- * @param {Random} root0.rng The draw source.
- * @param {readonly string[]} root0.canaries The canaries to keep whole.
- * @returns {(text: string) => string} Adds typos to a text.
- */
 const withTypos =
 	({ rng, canaries }: { readonly rng: Random; readonly canaries: readonly string[] }) =>
 	(text: string): string => {
@@ -157,10 +147,9 @@ const asGzipHex =
 		return rng.pick(envelopes)();
 	};
 
-/** A payload cut inside its canary: the payload's two halves, and the canary's part in each. */
 interface Split {
-	readonly halves: readonly [string, string];
-	readonly parts: readonly [string, string];
+	readonly payloadHalves: readonly [string, string];
+	readonly canaryParts: readonly [string, string];
 }
 
 const splitPayload = ({ payload, canary }: { readonly payload: string; readonly canary: string }): Split => {
@@ -168,8 +157,8 @@ const splitPayload = ({ payload, canary }: { readonly payload: string; readonly 
 	const at = start + Math.floor(canary.length / halves);
 
 	return {
-		halves: [Str.takeLeft(at)(payload), Str.slice(at)(payload)],
-		parts: [Str.takeLeft(at - start)(canary), Str.slice(at - start)(canary)],
+		canaryParts: [Str.takeLeft(at - start)(canary), Str.slice(at - start)(canary)],
+		payloadHalves: [Str.takeLeft(at)(payload), Str.slice(at)(payload)],
 	};
 };
 

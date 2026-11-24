@@ -213,9 +213,9 @@ it.effect(
 
 			assert.deepStrictEqual(turns, [true]);
 
-			const { complete } = yield* tokensOf(subject);
+			const { wholeCanaryTokens } = yield* tokensOf(subject);
 
-			assert.deepStrictEqual(complete, [mrn]);
+			assert.deepStrictEqual(wholeCanaryTokens, [mrn]);
 		}),
 );
 

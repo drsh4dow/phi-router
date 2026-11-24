@@ -18,7 +18,7 @@ it.layer(DefaultCorpus.layer)("the wire run's cases", (test) => {
 
 			assert.isTrue(Option.isNone(firstHitOf(others)(phi.text)));
 			assert.isFalse(judgeSeals(phi.text));
-			assert.isTrue(Array.isReadonlyArrayNonEmpty(tracked.complete));
+			assert.isTrue(Array.isReadonlyArrayNonEmpty(tracked.wholeCanaryTokens));
 		}),
 	);
 });

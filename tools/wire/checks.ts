@@ -148,12 +148,12 @@ const leftOf = <Turns extends readonly Turned[]>(left: {
 	readonly stored: Left["stored"];
 	readonly turns: Turns;
 }): Left & { readonly turns: Turns } => ({
-	canaries: left.run.tracked.complete,
+	canaries: left.run.tracked.wholeCanaryTokens,
 	cleanText: left.run.clean.text,
 	content: [
 		...left.run.phi.subject.canaries,
-		...left.run.tracked.complete,
-		...left.run.tracked.sealed,
+		...left.run.tracked.wholeCanaryTokens,
+		...left.run.tracked.sealedWindows,
 		...pipe(left.prompts, Array.flatMap(windowsOf)),
 	],
 	phiCase: left.run.phi.subject.id,

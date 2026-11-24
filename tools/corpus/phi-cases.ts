@@ -36,9 +36,9 @@ const deliver = (
 		plain: (): Delivered => whole(payload),
 		split: (): Delivered => {
 			const canary = Array.headNonEmpty(canaries);
-			const { halves, parts } = splitPayload({ canary, payload });
+			const { canaryParts, payloadHalves } = splitPayload({ canary, payload });
 
-			return { canaryParts: Option.some({ [canary]: parts }), parts: halves };
+			return { canaryParts: Option.some({ [canary]: canaryParts }), parts: payloadHalves };
 		},
 		typos: (): Delivered => whole(withTypos({ canaries, rng })(payload)),
 	} satisfies Record<TextStrata["transform"], () => Delivered>;

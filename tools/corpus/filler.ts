@@ -45,8 +45,10 @@ const hoursPerDay = 24;
 
 const millisecondDigits = 3;
 
-/** Where a log's clock starts, in milliseconds after midnight, and how far it moves between two lines. */
-const logClock = { start: { max: 20_000_000, min: 0 }, step: { max: 900, min: 1 } } as const;
+const logClock = {
+	startMillisAfterMidnight: { max: 20_000_000, min: 0 },
+	stepMillis: { max: 900, min: 1 },
+} as const;
 
 const traceIdHexDigits = 16;
 
@@ -54,33 +56,34 @@ const cacheKeyHexDigits = 8;
 
 const batchIdDigits = 5;
 
-/** The bounds of each number a log line draws: an inclusive range, or the exclusive top of a count from zero. */
-const logNumbers = {
+const logRanges = {
 	attempt: { max: 5, min: 1 },
 	gcPauseMs: { max: 80, min: 1 },
 	heapMb: { max: 900, min: 200 },
-	kafkaLag: 5000,
 	limit: { max: 500, min: 10 },
+	port: { max: 9100, min: 8000 },
+	requestMs: { max: 2400, min: 1 },
+	ttlSeconds: { max: 900, min: 30 },
+} as const;
+
+const logCountsBelow = {
+	kafkaLag: 5000,
 	partition: 12,
 	poolActive: 40,
 	poolIdle: 20,
 	poolWaiting: 5,
-	port: { max: 9100, min: 8000 },
-	requestMs: { max: 2400, min: 1 },
 	rows: 2000,
-	ttlSeconds: { max: 900, min: 30 },
 } as const;
 
-/** The digits and bounds of each value a SQL insert or a CSV row draws. */
 const rowNumbers = {
 	centDigits: 2,
 	flagRollout: 101,
-	productId: 6,
+	productIdDigits: 6,
 	productPrice: { max: 900, min: 1 },
 	salePrice: { max: 300, min: 1 },
 	saleUnits: 400,
-	shipmentId: 7,
-	sku: 5,
+	shipmentIdDigits: 7,
+	skuDigits: 5,
 	stock: 4000,
 	trackingChars: 16,
 } as const;
@@ -91,7 +94,6 @@ const archiveBatchDigits = 4;
 
 const hunk = { changed: { max: 5, min: 1 }, start: { max: 400, min: 1 } } as const;
 
-/** A buried payload sits after 35% to 64% of the filler. */
 const burial = { minShare: 0.35, percent: 100, spreadPercent: 30 } as const;
 
 const newline = "\n";
@@ -100,10 +102,10 @@ const auditEventId = uuidWith(() => "a");
 
 const clock = (rng: Random): (() => string) => {
 	const day = dateIn2025(rng);
-	let millis = rng.between(logClock.start.min, logClock.start.max);
+	let millis = rng.between(logClock.startMillisAfterMidnight.min, logClock.startMillisAfterMidnight.max);
 
 	return () => {
-		millis += rng.between(logClock.step.min, logClock.step.max);
+		millis += rng.between(logClock.stepMillis.min, logClock.stepMillis.max);
 
 		const seconds = Math.floor(millis / millisPerSecond);
 		const hour = two(Math.floor(seconds / secondsPerHour) % hoursPerDay);
@@ -115,33 +117,33 @@ const clock = (rng: Random): (() => string) => {
 };
 
 const logMessages = (rng: Random, service: string): Array.NonEmptyReadonlyArray<() => string> => {
-	const ms = String(rng.between(logNumbers.requestMs.min, logNumbers.requestMs.max));
+	const ms = String(rng.between(logRanges.requestMs.min, logRanges.requestMs.max));
 
 	return [
 		() =>
 			`INFO  ${service} ${rng.pick(["GET", "POST", "PUT"])} ${rng.pick(routes)} ${rng.pick(["200", "200", "201", "204", "404", "503"])} ${ms}ms req=${rng.hex(traceIdHexDigits)}`,
 		() =>
-			`DEBUG ${service} cache ${rng.pick(["hit", "miss"])} key=${Str.toLowerCase(rng.pick(nouns))}:${rng.hex(cacheKeyHexDigits)} ttl=${String(rng.between(logNumbers.ttlSeconds.min, logNumbers.ttlSeconds.max))}s`,
+			`DEBUG ${service} cache ${rng.pick(["hit", "miss"])} key=${Str.toLowerCase(rng.pick(nouns))}:${rng.hex(cacheKeyHexDigits)} ttl=${String(rng.between(logRanges.ttlSeconds.min, logRanges.ttlSeconds.max))}s`,
 		() =>
-			`INFO  ${service} db pool active=${String(rng.int(logNumbers.poolActive))} idle=${String(rng.int(logNumbers.poolIdle))} waiting=${String(rng.int(logNumbers.poolWaiting))}`,
+			`INFO  ${service} db pool active=${String(rng.int(logCountsBelow.poolActive))} idle=${String(rng.int(logCountsBelow.poolIdle))} waiting=${String(rng.int(logCountsBelow.poolWaiting))}`,
 		() =>
-			`WARN  ${service} slow query ${ms}ms: SELECT * FROM ${rng.pick(tables)} WHERE status = $1 LIMIT ${String(rng.between(logNumbers.limit.min, logNumbers.limit.max))}`,
+			`WARN  ${service} slow query ${ms}ms: SELECT * FROM ${rng.pick(tables)} WHERE status = $1 LIMIT ${String(rng.between(logRanges.limit.min, logRanges.limit.max))}`,
 		() =>
-			`INFO  ${service} kafka lag topic=${rng.pick(["remits.raw", "jobs.events", "audit.log"])} partition=${String(rng.int(logNumbers.partition))} lag=${String(rng.int(logNumbers.kafkaLag))}`,
+			`INFO  ${service} kafka lag topic=${rng.pick(["remits.raw", "jobs.events", "audit.log"])} partition=${String(rng.int(logCountsBelow.partition))} lag=${String(rng.int(logCountsBelow.kafkaLag))}`,
 		() =>
-			`DEBUG ${service} gc pause=${String(rng.between(logNumbers.gcPauseMs.min, logNumbers.gcPauseMs.max))}ms heap_used=${String(rng.between(logNumbers.heapMb.min, logNumbers.heapMb.max))}MB`,
+			`DEBUG ${service} gc pause=${String(rng.between(logRanges.gcPauseMs.min, logRanges.gcPauseMs.max))}ms heap_used=${String(rng.between(logRanges.heapMb.min, logRanges.heapMb.max))}MB`,
 		() =>
 			`INFO  scheduler job=${rng.pick(verbs)}-${Str.toLowerCase(rng.pick(nouns))} status=finished duration=${ms}ms`,
 		() =>
 			`DEBUG ${service} flag ${rng.pick(verbs)}_${Str.toLowerCase(rng.pick(nouns))}_v2=${rng.pick(["true", "false"])}`,
 		() =>
-			`WARN  ${service} retrying POST https://${rng.pick(services)}.internal/v1/${rng.pick(dirs)} attempt=${String(rng.between(logNumbers.attempt.min, logNumbers.attempt.max))}`,
+			`WARN  ${service} retrying POST https://${rng.pick(services)}.internal/v1/${rng.pick(dirs)} attempt=${String(rng.between(logRanges.attempt.min, logRanges.attempt.max))}`,
 		() =>
 			`INFO  ${service} span=${rng.hex(traceIdHexDigits)} parent=${rng.hex(traceIdHexDigits)} op=${rng.pick(verbs)}${rng.pick(nouns)} dur=${ms}ms`,
 		() =>
-			`INFO  ${service} tls handshake ok peer=${rng.pick(services)}.svc.cluster.local:${String(rng.between(logNumbers.port.min, logNumbers.port.max))}`,
+			`INFO  ${service} tls handshake ok peer=${rng.pick(services)}.svc.cluster.local:${String(rng.between(logRanges.port.min, logRanges.port.max))}`,
 		() =>
-			`INFO  ${service} batch=${rng.digits(batchIdDigits)} rows=${String(rng.int(logNumbers.rows))} committed in ${ms}ms`,
+			`INFO  ${service} batch=${rng.digits(batchIdDigits)} rows=${String(rng.int(logCountsBelow.rows))} committed in ${ms}ms`,
 	];
 };
 
@@ -156,22 +158,22 @@ const logLine = (rng: Random, now: () => string): string => {
 const sqlLine = (rng: Random): string => {
 	const rows: Array.NonEmptyReadonlyArray<() => string> = [
 		() =>
-			`INSERT INTO public.products VALUES (${rng.digits(rowNumbers.productId)}, 'SKU-${rng.digits(rowNumbers.sku)}', '${rng.pick(nouns)} ${rng.pick(["kit", "cable", "license", "adapter"])}', ${String(rng.between(rowNumbers.productPrice.min, rowNumbers.productPrice.max))}.${rng.digits(rowNumbers.centDigits)});`,
+			`INSERT INTO public.products VALUES (${rng.digits(rowNumbers.productIdDigits)}, 'SKU-${rng.digits(rowNumbers.skuDigits)}', '${rng.pick(nouns)} ${rng.pick(["kit", "cable", "license", "adapter"])}', ${String(rng.between(rowNumbers.productPrice.min, rowNumbers.productPrice.max))}.${rng.digits(rowNumbers.centDigits)});`,
 		() =>
 			`INSERT INTO public.feature_flags VALUES ('${rng.pick(verbs)}_${Str.toLowerCase(rng.pick(nouns))}', ${rng.pick(["true", "false"])}, ${String(rng.int(rowNumbers.flagRollout))});`,
 		() =>
 			`INSERT INTO public.audit_events VALUES ('${auditEventId(rng)}', '${rng.pick(verbs)}', '${rng.pick(services)}');`,
 		() =>
-			`INSERT INTO public.shipments VALUES (${rng.digits(rowNumbers.shipmentId)}, '${rng.pick(["UPS", "FEDEX", "DHL"])}', '1Z${rng.chars("ABCDEFGHJKLMNPRSTUVWXYZ0123456789", rowNumbers.trackingChars)}', '${rng.pick(["in_transit", "delivered", "label_created"])}');`,
+			`INSERT INTO public.shipments VALUES (${rng.digits(rowNumbers.shipmentIdDigits)}, '${rng.pick(["UPS", "FEDEX", "DHL"])}', '1Z${rng.chars("ABCDEFGHJKLMNPRSTUVWXYZ0123456789", rowNumbers.trackingChars)}', '${rng.pick(["in_transit", "delivered", "label_created"])}');`,
 		() =>
-			`INSERT INTO public.inventory VALUES ('SKU-${rng.digits(rowNumbers.sku)}', '${rng.pick(["pdx-1", "iad-2", "fra-1"])}', ${String(rng.int(rowNumbers.stock))});`,
+			`INSERT INTO public.inventory VALUES ('SKU-${rng.digits(rowNumbers.skuDigits)}', '${rng.pick(["pdx-1", "iad-2", "fra-1"])}', ${String(rng.int(rowNumbers.stock))});`,
 	];
 
 	return rng.pick(rows)();
 };
 
 const csvLine = (rng: Random): string =>
-	`${dateIn2025(rng)},${rng.pick(["us-west", "us-east", "eu-central"])},SKU-${rng.digits(rowNumbers.sku)},${String(rng.int(rowNumbers.saleUnits))},${String(rng.between(rowNumbers.salePrice.min, rowNumbers.salePrice.max))}.${rng.digits(rowNumbers.centDigits)},${rng.pick(["web", "partner", "retail"])}`;
+	`${dateIn2025(rng)},${rng.pick(["us-west", "us-east", "eu-central"])},SKU-${rng.digits(rowNumbers.skuDigits)},${String(rng.int(rowNumbers.saleUnits))},${String(rng.between(rowNumbers.salePrice.min, rowNumbers.salePrice.max))}.${rng.digits(rowNumbers.centDigits)},${rng.pick(["web", "partner", "retail"])}`;
 
 const functionLines = (rng: Random): string[] => {
 	const [verb, noun, field, other] = [rng.pick(verbs), rng.pick(nouns), rng.pick(fields), rng.pick(fields)];
@@ -265,15 +267,6 @@ interface BuryRequest {
 	readonly size: number;
 }
 
-/**
- * Hides a payload inside filler lines that fit its carrier, about `size` characters in all.
- *
- * @param {BuryRequest} root0 The draw source, the carrier the filler imitates, and the filler's size.
- * @param {Random} root0.rng The draw source.
- * @param {string} root0.carrier The carrier the filler imitates.
- * @param {number} root0.size About how many characters of filler.
- * @returns {(payload: string) => string} Buries a payload.
- */
 const bury =
 	({ rng, carrier, size }: BuryRequest) =>
 	(payload: string): string => {

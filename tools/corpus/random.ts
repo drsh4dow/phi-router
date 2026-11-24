@@ -1,11 +1,8 @@
 import { Array, Number as Num, Option, pipe } from "effect";
 import { or, shiftRight, unsigned32, xor } from "./encodings.ts";
 
-/** A seeded draw source, so one seed always yields the same corpus byte for byte. */
 interface Random {
-	/** An integer in `[0, bound)`. */
 	readonly int: (bound: number) => number;
-	/** An integer in `[low, high]`. */
 	readonly between: (low: number, high: number) => number;
 	readonly chance: (probability: number) => boolean;
 	readonly pick: <Item>(items: Array.NonEmptyReadonlyArray<Item>) => Item;
@@ -15,8 +12,7 @@ interface Random {
 	readonly hex: (count: number) => string;
 }
 
-/** The set of values already planted, which `unique` reads and adds to. */
-interface Used {
+interface Planted {
 	readonly has: (value: string) => boolean;
 	readonly add: (value: string) => void;
 }
@@ -90,15 +86,7 @@ const seeded = (seed: number): Random => {
 	};
 };
 
-/**
- * Draws until the value is not in `used`, then records it, so every planted value is unique across the file.
- *
- * @param {object} root0 Where planted values are kept, and how to draw one.
- * @param {Used} root0.used The values planted so far.
- * @param {() => string} root0.draw Draws one value.
- * @returns {string} The new value.
- */
-const unique = ({ used, draw }: { readonly used: Used; readonly draw: () => string }): string => {
+const unique = ({ used, draw }: { readonly used: Planted; readonly draw: () => string }): string => {
 	let value = draw();
 
 	while (used.has(value)) {
@@ -112,4 +100,4 @@ const unique = ({ used, draw }: { readonly used: Used; readonly draw: () => stri
 
 export { seeded, unique };
 
-export type { Random, Used };
+export type { Planted, Random };

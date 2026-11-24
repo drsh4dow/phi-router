@@ -77,12 +77,19 @@ const completeLeak = Effect.gen(function* completeLeak() {
 const redactedLeak = Effect.gen(function* redactedLeak() {
 	const text = `${record} fails the importer.`;
 	const subject = phiCase("user", [{ role: "user", text }]);
+	const lines = ["Rows:", "The importer rejected these rows this morning:", record];
+	const pasted = phiCase("user", [{ role: "user", text: Array.join(lines, "\n") }]);
+	const redactedLines = pipe(lines, Array.map(Str.replace(mrn, "[redacted]")));
 
 	const result = yield* seen(subject, { baa: [text], open: [Str.replace(mrn, "[redacted]")(text)] });
+
+	const lineByLine = yield* seen(pasted, { baa: textsOf(pasted), open: redactedLines });
 
 	assert.deepStrictEqual(result.leaked, []);
 	assert.lengthOf(result.unstubbed, oneMessage);
 	assert.isTrue(failed(result));
+	assert.deepStrictEqual(lineByLine.leaked, []);
+	assert.lengthOf(lineByLine.unstubbed, oneMessage);
 });
 
 const encodedLeak = Effect.gen(function* encodedLeak() {
@@ -96,6 +103,18 @@ const encodedLeak = Effect.gen(function* encodedLeak() {
 
 	assert.deepStrictEqual(fromBase64.leaked, [base64]);
 	assert.deepStrictEqual(fromHex.leaked, [hex]);
+});
+
+const cutGzipHexLength = 60;
+
+const cutGzip = Effect.gen(function* cutGzip() {
+	const cut = Str.takeLeft(cutGzipHexLength)(Hex.encode(gzip(record)));
+	const text = `payload_hex=${cut}\n${record}`;
+	const subject = phiCase("tool-result", [{ role: "tool", text }]);
+
+	const result = yield* seen(subject, { baa: [text], open: [text] });
+
+	assert.deepStrictEqual([result.leaked, result.missing], [[mrn], []]);
 });
 
 const dumpRows = 3000;
@@ -232,6 +251,7 @@ const imageLeak = Effect.gen(function* imageLeak() {
 
 	assert.deepStrictEqual(onBaa, nothing);
 	assert.deepStrictEqual(onOpen.leaked, [canary]);
+	assert.lengthOf(onOpen.unstubbed, oneMessage);
 });
 
 const missing = Effect.gen(function* missing() {
@@ -254,21 +274,25 @@ const escapedToken = Effect.gen(function* escapedToken() {
 
 describe("canary tokens", () => {
 	it.effect(
-		"a complete canary in an open account's body is a leak, and the message that held it is unsealed",
+		"a complete canary in an open account's body is a leak, and the message that held it is unstubbed",
 		() => completeLeak,
 	);
 	it.effect(
-		"a sealed message with its identifier redacted still shows on an open account's body, as unsealed and not leaked",
+		"a sealed message with its identifier redacted still shows on an open account's body, whole or line by line, as unstubbed and not leaked",
 		() => redactedLeak,
 	);
 	it.effect("a canary carried in base64 or gzip hex leaks as the encoded run", () => encodedLeak);
+	it.effect(
+		"a hex run that starts like gzip but is cut short holds no canary, and the message around it is still tracked",
+		() => cutGzip,
+	);
 	it.effect(
 		"a tool output the harness reads in pages is sealed page by page, so a page without the identifier may go to an open account",
 		() => pagedOutput,
 	);
 	it.effect("a fragment on an open account's body is counted", () => fragmentShown);
 	it.effect(
-		"an image canary is a run of its base64 data, and leaks when the image reaches an open account's body",
+		"an image canary is a run of its base64 data, and leaks and shows as unstubbed when the image reaches an open account's body",
 		() => imageLeak,
 	);
 	it.effect("PHI no BAA account's body carried, or a canary no message carries, is missing", () => missing);

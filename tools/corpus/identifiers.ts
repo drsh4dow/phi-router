@@ -14,7 +14,6 @@ interface DrawContext {
 
 type Draw = (context: DrawContext) => string;
 
-/** The alphabet each symbol of a format stands for. Any other character stands for itself. */
 type Symbols = Readonly<Record<string, string>>;
 
 const digits = "0123456789";
@@ -23,41 +22,30 @@ const nonzeroDigits = "123456789";
 
 const letters = "ABCDEFGHJKLMNPRSTUVWXYZ";
 
-/** `#` a digit, `^` a nonzero digit, `@` a letter, `*` a letter or a digit. */
 const symbols: Symbols = { "#": digits, "*": `${letters}${digits}`, "@": letters, "^": nonzeroDigits };
 
-/** A Medicare Beneficiary Identifier's letters, which skip S, L, O, I, B and Z. */
 const mbiLetters = "ACDEFGHJKMNPQRTUVWXY";
 
 const mbiSymbols: Symbols = { "#": digits, "*": `${mbiLetters}${digits}`, "@": mbiLetters, "^": nonzeroDigits };
 
 const oneCharacter = 1;
 
-/** The street numbers drawn, and the smaller ranges some languages' addresses fold them into. */
-const streetNumbers = { de: 200, fr: 300, max: 9890, min: 12, vi: 500 } as const;
+const streetNumbers = { foldedMaxIn: { de: 200, fr: 300, vi: 500 }, max: 9890, min: 12 } as const;
 
 const birthYears = { max: 2006, min: 1934 } as const;
 
-/** How often an English record writes a date of birth as ISO instead of `MM/DD/YYYY`. */
-const englishIsoShare = 0.4;
+const englishIsoBirthDateShare = 0.4;
 
-/** SSN areas 900 to 999 and 666 were never issued. 666 takes `area666Share` of the draws. */
 const ssn = { area666Share: 0.15, areas: { max: 999, min: 900 }, groups: { max: 99, min: 1 } } as const;
 
 const ssnSerials = { digits: 4, max: 9999, min: 1 } as const;
 
-/** How often a Medicare or Medicaid number is an MBI rather than a Medicaid client id in New York's two letters, five digits and a letter. */
-const mbiShare = 0.6;
+const medicareMedicaidFormats = { mbi: "^@*#@*#@@##", newYorkMedicaidClientId: "@@#####@" } as const;
 
-/** How often a passport number starts with a letter rather than a 5. */
-const letterPassportShare = 0.5;
+const mbiShareOfMedicareMedicaid = 0.6;
 
-/**
- * Draws a value in `format`, one character at a time, left to right.
- *
- * @param {Symbols} alphabets What each symbol of the format stands for.
- * @returns {(rng: Random, format: string) => string} Draws a value.
- */
+const letterFirstPassportShare = 0.5;
+
 const formatIn =
 	(alphabets: Symbols) =>
 	(rng: Random, format: string): string =>
@@ -99,12 +87,12 @@ const streetValue: Draw = ({ rng, lang }) => {
 	const number = rng.between(streetNumbers.min, streetNumbers.max);
 
 	const forms = {
-		de: `${street.family}straße ${String(Num.increment(number % streetNumbers.de))}`,
+		de: `${street.family}straße ${String(Num.increment(number % streetNumbers.foldedMaxIn.de))}`,
 		en: `${String(number)} ${street.family} ${rng.pick(["Ave", "St", "Rd", "Ln", "Ct", "Dr"])}`,
 		es: `Calle ${street.family} ${String(number)}`,
-		fr: `${String(Num.increment(number % streetNumbers.fr))} rue ${street.family}`,
+		fr: `${String(Num.increment(number % streetNumbers.foldedMaxIn.fr))} rue ${street.family}`,
 		pt: `Rua ${street.family}, ${String(number)}`,
-		vi: `${String(Num.increment(number % streetNumbers.vi))} đường ${fullName(street)}`,
+		vi: `${String(Num.increment(number % streetNumbers.foldedMaxIn.vi))} đường ${fullName(street)}`,
 	};
 
 	return forms[lang];
@@ -117,7 +105,7 @@ const dateValue: Draw = ({ rng, lang, carrier }) => {
 		return `${year}${monthOfYear}${day}`;
 	}
 
-	if (carrier === "fhir-json" || carrier === "file-name" || (lang === "en" && rng.chance(englishIsoShare))) {
+	if (carrier === "fhir-json" || carrier === "file-name" || (lang === "en" && rng.chance(englishIsoBirthDateShare))) {
 		return `${year}-${monthOfYear}-${day}`;
 	}
 
@@ -132,10 +120,8 @@ const dateValue: Draw = ({ rng, lang, carrier }) => {
 	return `${day}/${monthOfYear}/${year}`;
 };
 
-/** Any area code but 503, the staff contacts' area code, so no personal phone is also a staff line. */
 const areaCodes: Array.NonEmptyReadonlyArray<string> = ["971", "614", "412", "720", "919", "602", "786", "347"];
 
-/** 555-0100 to 555-0199 is reserved for fiction in every area code, so no drawn phone is a subscriber's. */
 const exchange = "555";
 
 const fictionLineDigits = 2;
@@ -188,15 +174,15 @@ const ssnValue: Draw = ({ rng, carrier }) => {
 };
 
 const medicareMedicaidValue: Draw = ({ rng }) => {
-	if (rng.chance(mbiShare)) {
-		return formatIn(mbiSymbols)(rng, "^@*#@*#@@##");
+	if (rng.chance(mbiShareOfMedicareMedicaid)) {
+		return formatIn(mbiSymbols)(rng, medicareMedicaidFormats.mbi);
 	}
 
-	return formatted(rng, "@@#####@");
+	return formatted(rng, medicareMedicaidFormats.newYorkMedicaidClientId);
 };
 
 const passportValue: Draw = ({ rng }) => {
-	if (rng.chance(letterPassportShare)) {
+	if (rng.chance(letterFirstPassportShare)) {
 		return formatted(rng, "@########");
 	}
 

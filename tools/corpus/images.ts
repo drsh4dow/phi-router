@@ -1,7 +1,7 @@
 import { Array, Effect, FileSystem, Path, pipe } from "effect";
 import type { CleanCase, Entry, PhiCase } from "./manifest.ts";
 import type { Image, Scene } from "./conversation.ts";
-import type { Random, Used } from "./random.ts";
+import type { Planted, Random } from "./random.ts";
 import { Base64 } from "effect/encoding";
 import type { PlatformError } from "effect";
 import { converse } from "./conversation.ts";
@@ -11,11 +11,9 @@ import { unique } from "./random.ts";
 type Bytes = Readonly<Uint8Array<Readonly<ArrayBufferLike>>>;
 
 interface Images {
-	/** A StyleGAN portrait of nobody. */
-	readonly face: Bytes;
-	/** A claims screen showing a synthetic patient's full name and date of birth. */
-	readonly claimScreenshot: Bytes;
 	readonly cleanScreenshot: Bytes;
+	readonly generatedFace: Bytes;
+	readonly namedClaimScreenshot: Bytes;
 }
 
 const loadImages = Effect.gen(function* loadImages() {
@@ -26,9 +24,9 @@ const loadImages = Effect.gen(function* loadImages() {
 		fs.readFile(path.join(import.meta.dirname, "images", name));
 
 	return {
-		claimScreenshot: yield* read("claim-screenshot.jpeg"),
 		cleanScreenshot: yield* read("clean-screenshot.jpeg"),
-		face: yield* read("face.jpeg"),
+		generatedFace: yield* read("face.jpeg"),
+		namedClaimScreenshot: yield* read("claim-screenshot.jpeg"),
 	} satisfies Images;
 });
 
@@ -36,34 +34,24 @@ const imageEntries: Array.NonEmptyReadonlyArray<typeof Entry.Type> = ["user", "t
 
 const stampLength = 30;
 
-/** The bytes of the JPEG start-of-image marker, which the comment segment follows. */
-const startOfImageBytes = 2;
+const startOfImageMarkerBytes = 2;
 
 const commentMarker = { first: 255, second: 254 } as const;
 
-/** A segment's length field: two bytes, big-endian, counting themselves. */
 const lengthField = { base: 256, bytes: 2 } as const;
 
-/**
- * The JPEG with a comment segment holding `stamp` right after its start-of-image marker. The stamp starts at byte 6,
- * a multiple of 3, so its own base64 is a substring of the image's base64, which no other image in the file shares.
- *
- * @param {Bytes} jpeg The image.
- * @param {Bytes} stamp The bytes to stamp it with.
- * @returns {Uint8Array} The stamped image.
- */
 const stamped = (jpeg: Bytes, stamp: Bytes): Uint8Array => {
 	const length = stamp.length + lengthField.bytes;
 	const bytes = Array.fromIterable(jpeg);
 
 	return Uint8Array.from([
-		...Array.take(bytes, startOfImageBytes),
+		...Array.take(bytes, startOfImageMarkerBytes),
 		commentMarker.first,
 		commentMarker.second,
 		Math.floor(length / lengthField.base),
 		length % lengthField.base,
 		...stamp,
-		...Array.drop(bytes, startOfImageBytes),
+		...Array.drop(bytes, startOfImageMarkerBytes),
 	]);
 };
 
@@ -118,23 +106,13 @@ const imageMessages = ({
 interface ImageRequest {
 	readonly images: Images;
 	readonly rng: Random;
-	readonly used: Used;
+	readonly used: Planted;
 }
 
-/**
- * Cases whose identifier is an image: a face photo, and a screenshot showing a synthetic name and full date of birth.
- * Each case stamps its copy, so its canary is unique across the file.
- *
- * @param {ImageRequest} root0 The images, the draw source, and the canaries planted so far.
- * @param {Images} root0.images The images.
- * @param {Random} root0.rng The draw source.
- * @param {Used} root0.used The canaries planted so far.
- * @returns {readonly Omit<typeof PhiCase.Type, "id">[]} The cases.
- */
 const imageCases = ({ images, rng, used }: ImageRequest): readonly Omit<typeof PhiCase.Type, "id">[] => {
 	const sources = [
-		{ bytes: images.face, identifier: identifierKind.facePhoto, scene: photoScene },
-		{ bytes: images.claimScreenshot, identifier: identifierKind.patientName, scene: screenshotScene },
+		{ bytes: images.generatedFace, identifier: identifierKind.facePhoto, scene: photoScene },
+		{ bytes: images.namedClaimScreenshot, identifier: identifierKind.patientName, scene: screenshotScene },
 	] as const;
 
 	return pipe(
