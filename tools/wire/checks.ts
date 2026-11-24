@@ -42,7 +42,6 @@ interface CodexTurned extends Turned {
 interface Listing {
 	readonly listedByCodex: readonly string[];
 	readonly servedByOpenMock: readonly string[];
-	/** The working folder's git remote, which Codex sends in its turn metadata. */
 	readonly remote: string;
 }
 

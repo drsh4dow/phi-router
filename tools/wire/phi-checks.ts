@@ -133,10 +133,6 @@ const phiTurns = Effect.fnUntraced(function* phiTurns<Turn extends PhiTurned, Fa
 
 const handOff = "Hand the member lookup to the pinned subagent.";
 
-/**
- * The pinned subagent's prompt in the open mock's call, and its answer from the BAA mock, which names the member by the
- * voided number the rules seal.
- */
 const subagent = {
 	answer: `The member's SSN is ${voidedNumber}. Their internal id is p-17.`,
 	prompt: "Find the member's internal id.",
