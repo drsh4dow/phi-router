@@ -3,7 +3,6 @@ import type { SessionId } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
 import type { Unanswered } from "#router/client/router-port/index.ts";
 
-/** A command that asks the router for a session got no usable answer. */
 class RouterUnanswered extends Schema.TaggedError<RouterUnanswered, { readonly brand: unique symbol }>()(
 	"RouterUnanswered",
 	{ command: Schema.String, port: Schema.Int, reason: Schema.String },
@@ -13,12 +12,6 @@ class RouterUnanswered extends Schema.TaggedError<RouterUnanswered, { readonly b
 	}
 }
 
-/**
- * The failure of a command asked of the router on a port.
- *
- * @param {object} asked The command's name and the port.
- * @returns {Function} The failure.
- */
 const failedAs =
 	(asked: { readonly command: string; readonly port: number }) =>
 	({ reason }: Unanswered): RouterUnanswered =>
@@ -34,7 +27,6 @@ const pin = Effect.fn("pin")(function* pin(session: typeof SessionId.Type, port:
 	yield* Effect.mapError(requests.pin(port, { pinned: true, session }), failedAs({ command: "pin", port }));
 });
 
-/** Clears the session's pin, as `pin` sets it. */
 const unpin = Effect.fn("unpin")(function* unpin(session: typeof SessionId.Type, port: number) {
 	const requests = yield* SessionRequests;
 

@@ -19,7 +19,6 @@ const root = Command.make(
 	}),
 );
 
-/** The argv surface. A new command is one file beside this one and one entry in this list. */
 const cli = root.pipe(
 	Command.withSubcommands([
 		...sessionCommands,

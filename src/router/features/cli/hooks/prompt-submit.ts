@@ -6,7 +6,6 @@ import { SessionRequests } from "#router/client/router-port/index.ts";
 import { portOf } from "./session-start.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 
-/** What a prompt-submit hook reads on its stdin. The harness's field names stay here. */
 const HookInput = Schema.fromJsonString(Schema.Struct({ prompt: Schema.String, session_id: SessionId }));
 
 /** What blocks the prompt in both harnesses: the model never sees it, and the developer reads `reason`. */

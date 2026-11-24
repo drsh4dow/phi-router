@@ -19,7 +19,6 @@ import { canaryRun, reported } from "./canary.ts";
 import { codexHome, codexPlugin, codexTurn, textOrEmpty } from "#router/client/harnesses/index.ts";
 import type { Check } from "./canary.ts";
 
-/** What `doctor codex` reads in Codex's home: `config.toml`, `.env`, the role file, and the plugin's install. */
 interface Install {
 	readonly config: string;
 	readonly dotenv: string;

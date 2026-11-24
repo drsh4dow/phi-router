@@ -85,7 +85,6 @@ it.effect("on keeps every other line and comment, puts the switch in [features],
 	}),
 );
 
-/** Values of the developer's other than the ones `on` writes, by the value `on` writes. Any string becomes a URL. */
 const flips: Record<string, string> = { "2": "7", false: "true", true: "false" };
 
 const developerValue = (setting: Setting): string =>
@@ -103,10 +102,6 @@ const atRoot = (setting: Setting): string =>
 const inTable = (setting: Setting, parent: readonly string[]): string =>
 	`model = "gpt-6-sol"\n\n[${dotted(parent)}]\nfirst = 1\n${lineOf(setting, Array.drop(setting.path, parent.length))}last = 2 # theirs\n\n[tui]\nanimations = false\n`;
 
-/**
- * Each setting `on` writes, seeded with a developer value and comment between other keys: once as a dotted key at the
- * root, and once in the table that holds it.
- */
 const rootSeeds = pipe(
 	codexSettings,
 	Array.map((setting) => ({ key: dotted(setting.path), seed: atRoot(setting), setting })),

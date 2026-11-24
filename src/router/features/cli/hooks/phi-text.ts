@@ -2,15 +2,12 @@ import { Array, Option, String as Str, pipe } from "effect";
 import type { Status } from "#shared/cli.ts";
 import { phiCommand } from "#shared/cli.ts";
 
-/** What `phi-router status` reports about a session. */
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
 const oneMessage = 1;
 
-/** What `/phi` answers to a word it does not know, and the command's description. */
 const usage = `/${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
 
-/** A text drawn from what `phi-router status` reported. */
 type Shows = (status: Reported) => string;
 
 /**
@@ -77,12 +74,6 @@ const messagesIn = (count: number): string => {
 	return `${String(count)} messages`;
 };
 
-/**
- * The notice of a turn that sealed messages.
- *
- * @param {object} sealed How many messages the turn sealed, and the status after it.
- * @returns {string} The notice.
- */
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
 	`phi-router: ${messagesIn(sealed.count)} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
 

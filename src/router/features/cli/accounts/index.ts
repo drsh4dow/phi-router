@@ -206,7 +206,6 @@ const listed = Effect.gen(function* listed() {
 	return yield* Console.log(Array.join(lines, "\n"));
 }).pipe(DateTime.withCurrentZoneLocal);
 
-/** `phi-router accounts add [folder] [--command <command>] [--sealed]`. */
 const add = Command.make(
 	"add",
 	{

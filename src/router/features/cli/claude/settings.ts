@@ -18,7 +18,6 @@ const plugin = "phi-router@phi-router";
 /** The model name `on claude` adds to the picker, and the one `doctor claude` asks for. */
 const auto = "phi/auto";
 
-/** The router's address, at the literal 127.0.0.1 and never localhost. */
 const routerAddress = `http://${loopback}:${String(productPort)}`;
 
 /** The settings `on claude` writes and prints, `off claude` removes and `doctor claude` checks. */
@@ -50,7 +49,6 @@ const claudeSettings: readonly Setting[] = [
 	{ name: "DISABLE_ERROR_REPORTING", reason: "Error reports would go to a third party past the router.", value: "1" },
 ];
 
-/** The settings as the `env` block holds them. */
 const claudeEnv = pipe(
 	claudeSettings,
 	Array.map(({ name, value }) => [name, value] as const),
@@ -80,11 +78,6 @@ const recordReason = "phi-router off reads it to give no_proxy back as it was be
 const keptReason =
 	"no_proxy or NO_PROXY already takes Claude Code to the router without your proxy, so phi-router left them as they are.";
 
-/**
- * `no_proxy` and `NO_PROXY` as the developer's shell gives them, empty when unset. The launcher adds 127.0.0.1 to both
- * for the CLI's own requests, so it keeps the shell's values under `PHI_ROUTER_GIVEN_` and sets `PHI_ROUTER_LAUNCHED`.
- * Config reads an empty variable as unset, so the flag, not the kept value, says which names hold the shell's lists.
- */
 const shellLists = Effect.gen(function* shellLists() {
 	const launched = yield* Config.Boolean("PHI_ROUTER_LAUNCHED").pipe(Config.withDefault(false));
 
@@ -173,7 +166,6 @@ const exemption =
 		return Option.some(`${list},${host}`);
 	};
 
-/** A change to the settings' `env` block: the values it sets and the keys it removes. */
 interface EnvChange {
 	readonly set: Values;
 	readonly unset: readonly string[];

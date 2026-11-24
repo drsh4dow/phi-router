@@ -93,13 +93,6 @@ interface Edit {
 	readonly by: string;
 }
 
-/**
- * `text` with each statement `pick` picks changed as `edit` says.
- *
- * @param {Function} pick Which statements change.
- * @param {Function} edit How each one changes.
- * @returns {Function} The text after, and the keys changed.
- */
 const rewritten =
 	(pick: (text: string, statement: Statement) => boolean, edit: (text: string, statement: Statement) => Edit) =>
 	(text: string): Cut => {
@@ -118,7 +111,6 @@ const rewritten =
 		return { removed: pipe(picked, Array.map(spelled)), text: `${done.text}${Str.slice(done.at)(text)}` };
 	};
 
-/** `text` without each statement `on codex` wrote. */
 const withoutOurs = rewritten(ours, (text, statement) => ({ by: "", from: cutFrom(text)(statement) }));
 
 /**

@@ -2,7 +2,6 @@ import { Array, Option, String as Str, pipe } from "effect";
 import { loopback, productPort } from "#shared/cli.ts";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 
-/** One setting a plugin cannot set, which `on codex` writes into Codex's `config.toml`: its key and its TOML value. */
 interface Setting {
 	readonly path: readonly string[];
 	readonly value: string;
@@ -146,12 +145,6 @@ const linesOf = Str.split("\n");
  */
 const isExemption = (line: string): boolean => Str.trimEnd(line) === exemptionLine;
 
-/**
- * Whether `.env` holds the router's exemption line anywhere.
- *
- * @param {string} text The file's text.
- * @returns {boolean} Whether it holds the line.
- */
 const holdsExemption = (text: string): boolean => Array.some(linesOf(text), isExemption);
 
 /**

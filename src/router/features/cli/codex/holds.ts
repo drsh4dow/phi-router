@@ -13,12 +13,6 @@ const pairs = (text: string): readonly Statement[] =>
 		Array.filter(({ kind }) => kind === "pair"),
 	);
 
-/**
- * Whether `text` sets `setting` to the value `on codex` gives it.
- *
- * @param {string} text The file.
- * @returns {Function} Whether a setting holds.
- */
 const holds =
 	(text: string) =>
 	(setting: Setting): boolean =>

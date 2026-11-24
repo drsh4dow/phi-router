@@ -17,7 +17,6 @@ interface Source {
 	readonly pi: string;
 }
 
-/** One command line: the program and its arguments. */
 type Argv = readonly [string, ...string[]];
 
 interface HarnessSetup {

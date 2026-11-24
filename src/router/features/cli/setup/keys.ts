@@ -17,7 +17,6 @@ class SetupStopped extends Schema.TaggedError<SetupStopped, { readonly brand: un
 
 const stopped = (copy: string): SetupStopped => SetupStopped.make({ copy });
 
-/** Each vendor's name and the prefix of its API keys, as the human reads them. */
 const vendorWords = {
 	anthropic: { name: "Anthropic", prefix: "sk-ant-api" },
 	openai: { name: "OpenAI", prefix: "sk-" },
@@ -30,18 +29,11 @@ interface KeyAsk {
 	readonly question: readonly string[];
 }
 
-/** A key setup holds: its vendor, and the key. */
 interface HeldKey {
 	readonly vendor: Vendor;
 	readonly key: Readonly<Redacted.Redacted>;
 }
 
-/**
- * The question for the BAA account's key, which the harness `needer` needs.
- *
- * @param {object} asked The BAA account's vendor, and the harness.
- * @returns {KeyAsk} The question.
- */
 const baaAsk = (asked: { readonly vendor: Vendor; readonly needer: string }): KeyAsk => ({
 	needer: asked.needer,
 	question: [
@@ -96,7 +88,6 @@ const misfitOf = (ask: KeyAsk, key: string): Option.Option<string> => {
 	);
 };
 
-/** The copy for each answer of a vendor that did not accept a key. */
 const unaccepted = {
 	refused: (name: string) =>
 		`${name} refused that key. Nothing was saved or changed. Check it with whoever gave it to you, then rerun the command.`,

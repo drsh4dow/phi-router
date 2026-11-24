@@ -18,7 +18,6 @@ const repository = "drsh4dow/phi-router";
 /** What the screen says of the BAA account: a key saved and still accepted, or none yet. */
 const baaStates = { held: "already set up", needed: "needs an API key" } as const;
 
-/** The spaces between a row's label and its state. */
 const columnGap = 3;
 
 /**
@@ -52,10 +51,6 @@ const header = (name: HarnessName, baa: keyof typeof baaStates): string => {
 	return Array.join([`phi-router keeps patient data off your ${subscription} subscription.`, "", ...lines, ""], "\n");
 };
 
-/**
- * The BAA account's key: the saved one when its vendor still accepts it, else one the human gives. The judge runs on
- * it, so setup asks for no other key.
- */
 const keyOf = Effect.fnUntraced(function* keyOf(name: HarnessName, fresh: boolean) {
 	const { title, vendor } = harnesses[name];
 	const saved = yield* stillHeld(vendor, fresh);
@@ -257,7 +252,6 @@ const codex = Command.make("codex", flags, (given) =>
 
 const pi = Command.make("pi", flags, (given) => setup("pi", Option.getOrUndefined(given.source), given.newKey));
 
-/** `phi-router setup claude|codex|pi [--source <checkout>] [--new-key]`. */
 const setupCommand = Command.make("setup").pipe(
 	Command.withSubcommands([claude, codex, pi]),
 	Command.provide(KeyChecks.layer),

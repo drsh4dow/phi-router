@@ -15,7 +15,6 @@ const pause = "50 millis";
 
 const Reason = Schema.Literals(["noBaaKey", "notRunning", "notStarted", "notYours"]);
 
-/** Who `start` failed for: the harness that shows the line, and the pid and port it was given. */
 interface Failing {
 	readonly harness: Harness;
 	readonly pid: number;
@@ -32,7 +31,6 @@ const said: Readonly<Record<typeof Reason.Type, (failing: Failing) => string>> =
 		`phi-router start --pid ${String(pid)} --port ${String(port)}: the port does not hold your router. Another user's program may listen there, or your router's secret is gone. Nothing more was sent to it.`,
 };
 
-/** `start` could not leave a lease with a router. */
 class StartFailed extends Schema.TaggedError<StartFailed, { readonly brand: unique symbol }>()("StartFailed", {
 	harness: Schema.Literals(["claude", "codex", "pi"]),
 	pid: Pid,

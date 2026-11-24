@@ -16,7 +16,6 @@ import type { Check } from "./canary.ts";
 import type { Own } from "#router/features/cli/claude/index.ts";
 import type { UserSettings } from "#router/client/harnesses/index.ts";
 
-/** What `doctor claude` finds before its canary run: the user's settings, the shell's lists, and the plugin's install. */
 interface Found {
 	readonly installed: boolean;
 	readonly settings: UserSettings;

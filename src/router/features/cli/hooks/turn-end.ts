@@ -7,7 +7,6 @@ import { portOf } from "./session-start.ts";
 import { sealNotice } from "./phi-text.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 
-/** What a turn-end hook reads on its stdin. The harness's field name stays here. */
 const HookInput = Schema.fromJsonString(Schema.Struct({ session_id: SessionId }));
 
 /** A notice both harnesses show the developer and never send the model. */
