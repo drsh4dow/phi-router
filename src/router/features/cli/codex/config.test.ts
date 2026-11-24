@@ -58,7 +58,7 @@ it.effect("on writes each setting into an empty file, and off gives the empty fi
 	Effect.sync(() => {
 		assert.strictEqual(switchedOn(""), emptyOn);
 		assert.deepStrictEqual(switchedOff(emptyOn), {
-			removed: [
+			cutKeys: [
 				"model_provider",
 				"features.unbounded_connection_retries",
 				"feedback.enabled",
@@ -107,14 +107,13 @@ const rootSeeds = pipe(
 	Array.map((setting) => ({ key: dotted(setting.path), seed: atRoot(setting), setting })),
 );
 
-/** The key of a setting's own line in the table that holds it. */
-const lastKey = 1;
+const lineKeyLength = 1;
 
 const tableSeeds = pipe(
 	codexSettings,
-	Array.filter((setting) => setting.path.length > lastKey),
+	Array.filter((setting) => setting.path.length > lineKeyLength),
 	Array.map((setting) => {
-		const parent = Array.dropRight(setting.path, lastKey);
+		const parent = Array.dropRight(setting.path, lineKeyLength);
 
 		return { key: `[${dotted(parent)}]`, seed: inTable(setting, parent), setting };
 	}),
@@ -164,7 +163,7 @@ it.effect("off leaves a setting the user changed after on", () =>
 	Effect.sync(() => {
 		const changed = 'model_provider = "openai"\nfeatures.unbounded_connection_retries = true\n';
 
-		assert.deepStrictEqual(switchedOff(changed), { removed: [], text: changed });
+		assert.deepStrictEqual(switchedOff(changed), { cutKeys: [], text: changed });
 	}),
 );
 

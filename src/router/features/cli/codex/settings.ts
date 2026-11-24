@@ -16,8 +16,7 @@ const provider = ["model_providers", providerId];
 
 const routerUrl = `"http://${loopback}:${String(productPort)}/v1"`;
 
-/** The plugin's id as Codex keys it: the plugin's name at the marketplace's name. */
-const plugin = "phi-router@phi-router";
+const pluginId = "phi-router@phi-router";
 
 /**
  * The keys Codex stores the trust of the plugin's hooks under, in `[hooks.state]`, one per hook in `hooks/codex.json`:
@@ -34,11 +33,10 @@ const hookKeys = pipe(
 		"stop:0:0",
 		"pre_compact:0:0",
 	],
-	Array.map((hook) => `${plugin}:hooks/codex.json:${hook}`),
+	Array.map((hook) => `${pluginId}:hooks/codex.json:${hook}`),
 );
 
-/** The model name `doctor codex` asks for. */
-const auto = "phi/auto";
+const doctorModel = "phi/auto";
 
 /**
  * The environment variable that gives the plugin's hook the router's address. Codex tells a hook nothing of its
@@ -46,8 +44,7 @@ const auto = "phi/auto";
  */
 const addressEnv = "PHI_ROUTER_ADDRESS";
 
-/** The file under Codex's home that holds the pinned subagent's role. */
-const roleFile = ["agents", "phi-sealed.toml"];
+const pinnedRoleFile = ["agents", "phi-sealed.toml"];
 
 /** The settings `on codex` writes and prints, `off codex` removes and `doctor codex` checks. */
 const codexSettings: readonly Setting[] = [
@@ -211,8 +208,8 @@ const dotted = (path: readonly string[]): string =>
 
 export {
 	addressEnv,
-	auto,
 	codexSettings,
+	doctorModel,
 	dotenvFile,
 	dotted,
 	endsWithExemption,
@@ -220,10 +217,10 @@ export {
 	exemptionReason,
 	holdsExemption,
 	hookKeys,
-	plugin,
+	pinnedRoleFile,
+	pluginId,
 	provider,
 	providerId,
-	roleFile,
 	sealedRole,
 	withExemption,
 	withoutExemption,

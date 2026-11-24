@@ -1,8 +1,8 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Struct, pipe } from "effect";
 import type { Asked, Json, Said } from "#router/client/mock-upstreams/index.ts";
 import { handOff, isSubagent, subagent } from "./phi-checks.ts";
+import { pinnedRoleFile, sealedRole } from "#router/features/cli/index.ts";
 import { replyMessage, replying } from "#tools/route/harnesses.ts";
-import { roleFile, sealedRole } from "#router/features/cli/index.ts";
 import type { Cause } from "effect";
 import { fakes } from "#tools/route/mocked-router.ts";
 
@@ -126,7 +126,7 @@ const installed = Effect.fnUntraced(function* installed(where: { readonly home: 
 
 	yield* fs.copyFile(path.join(where.plugin, "hooks", "codex.json"), path.join(where.home, "hooks.json"));
 	yield* fs.makeDirectory(path.join(where.home, "agents"));
-	yield* fs.writeFileString(path.join(where.home, ...roleFile), sealedRole);
+	yield* fs.writeFileString(path.join(where.home, ...pinnedRoleFile), sealedRole);
 });
 
 const SessionLine = /session id: (?<session>\S+)/u;

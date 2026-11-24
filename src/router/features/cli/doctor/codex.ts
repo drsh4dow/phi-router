@@ -1,18 +1,18 @@
 import { Array, Effect, Option, Path, String as Str, Struct, pipe } from "effect";
 import {
 	addressEnv,
-	auto,
 	codexSettings,
+	doctorModel,
 	dotenvFile,
 	dotted,
 	endsWithExemption,
 	exemptionLine,
 	holds,
 	hookTrust,
-	plugin,
+	pinnedRoleFile,
 	pluginEnabled,
+	pluginId,
 	provider,
-	roleFile,
 	sealedRole,
 } from "#router/features/cli/codex/index.ts";
 import { canaryRun, reported } from "./canary.ts";
@@ -42,9 +42,9 @@ const installChecks = (install: Install): readonly Check[] => [
 		})),
 	),
 	{ name: `${dotenvFile} ends with ${exemptionLine}`, passed: endsWithExemption(install.dotenv) },
-	{ name: `the role phi-sealed is in ${Array.join(roleFile, "/")}`, passed: install.role === sealedRole },
-	{ name: `the plugin ${plugin} is enabled`, passed: pluginEnabled(install.config) },
-	{ name: `the plugin ${plugin} is installed`, passed: install.installed },
+	{ name: `the role phi-sealed is in ${Array.join(pinnedRoleFile, "/")}`, passed: install.role === sealedRole },
+	{ name: `the plugin ${pluginId} is enabled`, passed: pluginEnabled(install.config) },
+	{ name: `the plugin ${pluginId} is installed`, passed: install.installed },
 	{ name: "the plugin's hooks are trusted", passed: Str.isNonEmpty(hookTrust(install.config)) },
 ];
 
@@ -59,7 +59,7 @@ const turnConfig = (turn: { readonly address: string; readonly trust: string }):
 	Array.join(
 		[
 			"check_for_update_on_startup = false",
-			`model = "${auto}"`,
+			`model = "${doctorModel}"`,
 			'model_provider = "phi"',
 			"[analytics]",
 			"enabled = false",
@@ -75,7 +75,7 @@ const turnConfig = (turn: { readonly address: string; readonly trust: string }):
 			`[${dotted([...provider, "auth"])}]`,
 			'command = "echo"',
 			'args = ["phi-doctor-login"]',
-			`[${dotted(["plugins", plugin])}]`,
+			`[${dotted(["plugins", pluginId])}]`,
 			"enabled = true",
 			turn.trust,
 			"",
@@ -121,13 +121,13 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 	const home = yield* codexHome(named);
 	const config = yield* textOrEmpty(path.join(home, "config.toml"));
 	const dotenv = yield* textOrEmpty(path.join(home, dotenvFile));
-	const role = yield* textOrEmpty(path.join(home, ...roleFile));
+	const role = yield* textOrEmpty(path.join(home, ...pinnedRoleFile));
 	const installed = yield* codexPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
 
 	yield* reported(
 		"codex",
 		installChecks({ config, dotenv, installed: Option.isSome(installed), role }),
-		`Run phi-router on codex for a missing setting, line or role, codex plugin add ${plugin} for the plugin, and start codex and pick "Trust all and continue" for the hooks.`,
+		`Run phi-router on codex for a missing setting, line or role, codex plugin add ${pluginId} for the plugin, and start codex and pick "Trust all and continue" for the hooks.`,
 	);
 
 	const checks = yield* Option.match(installed, {
@@ -138,7 +138,7 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 	yield* reported(
 		"codex",
 		checks,
-		`The canary must reach the BAA mock alone, through the router the plugin's hook starts. Each FAIL line names what did not hold. When codex exec fails, run codex plugin add ${plugin} again and trust its hooks.`,
+		`The canary must reach the BAA mock alone, through the router the plugin's hook starts. Each FAIL line names what did not hold. When codex exec fails, run codex plugin add ${pluginId} again and trust its hooks.`,
 	);
 });
 

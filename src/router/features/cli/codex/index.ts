@@ -7,7 +7,7 @@ import {
 	exemptionLine,
 	exemptionReason,
 	holdsExemption,
-	roleFile,
+	pinnedRoleFile,
 	sealedRole,
 	withExemption,
 	withoutExemption,
@@ -32,12 +32,11 @@ const filesOf = Effect.fnUntraced(function* filesOf(named: string) {
 	return {
 		config: path.join(home, "config.toml"),
 		dotenv: path.join(home, dotenvFile),
-		role: path.join(home, ...roleFile),
+		role: path.join(home, ...pinnedRoleFile),
 	};
 });
 
-/** Each setting `on codex` writes, with its reason. */
-const settingLines = pipe(
+const settingsWithReasons = pipe(
 	codexSettings,
 	Array.flatMap(({ path, reason, value }) => [`${dotted(path)} = ${value}`, `  ${reason}`]),
 );
@@ -102,7 +101,7 @@ const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
 		Array.join(
 			[
 				`phi-router wrote ${String(codexSettings.length)} settings to ${files.config}`,
-				...settingLines,
+				...settingsWithReasons,
 				`phi-router wrote ${exemptionLine} to ${files.dotenv}`,
 				`  ${exemptionReason}`,
 				`phi-router wrote the role phi-sealed to ${files.role}`,
@@ -125,7 +124,7 @@ const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
 const offCodex = Effect.fn("off codex")(function* offCodex(named: string) {
 	const files = yield* filesOf(named);
 	const before = yield* textOrEmpty(files.config);
-	const { removed: keys, text } = switchedOff(before);
+	const { cutKeys: keys, text } = switchedOff(before);
 
 	yield* rewritten(files.config, before, text);
 
@@ -159,15 +158,15 @@ export { codexSwitchedOn, offCodex, onCodex };
 
 export {
 	addressEnv,
-	auto,
 	codexSettings,
+	doctorModel,
 	dotenvFile,
 	dotted,
 	endsWithExemption,
 	exemptionLine,
-	plugin,
+	pinnedRoleFile,
+	pluginId,
 	provider,
-	roleFile,
 	sealedRole,
 } from "./settings.ts";
 

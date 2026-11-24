@@ -1,5 +1,5 @@
 import { Array, Option, String as Str, pipe } from "effect";
-import { dotted, hookKeys, plugin } from "./settings.ts";
+import { dotted, hookKeys, pluginId } from "./settings.ts";
 import type { Setting } from "./settings.ts";
 import type { Statement } from "#router/primitives/toml.ts";
 import { statementsOf } from "#router/primitives/toml.ts";
@@ -28,7 +28,7 @@ const holds =
  * @returns {boolean} Whether it does.
  */
 const pluginEnabled = (text: string): boolean =>
-	holds(text)({ path: ["plugins", plugin, "enabled"], reason: "", value: "true" });
+	holds(text)({ path: ["plugins", pluginId, "enabled"], reason: "", value: "true" });
 
 const trustOf =
 	(text: string) =>

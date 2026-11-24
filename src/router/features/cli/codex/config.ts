@@ -4,10 +4,9 @@ import type { Setting } from "./settings.ts";
 import type { Statement } from "#router/primitives/toml.ts";
 import { statementsOf } from "#router/primitives/toml.ts";
 
-/** The text left once statements are cut, and the dotted key of each statement cut. */
 interface Cut {
 	readonly text: string;
-	readonly removed: readonly string[];
+	readonly cutKeys: readonly string[];
 }
 
 const fileStart = 0;
@@ -87,10 +86,9 @@ const spelled = ({ kind, path }: Statement): string => {
 	return `[${dotted(path)}]`;
 };
 
-/** Where the text of a statement starts to change, and what takes its place up to the statement's end. */
 interface Edit {
-	readonly from: number;
-	readonly by: string;
+	readonly replacedFrom: number;
+	readonly replacement: string;
 }
 
 const rewritten =
@@ -102,16 +100,16 @@ const rewritten =
 		);
 
 		const [done] = Array.mapAccum(picked, { at: fileStart, text: "" }, (left, statement) => {
-			const { by, from } = edit(text, statement);
-			const kept = Str.slice(left.at, Math.max(left.at, from))(text);
+			const { replacedFrom, replacement } = edit(text, statement);
+			const kept = Str.slice(left.at, Math.max(left.at, replacedFrom))(text);
 
-			return [{ at: statement.end, text: `${left.text}${kept}${by}` }, statement];
+			return [{ at: statement.end, text: `${left.text}${kept}${replacement}` }, statement];
 		});
 
-		return { removed: pipe(picked, Array.map(spelled)), text: `${done.text}${Str.slice(done.at)(text)}` };
+		return { cutKeys: pipe(picked, Array.map(spelled)), text: `${done.text}${Str.slice(done.at)(text)}` };
 	};
 
-const withoutOurs = rewritten(ours, (text, statement) => ({ by: "", from: cutFrom(text)(statement) }));
+const withoutOurs = rewritten(ours, (text, statement) => ({ replacedFrom: cutFrom(text)(statement), replacement: "" }));
 
 /**
  * `text` with each statement `on codex` replaces turned into lines of {@link keptMark}, so `off` can restore it. It runs
@@ -120,8 +118,8 @@ const withoutOurs = rewritten(ours, (text, statement) => ({ by: "", from: cutFro
 const recorded = rewritten(
 	(_text, statement) => replacesIt(statement),
 	(text, statement) => ({
-		by: Str.replaceAll(lineStart, keptMark)(Str.slice(statement.start, statement.end)(text)),
-		from: statement.start,
+		replacedFrom: statement.start,
+		replacement: Str.replaceAll(lineStart, keptMark)(Str.slice(statement.start, statement.end)(text)),
 	}),
 );
 
@@ -260,7 +258,7 @@ const switchedOn = (text: string): string => {
 const switchedOff = (text: string): Cut => {
 	const cut = withoutOurs(text);
 
-	return { removed: cut.removed, text: Str.replaceAll(keptLine, "")(cut.text) };
+	return { cutKeys: cut.cutKeys, text: Str.replaceAll(keptLine, "")(cut.text) };
 };
 
 export { inlineOwner, switchedOff, switchedOn, under };
