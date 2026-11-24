@@ -12,7 +12,6 @@ type Reply = Extract<Run, { readonly kind: "reply" }>;
 
 const misaligned = Effect.die("the border's messages do not line up with the request's");
 
-/** A string as JSON text, for each string the codec writes fresh. */
 const quoted = Effect.fnUntraced(function* quoted(text: string): Effect.fn.Return<string> {
 	return yield* Effect.orDie(Schema.encodeEffect(JsonString)(text));
 });
@@ -40,7 +39,6 @@ const freshBlock = Effect.fnUntraced(function* freshBlock(
 	return `{"type":"image","source":{"type":"base64","media_type":${mediaType},"data":${data}}${after(kept)}}`;
 });
 
-/** Blocks written fresh, the last one keeping the cache breakpoint the wire's last block carried. */
 const freshBlocks = Effect.fnUntraced(function* freshBlocks(
 	blocks: readonly EngineBlock[],
 	kept: readonly string[],
@@ -97,7 +95,6 @@ const engineBlocks = Effect.fnUntraced(function* engineBlocks(
 	return yield* misaligned;
 });
 
-/** A wire tool call under its own id and name, with the border's arguments for that id, or none. */
 const callText = Effect.fnUntraced(function* callText(
 	call: WireCall,
 	guarded: AssistantMessage,
@@ -120,7 +117,6 @@ const callText = Effect.fnUntraced(function* callText(
 	return `{"type":"tool_use","id":${id},"name":${name},"input":${input}${after(call.kept)}}`;
 });
 
-/** A changed reply: the border's text, the last keeping the wire's last cache breakpoint, then every wire tool call. */
 const freshReply = Effect.fnUntraced(function* freshReply(
 	run: Reply,
 	guarded: Message,
@@ -146,7 +142,6 @@ const freshReply = Effect.fnUntraced(function* freshReply(
 	return [...written, ...calls];
 });
 
-/** A tool result under the wire's call id, keeping its `is_error` and `cache_control` members. */
 const freshResult = Effect.fnUntraced(function* freshResult(
 	run: Extract<Run, { readonly kind: "result" }>,
 	guarded: Message,
@@ -215,7 +210,6 @@ const blocksOf = Effect.fnUntraced(function* blocksOf(run: Run, guarded: Message
 	return visible;
 });
 
-/** A message that is one prompt or one note, written as its whole content, so a string stays a string. */
 const wholeContent = Effect.fnUntraced(function* wholeContent(
 	pairs: readonly (readonly [Run, Message])[],
 ): Effect.fn.Return<Option.Option<string>> {
@@ -261,11 +255,6 @@ const turnText = Effect.fnUntraced(function* turnText(
 	return `{"role":${role},"content":${content}${after(turn.kept)}}`;
 });
 
-/**
- * One wire message as an open account receives it: no edit while the border returned each of its runs unchanged, else
- * its content rewritten. A message the codec cannot read is always rewritten whole, so its raw text never reaches an
- * open account.
- */
 const turnEdit = Effect.fnUntraced(function* turnEdit(
 	turn: Turn,
 	guarded: readonly Message[],

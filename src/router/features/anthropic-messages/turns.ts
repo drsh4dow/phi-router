@@ -74,7 +74,6 @@ const replyBlockOf = ({ span, wire }: Located<WireAssistantBlock>): Effect.Effec
 const isThinking = ({ wire }: Located<WireAssistantBlock>): boolean =>
 	wire.type === "thinking" || wire.type === "redacted_thinking";
 
-/** A reply run. Tool calls come from the wire, readable or not, so a rewrite cannot add, drop or rename one. */
 const replyRun = Effect.fnUntraced(function* replyRun(
 	{ span, wire }: Located<readonly WireAssistantBlock[]>,
 	openWrote: HoldsReplyKey,
@@ -112,12 +111,6 @@ const replyRun = Effect.fnUntraced(function* replyRun(
 	};
 });
 
-/**
- * The raw blocks of a message the codec cannot read, when its content is a list, beside their spans.
- *
- * @param {Located<Raw>} message The message as parsed, and where it sits.
- * @returns {readonly Located<Raw>[]} Its blocks that are objects.
- */
 const rawBlocksOf = ({ span, wire }: Located<Raw>): readonly Located<Raw>[] => {
 	const { content } = wire;
 
@@ -138,12 +131,6 @@ const rawBlocksOf = ({ span, wire }: Located<Raw>): readonly Located<Raw>[] => {
 	);
 };
 
-/**
- * A reply the codec cannot read: the unknown stub, and each raw tool call with its id and name.
- *
- * @param {readonly Located<Raw>[]} blocks The reply's raw blocks.
- * @returns {Run} The withheld run.
- */
 const withheldReply = (blocks: readonly Located<Raw>[]): Run => {
 	const calls = pipe(blocks, Array.flatMap(unreadableCall));
 
@@ -163,13 +150,6 @@ const withheldReply = (blocks: readonly Located<Raw>[]): Run => {
 	};
 };
 
-/**
- * The runs of a message the codec cannot read, by its raw role. Each is unreadable, and its tool calls and results keep
- * their ids, so the clean lane writes the message back whole, paired and withheld. An unknown role reads as `user`.
- *
- * @param {Located<Raw>} message The message as parsed, and where it sits.
- * @returns {Turn} The message's runs.
- */
 const unreadableTurn = (message: Located<Raw>): Turn => {
 	const blocks = rawBlocksOf(message);
 	const { span } = message;

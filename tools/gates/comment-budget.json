@@ -1,8 +1,6 @@
 {
 	"src/router/features/accounts/walk.ts": 6,
 	"src/router/features/anthropic-messages/stubs.test.ts": 1,
-	"src/router/features/anthropic-messages/turns.ts": 4,
-	"src/router/features/anthropic-messages/written.ts": 7,
 	"src/router/features/border/guard.ts": 2,
 	"src/router/features/border/target.ts": 3,
 	"src/router/features/border/texts.ts": 5,
