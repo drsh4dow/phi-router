@@ -18,7 +18,6 @@ const fakeKeys = { PHI_DOCTOR_BAA_KEY: "phi-doctor-baa-key", PHI_DOCTOR_JUDGE_KE
 
 const anyFreePort = 0;
 
-/** The vendor whose API the world's two accounts speak. */
 type Vendor = "anthropic" | "openai";
 
 /** The model the router sends a sealed request to, which the OpenAI mocks' catalog lists. */

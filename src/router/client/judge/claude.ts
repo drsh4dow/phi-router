@@ -17,7 +17,6 @@ const claudeCode = "You are Claude Code, Anthropic's official CLI for Claude.";
 /** What a Messages call names. The account drops the login's flag for an API key, and adds its own credential. */
 const messagesHeaders = { "anthropic-beta": "oauth-2025-04-20", "anthropic-version": "2023-06-01" };
 
-/** The model the Claude judge runs, the cheapest that held the leak bar in its calibration (ADR 0009). */
 const claudeModel = "claude-haiku-5-5";
 
 /** The statuses of an answer the judge reads. */
@@ -54,10 +53,8 @@ const KindCall = Schema.Struct({
 
 const OtherBlock = Schema.Struct({ type: Schema.String });
 
-/** A reply's block: a well-formed answer, or any other block. */
 const Block = Schema.Union([ScoreCall, KindCall, OtherBlock]);
 
-/** A Messages reply as the judge reads it: its blocks, how it stopped, and what it billed. */
 const Reply = Schema.fromJsonString(
 	Schema.Struct({
 		content: Schema.Array(Block),
@@ -261,11 +258,6 @@ const askWith =
 			}),
 		);
 
-/**
- * The Claude judge: each question one `POST <endpoint>/v1/messages` on a BAA account, with the account's own
- * credential, the way a sealed request reaches it, and its answer forced through a tool call. It adds no timeout and no
- * retry, which the engine owns. A choice the question does not list fails as `judge-error`.
- */
 const claude = Effect.fnUntraced(function* claude(judge: Extract<ChosenJudge, { readonly name: "claude" }>) {
 	const send = yield* senderOn(judge.account);
 	const ask = askWith({ account: judge.account.name, model: judge.model, send });

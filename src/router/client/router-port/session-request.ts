@@ -4,7 +4,6 @@ import type { Status } from "#shared/cli.ts";
 import { StatusJson } from "#shared/cli.ts";
 import { loopback } from "./server.ts";
 
-/** What `pin` and `unpin` send the router. */
 const PinRequest = Schema.Struct({ pinned: Schema.Boolean, session: Schema.NonEmptyString });
 
 const PinRequestJson = Schema.fromJsonString(PinRequest);
@@ -28,7 +27,6 @@ const patience = "5 seconds";
 
 const stalled = unanswered("it took a request and gave no answer within 5 seconds");
 
-/** Asks the router on a loopback port to set a session's pin or to report its status. */
 class SessionRequests extends Context.Service<
 	SessionRequests,
 	{

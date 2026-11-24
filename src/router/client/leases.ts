@@ -14,13 +14,8 @@ const Lease = Schema.Struct({ folder: Schema.String, pid: Pid, session: Schema.N
 /** `phi-router/leases.json` under the XDG state folder. Never content, never a credential. */
 const StoredJson = Schema.fromJsonString(Schema.Struct({ leases: Schema.Array(Lease) }));
 
-/** A failure to read or write the lease registry. */
 type RegistryFailed = PlatformError.PlatformError | Schema.SchemaError;
 
-/**
- * The lease registry, one file the router writes and a launched router adopts. The router's lifecycle is its only
- * writer, so the registry holds no lock of its own.
- */
 class LeaseRegistry extends Context.Service<
 	LeaseRegistry,
 	{

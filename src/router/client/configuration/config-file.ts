@@ -11,7 +11,6 @@ import { realFolder } from "#router/client/processes.ts";
  */
 type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string } | { readonly keyFile: string };
 
-/** The file's `judge` block: a Decisions judge apart from the accounts, and its model when the block names one. */
 interface NamedJudge {
 	readonly endpoint: string;
 	readonly key: KeySource;
@@ -22,7 +21,6 @@ interface NamedJudge {
 interface Configured {
 	/** None when the file names no judge, so the judge runs on a BAA account. */
 	readonly judge: Option.Option<NamedJudge>;
-	/** The exact texts of parts that are never ruled on or judged. */
 	readonly fixtures: readonly string[];
 	/** The folders whose sessions run wholly on the sealed lane, each an absolute path, its real path when it exists. */
 	readonly baaRepos: readonly string[];
@@ -65,7 +63,6 @@ const BaaRepos = Schema.optionalKey(Schema.Array(AbsolutePath));
 
 const Fixtures = Schema.optionalKey(Schema.Array(Schema.NonEmptyString));
 
-/** The file has no `mode`: the router has no shadow or trial mode, and a pin stands for a forced BAA mode. */
 const File = Schema.fromJsonString(
 	Schema.Struct({ baaRepos: BaaRepos, fixtures: Fixtures, judge: Schema.optionalKey(Named), mode: absent }),
 );
@@ -79,7 +76,6 @@ const configFile = Effect.gen(function* configFile() {
 	return path.join(folder, "config.json");
 });
 
-/** The text of the configuration file. */
 const configText = Effect.gen(function* configText() {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* configFile;

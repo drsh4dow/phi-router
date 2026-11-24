@@ -13,7 +13,6 @@ const Stored = Schema.fromJsonString(
 
 type StoreFailed = PlatformError.PlatformError | Schema.SchemaError;
 
-/** How long a 429 keeps an open account out of the clean lane's walk. */
 const stampFor = { minutes: 30 };
 
 const oneWriter = 1;

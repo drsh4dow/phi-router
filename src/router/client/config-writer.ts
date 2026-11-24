@@ -15,13 +15,11 @@ type NewAccount =
 	| { readonly vendor: Vendor; readonly forwarded: true }
 	| { readonly vendor: Vendor; readonly keyFile: string; readonly scheme: "apiKey" };
 
-/** One account an edit puts on one lane. */
 interface Wanted {
 	readonly lane: Lane;
 	readonly account: NewAccount;
 }
 
-/** What one edit adds: accounts, each on its lane. */
 interface Additions {
 	readonly accounts: Array.NonEmptyReadonlyArray<Wanted>;
 }

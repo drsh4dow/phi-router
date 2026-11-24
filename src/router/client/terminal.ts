@@ -37,11 +37,6 @@ const lineRead = Effect.fnUntraced(function* lineRead(script: string, prompt: st
 	return Option.liftPredicate(line, () => code === succeeded);
 }, Effect.scoped);
 
-/**
- * Prints `prompt` on the terminal and reads one line with echo off, so nothing the human types or pastes shows. None
- * when the input ends first. The line passes through a pipe from the shell, and never through an argument, a file or
- * the environment.
- */
 const hiddenLine = Effect.fnUntraced(function* hiddenLine(prompt: string) {
 	const line = yield* lineRead(hiddenRead, prompt);
 

@@ -5,7 +5,6 @@ import type { Vendor } from "#router/client/configuration/index.ts";
 /** What a vendor said of a key: it took it, it refused it, or it gave no answer setup can read. */
 type KeyCheck = "accepted" | "refused" | "unanswered";
 
-/** Each vendor's API, where `GET /v1/models` runs no model and answers 401 to a key it refuses. */
 const apis = { anthropic: "https://api.anthropic.com", openai: "https://api.openai.com" } as const;
 
 /** The headers that carry `key` to each vendor. */

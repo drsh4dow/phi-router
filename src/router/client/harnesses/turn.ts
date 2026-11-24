@@ -3,7 +3,6 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { PlatformError, Scope } from "effect";
 import { loopback } from "#router/client/router-port/index.ts";
 
-/** How one headless harness turn ended. */
 type Turn =
 	| { readonly kind: "exited"; readonly exitCode: number; readonly printed: string }
 	| { readonly kind: "notStarted" }

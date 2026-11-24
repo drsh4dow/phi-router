@@ -60,7 +60,6 @@ const rewritePrivately = Effect.fnUntraced(function* rewritePrivately(file: stri
 	return yield* writePrivately(target, text, info.mode % permissions);
 });
 
-/** The owner's execute bit of a file's mode, and the bit above it. */
 const ownerBits = { execute: 0o100, write: 0o200 } as const;
 
 /**

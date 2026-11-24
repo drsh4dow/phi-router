@@ -176,7 +176,6 @@ interface Held {
 	readonly rejected: Effect.Effect<void>;
 }
 
-/** A login folder's account for the life of a process. */
 interface FolderLogin {
 	/**
 	 * Makes the folder's token fit to send, before the send reads the verdict store, so no vendor CLI runs between that
@@ -190,7 +189,6 @@ interface FolderLogin {
 	readonly current: Effect.Effect<Held, LoginEnded>;
 }
 
-/** The login folder of one account. */
 const folderLogin = Effect.fnUntraced(function* folderLogin(account: LoginFolder) {
 	const folder = yield* folderOf(account);
 	const permit = yield* Semaphore.make(onePermit);

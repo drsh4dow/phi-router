@@ -29,10 +29,8 @@ interface ChoiceQuestion<Choice extends string> {
 	readonly criteria: readonly (readonly [Choice, string])[];
 }
 
-/** The two judges: OpenAI Decisions, and Claude through a BAA account's Messages API. */
 type JudgeName = "claude" | "decisions";
 
-/** The transport-free judge's two questions. */
 interface Asking {
 	readonly identifier: (
 		input: JudgeInput,
@@ -44,7 +42,6 @@ interface Asking {
 	) => Effect.Effect<{ readonly kind: Choice; readonly usage: typeof Usage.Type }, JudgeFailed>;
 }
 
-/** The chosen judge's client, with its name and model. */
 const askingOf = Effect.fnUntraced(function* askingOf(chosen: ChosenJudge) {
 	const named = { model: chosen.model, name: chosen.name };
 

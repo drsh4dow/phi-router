@@ -12,10 +12,8 @@ interface Answered {
 	readonly body: Stream.Stream<Uint8Array, Refused>;
 }
 
-/** Why an account gave no answer the route can relay or fail over on. */
 type Unanswered = Refused | LoginEnded | Rejected;
 
-/** One account the router calls. Its credential stays in `upstream.ts`. */
 interface Account {
 	readonly name: string;
 	/** The models a BAA account does not carry. Empty on an open account, since the clean lane runs every model. */

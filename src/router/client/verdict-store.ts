@@ -12,10 +12,6 @@ interface Summary {
 	readonly sealed: number;
 }
 
-/**
- * One session's file: its content keys with their verdicts, the reply keys of its open-account replies, its pin and the
- * policy version the verdicts were made under. Never content, never a credential.
- */
 const Stored = Schema.Struct({
 	openWrote: Schema.Array(Schema.String),
 	pinned: Schema.Boolean,
@@ -27,7 +23,6 @@ type StoredFile = typeof Stored.Type;
 
 const StoredJson = Schema.fromJsonString(Stored);
 
-/** A failure to read or write a session's file. */
 type StoreFailed = PlatformError.PlatformError | Schema.SchemaError;
 
 /** One read of one session's store. Each field answers from that read alone. */

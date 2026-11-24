@@ -4,13 +4,11 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 /** One end of a TCP connection, as `127.0.0.1:47411`. */
 type Endpoint = string;
 
-/** The two ends of one connection to the router. */
 interface Connection {
 	readonly router: Endpoint;
 	readonly caller: Endpoint;
 }
 
-/** One TCP socket the machine lists: its own end, the far end, and the uid that holds it. */
 interface Socket {
 	readonly local: Endpoint;
 	readonly remote: Endpoint;
@@ -126,7 +124,6 @@ const heldByOneUser = (sockets: readonly Socket[], { caller, router }: Connectio
 /** A list of the sockets that has not answered by then has not proven anything. */
 const listPatience = "2 seconds";
 
-/** Who is at the far end of a connection to the router. */
 class Callers extends Context.Service<
 	Callers,
 	{
@@ -138,11 +135,6 @@ class Callers extends Context.Service<
 		readonly isThisUser: (connection: Connection) => Effect.Effect<boolean>;
 	}
 >()("phi-router/router/client/router-port/callers") {
-	/**
-	 * Reads `/proc/net/tcp` where it exists, which is Linux. Elsewhere, which is macOS, runs `lsof` for the router's
-	 * end: a user who is not root sees only the sockets of their own processes there, so another user's end is never
-	 * listed. One read per request, nothing cached.
-	 */
 	public static readonly layer = Layer.effect(
 		Callers,
 		Effect.gen(function* make() {

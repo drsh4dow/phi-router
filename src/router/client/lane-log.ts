@@ -49,7 +49,6 @@ const LineJson = Schema.fromJsonString(Line);
 /** What a route knows of its request. The log adds the time. */
 type Routed = Omit<typeof Line.Type, "time">;
 
-/** The account and the model of a session's last request, and whether that model was the substitute. */
 type Last = Pick<Routed, "account" | "model" | "substitute">;
 
 const decodeLine = Schema.decodeUnknownOption(LineJson);

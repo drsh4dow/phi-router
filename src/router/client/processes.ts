@@ -148,7 +148,6 @@ const provenRows = (printed: string, exitCode: number, self: number): Option.Opt
 	return pipe(lines, Array.map(rowOf), Option.all, Option.filter(Array.some(({ pid }) => pid === self)));
 };
 
-/** The processes of this machine: which run, and a router launched to outlive the command that launched it. */
 class Processes extends Context.Service<
 	Processes,
 	{

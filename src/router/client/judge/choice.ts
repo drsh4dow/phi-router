@@ -5,7 +5,6 @@ import type { JudgeName } from "./index.ts";
 import { claudeModel } from "./claude.ts";
 import { decisionsModel } from "./decisions.ts";
 
-/** The judge a configuration picks, with the model it runs. */
 type ChosenJudge =
 	| { readonly name: "decisions"; readonly endpoint: string; readonly key: KeySource; readonly model: string }
 	| { readonly name: "claude"; readonly account: NamedAccount; readonly model: string };
@@ -43,7 +42,6 @@ const claudeOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
 	return Option.some({ account, model: judgeModels.claude, name: "claude" });
 };
 
-/** The first account on `sealed` that `on` takes, or `NoJudge`. */
 const onSealed = Effect.fnUntraced(function* onSealed(
 	on: (accounts: readonly NamedAccount[]) => Option.Option<ChosenJudge>,
 ) {

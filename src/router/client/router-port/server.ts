@@ -12,7 +12,6 @@ const forbidden = 403;
 const notThisUser =
 	'{"type":"error","error":{"type":"permission_error","message":"phi-router answers only the user who runs it"}}';
 
-/** The two ends of a request's connection, as Node's server keeps them on the request's socket. */
 const NodeSocket = Schema.Struct({
 	socket: Schema.Struct({
 		localAddress: Schema.String,
@@ -52,10 +51,6 @@ interface Path {
 	readonly answer: (incoming: Incoming) => Effect.Effect<Outgoing, never, Scope.Scope>;
 }
 
-/**
- * Binds `loopback` on a port with Node's server, on Bun too, since only Node's request carries the caller's port. Port 0
- * takes a free port. Only the entry file builds it, since the server layers live in the platform packages.
- */
 class Listener extends Context.Service<
 	Listener,
 	{ readonly on: (port: number) => Layer.Layer<HttpServer.HttpServer, HttpServerError.ServeError> }

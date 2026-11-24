@@ -189,11 +189,6 @@ const kindOf =
 			}),
 		);
 
-/**
- * The judge over OpenAI Decisions: `POST <endpoint>/decisions` with the model, the input and one typed question. It
- * reads the key once, here, and sends it as a bearer token. It adds no timeout and no retry, which the engine owns, so
- * an interrupted call aborts its request.
- */
 const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJudge, { readonly name: "decisions" }>) {
 	const key = yield* readKey(judge.key);
 	const http = yield* HttpClient.HttpClient;

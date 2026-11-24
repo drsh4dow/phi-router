@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 
-/** What judge calls cost: how many, their input tokens, their price and their time. */
 const Usage = Schema.Struct({
 	calls: Schema.Finite,
 	cost: Schema.Finite,

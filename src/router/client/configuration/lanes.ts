@@ -3,7 +3,6 @@ import { absent, configFile } from "./config-file.ts";
 import type { KeySource } from "./config-file.ts";
 import { UserDirectories } from "effect/persistence";
 
-/** The vendor whose wire an account speaks: Anthropic Messages, or OpenAI Responses. */
 const Vendors = Schema.Literals(["anthropic", "openai"]);
 
 type Vendor = typeof Vendors.Type;
@@ -18,7 +17,6 @@ type Credential =
 	| { readonly kind: "key"; readonly scheme: "apiKey" | "oauth"; readonly source: KeySource }
 	| { readonly kind: "loginFolder"; readonly folder: string };
 
-/** One of the two lanes of `config.json`. */
 type Lane = "clean" | "sealed";
 
 /**
@@ -259,15 +257,6 @@ const byVendor = (lanes: typeof Lanes.Type): LaneConfiguration => {
 	return { anthropic: of("anthropic"), openai: of("openai") };
 };
 
-/**
- * What a `config.json` text says about the lanes: per vendor, the open accounts and the BAA accounts in the file's
- * order, the model `phi/auto` stands for, and the substitute. The file keeps two lists, which mix vendors,
- * and `targetModel` and `sealedModel` each name one model per vendor. Apart from `Configuration`, so a file that names
- * only the judge still serves `judge:probe`. It never holds a key, only the key's source or the login folder.
- *
- * @param {string} text The file's text.
- * @returns {Effect.Effect} The lanes, or why the router would refuse the file.
- */
 const laneConfiguration = (text: string): Effect.Effect<LaneConfiguration, Schema.SchemaError> =>
 	Effect.map(Schema.decodeEffect(LaneFile)(text), byVendor);
 

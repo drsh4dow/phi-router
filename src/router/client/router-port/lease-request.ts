@@ -10,7 +10,6 @@ const LeaseRequest = Schema.Struct({ folder: Schema.String, pid: Pid, session: S
 
 const LeaseRequestJson = Schema.fromJsonString(LeaseRequest);
 
-/** The lease row of the router's path table. */
 const leasePath = "/phi-router/leases";
 
 /** What the router says to a lease request it could read. */

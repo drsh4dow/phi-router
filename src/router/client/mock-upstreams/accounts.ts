@@ -2,7 +2,6 @@ import { Array, Effect, Match, Ref, Schema, String as Str, Stream, Struct, pipe 
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Scope } from "effect";
 
-/** JSON a function only reads. */
 type Json = boolean | number | string | null | readonly Json[] | { readonly [key: string]: Json };
 
 /** One SSE event of a reply, written as `event: <type>` and `data: <json>`. */
@@ -18,7 +17,6 @@ interface Event {
 interface Asked {
 	readonly model: string;
 	readonly last: string;
-	/** The whole body, for a script that answers by what it holds anywhere. */
 	readonly body: string;
 	/** Every header under its lower-case name, for a script that answers by the credential it got. */
 	readonly headers: Readonly<Record<string, string>>;
@@ -97,7 +95,6 @@ const message = {
 	usage: { input_tokens: 1, output_tokens: 0 },
 };
 
-/** One `ping` event, as the Anthropic API sends it between others. */
 const ping: Event = { type: "ping" };
 
 /**

@@ -85,10 +85,6 @@ const withoutOauth = (headers: Headers): Record<string, string> => {
 	return Struct.assign(picked(headers, wires.anthropic.copied.key), { "anthropic-beta": Option.getOrUndefined(kept) });
 };
 
-/**
- * The headers a forwarded or keyed account receives: the copied ones and exactly one credential. A forwarded account
- * takes the harness's own. A keyed account never sees the harness's, and its key is read once, here.
- */
 const headersFor = Effect.fnUntraced(function* headersFor(
 	vendor: Vendor,
 	credential: Exclude<Credential, { readonly kind: "loginFolder" }>,
@@ -109,7 +105,6 @@ const headersFor = Effect.fnUntraced(function* headersFor(
 	return (harness: Headers): Headers => Struct.assign(picked(harness, copied.key), { authorization: `Bearer ${key}` });
 });
 
-/** A request the caller builds on an account's endpoint. */
 type To = (endpoint: string) => HttpClientRequest.HttpClientRequest;
 
 /**

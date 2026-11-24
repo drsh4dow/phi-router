@@ -37,7 +37,6 @@ class SettingsUnread extends Schema.TaggedError<SettingsUnread, { readonly brand
 /** What the user's `settings.json` says that the router reads. A missing file or block reads as empty. */
 interface UserSettings {
 	readonly path: string;
-	/** The `env` block's string values. */
 	readonly env: Readonly<Record<string, string>>;
 	/** The plugin ids `enabledPlugins` holds at `true`. */
 	readonly enabledPlugins: readonly string[];
@@ -57,7 +56,6 @@ interface Asked {
 
 const Installs = Schema.Array(Schema.Struct({ installPath: Schema.String }));
 
-/** Claude Code's record of its installed plugins, as far as the folder of each install. */
 const InstalledPlugins = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Record(Schema.String, Installs) }));
 
 /** The login a headless turn sends, so no real login reaches the router or a mock. */

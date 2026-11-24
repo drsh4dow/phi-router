@@ -11,7 +11,6 @@ import { writePrivately } from "#router/client/private-file.ts";
 /** The proof row of the router's path table. The nonce goes in the query. */
 const proofPath = "/phi-router/proof";
 
-/** How many random bytes the secret and each nonce hold. */
 const randomBytes = 32;
 
 /** The secret, and each nonce: 32 random bytes as 64 lowercase hex digits. */
@@ -75,10 +74,6 @@ const blockKey = Effect.fnUntraced(function* blockKey(key: readonly number[]) {
 	return Array.fromIterable(hashed);
 });
 
-/**
- * HMAC-SHA-256 (RFC 2104) of `message` under `key`, in hex. It is built from Effect's SHA-256, since the lint bans
- * `node:crypto` and Effect has no HMAC.
- */
 const hmacOf = Effect.fnUntraced(function* hmacOf(key: readonly number[], message: readonly number[]) {
 	const digest = yield* Digest.Digest;
 	const padded = yield* blockKey(key);
@@ -142,7 +137,6 @@ const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number) {
  */
 type Proven = "proved" | "refuted" | "unanswered" | "waiting";
 
-/** Whether an answer with `status` and `body` holds the proof for `nonce` and `port` under the secret in `file`. */
 const provenBy = Effect.fnUntraced(function* provenBy(answer: {
 	readonly status: number;
 	readonly body: string;
@@ -165,10 +159,6 @@ const provenBy = Effect.fnUntraced(function* provenBy(answer: {
 	return "refuted";
 });
 
-/**
- * The proof that the listener on the router's port is this user's router (ADR 0002): the HMAC of a nonce under the
- * secret in `phi-router/secret` under the XDG state folder, which only this user can read.
- */
 class Proofs extends Context.Service<
 	Proofs,
 	{

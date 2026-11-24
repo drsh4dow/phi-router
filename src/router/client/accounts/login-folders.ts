@@ -13,7 +13,6 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-/** What a login folder holds when it is read: the token to send and when it expires. */
 interface Login {
 	readonly token: Redacted.Redacted;
 	readonly expires: DateTime.Utc;
@@ -86,12 +85,10 @@ const codexLogin = Effect.fnUntraced(function* codexLogin(text: string) {
 	} satisfies Login;
 });
 
-/** A Claude credential file read for its login's end alone, never its tokens. */
 const ClaudeEnd = Schema.Struct({ refreshTokenExpiresAt: Schema.optionalKey(Schema.Finite) });
 
 const ClaudeSeen = Schema.fromJsonString(Schema.Struct({ claudeAiOauth: ClaudeEnd }));
 
-/** A Codex credential file read for its `tokens` alone, never what they hold. */
 const CodexSeen = Schema.fromJsonString(Schema.Struct({ tokens: Schema.Struct({}) }));
 
 const claudeEnds = (text: string): Effect.Effect<Option.Option<DateTime.Utc>, Schema.SchemaError> =>
