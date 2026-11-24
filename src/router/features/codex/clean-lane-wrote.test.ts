@@ -1,11 +1,11 @@
 import { Array, Effect, Predicate, String as Str, pipe } from "effect";
 import type { CleanLaneRefused, CodexRequestRejected } from "./index.ts";
-import { allCleared, cleanBodyPastBorder } from "./test-kit.ts";
+import { allCleared, cleanBodyPastBorder, decodedAfter, writersOf } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
-import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import { replies, requests } from "./captures/index.ts";
 import { Digest } from "effect/crypto";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
+import { cleanLaneKeys } from "./index.ts";
 
 const blob = "gAAAAABtool-description-blob-0001";
 
@@ -24,13 +24,7 @@ const cleanAfter = (
 	text: string,
 	reply: string,
 ): Effect.Effect<string, CodexRequestRejected | CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.gen(function* encodeAfter() {
-		const keys = yield* cleanLaneKeys(reply);
-		const written = new Set(keys);
-		const request = yield* decodeRequest(text, (key) => written.has(key));
-
-		return yield* cleanBodyPastBorder(allCleared)(request);
-	});
+	Effect.flatMap(decodedAfter(reply)(text), cleanBodyPastBorder(allCleared));
 
 const withCallBlob = Str.replace('"name":"exec_command","arguments"', `"name":"${blob}","arguments"`);
 
@@ -87,22 +81,8 @@ const plainReasoning = Effect.gen(function* plainReasoning() {
 	assert.notMatch(sent, /"type":"reasoning"/u);
 });
 
-const writersIn = Effect.fnUntraced(function* writersIn(text: string) {
-	const keys = yield* cleanLaneKeys(replies.customToolCallReply);
-	const written = new Set(keys);
-	const { messages } = yield* decodeRequest(text, (key) => written.has(key));
-
-	return pipe(
-		messages,
-		Array.flatMap((message) => {
-			if (message.role === "assistant") {
-				return [message.writtenBy];
-			}
-
-			return [];
-		}),
-	);
-});
+const writersIn = (text: string): Effect.Effect<readonly string[], CodexRequestRejected, Digest.Digest> =>
+	Effect.map(decodedAfter(replies.customToolCallReply)(text), ({ messages }) => writersOf(messages));
 
 const echoed = Effect.gen(function* echoed() {
 	const edited = Str.replace("I’ll run one shell command", "I’ll run two shell commands")(requests.resumed);

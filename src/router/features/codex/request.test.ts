@@ -1,13 +1,13 @@
 import { Array, Effect, Exit, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
 import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
-import { allCleared, cleanBodyPastBorder, nothingWritten, realModel } from "./test-kit.ts";
+import { allCleared, cleanBodyPastBorder, decodedAfter, nothingWritten, realModel, writersOf } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
-import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import { replies, requests } from "./captures/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { bridgesFor } from "#router/features/border/index.ts";
+import { decodeRequest } from "./index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
@@ -41,14 +41,6 @@ const withBridge = Str.replace(/^(?<head>\{"model":"[^"]*")/u, `$<head>,"instruc
 
 const decoded = (text: string): Effect.Effect<CodexRequest, CodexRequestRejected, Digest.Digest> =>
 	decodeRequest(text, nothingWritten);
-
-const decodedAfter = (text: string, reply: string): Effect.Effect<CodexRequest, CodexRequestRejected, Digest.Digest> =>
-	Effect.gen(function* afterReply() {
-		const keys = yield* cleanLaneKeys(reply);
-		const written = new Set(keys);
-
-		return yield* decodeRequest(text, (key) => written.has(key));
-	});
 
 const cleanBody = (
 	request: CodexRequest,
@@ -145,20 +137,8 @@ const unreadPart = Effect.gen(function* unreadPart() {
 	);
 });
 
-const writersOf = (messages: readonly Message[]): readonly string[] =>
-	pipe(
-		messages,
-		Array.flatMap((message) => {
-			if (message.role === "assistant") {
-				return [message.writtenBy];
-			}
-
-			return [];
-		}),
-	);
-
 const reasoning = Effect.gen(function* reasoning() {
-	const writtenRequest = yield* decodedAfter(requests.customToolCall, replies.customToolCallReply);
+	const writtenRequest = yield* decodedAfter(replies.customToolCallReply)(requests.customToolCall);
 	const otherRequest = yield* decoded(requests.customToolCall);
 	const written = yield* cleanBodyPastBorder(allCleared)(writtenRequest);
 	const other = yield* cleanBodyPastBorder(allCleared)(otherRequest);
@@ -177,11 +157,11 @@ const blobs = Effect.gen(function* blobs() {
 	const unwritten = yield* Effect.flatMap(decoded(requests.subagent), cleanBodyPastBorder(allCleared));
 
 	const written = yield* Effect.flatMap(
-		decodedAfter(requests.subagent, replies.spawnReply),
+		decodedAfter(replies.spawnReply)(requests.subagent),
 		cleanBodyPastBorder(allCleared),
 	);
 
-	const parent = yield* decodedAfter(requests.subagentParent, replies.spawnReply);
+	const parent = yield* decodedAfter(replies.spawnReply)(requests.subagentParent);
 	const sent = yield* cleanBody(parent);
 
 	const spawns = pipe(
@@ -289,7 +269,7 @@ const partKinds = Effect.gen(function* partKinds() {
 const withoutMessageId = Str.replace(/"id":"msg_0dfca2[^"]*",/u, "");
 
 const unidentified = Effect.gen(function* unidentified() {
-	const request = yield* decodedAfter(withoutMessageId(requests.customToolCall), replies.customToolCallReply);
+	const request = yield* decodedAfter(replies.customToolCallReply)(withoutMessageId(requests.customToolCall));
 
 	assert.deepStrictEqual(writersOf(request.messages), ["other"]);
 });
