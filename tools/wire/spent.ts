@@ -2,7 +2,7 @@ import { Array, Number as Num, Option, Record, Schema, String as Str, pipe } fro
 
 /** Tokens one harness turn spent, by how its model bills them. `input` holds no cached token. */
 interface Tokens {
-	readonly input: number;
+	readonly uncachedInput: number;
 	readonly cacheRead: number;
 	readonly cacheWrite: number;
 	readonly output: number;
@@ -21,16 +21,16 @@ const summed = (all: readonly Tokens[]): Tokens => ({
 			Array.map(({ cacheWrite }) => cacheWrite),
 		),
 	),
-	input: Num.sumAll(
-		pipe(
-			all,
-			Array.map(({ input }) => input),
-		),
-	),
 	output: Num.sumAll(
 		pipe(
 			all,
 			Array.map(({ output }) => output),
+		),
+	),
+	uncachedInput: Num.sumAll(
+		pipe(
+			all,
+			Array.map(({ uncachedInput }) => uncachedInput),
 		),
 	),
 });
@@ -90,8 +90,8 @@ const tokensIn = {
 			Array.map(({ usage }) => ({
 				cacheRead: usage.cache_read_input_tokens,
 				cacheWrite: usage.cache_creation_input_tokens,
-				input: usage.input_tokens,
 				output: usage.output_tokens,
+				uncachedInput: usage.input_tokens,
 			})),
 			summed,
 		),
@@ -101,23 +101,28 @@ const tokensIn = {
 			Array.map(({ usage }) => ({
 				cacheRead: usage.cached_input_tokens,
 				cacheWrite: 0,
-				input: usage.input_tokens - usage.cached_input_tokens,
 				output: usage.output_tokens,
+				uncachedInput: usage.input_tokens - usage.cached_input_tokens,
 			})),
 			summed,
 		),
 	pi: (printed: string): Tokens =>
 		pipe(
 			decodePi(printed),
-			Array.map(({ message }) => message.usage),
+			Array.map(({ message: { usage } }) => ({
+				cacheRead: usage.cacheRead,
+				cacheWrite: usage.cacheWrite,
+				output: usage.output,
+				uncachedInput: usage.input,
+			})),
 			summed,
 		),
 } as const;
 
 /** US dollars per million tokens of each model a BAA account may run in the live run, as pi 1.6.0's catalog lists them. */
 const prices = {
-	"claude-haiku-5-5": { cacheRead: 0.01, cacheWrite: 0.125, input: 0.1, output: 0.5 },
-	"gpt-6-luna": { cacheRead: 0.01, cacheWrite: 0.125, input: 0.1, output: 0.5 },
+	"claude-haiku-5-5": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
+	"gpt-6-luna": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
 } satisfies Record<string, Tokens>;
 
 const perMillion = 1_000_000;
@@ -137,7 +142,7 @@ const costOf = ({ model, tokens }: { readonly model: string; readonly tokens: To
 			Array.findFirst(([name]) => name === model),
 		),
 		([, price]) =>
-			(tokens.input * price.input +
+			(tokens.uncachedInput * price.uncachedInput +
 				tokens.cacheRead * price.cacheRead +
 				tokens.cacheWrite * price.cacheWrite +
 				tokens.output * price.output) /
