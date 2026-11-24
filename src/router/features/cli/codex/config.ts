@@ -1,6 +1,6 @@
 import { Array, Option, String as Str, pipe } from "effect";
-import { codexSettings, dotted, provider } from "./codex-settings.ts";
-import type { Setting } from "./codex-settings.ts";
+import { codexSettings, dotted, provider } from "./settings.ts";
+import type { Setting } from "./settings.ts";
 import type { Statement } from "#router/primitives/toml.ts";
 import { statementsOf } from "#router/primitives/toml.ts";
 

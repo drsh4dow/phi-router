@@ -2,7 +2,7 @@ import { Console, Effect, Option, Schema } from "effect";
 import { SealNotices } from "#router/client/seal-notices.ts";
 import { SessionId } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
-import { failedAs } from "./pin.ts";
+import { failedAs } from "#router/features/cli/sessions/index.ts";
 import { portOf } from "./session-start.ts";
 import { sealNotice } from "./phi-text.ts";
 import { standardInput } from "#router/client/standard-input.ts";

@@ -1,5 +1,5 @@
 import { Effect, Option, Struct } from "effect";
-import { canaryRun, reported } from "./doctor.ts";
+import { canaryRun, reported } from "./canary.ts";
 import { installedPackage, piTurn } from "#router/client/harnesses/index.ts";
 import { piWire } from "#shared/pi.ts";
 

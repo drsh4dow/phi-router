@@ -2,7 +2,7 @@ import { AccountState, loginFolders, loginIn } from "#router/client/accounts/ind
 import { Argument, Command, Flag } from "effect/cli";
 import { Array, Clock, Console, DateTime, Effect, Option, String as Str, flow, pipe } from "effect";
 import type { Lane, NamedAccount } from "#router/client/configuration/index.ts";
-import { accountsAdd } from "./accounts-add.ts";
+import { accountsAdd } from "./add.ts";
 import { configuredAccounts } from "#router/client/configuration/index.ts";
 
 interface AccountRow {
@@ -232,3 +232,5 @@ const accounts = Command.make("accounts", {}, () => listed).pipe(
 );
 
 export { accounts };
+
+export { tokenKinds } from "./add.ts";

@@ -1,5 +1,5 @@
 import { Array, Console, Effect, pipe } from "effect";
-import { claudeSettings, exemptionName, restored } from "./claude-settings.ts";
+import { claudeSettings, exemptionName, restored } from "./settings.ts";
 import { rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
 
 const names = pipe(

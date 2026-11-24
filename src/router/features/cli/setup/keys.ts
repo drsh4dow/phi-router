@@ -4,7 +4,7 @@ import { hiddenLine, typedLine } from "#router/client/terminal.ts";
 import { CliError } from "effect/cli";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { storedAnthropicKey } from "#router/client/harnesses/index.ts";
-import { tokenKinds } from "./accounts-add.ts";
+import { tokenKinds } from "#router/features/cli/accounts/index.ts";
 
 /** Setup stopped, and changed only what `copy` says. `copy` is the whole of what the human reads, and holds no key. */
 class SetupStopped extends Schema.TaggedError<SetupStopped, { readonly brand: unique symbol }>()("SetupStopped", {

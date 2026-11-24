@@ -1,9 +1,9 @@
 import { Array, Config, Effect, Option, Record, Schema, String as Str, pipe } from "effect";
 import type { Pid } from "#shared/cli.ts";
 import { SessionId } from "#shared/cli.ts";
-import { modelAddress } from "./claude-settings.ts";
+import { modelAddress } from "#router/features/cli/claude/index.ts";
 import { standardInput } from "#router/client/standard-input.ts";
-import { start } from "./start.ts";
+import { start } from "#router/features/cli/start.ts";
 import { userSettings } from "#router/client/harnesses/index.ts";
 
 /** What a session-start hook reads on its stdin, as far as a lease needs it. The harness's field names stay here. */

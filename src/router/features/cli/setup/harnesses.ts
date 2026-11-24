@@ -1,11 +1,8 @@
 import { Effect, Option, Path } from "effect";
+import { claudeCanary, codexCanary, piCanary } from "#router/features/cli/doctor/index.ts";
 import { claudePlugin, codexHome, codexPlugin, installedPackage } from "#router/client/harnesses/index.ts";
-import { claudeCanary } from "./doctor.ts";
-import { codexCanary } from "./doctor-codex.ts";
-import { codexSwitchedOn } from "./codex.ts";
-import { piCanary } from "./doctor-pi.ts";
-import { plugin } from "./claude-settings.ts";
-import { switchedOn } from "./on.ts";
+import { plugin, switchedOn } from "#router/features/cli/claude/index.ts";
+import { codexSwitchedOn } from "#router/features/cli/codex/index.ts";
 
 /**
  * Where setup installs phi-router from, as each installer takes it: Claude Code's marketplace, what

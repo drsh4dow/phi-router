@@ -1,6 +1,6 @@
 import { Array, Effect, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { canaryChecks } from "./doctor.ts";
+import { canaryChecks } from "./canary.ts";
 
 const canary = "phi-doctor-canary-42";
 

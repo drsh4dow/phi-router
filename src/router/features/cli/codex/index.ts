@@ -11,9 +11,9 @@ import {
 	sealedRole,
 	withExemption,
 	withoutExemption,
-} from "./codex-settings.ts";
-import { inlineOwner, switchedOff, switchedOn } from "./codex-config.ts";
-import { hookTrust } from "./codex-holds.ts";
+} from "./settings.ts";
+import { inlineOwner, switchedOff, switchedOn } from "./config.ts";
+import { hookTrust } from "./holds.ts";
 
 class InlineTable extends Schema.TaggedError<InlineTable, { readonly brand: unique symbol }>()("InlineTable", {
 	file: Schema.String,
@@ -156,3 +156,21 @@ const offCodex = Effect.fn("off codex")(function* offCodex(named: string) {
 });
 
 export { codexSwitchedOn, offCodex, onCodex };
+
+export {
+	addressEnv,
+	auto,
+	codexSettings,
+	dotenvFile,
+	dotted,
+	endsWithExemption,
+	exemptionLine,
+	plugin,
+	provider,
+	roleFile,
+	sealedRole,
+} from "./settings.ts";
+
+export { holds, hookTrust, pluginEnabled } from "./holds.ts";
+
+export { codexPrompt } from "./prompt.ts";

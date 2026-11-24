@@ -22,3 +22,5 @@ const sessionCommands = pipe(
 );
 
 export { port, session, sessionCommands };
+
+export { failedAs, pin, unpin } from "./pin.ts";

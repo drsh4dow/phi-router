@@ -1,9 +1,9 @@
 import { Command, Flag } from "effect/cli";
 import { address, pid } from "./adapters.ts";
-import { port, session } from "./sessions.ts";
+import { port, session } from "./sessions/index.ts";
 import { Proofs } from "#router/client/router-port/index.ts";
 import { serve } from "./serve.ts";
-import { sessionStart } from "./session-start.ts";
+import { sessionStart } from "./hooks/index.ts";
 import { spelling } from "#shared/cli.ts";
 import { start } from "./start.ts";
 

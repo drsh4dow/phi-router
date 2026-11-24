@@ -1,15 +1,15 @@
 import { Array, Console, Effect, Option, Predicate, String as Str, pipe } from "effect";
 import { Command, Flag } from "effect/cli";
-import type { HarnessName, Source } from "./setup-harnesses.ts";
-import { baaAsk, keyFor, savedKeyFile, stillHeld, stopped, vendorWords } from "./setup-keys.ts";
+import type { HarnessName, Source } from "./harnesses.ts";
+import { baaAsk, keyFor, savedKeyFile, stillHeld, stopped, vendorWords } from "./keys.ts";
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
-import type { HeldKey } from "./setup-keys.ts";
+import type { HeldKey } from "./keys.ts";
 import { KeyChecks } from "#router/client/keys/index.ts";
-import { Platform } from "./platform.ts";
+import { Platform } from "#router/features/cli/platform.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
-import { harnesses } from "./setup-harnesses.ts";
+import { harnesses } from "./harnesses.ts";
 import { installRun } from "#router/client/harnesses/index.ts";
 
 /** The repository setup installs from unless `--source` names a checkout. */

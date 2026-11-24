@@ -1,6 +1,6 @@
 import { Console, Effect, Option, Schema } from "effect";
 import { firstLine } from "#router/client/harnesses/index.ts";
-import { providerId } from "./codex-settings.ts";
+import { providerId } from "./settings.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 
 /** What Codex writes to a prompt hook's stdin, as far as this check reads it. The harness's field names stay here. */

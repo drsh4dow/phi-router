@@ -1,9 +1,9 @@
 import { Array, Effect, Option, Record, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { codexSettings, dotted } from "./codex-settings.ts";
-import { inlineOwner, switchedOff, switchedOn } from "./codex-config.ts";
-import type { Setting } from "./codex-settings.ts";
-import { holds } from "./codex-holds.ts";
+import { codexSettings, dotted } from "./settings.ts";
+import { inlineOwner, switchedOff, switchedOn } from "./config.ts";
+import type { Setting } from "./settings.ts";
+import { holds } from "./holds.ts";
 
 const provider = `[model_providers.phi] # phi-router
 name = "phi-router" # phi-router

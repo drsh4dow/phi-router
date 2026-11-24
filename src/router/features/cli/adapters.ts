@@ -1,13 +1,9 @@
 import { Command, Flag } from "effect/cli";
 import { Pid, spelling } from "#shared/cli.ts";
-import { offCodex, onCodex } from "./codex.ts";
-import { codexPrompt } from "./codex-prompt.ts";
-import { doctor } from "./doctor.ts";
-import { doctorCodex } from "./doctor-codex.ts";
-import { doctorPi } from "./doctor-pi.ts";
-import { off } from "./off.ts";
-import { on } from "./on.ts";
-import { setupCommand } from "./setup.ts";
+import { codexPrompt, offCodex, onCodex } from "./codex/index.ts";
+import { doctorClaude, doctorCodex, doctorPi } from "./doctor/index.ts";
+import { off, on } from "./claude/index.ts";
+import { setupCommand } from "./setup/index.ts";
 
 /** The model address a hook read from its harness. An empty value means none. */
 const address = Flag.String("address");
@@ -21,7 +17,7 @@ const claudeOn = Command.make("claude", { configDir }, (flags) => on(flags.confi
 
 const claudeOff = Command.make("claude", { configDir }, (flags) => off(flags.configDir));
 
-const claudeDoctor = Command.make("claude", { configDir }, (flags) => doctor(flags.configDir));
+const claudeDoctor = Command.make("claude", { configDir }, (flags) => doctorClaude(flags.configDir));
 
 /** Codex's home folder, when it is not the one `CODEX_HOME` or the home folder gives. Empty means none. */
 const codexHome = Flag.String("codex-home").pipe(Flag.withDefault(""));

@@ -9,7 +9,7 @@ import {
 	recordReason,
 	routerAddress,
 	shellLists,
-} from "./claude-settings.ts";
+} from "./settings.ts";
 import { rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
 
 /**

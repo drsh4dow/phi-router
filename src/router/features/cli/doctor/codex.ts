@@ -7,15 +7,17 @@ import {
 	dotted,
 	endsWithExemption,
 	exemptionLine,
+	holds,
+	hookTrust,
 	plugin,
+	pluginEnabled,
 	provider,
 	roleFile,
 	sealedRole,
-} from "./codex-settings.ts";
-import { canaryRun, reported } from "./doctor.ts";
+} from "#router/features/cli/codex/index.ts";
+import { canaryRun, reported } from "./canary.ts";
 import { codexHome, codexPlugin, codexTurn, textOrEmpty } from "#router/client/harnesses/index.ts";
-import { holds, hookTrust, pluginEnabled } from "./codex-holds.ts";
-import type { Check } from "./doctor.ts";
+import type { Check } from "./canary.ts";
 
 /** What `doctor codex` reads in Codex's home: `config.toml`, `.env`, the role file, and the plugin's install. */
 interface Install {

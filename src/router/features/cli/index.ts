@@ -1,12 +1,12 @@
 import { Console, Effect } from "effect";
 import { Command } from "effect/cli";
 import { Platform } from "./platform.ts";
-import { accounts } from "./accounts.ts";
+import { accounts } from "./accounts/index.ts";
 import { adapterCommands } from "./adapters.ts";
-import { hookCommands } from "./hooks.ts";
+import { hookCommands } from "./hooks/index.ts";
 import { models } from "./models.ts";
 import { routerCommands } from "./router-commands.ts";
-import { sessionCommands } from "./sessions.ts";
+import { sessionCommands } from "./sessions/index.ts";
 import { spelling } from "#shared/cli.ts";
 
 const root = Command.make(
@@ -38,4 +38,4 @@ export { Platform } from "./platform.ts";
 
 export { noBaaKeyExit } from "./no-baa-key.ts";
 
-export { roleFile, sealedRole } from "./codex-settings.ts";
+export { roleFile, sealedRole } from "./codex/index.ts";
