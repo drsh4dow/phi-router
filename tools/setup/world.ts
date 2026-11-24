@@ -14,7 +14,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
-import { packageCopy, pluginCopy } from "#tools/plugin/copied.ts";
+import { packageCopy, piCli, pluginCopy } from "#tools/plugin/copied.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { enabled } from "#tools/codex/configured.ts";
 import { ran } from "#tools/lifecycle/launched.ts";
@@ -69,10 +69,6 @@ const keyMock = Effect.gen(function* keyMock() {
 const claudeStandIn = new URL("../claude/stand-in.ts", import.meta.url).pathname;
 
 const codexStandIn = new URL("../codex/stand-in.ts", import.meta.url).pathname;
-
-const piCli = decodeURIComponent(
-	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
-);
 
 interface Copies {
 	readonly claudePlugin: string;

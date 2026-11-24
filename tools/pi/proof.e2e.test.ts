@@ -1,19 +1,15 @@
 import { Array, Effect, FileSystem, Layer, Option, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { assert, it } from "@effect/vitest";
+import { packageCopy, piCli } from "#tools/plugin/copied.ts";
 import { secretKept, squatter } from "#tools/lifecycle/squatter.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { folder } from "#tools/claude/configured.ts";
 import { freePort } from "#tools/lifecycle/launched.ts";
-import { packageCopy } from "#tools/plugin/copied.ts";
 import { stopped } from "#tools/route/stopped.ts";
 
 const patient = { timeout: 120_000 };
-
-const piCli = decodeURIComponent(
-	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
-);
 
 const canary = "phi-canary-36";
 

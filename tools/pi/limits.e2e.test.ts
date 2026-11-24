@@ -1,16 +1,12 @@
 import { Array, Effect, Formatter, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
+import { packageCopy, piCli } from "#tools/plugin/copied.ts";
 import { NodeServices } from "@effect/platform-node";
 import { folder } from "#tools/claude/configured.ts";
-import { packageCopy } from "#tools/plugin/copied.ts";
 import { ran } from "#tools/lifecycle/launched.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
 const patient = { timeout: 120_000 };
-
-const piCli = decodeURIComponent(
-	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
-);
 
 interface Shown {
 	readonly context: string;

@@ -2,18 +2,14 @@ import { Effect, FileSystem, Formatter, Layer, Option, String as Str, Struct } f
 import { answers, ran } from "#tools/lifecycle/launched.ts";
 import { assert, it } from "@effect/vitest";
 import { folder, phiRouter } from "#tools/claude/configured.ts";
+import { packageCopy, piCli } from "#tools/plugin/copied.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import type { PlatformError } from "effect";
-import { packageCopy } from "#tools/plugin/copied.ts";
 
 const patient = { timeout: 60_000 };
 
 const ok = 0;
-
-const piCli = decodeURIComponent(
-	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
-);
 
 type Install =
 	| "whole"
