@@ -133,7 +133,7 @@ const encoded = Effect.fnUntraced(function* encoded(
 	{ bridge, decoded, refusals }: Encoding,
 	upstream: Target,
 ): Effect.fn.Return<string, CleanLaneRefused> {
-	const model = yield* modelEdit(decoded, upstream.model);
+	const model = yield* modelEdit(decoded, upstream.upstreamModel);
 
 	if (upstream.lane === "clean") {
 		if (Array.isReadonlyArrayNonEmpty(refusals)) {

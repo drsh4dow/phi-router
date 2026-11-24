@@ -35,7 +35,7 @@ const sent = Effect.fnUntraced(function* sent(request: MessagesRequest, upstream
 	return yield* decodeBody(body, { onExcessProperty: "error" });
 });
 
-const clean = (messages: readonly Message[]): Target => ({ lane: "clean", messages, model: target });
+const clean = (messages: readonly Message[]): Target => ({ lane: "clean", messages, upstreamModel: target });
 
 const replies = (body: WireBody): readonly (readonly string[])[] =>
 	pipe(
@@ -96,7 +96,7 @@ const stubbedWhere = (
 const baaThinking = Effect.gen(function* baaThinking() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, clean(request.messages));
-	const toBaa = yield* sent(request, { lane: "sealed", model: target, pinned: false });
+	const toBaa = yield* sent(request, { lane: "sealed", pinned: false, upstreamModel: target });
 
 	assert.deepStrictEqual(replies(toOpen), [["text"], ["tool_use"]]);
 	assert.deepStrictEqual(replies(toBaa), [
@@ -167,7 +167,7 @@ const replyStubKeepsCache = Effect.gen(function* replyStubKeepsCache() {
 const unreadableWithheld = Effect.gen(function* unreadableWithheld() {
 	const request = yield* decodeRequest(withUnreadable, nobodyWrote, "claude");
 	const toOpen = yield* request.encode(clean(request.messages));
-	const toBaa = yield* request.encode({ lane: "sealed", model: target, pinned: false });
+	const toBaa = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: target });
 	const received = yield* decodeBody(toOpen);
 	const original = yield* decodeBody(withUnreadable);
 	const kept = yield* decodeBody(toBaa);
@@ -264,7 +264,7 @@ const unchangedAsSent = Effect.gen(function* unchangedAsSent() {
 	for (const [name, body] of Record.toEntries(Record.set(requests, "respelled", respelled))) {
 		const request = yield* decodeRequest(body, openWroteAll, "claude");
 		const toOpen = yield* request.encode(clean(request.messages));
-		const toBaa = yield* request.encode({ lane: "sealed", model: target, pinned: false });
+		const toBaa = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: target });
 
 		assert.strictEqual(toOpen, toBaa, name);
 	}

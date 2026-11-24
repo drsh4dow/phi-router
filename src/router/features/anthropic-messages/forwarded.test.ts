@@ -139,7 +139,7 @@ const cleanBodyOf = (
 ): Effect.Effect<Option.Option<string>, never, Digest.Digest> =>
 	pipe(
 		guard({ harness: "claude", lookup, messages: request.messages }),
-		Effect.flatMap((guarded) => request.encode({ lane: "clean", messages: guarded, model: "target" })),
+		Effect.flatMap((guarded) => request.encode({ lane: "clean", messages: guarded, upstreamModel: "target" })),
 		Effect.option,
 	);
 

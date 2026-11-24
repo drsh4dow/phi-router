@@ -46,7 +46,7 @@ const openThinking = '{"type":"thinking","thinking":"","signature":"signature-pl
 const echoOf = Effect.fnUntraced(function* echoOf(body: string) {
 	const keys = yield* replyKeys(toolCallReply);
 	const request = yield* decodeRequest(body, (key) => Array.contains(keys, key), "claude");
-	const clean = yield* request.encode({ lane: "clean", messages: request.messages, model: "claude-target" });
+	const clean = yield* request.encode({ lane: "clean", messages: request.messages, upstreamModel: "claude-target" });
 
 	const writers = pipe(
 		request.messages,
@@ -182,7 +182,7 @@ const lostMessages = 1;
 const misaligned = Effect.gen(function* misaligned() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const messages = Array.dropRight(request.messages, lostMessages);
-	const sent = yield* Effect.exit(request.encode({ lane: "clean", messages, model: "claude-target" }));
+	const sent = yield* Effect.exit(request.encode({ lane: "clean", messages, upstreamModel: "claude-target" }));
 
 	assert.isTrue(Exit.hasDies(sent));
 });

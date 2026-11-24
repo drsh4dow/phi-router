@@ -54,7 +54,9 @@ const sendingOf = Effect.fnUntraced(function* sendingOf({
 }) {
 	const sealed = (reason: Reason): Effect.Effect<Sending> =>
 		Effect.map(
-			Effect.orDie(request.encode({ lane: "sealed", model: models.sealed.model, pinned: choice.kind === "pinned" })),
+			Effect.orDie(
+				request.encode({ lane: "sealed", pinned: choice.kind === "pinned", upstreamModel: models.sealed.model }),
+			),
 			(body) => Struct.assign(models.sealed, { body, lane: "sealed" as const, reason }),
 		);
 
@@ -75,7 +77,7 @@ const sendingOf = Effect.fnUntraced(function* sendingOf({
 	};
 
 	return yield* guard({ harness, lookup, messages: request.messages }).pipe(
-		Effect.flatMap((messages) => request.encode({ lane: "clean", messages, model: models.clean.model })),
+		Effect.flatMap((messages) => request.encode({ lane: "clean", messages, upstreamModel: models.clean.model })),
 		Effect.flatMap(clean),
 		Effect.catchTags({
 			CleanLaneRefused: () => sealed("router failure"),

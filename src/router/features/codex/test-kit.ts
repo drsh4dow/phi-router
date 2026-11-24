@@ -17,7 +17,7 @@ const cleanBodyPastBorder =
 	(lookup: Lookup) =>
 	(request: CodexRequest): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
 		Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
-			request.encode({ lane: "clean", messages, model: realModel }),
+			request.encode({ lane: "clean", messages, upstreamModel: realModel }),
 		);
 
 const decodedAfter =

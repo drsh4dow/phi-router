@@ -34,7 +34,7 @@ const spaced = `{
 const pinnedIsIdentity = Effect.gen(function* pinnedIsIdentity() {
 	for (const [name, body] of Record.toEntries(requests)) {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
-		const sent = yield* request.encode({ lane: "sealed", model: request.model, pinned: true });
+		const sent = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
 
 		assert.strictEqual(sent, body, `${name} changed on its way through`);
 	}
@@ -43,7 +43,7 @@ const pinnedIsIdentity = Effect.gen(function* pinnedIsIdentity() {
 const sealedAddsOnlyTheBridge = Effect.gen(function* sealedAddsOnlyTheBridge() {
 	for (const [name, body] of Record.toEntries(requests)) {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
-		const sent = yield* request.encode({ lane: "sealed", model: request.model, pinned: false });
+		const sent = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: request.model });
 
 		assert.lengthOf(Str.split(body, systemThenTools), piecesAroundOneEnd, `${name} has one end of system`);
 		assert.strictEqual(
@@ -58,9 +58,9 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 	const request = yield* decodeRequest(bigNumbers, nobodyWrote, "claude");
 
 	const lanes = [
-		yield* request.encode({ lane: "sealed", model: target, pinned: true }),
-		yield* request.encode({ lane: "sealed", model: target, pinned: false }),
-		yield* request.encode({ lane: "clean", messages: request.messages, model: target }),
+		yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: target }),
+		yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: target }),
+		yield* request.encode({ lane: "clean", messages: request.messages, upstreamModel: target }),
 	];
 
 	const declared = pipe(
@@ -100,7 +100,7 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 
 const pinnedKeepsSpacing = Effect.gen(function* pinnedKeepsSpacing() {
 	const request = yield* decodeRequest(spaced, nobodyWrote, "claude");
-	const sent = yield* request.encode({ lane: "sealed", model: target, pinned: true });
+	const sent = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: target });
 
 	assert.strictEqual(sent, Str.replace('"model": "phi/auto"', `"model": "${target}"`)(spaced));
 });

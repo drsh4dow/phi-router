@@ -124,8 +124,8 @@ const cleanBody =
 			return rawText(Record.fromEntries([["model", model], ["instructions", bridgesFor.codex], ...fields]));
 		});
 
-const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { model, pinned }: Sealed) {
-	const head = yield* modelField(model);
+const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { pinned, upstreamModel }: Sealed) {
+	const head = yield* modelField(upstreamModel);
 
 	if (pinned) {
 		return head + afterModel;
@@ -145,7 +145,7 @@ const encodeKeeping =
 
 		return cleanInput(encoding, target.messages).pipe(
 			Effect.map(Array.filter(keep)),
-			Effect.flatMap(cleanBody(encoding.raw, target.model)),
+			Effect.flatMap(cleanBody(encoding.raw, target.upstreamModel)),
 		);
 	};
 

@@ -22,7 +22,7 @@ const sealedAsSent = (
 ): Effect.Effect<CodexRequest, CodexRequestRejected | CleanLaneRefused, Digest.Digest> =>
 	Effect.gen(function* decodeAndSeal() {
 		const request = yield* decodeRequest(text, nothingWritten);
-		const sealed = yield* request.encode({ lane: "sealed", model: request.model, pinned: true });
+		const sealed = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
 
 		assert.strictEqual(sealed, text);
 

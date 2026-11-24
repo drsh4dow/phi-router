@@ -240,8 +240,8 @@ const stubsStayValid = Effect.fnUntraced(function* stubsStayValid(
 	const body = withVendorKeys(requests[name], pickedBy(vendor));
 	const request = yield* decodeRequest(body, nobodyWrote, "claude");
 	const guarded = sealedIn(request.messages, pickedBy(mask));
-	const toOpen = yield* request.encode({ lane: "clean", messages: guarded.messages, model: "claude-target" });
-	const toBaa = yield* request.encode({ lane: "sealed", model: "claude-target", pinned: false });
+	const toOpen = yield* request.encode({ lane: "clean", messages: guarded.messages, upstreamModel: "claude-target" });
+	const toBaa = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: "claude-target" });
 
 	yield* pairingHolds(name, body, [toOpen, toBaa]);
 

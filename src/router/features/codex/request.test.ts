@@ -71,8 +71,8 @@ const captures = [...Record.toEntries(requests), ...Record.toEntries(replies)];
 const sealedIdentity = (text: string): Effect.Effect<void, CodexRequestRejected | CleanLaneRefused, Digest.Digest> =>
 	Effect.gen(function* encodeSealed() {
 		const request = yield* decoded(text);
-		const pinned = yield* request.encode({ lane: "sealed", model: request.model, pinned: true });
-		const bridged = yield* request.encode({ lane: "sealed", model: request.model, pinned: false });
+		const pinned = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
+		const bridged = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: request.model });
 
 		assert.strictEqual(pinned, text);
 		assert.strictEqual(bridged, withBridge(text));
@@ -80,7 +80,7 @@ const sealedIdentity = (text: string): Effect.Effect<void, CodexRequestRejected 
 
 const sealedModel = Effect.gen(function* sealedModel() {
 	const request = yield* decoded(requests.customToolCall);
-	const sent = yield* request.encode({ lane: "sealed", model: realModel, pinned: false });
+	const sent = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: realModel });
 
 	assert.strictEqual(request.model, "phi/auto");
 	assert.strictEqual(sent, withBridge(withRealModel(requests.customToolCall)));
@@ -222,7 +222,7 @@ const tokenFree = (text: string): Effect.Effect<void> =>
 const misaligned = Effect.gen(function* misaligned() {
 	const request = yield* decoded(requests.firstTurn);
 	const messages = [...request.messages, ...request.messages];
-	const exit = yield* Effect.exit(request.encode({ lane: "clean", messages, model: realModel }));
+	const exit = yield* Effect.exit(request.encode({ lane: "clean", messages, upstreamModel: realModel }));
 
 	assert.isTrue(Exit.hasDies(exit));
 });

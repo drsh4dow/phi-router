@@ -48,7 +48,12 @@ const sectionsSealed = (messages: readonly Message[]): readonly Message[] =>
 const attributionFirst = Effect.gen(function* attributionFirst() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const original = yield* decodeBody(requests.toolResult);
-	const toOpen = yield* sent(request, { lane: "clean", messages: sectionsSealed(request.messages), model: target });
+
+	const toOpen = yield* sent(request, {
+		lane: "clean",
+		messages: sectionsSealed(request.messages),
+		upstreamModel: target,
+	});
 
 	const expected = pipe(
 		original.system ?? [],
@@ -71,9 +76,9 @@ const attributionFirst = Effect.gen(function* attributionFirst() {
 const bridgeOnce = Effect.gen(function* bridgeOnce() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const original = yield* decodeBody(requests.toolResult);
-	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, model: target });
-	const toBaa = yield* sent(request, { lane: "sealed", model: target, pinned: false });
-	const pinned = yield* sent(request, { lane: "sealed", model: target, pinned: true });
+	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
+	const toBaa = yield* sent(request, { lane: "sealed", pinned: false, upstreamModel: target });
+	const pinned = yield* sent(request, { lane: "sealed", pinned: true, upstreamModel: target });
 
 	assert.deepStrictEqual(toOpen.system, [...(original.system ?? []), bridge]);
 	assert.deepStrictEqual(toBaa.system, [...(original.system ?? []), bridge]);
@@ -82,8 +87,8 @@ const bridgeOnce = Effect.gen(function* bridgeOnce() {
 
 const modelReplaced = Effect.gen(function* modelReplaced() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
-	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, model: target });
-	const toBaa = yield* sent(request, { lane: "sealed", model: target, pinned: true });
+	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
+	const toBaa = yield* sent(request, { lane: "sealed", pinned: true, upstreamModel: target });
 
 	assert.notStrictEqual(request.model, target);
 	assert.strictEqual(toOpen.model, target);
@@ -194,13 +199,13 @@ const bridgeBlock = `{"type":"text","text":"${bridge.text}"}`;
 
 const emptySystem = '{"model":"m","system":[],"messages":[{"role":"user","content":"hi"}],"max_tokens":10}';
 
-const sealedOnOwnModel: Target = { lane: "sealed", model: "m", pinned: false };
+const sealedOnOwnModel: Target = { lane: "sealed", pinned: false, upstreamModel: "m" };
 
 const bridgeOpensSystem = Effect.gen(function* bridgeOpensSystem() {
 	const withoutSystem = yield* decodeRequest(wholes, nobodyWrote, "claude");
 	const withEmptySystem = yield* decodeRequest(emptySystem, nobodyWrote, "claude");
 	const toBaa = yield* withoutSystem.encode(sealedOnOwnModel);
-	const toOpen = yield* withoutSystem.encode({ lane: "clean", messages: withoutSystem.messages, model: "m" });
+	const toOpen = yield* withoutSystem.encode({ lane: "clean", messages: withoutSystem.messages, upstreamModel: "m" });
 	const emptyToBaa = yield* withEmptySystem.encode(sealedOnOwnModel);
 	const bridged = Str.replace(/\}$/u, `,"system":[${bridgeBlock}]}`)(wholes);
 

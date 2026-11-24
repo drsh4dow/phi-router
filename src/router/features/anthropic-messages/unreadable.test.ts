@@ -43,9 +43,13 @@ const strict = { onExcessProperty: "error" } as const;
 
 const decodeBody = Schema.decodeEffect(BodyJson);
 
-const clean = (request: MessagesRequest): Target => ({ lane: "clean", messages: request.messages, model: target });
+const clean = (request: MessagesRequest): Target => ({
+	lane: "clean",
+	messages: request.messages,
+	upstreamModel: target,
+});
 
-const sealed: Target = { lane: "sealed", model: target, pinned: false };
+const sealed: Target = { lane: "sealed", pinned: false, upstreamModel: target };
 
 const redactedFromBaa = Effect.gen(function* redactedFromBaa() {
 	const request = yield* decodeRequest(redacted, nobodyWrote, "claude");
@@ -116,7 +120,7 @@ const vendorMessage = Effect.gen(function* vendorMessage() {
 
 const vendorPinned = Effect.gen(function* vendorPinned() {
 	const request = yield* decodeRequest(vendorKeys, nobodyWrote, "claude");
-	const sent = yield* request.encode({ lane: "sealed", model: request.model, pinned: true });
+	const sent = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
 
 	assert.strictEqual(sent, vendorKeys);
 });
@@ -134,7 +138,7 @@ const strayCacheControl = String.raw`{"model":"phi/auto","messages":[{"role":"us
 const refused = Effect.gen(function* refused() {
 	const request = yield* decodeRequest(strayCacheControl, nobodyWrote, "claude");
 	const failure = yield* Effect.flip(request.encode(clean(request)));
-	const toBaa = yield* request.encode({ lane: "sealed", model: request.model, pinned: true });
+	const toBaa = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
 
 	assert.instanceOf(failure, CleanLaneRefused);
 	assert.strictEqual(failure.reason, "messages[0].content[0].cache_control");
