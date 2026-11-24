@@ -60,7 +60,6 @@ const Answer = Schema.Union([
 	Schema.Struct({ name: Schema.String, type: Schema.Literal("refusal") }),
 ]);
 
-/** Only the asked answer must be well formed, and a later one of its name wins, as pi's Decisions parser reads them. */
 const Answers = Schema.Struct({ answers: Schema.Array(Schema.Unknown) });
 
 const noTokens = 0;

@@ -101,6 +101,21 @@ const eachQuestion = Effect.gen(function* eachQuestion() {
 	);
 });
 
+const earlier = { name: "identifier", probability: 0.25, type: "predicate" };
+
+const later = { name: "identifier", probability: 0.75, type: "predicate" };
+
+const laterAnswer = Effect.gen(function* laterAnswer() {
+	const { judge } = yield* mockedJudge(
+		() => ({ body: { answers: [earlier, later], usage: billed }, kind: "body" }),
+		fromEnv,
+	);
+
+	const { score } = yield* judge.identifier(input, scoreQuestion);
+
+	assert.strictEqual(score, later.probability);
+});
+
 const configurations = [
 	{
 		field: "[0].body.model",
@@ -286,6 +301,7 @@ const badKinds: readonly { readonly answer: Schema.Json; readonly name: string }
 
 it.layer(NodeServices.layer)("the Decisions judge", (test) => {
 	test.effect("each question goes to the configured endpoint in its own call", () => eachQuestion);
+	test.effect("of two answers to the question, the later one counts", () => laterAnswer);
 	test.effect.each(configurations)("$name", configuration);
 	test.effect.each(sourceless)("a file that names $name builds no judge", ({ named }) =>
 		Effect.map(Effect.flip(configuredJudge(nowhere, named)), (failed) => {

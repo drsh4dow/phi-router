@@ -15,7 +15,7 @@
 	"src/router/client/harnesses/turn.ts": 5,
 	"src/router/client/judge/choice.ts": 1,
 	"src/router/client/judge/claude.ts": 5,
-	"src/router/client/judge/decisions.ts": 2,
+	"src/router/client/judge/decisions.ts": 1,
 	"src/router/client/judge/index.ts": 2,
 	"src/router/client/keys/check.ts": 3,
 	"src/router/client/keys/files.ts": 3,
