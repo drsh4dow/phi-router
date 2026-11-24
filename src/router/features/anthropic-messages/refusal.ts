@@ -4,11 +4,6 @@ import { itemsOf, textOf } from "./spans.ts";
 import type { ForwardedKey } from "./wire.ts";
 import type { Span } from "./spans.ts";
 
-class CleanLaneRefused extends Schema.TaggedError<CleanLaneRefused, { readonly brand: unique symbol }>()(
-	"CleanLaneRefused",
-	{ reason: Schema.String },
-) {}
-
 const fits = (key: ForwardedKey, text: string): boolean => {
 	const decode = Schema.decodeOption(Schema.fromJsonString(forwarded[key]));
 
@@ -48,4 +43,4 @@ const refusalsOf = (body: Span): readonly string[] =>
 		),
 	);
 
-export { CleanLaneRefused, refusalsOf };
+export { refusalsOf };

@@ -1,10 +1,10 @@
 import { Array, Effect, Predicate, String as Str, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
 import { assert, it } from "@effect/vitest";
 import { cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
+import type { CodexRequestRejected } from "./index.ts";
 import { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
-import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";

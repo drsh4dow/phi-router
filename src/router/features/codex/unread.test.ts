@@ -1,9 +1,9 @@
-import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
+import type { CodexRequest, CodexRequestRejected } from "./index.ts";
 import { Effect, Predicate, String as Str } from "effect";
 import { allCleared, cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
-import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";

@@ -1,11 +1,11 @@
 import { Array, Effect, Exit, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
+import type { CodexRequest, CodexRequestRejected } from "./index.ts";
 import { allCleared, cleanBodyPastBorder, decodedAfter, nothingWritten, realModel, writersOf } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { replies, requests } from "./captures/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
-import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { bridgesFor } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { stubs } from "#router/features/policy/index.ts";

@@ -1,7 +1,8 @@
 import { Array, Effect, Schema, pipe } from "effect";
-import { CleanLaneRefused, UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
+import { UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
 import { assert, it } from "@effect/vitest";
 import { BodyJson } from "./wire.ts";
+import { CleanLaneRefused } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import type { MessagesRequest } from "./index.ts";

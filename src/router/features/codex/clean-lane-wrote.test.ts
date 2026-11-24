@@ -1,10 +1,10 @@
 import { Array, Effect, Predicate, String as Str, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
 import { allCleared, cleanBodyPastBorder, decodedAfter, writersOf } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { replies, requests } from "./captures/index.ts";
+import type { CodexRequestRejected } from "./index.ts";
 import { Digest } from "effect/crypto";
-import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { cleanLaneKeys } from "./index.ts";
 
 const blob = "gAAAAABtool-description-blob-0001";

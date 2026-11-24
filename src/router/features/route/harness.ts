@@ -1,16 +1,12 @@
 import type { AccountState, Accounts } from "#router/client/accounts/index.ts";
+import type { CleanLaneRefused, Harness, Target } from "#router/features/border/index.ts";
 import { Effect, Option, Record, Schema, Struct } from "effect";
-import type { Harness, Target } from "#router/features/border/index.ts";
 import { cleanLaneKeys, decodeRequest as decodeResponsesRequest } from "#router/features/codex/index.ts";
 import { decodeRequest, replyKeys } from "#router/features/anthropic-messages/index.ts";
 import type { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import type { Routing } from "./routing.ts";
 import { piWire } from "#shared/pi.ts";
-
-interface CleanLaneRefused {
-	readonly _tag: "CleanLaneRefused";
-}
 
 interface Decoded {
 	readonly model: string;

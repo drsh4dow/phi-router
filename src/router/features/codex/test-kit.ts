@@ -1,10 +1,10 @@
 import { Array, Effect, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
+import type { CodexRequest, CodexRequestRejected } from "./index.ts";
 import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import type { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
-import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
 
 const realModel = "gpt-5.5";

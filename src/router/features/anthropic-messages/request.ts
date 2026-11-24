@@ -1,6 +1,6 @@
 import { Array, Effect, Option, Order, Predicate, Schema, String as Str, pipe } from "effect";
 import type { Clean, Harness, Target } from "#router/features/border/index.ts";
-import { CleanLaneRefused, refusalsOf } from "./refusal.ts";
+import { CleanLaneRefused, bridgesFor } from "#router/features/border/index.ts";
 import { freshBlock, misaligned, quoted, turnEdit } from "./written.ts";
 import { BodyJson } from "./wire.ts";
 import type { Decoded } from "./turns.ts";
@@ -8,8 +8,8 @@ import type { Digest } from "effect/crypto";
 import type { Edit } from "./spans.ts";
 import type { HoldsReplyKey } from "./reply.ts";
 import type { Message } from "#router/features/parts/index.ts";
-import { bridgesFor } from "#router/features/border/index.ts";
 import { decodedOf } from "./turns.ts";
+import { refusalsOf } from "./refusal.ts";
 import { spanOf } from "./spans.ts";
 
 type Section = Decoded["system"]["sections"][number];

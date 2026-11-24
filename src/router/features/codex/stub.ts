@@ -1,14 +1,10 @@
-import { Array, Effect, Equal, Option, Record, Schema, pipe } from "effect";
+import { Array, Effect, Equal, Option, Record, pipe } from "effect";
 import type { ContentEntry, Entry } from "./groups.ts";
+import { CleanLaneRefused } from "#router/features/border/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { Raw } from "./wire.ts";
 import type { WirePart } from "./wire-parts.ts";
 import { stubs } from "#router/features/policy/index.ts";
-
-class CleanLaneRefused extends Schema.TaggedError<CleanLaneRefused, { readonly brand: unique symbol }>()(
-	"CleanLaneRefused",
-	{},
-) {}
 
 const stubField = ({ item }: ContentEntry, stub: string): Option.Option<readonly [string, unknown]> => {
 	switch (item.type) {
@@ -82,9 +78,10 @@ const unreadStub = { content: [{ text: stubs.unknown, type: "input_text" }], rol
 const orRefused = (
 	passes: boolean,
 	items: readonly (typeof Raw.Type)[],
+	reason: string,
 ): Effect.Effect<readonly (typeof Raw.Type)[], CleanLaneRefused> => {
 	if (!passes) {
-		return Effect.fail(CleanLaneRefused.make({}));
+		return Effect.fail(CleanLaneRefused.make({ reason }));
 	}
 
 	return Effect.succeed(items);
@@ -100,11 +97,15 @@ const cleanItems =
 	(wirePart: WirePart) =>
 	(guarded: Message): Effect.Effect<readonly (typeof Raw.Type)[], CleanLaneRefused> => {
 		if (wirePart.kind === "unread") {
-			return orRefused(!wirePart.paired, [unreadStub]);
+			return orRefused(!wirePart.paired, [unreadStub], "an unread item paired with a tool call");
 		}
 
 		if (wirePart.kind === "tools") {
-			return orRefused(!wirePart.unwrittenBlob, raws(wirePart.entries));
+			return orRefused(
+				!wirePart.unwrittenBlob,
+				raws(wirePart.entries),
+				"a tool list holding a blob no open account wrote",
+			);
 		}
 
 		const passed = Equal.equals(guarded, wirePart.message);
@@ -119,4 +120,4 @@ const cleanItems =
 		return Effect.succeed(items);
 	};
 
-export { CleanLaneRefused, cleanItems };
+export { cleanItems };

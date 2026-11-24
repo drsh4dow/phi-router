@@ -1,12 +1,12 @@
 import { Array, Effect, Option, Record, Schema, String as Str, Struct, pipe } from "effect";
 import { Body, Raw } from "./wire.ts";
-import { CleanLaneRefused, cleanItems } from "./stub.ts";
+import { CleanLaneRefused, bridgesFor } from "#router/features/border/index.ts";
 import type { Sealed, Target } from "#router/features/border/index.ts";
 import type { Digest } from "effect/crypto";
 import type { IsReplyKey } from "./clean-lane.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { WirePart } from "./wire-parts.ts";
-import { bridgesFor } from "#router/features/border/index.ts";
+import { cleanItems } from "./stub.ts";
 import { rawText } from "./json.ts";
 import { wirePartsOf } from "./wire-parts.ts";
 
@@ -76,7 +76,7 @@ const cleanInput = (
 ): Effect.Effect<readonly (typeof Raw.Type)[], CleanLaneRefused> =>
 	Effect.gen(function* cleanParts() {
 		if (!everyFieldRead) {
-			return yield* CleanLaneRefused.make({});
+			return yield* CleanLaneRefused.make({ reason: "a body field the codec does not read" });
 		}
 
 		if (messages.length !== wireParts.length) {
