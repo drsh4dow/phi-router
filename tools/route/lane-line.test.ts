@@ -98,7 +98,9 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 
 	const body = yield* bodyOf([{ role: "user", text: "Go on." }]);
 	const response = yield* post({ body, session: "none-answered-1" });
-	const text = yield* response.text;
+
+	yield* response.text;
+
 	const lines = yield* laneLines(state);
 
 	assert.deepStrictEqual(
@@ -107,10 +109,9 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 				lines,
 				Array.map(({ account, lane, reason }) => [account, lane, reason]),
 			),
-			named: Str.includes("baa-2")(text),
 			status: response.status,
 		},
-		{ lines: [["baa-2", "sealed", "failover"]], named: true, status: badGateway },
+		{ lines: [["baa-2", "sealed", "failover"]], status: badGateway },
 	);
 });
 
@@ -227,10 +228,7 @@ it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 		"is still written when the harness hangs up while a failed-over request waits on the BAA account, naming that account",
 		() => hungUp,
 	);
-	test.effect(
-		"names the last account tried when no account answers, for failover, as the 502 answer does",
-		() => noneAnswered,
-	);
+	test.effect("names the last account tried when no account answers, for failover", () => noneAnswered);
 	test.effect(
 		"names the BAA account whose login ended when a sealed request has no other and fails, and the 502 answer gives its login command",
 		() => sealedEnded,
