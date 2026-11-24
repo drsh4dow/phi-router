@@ -20,7 +20,7 @@ interface CodexRequest {
 	readonly messages: readonly Message[];
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	readonly withoutReasoning: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
-	readonly title: boolean;
+	readonly titleRequest: boolean;
 }
 
 const decodeRaw = Schema.decodeUnknownEffect(Schema.fromJsonString(Raw));
@@ -185,7 +185,7 @@ const decodeRequest = Effect.fnUntraced(function* decodeRequest(
 			Array.map(({ message }) => message),
 		),
 		model,
-		title: isTitleRequest(raw),
+		titleRequest: isTitleRequest(raw),
 	});
 });
 

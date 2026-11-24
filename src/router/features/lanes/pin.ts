@@ -27,7 +27,7 @@ const holdsPinnedLine = (message: Message): boolean =>
 interface Asked {
 	readonly model: string;
 	readonly messages: readonly Message[];
-	readonly title?: boolean;
+	readonly titleRequest?: boolean;
 }
 
 const pinsItself = (asked: Asked): boolean =>
@@ -85,7 +85,7 @@ const pinning = Effect.fnUntraced(function* pinning(baaRepos: readonly string[])
 	const services = yield* Effect.context<LeaseRegistry | Path.Path>();
 
 	return (arrival: Arrival): ReturnType<Pinning> => {
-		if (arrival.asked.title === true) {
+		if (arrival.asked.titleRequest === true) {
 			return Effect.succeedSome<PinnedBy>("title");
 		}
 

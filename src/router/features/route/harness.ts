@@ -17,7 +17,7 @@ interface Decoded {
 	readonly messages: readonly Message[];
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	readonly withoutReasoning?: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
-	readonly title?: boolean;
+	readonly titleRequest?: boolean;
 }
 
 class Unreadable extends Schema.TaggedError<Unreadable, { readonly brand: unique symbol }>()("Unreadable", {
