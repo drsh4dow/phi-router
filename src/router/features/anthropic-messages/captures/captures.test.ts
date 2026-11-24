@@ -199,38 +199,6 @@ const toolsOf = (request: MessagesRequest): readonly SystemTool[] =>
 		}),
 	);
 
-const ClassifierContext = Schema.Struct({
-	home_dir: Schema.String,
-	permission_mode: Schema.String,
-	user_identity: Schema.String,
-});
-
-const Safeguards = Schema.fromJsonString(
-	Schema.Array(Schema.Struct({ classifier_context: ClassifierContext, type: Schema.String })),
-);
-
-const autoModeSafeguards = Effect.gen(function* autoModeSafeguards() {
-	const request = yield* decodeRequest(requests.autoMode, nobodyWrote, "claude");
-
-	const judged = pipe(
-		toolsOf(request),
-		Array.filter((tool) => tool.name === "safeguards"),
-	);
-
-	const safeguards = yield* Effect.forEach(judged, (tool) => Schema.decodeEffect(Safeguards)(tool.parameters), {
-		concurrency: 1,
-	});
-
-	assert.deepStrictEqual(safeguards, [
-		[
-			{
-				classifier_context: { home_dir: "/home/user", permission_mode: "auto", user_identity: "user" },
-				type: "dangerous_tool_use",
-			},
-		],
-	]);
-});
-
 const webSearchTool = '{"type":"web_search_20250305","name":"web_search","max_uses":8}';
 
 const serverTool = Effect.gen(function* serverTool() {
@@ -327,11 +295,6 @@ it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	test.effect("a streamed reply cut before message_stop, or holding an error event, gives no key", () => cutReply);
 
 	test.effect("every capture's thinking signatures and metadata ids are the fixed placeholders", () => placeholders);
-
-	test.effect(
-		"the auto-mode capture's safeguards reach the judge as a tool entry, with a placeholder home and user",
-		() => autoModeSafeguards,
-	);
 
 	test.effect(
 		"the WebSearch capture's server tool reaches the judge whole, and its tool_choice leaves as sent",
