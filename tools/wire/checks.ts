@@ -1,4 +1,4 @@
-import { Array, Option, String as Str, pipe } from "effect";
+import { Array, Function, Option, String as Str, pipe } from "effect";
 import { laneLogHolds, windowsOf } from "./stored.ts";
 import type { Case } from "#tools/corpus/manifest.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
@@ -9,6 +9,8 @@ import { foundIn } from "#tools/corpus/request-bodies.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 
 const succeeded = 0;
+
+const dataFirstArity = 2;
 
 /** What one harness run left: how it exited, the end of what it printed, and what each mock received during it. */
 interface Turned {
@@ -127,8 +129,14 @@ const someHold = (tokens: readonly string[], sent: readonly Sent[]): boolean =>
  * @param {Function} predicate What each must hold.
  * @returns {boolean} Whether it holds.
  */
-const everyOf = <Item>(items: readonly Item[], predicate: (item: Item) => boolean): boolean =>
-	Array.isReadonlyArrayNonEmpty(items) && pipe(items, Array.every(predicate));
+const everyOf: {
+	<Item>(predicate: (item: Item) => boolean): (items: readonly Item[]) => boolean;
+	<Item>(items: readonly Item[], predicate: (item: Item) => boolean): boolean;
+} = Function.dual(
+	dataFirstArity,
+	<Item>(items: readonly Item[], predicate: (item: Item) => boolean): boolean =>
+		Array.isReadonlyArrayNonEmpty(items) && pipe(items, Array.every(predicate)),
+);
 
 const leftOf = <Turns extends readonly Turned[]>(left: {
 	readonly run: Run;
@@ -258,6 +266,6 @@ const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 	];
 };
 
-export { checksOf, codexChecksOf, commonChecksOf, isAsSent, isBaaOnly, leftOf, succeeded };
+export { checksOf, codexChecksOf, commonChecksOf, everyOf, isAsSent, isBaaOnly, leftOf, succeeded };
 
 export type { Check, CodexTurned, Left, Listing, Outcome, Run, Turned };

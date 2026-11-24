@@ -2,6 +2,7 @@ import { Array, Effect, String as Str, pipe } from "effect";
 import type { Check, Turned } from "./checks.ts";
 import { isModelPost, windowsOf } from "./stored.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
+import { everyOf } from "./checks.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { pinnedLine } from "#router/features/lanes/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
@@ -157,16 +158,6 @@ const naming =
 
 const holdsAnswer = ({ body }: Sent): boolean => Str.includes(voidedNumber)(body);
 
-/**
- * Whether `sent` holds a request and each of them passes `predicate`.
- *
- * @param {readonly Sent[]} sent The requests.
- * @param {Function} predicate The test of one request.
- * @returns {boolean} Whether they all pass.
- */
-const allOf = (sent: readonly Sent[], predicate: (one: Sent) => boolean): boolean =>
-	Array.isReadonlyArrayNonEmpty(sent) && pipe(sent, Array.every(predicate));
-
 const vendorOf = { claude: "anthropic", codex: "openai" } as const;
 
 interface HandedOff {
@@ -188,12 +179,12 @@ const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Ch
 	return [
 		{
 			name: "the open mock's call starts the pinned subagent, whose requests reach the BAA mock under the sealed model",
-			ok: allOf(started, naming(fakes.sealedModel[vendorOf[harness]])),
+			ok: everyOf(started, naming(fakes.sealedModel[vendorOf[harness]])),
 		},
 		{ name: "no request of the pinned subagent reaches the open mock", ok: !pipe(opened, Array.some(isSubagent)) },
 		{
 			name: "the main session's clean requests keep reaching the open mock under the target model",
-			ok: allOf(mainOpen, (sent) => naming(fakes.targetModel)(sent) && !isSubagent(sent)),
+			ok: everyOf(mainOpen, (sent) => naming(fakes.targetModel)(sent) && !isSubagent(sent)),
 		},
 		{
 			name: "the pinned subagent's answer, which holds a canary, reaches the BAA mock in the main session",
