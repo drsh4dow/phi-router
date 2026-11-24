@@ -1,10 +1,23 @@
-import { Array, Effect, Layer, Schema, String as Str, Struct, pipe } from "effect";
+import {
+	Array,
+	ConfigProvider,
+	Context,
+	Effect,
+	FileSystem,
+	Layer,
+	Option,
+	Schema,
+	String as Str,
+	Struct,
+	pipe,
+} from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { Harness, World } from "./hooked.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest } from "#tools/route/mocked-router.ts";
 import { canary, hook, session, setUp } from "./hooked.ts";
 import { NodeServices } from "@effect/platform-node";
+import { SealNotices } from "#router/client/seal-notices.ts";
 import { freePort } from "#tools/lifecycle/launched.ts";
 import { privacyUnder } from "#tools/route/private.ts";
 
@@ -90,6 +103,20 @@ const down = Effect.gen(function* down() {
 	);
 }).pipe(Effect.scoped);
 
+const sealedCounts = { first: 2, next: 5 } as const;
+
+const swapped = Effect.gen(function* swapped() {
+	const fs = yield* FileSystem.FileSystem;
+	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-notices-" });
+	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: { XDG_STATE_HOME: state } }));
+	const built = yield* Layer.build(Layer.provide(SealNotices.layer, env));
+	const notices = Context.get(built, SealNotices);
+	const first = yield* notices.swap(session, sealedCounts.first);
+	const second = yield* notices.swap(session, sealedCounts.next);
+
+	assert.deepStrictEqual([first, second], [Option.none(), Option.some(sealedCounts.first)]);
+}).pipe(Effect.scoped);
+
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's turn-end hook", (test) => {
 	test.effect.each(["claude", "codex"] as const)(
 		"for %s, announces a turn that sealed once, from a count kept 0600 in 0700",
@@ -101,4 +128,5 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's t
 		() => down,
 		patient,
 	);
+	test.effect("the first count stored for a session swaps out none, and the next the count before it", () => swapped);
 });

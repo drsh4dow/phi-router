@@ -6,15 +6,9 @@ import { writePrivately } from "./private-file.ts";
 
 const SealedAtLastNoticeJson = Schema.fromJsonString(Schema.Struct({ sealed: Schema.Int }));
 
-/**
- * One file per session under the XDG state folder, `phi-router/notices/<id in base64url>.json`, which holds the sealed
- * count the session's last turn end saw, so the next one announces only what its own turn sealed. A harness hook runs
- * once per turn, so the count lives on disk between them. It holds no content.
- */
 class SealNotices extends Context.Service<
 	SealNotices,
 	{
-		/** Stores `sealed` as the session's count and returns the count stored before, none for a session it never saw. */
 		readonly swap: (
 			session: string,
 			sealed: number,
