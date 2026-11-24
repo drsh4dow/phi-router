@@ -18,7 +18,6 @@ interface Shown {
 	readonly statusBlock: boolean;
 	readonly seal: boolean;
 	readonly piStatusNamesBaa: boolean;
-	/** The RPC mode of pi answered the prompt as handled by an extension command, so it started no run. */
 	readonly handled: boolean;
 }
 
