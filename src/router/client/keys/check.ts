@@ -1,6 +1,6 @@
 import { Config, Context, Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import type { Vendor } from "./configuration/index.ts";
+import type { Vendor } from "#router/client/configuration/index.ts";
 
 /** What a vendor said of a key: it took it, it refused it, or it gave no answer setup can read. */
 type KeyCheck = "accepted" | "refused" | "unanswered";
@@ -44,7 +44,7 @@ const checkOf = (status: number): KeyCheck => {
 class KeyChecks extends Context.Service<
 	KeyChecks,
 	{ readonly check: (vendor: Vendor, key: Readonly<Redacted.Redacted>) => Effect.Effect<KeyCheck> }
->()("phi-router/router/client/key-check/KeyChecks") {
+>()("phi-router/router/client/keys/check/KeyChecks") {
 	public static readonly layer = Layer.effect(
 		KeyChecks,
 		Effect.gen(function* make() {

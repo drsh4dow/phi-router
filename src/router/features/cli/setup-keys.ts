@@ -1,8 +1,7 @@
 import { Array, Console, Effect, Option, Redacted, Schema, String as Str, pipe } from "effect";
+import { KeyChecks, keyFileOf, saveKey, savedKey } from "#router/client/keys/index.ts";
 import { hiddenLine, typedLine } from "#router/client/terminal.ts";
-import { keyFileOf, saveKey, savedKey } from "#router/client/key-files.ts";
 import { CliError } from "effect/cli";
-import { KeyChecks } from "#router/client/key-check.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { storedAnthropicKey } from "#router/client/harnesses/index.ts";
 import { tokenKinds } from "./accounts-add.ts";

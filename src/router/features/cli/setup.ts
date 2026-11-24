@@ -5,7 +5,7 @@ import { baaAsk, keyFor, savedKeyFile, stillHeld, stopped, vendorWords } from ".
 import { enterPressed, handedOver, isTerminal } from "#router/client/terminal.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
 import type { HeldKey } from "./setup-keys.ts";
-import { KeyChecks } from "#router/client/key-check.ts";
+import { KeyChecks } from "#router/client/keys/index.ts";
 import { Platform } from "./platform.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
