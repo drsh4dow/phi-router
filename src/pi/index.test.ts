@@ -1,7 +1,7 @@
 import { Array, Config, ConfigProvider, Effect, Function, Option, Record, pipe } from "effect";
 import { CommandFailed, productPort } from "#shared/cli.ts";
-import { addedHeaders, bypassProxies, configured, hooked, provider } from "#pi/index.ts";
-import { assert, it } from "@effect/vitest";
+import { addedHeaders, provider, registered } from "#pi/index.ts";
+import { assert, it, vi } from "@effect/vitest";
 import type { ModelsJson } from "#shared/cli.ts";
 import { Router } from "#pi/client/router.ts";
 import { getBuiltinModels } from "@earendil-works/pi-ai/providers/all";
@@ -108,7 +108,7 @@ const routerOf = (printed: { readonly models?: typeof ModelsJson.Type }): Router
 		),
 		pin: () => Effect.void,
 		start: () => Effect.void,
-		status: () => Effect.die("configured asks no status"),
+		status: () => Effect.die("registering asks no status"),
 		unpin: () => Effect.void,
 	});
 
@@ -116,34 +116,53 @@ const answers = routerOf({ models: routed });
 
 const refuses = routerOf({});
 
+const registeredOn = Effect.fnUntraced(function* registeredOn(environment: Readonly<Record<string, string>>) {
+	const hooks: string[] = [];
+	const registerProvider = vi.fn<(...registration: readonly unknown[]) => void>();
+
+	const pi = {
+		appendEntry: Function.constVoid,
+		on: (event: string): (() => void) => {
+			hooks.push(`on ${event}`);
+
+			return Function.constVoid;
+		},
+		registerCommand: (name: string): void => {
+			hooks.push(`command ${name}`);
+		},
+		registerProvider,
+	};
+
+	yield* Effect.provideService(registered(pi), ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(environment));
+
+	return { hooks, providers: registerProvider.mock.calls };
+});
+
 it.effect(
 	"runs on the port PHI_ROUTER_PORT names with the models phi-router models prints, else the product port with none",
 	() =>
 		Effect.gen(function* ports() {
-			const environment = ConfigProvider.fromUnknown({ PHI_ROUTER_PORT: String(routerPort) });
-
-			const named = yield* configured.pipe(
-				Effect.provideService(Router, answers),
-				Effect.provideService(ConfigProvider.ConfigProvider, environment),
+			const named = yield* Effect.provideService(
+				registeredOn({ PHI_ROUTER_PORT: String(routerPort) }),
+				Router,
+				answers,
 			);
 
-			const unnamed = yield* configured.pipe(
-				Effect.provideService(Router, refuses),
-				Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown({})),
-			);
+			const unnamed = yield* Effect.provideService(registeredOn({}), Router, refuses);
 
 			assert.deepStrictEqual(
-				{ named, unnamed },
-				{ named: { models: routed, port: routerPort }, unnamed: { models: {}, port: productPort } },
+				{ named: named.providers, unnamed: unnamed.providers },
+				{
+					named: [["phi", provider({ models: routed, port: routerPort })]],
+					unnamed: [["phi", provider({ models: {}, port: productPort })]],
+				},
 			);
 		}),
 );
 
 it.effect("keeps the router's address off any proxy pi's process names, beside the hosts already there", () =>
 	Effect.gen(function* proxies() {
-		const environment = ConfigProvider.fromUnknown({ NO_PROXY: "localhost" });
-
-		yield* Effect.provideService(bypassProxies, ConfigProvider.ConfigProvider, environment);
+		yield* Effect.provideService(registeredOn({ NO_PROXY: "localhost" }), Router, refuses);
 
 		const bypassed = yield* Config.all({ lower: Config.String("no_proxy"), upper: Config.String("NO_PROXY") });
 
@@ -153,21 +172,7 @@ it.effect("keeps the router's address off any proxy pi's process names, beside t
 
 it.effect("adds /phi and hooks each session's start, prompts, compactions, turns, model switches and headers", () =>
 	Effect.gen(function* hookedOnPi() {
-		const hooks: string[] = [];
-
-		const pi = {
-			appendEntry: Function.constVoid,
-			on: (event: string): (() => void) => {
-				hooks.push(`on ${event}`);
-
-				return Function.constVoid;
-			},
-			registerCommand: (name: string): void => {
-				hooks.push(`command ${name}`);
-			},
-		};
-
-		yield* Effect.provideService(hooked(pi, productPort), Router, refuses);
+		const { hooks } = yield* Effect.provideService(registeredOn({}), Router, refuses);
 
 		assert.deepStrictEqual(hooks, [
 			"on session_start",

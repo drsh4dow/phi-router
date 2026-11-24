@@ -135,23 +135,19 @@ const bypassProxies = Effect.forEach(
 	{ concurrency: 1, discard: true },
 );
 
-const configured = Effect.all(
-	{
-		models: Effect.orElseSucceed(
-			Router.use((client) => client.models),
-			() => ({}),
-		),
-		port: Config.Port(piWire.portVariable).pipe(Config.withDefault(productPort)),
-	},
-	{ concurrency: 1 },
-);
-
-const hooked = Effect.fnUntraced(function* hooked(
-	pi: Readonly<Pick<ExtensionAPI, "appendEntry" | "on" | "registerCommand">>,
-	port: number,
+const registered = Effect.fnUntraced(function* registered(
+	pi: Readonly<Pick<ExtensionAPI, "appendEntry" | "on" | "registerCommand" | "registerProvider">>,
 ) {
+	const models = yield* Effect.orElseSucceed(
+		Router.use((client) => client.models),
+		() => ({}),
+	);
+
+	const port = yield* Config.Port(piWire.portVariable).pipe(Config.withDefault(productPort));
 	const shows = yield* observerOn(port);
 
+	yield* bypassProxies;
+	pi.registerProvider(routedProvider, provider({ models, port }));
 	pi.on("session_start", blockUploads(routedProvider));
 	onRouter(pi, port, shows);
 	pi.on("before_provider_headers", recordUse({ pi, routedProvider }));
@@ -159,20 +155,8 @@ const hooked = Effect.fnUntraced(function* hooked(
 	pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
 });
 
-const extension: ExtensionFactory = (pi) =>
-	Effect.runPromise(
-		Effect.provide(
-			Effect.gen(function* registered() {
-				const { models, port } = yield* configured;
-
-				yield* bypassProxies;
-				pi.registerProvider(routedProvider, provider({ models, port }));
-				yield* hooked(pi, port);
-			}),
-			router(),
-		),
-	);
+const extension: ExtensionFactory = (pi) => Effect.runPromise(Effect.provide(registered(pi), router()));
 
 export default extension;
 
-export { addedHeaders, bypassProxies, configured, hooked, provider };
+export { addedHeaders, provider, registered };
