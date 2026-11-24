@@ -172,7 +172,7 @@
 	"tools/setup/world.ts": 13,
 	"tools/wire/claude.ts": 5,
 	"tools/wire/codex-mocks.ts": 8,
-	"tools/wire/codex.ts": 12,
+	"tools/wire/codex.ts": 9,
 	"tools/wire/pi-run.ts": 14,
 	"tools/wire/pi.ts": 3
 }

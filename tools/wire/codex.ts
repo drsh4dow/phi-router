@@ -13,7 +13,6 @@ import { storedIn } from "./stored.ts";
 /** The plugin in this checkout, whose hooks every routed `codex` run loads. */
 const plugin = decodeURIComponent(new URL("../../plugins/claude", import.meta.url).pathname);
 
-/** A fresh home, a `CODEX_HOME` with no provider, one that points at the router, and a working folder for `codex`. */
 const place = Effect.gen(function* place() {
 	const fs = yield* FileSystem.FileSystem;
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-home-" });
@@ -61,12 +60,6 @@ const configOf = (router: string): string =>
 		"\n",
 	);
 
-/**
- * One `codex` run with `run.args` in the working folder and `CODEX_HOME` `run.codexHome`. Its environment holds nothing
- * of the caller's beside `PATH`, but the plugin's folder, the router's address and the router's XDG folders, which its
- * hooks read. Its stdin is closed.
- * Returns the exit code and what it printed on each stream.
- */
 const codexRun = Effect.fnUntraced(
 	function* codexRun(run: {
 		readonly place: Place;
@@ -160,10 +153,6 @@ const fallback = "Defaulting to fallback metadata";
 /** The working folder's `origin`. Codex 0.166.0 sends a git folder's remotes in its turn metadata. */
 const remote = "https://github.com/example/phi-wire.git";
 
-/**
- * The working folder as a git repository with one commit and an `origin` remote. Git reads no config beyond the
- * repository's own, and writes none.
- */
 const gitRepo = Effect.fnUntraced(function* gitRepo(where: Place) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const searchPath = yield* Config.String("PATH");
@@ -292,4 +281,4 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	return { checks, stored, turns: left.turns } satisfies Outcome;
 });
 
-export { codexPlay, codexRun, configOf, place };
+export { codexPlay, codexRun, configOf, gitRepo, place };
