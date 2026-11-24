@@ -134,8 +134,8 @@ const rpcAnswered = `"type":"response"`;
 
 /** A line pi's RPC mode reads, and what pi prints once it has done with it, which ends the turn. */
 interface RpcLine {
-	readonly rpc: string;
-	readonly until: string;
+	readonly stdinLine: string;
+	readonly turnEnd: string;
 }
 
 /**
@@ -153,9 +153,9 @@ const piRun = Effect.fnUntraced(
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const searchPath = yield* userPath;
 		const answered = yield* Deferred.make<boolean>();
-		const input = Stream.concat(Stream.make(given.rpc), Stream.fromEffectDrain(Deferred.await(answered)));
+		const input = Stream.concat(Stream.make(given.stdinLine), Stream.fromEffectDrain(Deferred.await(answered)));
 
-		yield* Effect.when(Deferred.succeed(answered, true), Effect.succeed(Str.isEmpty(given.rpc)));
+		yield* Effect.when(Deferred.succeed(answered, true), Effect.succeed(Str.isEmpty(given.stdinLine)));
 
 		const command = ChildProcess.make("pi", args, {
 			cwd: where.work,
@@ -177,7 +177,7 @@ const piRun = Effect.fnUntraced(
 		const printed = yield* Stream.merge(handle.stdout, handle.stderr).pipe(
 			Stream.decodeText,
 			Stream.tap((text) =>
-				Effect.when(Deferred.succeed(answered, true), Effect.succeed(Str.includes(given.until)(text))),
+				Effect.when(Deferred.succeed(answered, true), Effect.succeed(Str.includes(given.turnEnd)(text))),
 			),
 			Stream.mkString,
 		);
@@ -264,7 +264,7 @@ const inEmptyTmp = Effect.fnUntraced(function* inEmptyTmp(
  * exit 0. Returns whether pi lists the package, whether the doctor passed, and what it left in `/tmp`.
  */
 const installedIn = Effect.fnUntraced(function* installedIn(where: Place) {
-	const none = { env: {}, rpc: "", until: rpcAnswered };
+	const none = { env: {}, stdinLine: "", turnEnd: rpcAnswered };
 	const source = yield* gitServed(where);
 
 	yield* piRun(where, ["install", source], none).pipe(

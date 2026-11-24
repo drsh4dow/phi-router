@@ -27,13 +27,13 @@ const runOf = (session: string, asked: Asked): PiArgs => {
 	const on = ["--model", "phi/auto", "--session-id", session];
 
 	if ("prompt" in asked) {
-		return { args: ["-p", asked.prompt, ...on], rpc: "", until: rpcAnswered };
+		return { args: ["-p", asked.prompt, ...on], stdinLine: "", turnEnd: rpcAnswered };
 	}
 
 	return Struct.assign(asked, { args: ["--mode", "rpc", ...on] });
 };
 
-const compact = { rpc: `{"type":"compact"}\n`, until: rpcAnswered };
+const compact = { stdinLine: `{"type":"compact"}\n`, turnEnd: rpcAnswered };
 
 const storesIn = Effect.fnUntraced(function* storesIn(state: string) {
 	const fs = yield* FileSystem.FileSystem;
@@ -60,11 +60,11 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const answering = Effect.provideContext(answers(port), http);
 
 	const turn = Effect.fnUntraced(function* turn(asked: Asked, session: string) {
-		const { args, rpc, until } = runOf(session, asked);
+		const { args, stdinLine, turnEnd } = runOf(session, asked);
 
 		const played = yield* during(
 			() => received,
-			() => piRun(where, args, { env: routed, rpc, until }),
+			() => piRun(where, args, { env: routed, stdinLine, turnEnd }),
 		);
 
 		const leasedAfterExit = yield* leasedPids(state).pipe(Effect.orElseSucceed((): readonly number[] => []));

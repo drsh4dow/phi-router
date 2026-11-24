@@ -202,9 +202,9 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 	turn: (asked: { readonly prompt: string } | RpcLine) => Effect.Effect<Turn, Failure, Needs>,
 	run: Run,
 ) {
-	const typed = (message: string, until: string): Effect.Effect<Turn, Failure | Schema.SchemaError, Needs> =>
+	const typed = (message: string, turnEnd: string): Effect.Effect<Turn, Failure | Schema.SchemaError, Needs> =>
 		Effect.flatMap(Schema.encodeEffect(PromptLine)({ message, type: "prompt" }), (line) =>
-			turn({ rpc: `${line}\n`, until }),
+			turn({ stdinLine: `${line}\n`, turnEnd }),
 		);
 
 	const phi = yield* phiTurns({
@@ -216,7 +216,7 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 	const sealing = yield* typed(run.phi.text, runEnded);
 
 	const cleanLine = yield* Schema.encodeEffect(PromptLine)({ message: run.clean.text, type: "prompt" });
-	const chosen = yield* turn({ rpc: `${choosingSealed}\n${cleanLine}\n`, until: runEnded });
+	const chosen = yield* turn({ stdinLine: `${choosingSealed}\n${cleanLine}\n`, turnEnd: runEnded });
 
 	const checks: readonly Check[] = [
 		...phiChecksOf({ cleanText: run.clean.text, turns: phi }),

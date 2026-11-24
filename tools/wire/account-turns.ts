@@ -79,8 +79,8 @@ const turnsOn = {
 		const turn = Effect.fnUntraced(function* turn(prompt: string) {
 			const ran = yield* piRun(where, ["-e", extension, "-p", prompt, ...flags], {
 				env,
-				rpc: "",
-				until: rpcAnswered,
+				stdinLine: "",
+				turnEnd: rpcAnswered,
 			});
 
 			return { exitCode: ran.exitCode, reportedTokens: tokensIn.pi(ran.printed) } satisfies Turn;
