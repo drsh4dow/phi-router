@@ -35,8 +35,7 @@ const vendorKeys = String.raw`{"model":"phi/auto","messages":[{"role":"user","co
 
 const tool = '{"name":"Lookup","description":"Reads a row.","input_schema":{"type":"object"},"new_vendor_field":"x"}';
 
-/** The second `content` is spelled with an escape. JSON.parse keeps it, so the first would ride along unread. */
-const repeated = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"PATIENT-SECRET","cont\u0065nt":"Go on."}],"max_tokens":1000}`;
+const escapedRepeat = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"PATIENT-SECRET","cont\u0065nt":"Go on."}],"max_tokens":1000}`;
 
 const nobodyWrote = (): boolean => false;
 
@@ -123,7 +122,7 @@ const vendorPinned = Effect.gen(function* vendorPinned() {
 });
 
 const repeatedKey = Effect.gen(function* repeatedKey() {
-	const failure = yield* Effect.flip(decodeRequest(repeated, nobodyWrote, "claude"));
+	const failure = yield* Effect.flip(decodeRequest(escapedRepeat, nobodyWrote, "claude"));
 
 	assert.instanceOf(failure, UnreadableRequest);
 	assert.include(failure.reason, '$["messages"][0]');
@@ -184,5 +183,8 @@ it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 
 	test.effect("a pinned request with unknown keys below the top leaves as it came", () => vendorPinned);
 
-	test.effect("a key that appears twice in one object fails the request and names where", () => repeatedKey);
+	test.effect(
+		"a key that appears twice in one object fails the request and names where, even when one spelling is escaped",
+		() => repeatedKey,
+	);
 });

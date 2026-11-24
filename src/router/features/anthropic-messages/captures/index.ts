@@ -1,7 +1,7 @@
 import { autoMode } from "./auto-mode.ts";
 import { compaction } from "./compaction.ts";
 import { firstTurn } from "./first-turn.ts";
-import { piRequests } from "./pi.ts";
+import { pi160Requests } from "./pi.ts";
 import { subagent } from "./subagent.ts";
 import { toolCallReply } from "./tool-call.ts";
 import { toolResult } from "./tool-result.ts";
@@ -12,10 +12,10 @@ const requests = {
 	autoMode,
 	compaction,
 	firstTurn,
-	piCompaction: piRequests.compaction,
-	piFirstTurn: piRequests.firstTurn,
-	piThinkingOff: piRequests.thinkingOff,
-	piToolResult: piRequests.toolResult,
+	piCompaction: pi160Requests.compaction,
+	piFirstTurn: pi160Requests.firstTurn,
+	piThinkingOff: pi160Requests.thinkingOff,
+	piToolResult: pi160Requests.toolResult,
 	subagent,
 	toolResult,
 	toolSearch,

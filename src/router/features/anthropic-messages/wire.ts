@@ -124,8 +124,7 @@ const noteContent = Schema.Union([Schema.String, Schema.Array(Schema.Union([Text
 
 const AssistantTurn = Schema.Struct({ content: Schema.Array(AssistantBlock), role: Schema.Literal("assistant") });
 
-/** A harness note inside `messages`: the environment block or the token count. */
-const SystemNote = Schema.Struct({
+const HarnessNote = Schema.Struct({
 	content: noteContent,
 	output_config: Schema.optionalKey(forwarded.output_config),
 	role: Schema.Literal("system"),
@@ -138,7 +137,7 @@ const Tool = Schema.Struct({
 	name: Schema.String,
 });
 
-const turns = Schema.Array(Schema.Union([UserTurn, AssistantTurn, SystemNote, Unreadable]));
+const turns = Schema.Array(Schema.Union([UserTurn, AssistantTurn, HarnessNote, Unreadable]));
 
 const systemBlocks = Schema.optionalKey(Schema.Array(Schema.Union([Text, Unreadable])));
 
@@ -194,13 +193,12 @@ const BlockDelta = Schema.Struct({ delta: Delta, index: Schema.Finite, type: Sch
 
 const Failed = Schema.Struct({ type: Schema.Literal("error") });
 
-/** Events that hold no content of the reply. */
-const Other = Schema.Struct({
+const ContentlessEvent = Schema.Struct({
 	type: Schema.Literals(["message_start", "content_block_stop", "ping", "message_delta", "message_stop"]),
 });
 
 /** One SSE `data:` line, decoded with excess keys ignored: usage and `estimated_tokens` are not content. */
-const EventJson = Schema.fromJsonString(Schema.Union([BlockStart, BlockDelta, Failed, Other]));
+const EventJson = Schema.fromJsonString(Schema.Union([BlockStart, BlockDelta, Failed, ContentlessEvent]));
 
 type WireBody = typeof Body.Type;
 
