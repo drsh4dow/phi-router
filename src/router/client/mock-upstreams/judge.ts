@@ -3,17 +3,12 @@ import { Boolean, Effect, Latch, Match, Option, Ref, Schema, String as Str, pipe
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Scope } from "effect";
 
-/**
- * What the mock answers to one request: status 200 with a JSON body, a bare status such as 500, a 307 to `location`,
- * or silence, which keeps the request open until the caller hangs up.
- */
 type Reply =
 	| { readonly kind: "body"; readonly body: Schema.Json }
 	| { readonly kind: "status"; readonly status: number }
 	| { readonly kind: "redirect"; readonly location: string }
 	| { readonly kind: "silence" };
 
-/** One request the judge mock received, with every header under its lower-case name. */
 interface Received {
 	readonly bearer: string | undefined;
 	readonly headers: Readonly<Record<string, string>>;
@@ -50,7 +45,6 @@ const JsonText = Schema.fromJsonString(Schema.Json);
 
 const badRequest = 400;
 
-/** A followed 307 sends the same body again, so the piece itself would reach `location`. */
 const temporaryRedirect = 307;
 
 const pieceIn = (text: string): Option.Option<string> => {
@@ -79,10 +73,6 @@ const responseTo = Match.type<Reply>().pipe(
 	}),
 );
 
-/**
- * A judge mock on the caller's `HttpServer` that records each request and answers it by `script`, so the router and
- * the tests serve the same mock over any server.
- */
 const serveJudge = Effect.fnUntraced(function* serveJudge(
 	script: (piece: string) => Reply,
 ): Effect.fn.Return<JudgeMock, never, HttpServer.HttpServer | Scope.Scope> {
@@ -127,13 +117,6 @@ const serveJudge = Effect.fnUntraced(function* serveJudge(
 	};
 });
 
-/**
- * A judge script that seals each piece `holdsPhi` names and clears the rest. A sealing answer scores 1 and names no
- * kind, so the engine seals the piece unlabelled.
- *
- * @param {Function} holdsPhi Whether a piece holds PHI.
- * @returns {Function} The script.
- */
 const sealingWhen =
 	(holdsPhi: (piece: string) => boolean) =>
 	(piece: string): Reply => ({
@@ -164,15 +147,6 @@ const toolReply = (name: string, input: string): string =>
 
 const isClaudeJudgeCall = ({ body }: { readonly body: string }): boolean => Option.isSome(decodeClaudeJudgeCall(body));
 
-/**
- * An Anthropic account script that answers each Claude judge call the way `sealingWhen` does, a sealing piece with 1 and
- * no kind, and every other request by `script`.
- *
- * @param {object} of How the account answers.
- * @param {Function} of.holdsPhi Whether a piece holds PHI.
- * @param {Function} of.script How the account answers a model request.
- * @returns {Function} The account's script.
- */
 const judgingOn =
 	({
 		holdsPhi,

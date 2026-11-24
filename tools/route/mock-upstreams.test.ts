@@ -1,11 +1,12 @@
-import type { AccountMock, Asked, Event, Said } from "#router/client/mock-upstreams/index.ts";
+import type { AccountMock, Asked, Event, Reply, Said } from "#router/client/mock-upstreams/index.ts";
 import { Array, Context, Effect, Layer, Option, Ref, Schema, String as Str, Stream, pipe } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/http";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import {
 	responseEvents,
 	serveAnthropic,
+	serveJudge,
 	serveOpenAi,
 	textEvents,
 	toolEvents,
@@ -276,6 +277,60 @@ const offRoute = Effect.gen(function* offRoute() {
 	);
 });
 
+const judgeOn = Effect.fnUntraced(function* judgeOn(script: (piece: string) => Reply) {
+	const server = yield* Layer.build(NodeHttpServer.layerTest);
+
+	return yield* Effect.provideContext(serveJudge(script), server);
+});
+
+const cleared = (): Reply => ({ body: { answers: [] }, kind: "body" });
+
+const judgeAsked = { input: '{"piece":"the piece"}', model: "judge", questions: [] };
+
+const judgeAskedText = Schema.encodeEffect(JsonText)(judgeAsked);
+
+const followedRedirect = Effect.gen(function* followedRedirect() {
+	const elsewhere = yield* judgeOn(cleared);
+	const redirecting = yield* judgeOn(() => ({ kind: "redirect", location: `${elsewhere.endpoint}/decisions` }));
+	const client = yield* HttpClient.HttpClient;
+	const asked = yield* judgeAskedText;
+
+	yield* client.execute(posted(`${redirecting.endpoint}/decisions`, asked));
+
+	const reached = yield* elsewhere.received;
+
+	assert.deepStrictEqual(
+		pipe(
+			reached,
+			Array.map(({ body, method }) => ({ body, method })),
+		),
+		[{ body: judgeAsked, method: "POST" }],
+	);
+});
+
+const answeredAndRecorded = Effect.gen(function* answeredAndRecorded() {
+	const judge = yield* judgeOn(cleared);
+	const client = yield* HttpClient.HttpClient;
+	const asked = yield* judgeAskedText;
+
+	const response = yield* client.execute(
+		posted(`${judge.endpoint}/decisions`, asked).pipe(HttpClientRequest.setHeader("X-Judge-Test", "seen")),
+	);
+
+	const judged = yield* response.text.pipe(Effect.flatMap(Schema.decodeEffect(JsonText)));
+	const received = yield* judge.received;
+
+	const headers = pipe(
+		received,
+		Array.map((request) => request.headers["x-judge-test"]),
+	);
+
+	assert.deepStrictEqual(
+		{ headers, judged, status: response.status },
+		{ headers: ["seen"], judged: { answers: [] }, status: status.ok },
+	);
+});
+
 it.layer(NodeServices.layer)("an account mock", (test) => {
 	test.effect(
 		"writes a text reply as one SSE frame per event, one delta per text with a ping after each",
@@ -286,4 +341,15 @@ it.layer(NodeServices.layer)("an account mock", (test) => {
 	test.effect.each(lasts)("gives its script as the last asked $name, as JSON text", lastAsked);
 	test.effect("sends a stalled reply's status and first byte, and never ends it", () => stalls);
 	test.effect("records every request, even one it cannot read, and answers 404 off its model route", () => offRoute);
+});
+
+it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("a judge mock", (test) => {
+	test.effect(
+		"redirects so that a client following it as fetch does sends the piece on to its location",
+		() => followedRedirect,
+	);
+	test.effect(
+		"answers a body reply with 200 and its JSON, and records each header under its lower-case name",
+		() => answeredAndRecorded,
+	);
 });

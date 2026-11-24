@@ -329,6 +329,29 @@ const sealedBy = Effect.fnUntraced(function* sealedBy(answer: () => Said) {
 	return found;
 });
 
+const unlabelled = Effect.gen(function* unlabelled() {
+	const { judge } = yield* claudeAnswering(judgingOn({ holdsPhi: Str.includes(trouble), script: () => failing }));
+
+	const judged = yield* Effect.provideService(
+		verdictsFor([pieceOf(trouble), pieceOf("the fine piece")], () => false),
+		Judge,
+		judge,
+	);
+
+	assert.deepStrictEqual(judged.found, [
+		[trouble, Verdicts.Sealed({ finding: Findings.Judge({ kind: "unlabelled", score: 1 }) })],
+		["the fine piece", Verdicts.Cleared({ by: "judge" })],
+	]);
+});
+
+const passedOn = Effect.sync(() => {
+	const asked: Asked = { body: '{"messages":[],"model":"mock"}', headers: {}, last: "", model: "mock" };
+	const answered = replied("answered by the script");
+	const said = judgingOn({ holdsPhi: () => true, script: () => answered })(asked);
+
+	assert.deepStrictEqual(said, answered);
+});
+
 it.layer(NodeServices.layer)("the Claude judge", (test) => {
 	test.effect.each(picks)("$name", ({ expected, file }) =>
 		Effect.map(choiceOf(file), (got) => {
@@ -404,6 +427,11 @@ it.layer(NodeServices.layer)("the Claude judge", (test) => {
 		}),
 	);
 
+	test.effect(
+		"a judging account seals each piece its script names, with no kind, and clears the rest",
+		() => unlabelled,
+	);
+	test.effect("a judging account answers any other request by its script", () => passedOn);
 	test.effect("a kind the question does not list fails the call as judge-error", () =>
 		Effect.gen(function* offList() {
 			const { judge } = yield* claudeAnswering(() => toolUse("kind", '{"kind":"phone"}'));

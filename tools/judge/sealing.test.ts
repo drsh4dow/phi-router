@@ -11,6 +11,7 @@ import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 import type { Verdict } from "#router/features/verdicts/index.ts";
 import { judgeLimits } from "#router/features/policy/index.ts";
+import { sealingWhen } from "#router/client/mock-upstreams/index.ts";
 
 const fromEnv: Named = { keyEnv: "PHI_TEST_KEY" };
 
@@ -123,6 +124,20 @@ const redirectSeals = Effect.gen(function* redirectSeals() {
 	assert.deepStrictEqual({ found, reached }, { found: sealedAs("judge-error"), reached: [] });
 });
 
+const unlabelled = Effect.gen(function* unlabelled() {
+	const { judge } = yield* mockedJudge(
+		sealingWhen((piece) => piece === trouble),
+		fromEnv,
+	);
+
+	const { found } = yield* verdictsOf(judge);
+
+	assert.deepStrictEqual(found, [
+		[trouble, Verdicts.Sealed({ finding: Findings.Judge({ kind: "unlabelled", score: 1 }) })],
+		[fine, Verdicts.Cleared({ by: "judge" })],
+	]);
+});
+
 /** In the band, so the kind call decides, and a kind answer with no `probabilities` or `confidence`, which Decisions never sends. */
 const bareKind: Reply = {
 	body: {
@@ -153,4 +168,8 @@ it.layer(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))("a failed judge
 	test.effect("no answer within the timeout seals only its piece and hangs up the call", () => silenceSeals);
 	test.effect("a redirect seals only its piece and is never followed", () => redirectSeals);
 	test.effect("a kind answer missing its probabilities and confidence seals only its piece", () => bareKindSeals);
+});
+
+it.layer(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))("the judge mock", (test) => {
+	test.effect("seals each piece its script names, with no kind, and clears the rest", () => unlabelled);
 });
