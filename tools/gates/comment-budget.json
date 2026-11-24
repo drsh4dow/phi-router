@@ -10,7 +10,6 @@
 	"src/pi/index.test.ts": 3,
 	"src/pi/index.ts": 18,
 	"src/router/client/harnesses/codex.ts": 1,
-	"src/router/client/harnesses/pi.ts": 10,
 	"src/router/client/judge/decisions.ts": 1,
 	"src/router/client/keys/check.ts": 3,
 	"src/router/client/keys/files.ts": 3,

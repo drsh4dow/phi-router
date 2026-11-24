@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Formatter, String as Str } from "effect";
+import { Effect, FileSystem, Formatter, String as Str, Struct } from "effect";
 import type { Typed, TypedRan, World } from "./world.ts";
 import { assert, it } from "@effect/vitest";
 import { configOf, enter, keyFiles, layer, leaks, ok, patient, piAuthOf, setUp } from "./set-up.ts";
@@ -180,9 +180,24 @@ const straightToPaste = Effect.fnUntraced(function* straightToPaste({ given }: U
 	const run = yield* setUp(of, "claude", [stopAtPaste]);
 
 	assert.notInclude(run.shown, "pi already has", run.shown);
+	assert.notInclude(run.shown, "Error: ", "nothing pi printed reaches the terminal");
 	assert.include(run.shown, pasteQuestion);
 	assert.include(run.shown, subscriptionCopy);
 }, Effect.scoped);
+
+const shellKeyUnoffered = Effect.gen(function* shellKeyUnoffered() {
+	const fs = yield* FileSystem.FileSystem;
+	const of = yield* world;
+	const shell = Struct.assign(of.env, { ANTHROPIC_API_KEY: keys.anthropic });
+	const openAiOnly = Formatter.formatJson({ openai: { key: keys.openai, type: "api_key" } });
+
+	yield* fs.writeFileString(piAuthOf(of), openAiOnly, { mode: 0o600 });
+
+	const run = yield* setUp(Struct.assign(of, { env: shell }), "claude", [stopAtPaste]);
+
+	assert.notInclude(run.shown, "pi already has", run.shown);
+	assert.include(run.shown, pasteQuestion);
+}).pipe(Effect.scoped);
 
 it.layer(layer)("setup offers the Anthropic API key pi holds", (test) => {
 	test.effect("setup claude takes pi's key on y, checks it and saves it in the key file", () => takenOnYes, patient);
@@ -190,4 +205,9 @@ it.layer(layer)("setup offers the Anthropic API key pi holds", (test) => {
 	test.effect("setup pi asks for a paste on Enter", () => pastedOnEnter, patient);
 	test.effect("a key Anthropic refuses goes to the paste question with the refusal", () => refusedThenPasted, patient);
 	test.effect.each(unoffered)("setup goes straight to the paste question when $kind", straightToPaste, patient);
+	test.effect(
+		"setup goes straight to the paste question when only the developer's shell holds an Anthropic API key",
+		() => shellKeyUnoffered,
+		patient,
+	);
 });

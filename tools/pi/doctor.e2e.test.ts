@@ -29,12 +29,15 @@ type Install =
 	| "routerTruncated";
 
 /**
- * The `pi` a test puts on PATH. When it runs a prompt it writes the router port and the `TMPDIR` it was given to
- * `pi-prompted` beside it, one per line. Then it runs `pi-cli.js` beside it, a link to the pinned pi, under the `bun`
- * beside it. It names no path, so no path passes through a shell string.
+ * The `pi` a test puts on PATH. Each run adds the login it was given to `pi-logins` beside it. When it lists packages
+ * it writes its working folder and the `TMPDIR` it was given to `pi-listed`, and when it runs a prompt the router port
+ * and the `TMPDIR` to `pi-prompted`, one per line. Then it runs `pi-cli.js` beside it, a link to the pinned pi, under
+ * the `bun` beside it. It names no path, so no path passes through a shell string.
  */
 const piWrapper = `#!/bin/sh
 here=\${0%/*}
+printf '%s\\n' "$ANTHROPIC_OAUTH_TOKEN" >> "$here/pi-logins"
+[ "$1" = list ] && printf '%s\\n%s' "$PWD" "$TMPDIR" > "$here/pi-listed"
 [ "$1" = list ] || printf '%s\\n%s' "$PHI_ROUTER_PORT" "$TMPDIR" > "$here/pi-prompted"
 exec "$here/bun" "$here/pi-cli.js" "$@"
 `;
@@ -54,7 +57,7 @@ const searchPath = Effect.fnUntraced(function* searchPath(pi: "real" | "absent")
 		yield* fs.writeFileString(`${bin}/pi`, piWrapper, { mode: 0o755 });
 	}
 
-	return { bun, marker, searchPath: `${bin}:/usr/bin:/bin` };
+	return { bin, bun, marker, searchPath: `${bin}:/usr/bin:/bin` };
 });
 
 const halves = 2;
@@ -159,9 +162,11 @@ const promptSeen = Effect.fnUntraced(function* promptSeen(marker: string) {
 
 /**
  * Variables a user's shell may hold that would change what pi prints, load or connect to, if doctor passed them on:
- * colour codes around `pi list`'s folders, a module node must load first, and a proxy that answers nothing.
+ * colour codes around `pi list`'s folders, a module node must load first, a proxy that answers nothing, and the
+ * developer's own login.
  */
 const hostile = {
+	ANTHROPIC_OAUTH_TOKEN: "sk-ant-oat01-phi-test-shell-login",
 	FORCE_COLOR: "1",
 	HTTPS_PROXY: "http://127.0.0.1:9",
 	HTTP_PROXY: "http://127.0.0.1:9",
@@ -170,18 +175,28 @@ const hostile = {
 	https_proxy: "http://127.0.0.1:9",
 };
 
+const linesIn = Effect.fnUntraced(function* linesIn(bin: string, name: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const text = yield* fs.readFileString(`${bin}/${name}`).pipe(Effect.orElseSucceed(() => ""));
+
+	return Str.split(Str.trimEnd(text), "\n");
+});
+
 const doctored = Effect.fnUntraced(function* doctored(pi: "real" | "absent", install: Install) {
 	const fs = yield* FileSystem.FileSystem;
 	const [home, temporary] = yield* Effect.all([folder("phi-pi-home-"), folder("phi-pi-tmp-")], { concurrency: 1 });
 	const agentDir = yield* agentFolder(install);
-	const { bun, marker, searchPath: PATH } = yield* searchPath(pi);
+	const { bin, bun, marker, searchPath: PATH } = yield* searchPath(pi);
 	const env = Struct.assign(hostile, { HOME: home, PATH, PI_CODING_AGENT_DIR: "", TMPDIR: temporary });
 	const doctor = yield* phiRouter(["doctor", "pi", "--agent-dir", agentDir], env, bun);
 	const prompt = yield* promptSeen(marker);
 	const leftInTemporary = yield* fs.readDirectory(temporary);
 	const agentFolderLeft = yield* fs.exists(agentDir);
+	const logins = yield* linesIn(bin, "pi-logins");
+	const listed = yield* linesIn(bin, "pi-listed");
+	const listedLeft = yield* Effect.forEach(listed, (made) => fs.exists(made), { concurrency: 1 });
 
-	return { agentFolderLeft, doctor, leftInTemporary, prompt };
+	return { agentFolderLeft, doctor, leftInTemporary, listed, listedLeft, logins, prompt };
 }, Effect.scoped);
 
 /** What a passing doctor leaves: no router on the port pi was given, nothing in TMPDIR, and no folder of pi's. */
@@ -197,10 +212,19 @@ const leftBehind = Effect.fnUntraced(function* leftBehind(
 	assert.isFalse(routerAnswers, "the package's router is gone once doctor returns");
 });
 
+const doctorLogin = "phi-doctor-fake-login";
+
 const passes = Effect.gen(function* passes() {
-	const { doctor, leftInTemporary, prompt } = yield* doctored("real", "whole");
+	const { doctor, leftInTemporary, listed, listedLeft, logins, prompt } = yield* doctored("real", "whole");
+	const [working, listTemporary = ""] = listed;
 
 	assert.strictEqual(doctor.exitCode, ok, doctor.printed);
+	assert.deepStrictEqual(logins, ["", doctorLogin], "pi list gets no login and pi -p doctor's, never the shell's");
+	assert.deepStrictEqual(
+		{ apart: working !== listTemporary, listedLeft },
+		{ apart: true, listedLeft: [false, false] },
+		"pi list runs in a working folder and a TMPDIR of doctor's apart from each other, gone once doctor returns",
+	);
 	assert.include(doctor.printed, "pass pi installed the package phi-router");
 	assert.include(doctor.printed, "pass pi -p exited 0");
 	assert.include(doctor.printed, "pass the canary arrived at the BAA mock");
