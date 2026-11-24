@@ -43,12 +43,6 @@ const unreadablePrompt: Run = {
 	readable: false,
 };
 
-/**
- * A tool call the codec cannot read, which still has its id and name.
- *
- * @param {Located<Raw>} block The block as parsed, and where it sits.
- * @returns {readonly WireCall[]} The call, or nothing when the block is no tool call.
- */
 const unreadableCall = ({ span, wire }: Located<Raw>): readonly WireCall[] => {
 	if (!isLooseCall(wire)) {
 		return [];

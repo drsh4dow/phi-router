@@ -24,7 +24,6 @@ interface LocatedSection {
 	readonly text: string;
 	readonly readable: boolean;
 	readonly span: Span;
-	/** The block's `cache_control` member, which a rewrite keeps. */
 	readonly kept: readonly string[];
 }
 
@@ -36,7 +35,6 @@ interface BridgeSlot {
 	readonly after: string;
 }
 
-/** The body's `system` blocks and `tools`, the first engine message. */
 interface SystemRun {
 	readonly message: SystemMessage;
 	readonly sections: readonly LocatedSection[];
@@ -86,7 +84,6 @@ const sectionOf = ({ span, wire }: Located<SystemBlock>, index: number): Located
 
 const isAttribution = (section: LocatedSection): boolean => section.readable && attribution.test(section.text);
 
-/** A tool as the engine reads it. Tools are never rewritten, so a tool the codec cannot read is judged on every byte. */
 const toolOf = Effect.fnUntraced(function* toolOf({
 	span,
 	wire,
@@ -132,7 +129,6 @@ const judgedWhole = (body: Span): readonly SystemMessage["tools"][number][] => {
 	);
 };
 
-/** The attribution block is no section. A section's name is its index among the `system` blocks. */
 const systemOf = Effect.fnUntraced(function* systemOf(wire: WireBody, body: Span): Effect.fn.Return<SystemRun> {
 	const all = pipe(wire.system ?? [], locate(itemsOf("system")(body)), Array.map(sectionOf));
 

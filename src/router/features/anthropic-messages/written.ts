@@ -24,7 +24,6 @@ const after = (members: readonly string[]): string =>
 		Array.join(""),
 	);
 
-/** One block written fresh, with the members of the wire block it replaces that a rewrite keeps. */
 const freshBlock = Effect.fnUntraced(function* freshBlock(
 	block: EngineBlock,
 	kept: readonly string[],
@@ -64,7 +63,6 @@ const keptBy = (spelling: Spelling): readonly string[] => {
 	return spelling.kept;
 };
 
-/** A content written fresh: a string while the wire's was one and the rewrite is one text, else blocks. */
 const contentText = Effect.fnUntraced(function* contentText(
 	spelling: Spelling,
 	blocks: readonly EngineBlock[],
@@ -85,7 +83,6 @@ const contentText = Effect.fnUntraced(function* contentText(
 	return `[${Array.join(fresh, ",")}]`;
 });
 
-/** What the border returned for a prompt or a note, as blocks. */
 const engineBlocks = Effect.fnUntraced(function* engineBlocks(
 	guarded: Message,
 ): Effect.fn.Return<readonly EngineBlock[]> {
@@ -164,7 +161,6 @@ const freshResult = Effect.fnUntraced(function* freshResult(
 	return [`{"tool_use_id":${id},"type":"tool_result","content":${content}${after(run.kept)}}`];
 });
 
-/** The blocks of a run the border changed, or that the codec cannot read, written from what the border returned. */
 const freshRun = Effect.fnUntraced(function* freshRun(run: Run, guarded: Message): Effect.fn.Return<readonly string[]> {
 	switch (run.kind) {
 		case "prompt":
@@ -192,13 +188,6 @@ const freshRun = Effect.fnUntraced(function* freshRun(run: Run, guarded: Message
 
 const keeps = (run: Run, guarded: Message): boolean => run.readable && Equal.equals(guarded, run.message);
 
-/**
- * Thinking an open account did not stream never reaches an open account. Each block it streamed stays, even after a
- * stub, whoever wrote the rest of the reply.
- *
- * @param {Run} run A run of the request.
- * @returns {boolean} Whether the run holds thinking to drop.
- */
 const dropsThinking = (run: Run): boolean =>
 	run.kind === "reply" &&
 	pipe(
