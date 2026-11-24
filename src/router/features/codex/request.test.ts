@@ -1,13 +1,13 @@
 import { Array, Effect, Exit, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
 import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import { allCleared, cleanBodyPastBorder, nothingWritten, realModel } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor, guard } from "#router/features/border/index.ts";
 import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import { replies, requests } from "./captures/index.ts";
 import { Digest } from "effect/crypto";
-import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
@@ -27,17 +27,11 @@ const decodeSent = Schema.decodeUnknownEffect(Sent);
 
 const sentOf = (text: string): Effect.Effect<typeof Sent.Type> => Effect.orDie(decodeSent(text));
 
-const realModel = "gpt-5.5";
-
 const canary = "chart 4471";
 
 const liteTools = 3;
 
 const fallbackTools = 22;
-
-const nothingWritten = (): boolean => false;
-
-const allCleared: Lookup = () => "cleared";
 
 const reasoningItem = /\{"type":"reasoning","id":"[^"]+","summary":\[\],"encrypted_content":"[^"]+"\},/u;
 
@@ -56,18 +50,10 @@ const decodedAfter = (text: string, reply: string): Effect.Effect<CodexRequest, 
 		return yield* decodeRequest(text, (key) => written.has(key));
 	});
 
-const cleanOf = (
-	request: Pick<CodexRequest, "encode" | "messages">,
-	lookup: Lookup,
-): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
-		request.encode({ lane: "clean", messages, model: realModel }),
-	);
-
 const cleanBody = (
-	request: Pick<CodexRequest, "encode" | "messages">,
+	request: CodexRequest,
 ): Effect.Effect<typeof Sent.Type, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.flatMap(cleanOf(request, allCleared), sentOf);
+	Effect.flatMap(cleanBodyPastBorder(allCleared)(request), sentOf);
 
 const firstTools = (messages: readonly Message[]): readonly unknown[] =>
 	Option.match(Array.head(messages), {
@@ -174,8 +160,8 @@ const writersOf = (messages: readonly Message[]): readonly string[] =>
 const reasoning = Effect.gen(function* reasoning() {
 	const writtenRequest = yield* decodedAfter(requests.customToolCall, replies.customToolCallReply);
 	const otherRequest = yield* decoded(requests.customToolCall);
-	const written = yield* cleanOf(writtenRequest, allCleared);
-	const other = yield* cleanOf(otherRequest, allCleared);
+	const written = yield* cleanBodyPastBorder(allCleared)(writtenRequest);
+	const other = yield* cleanBodyPastBorder(allCleared)(otherRequest);
 
 	assert.deepStrictEqual(writersOf(writtenRequest.messages), ["open-account"]);
 	assert.deepStrictEqual(writersOf(otherRequest.messages), ["other"]);
@@ -188,10 +174,11 @@ const reasoning = Effect.gen(function* reasoning() {
 const carriesBlob = ({ arguments: args = "" }: typeof SentItem.Type): boolean => Str.includes("gAAAAA")(args);
 
 const blobs = Effect.gen(function* blobs() {
-	const unwritten = yield* Effect.flatMap(decoded(requests.subagent), (request) => cleanOf(request, allCleared));
+	const unwritten = yield* Effect.flatMap(decoded(requests.subagent), cleanBodyPastBorder(allCleared));
 
-	const written = yield* Effect.flatMap(decodedAfter(requests.subagent, replies.spawnReply), (request) =>
-		cleanOf(request, allCleared),
+	const written = yield* Effect.flatMap(
+		decodedAfter(requests.subagent, replies.spawnReply),
+		cleanBodyPastBorder(allCleared),
 	);
 
 	const parent = yield* decodedAfter(requests.subagentParent, replies.spawnReply);

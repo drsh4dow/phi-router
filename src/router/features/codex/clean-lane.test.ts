@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Predicate, Schema, String as Str, Struct, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, CodexRequestRejected } from "./index.ts";
 import { assert, it } from "@effect/vitest";
-import { guard, stubsFor } from "#router/features/border/index.ts";
+import { cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
@@ -10,6 +10,7 @@ import { decodeRequest } from "./index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
+import { stubsFor } from "#router/features/border/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
 
@@ -36,8 +37,6 @@ const Verdict = Schema.Literals(["cleared", "sealed", "unknown"]);
 
 const Capture = Schema.Literals(["customToolCall", "functionCall", "resumed", "subagentParent"]);
 
-const realModel = "gpt-5.5";
-
 const oneOutput = 1;
 
 const toolListCount = 1;
@@ -46,17 +45,7 @@ const sixAsks = 6;
 
 const canary = "chart 4471";
 
-const nothingWritten = (): boolean => false;
-
 const isCall = ({ type }: Item): boolean => type === "function_call" || type === "custom_tool_call";
-
-const cleanBodyPastBorder = (
-	request: Pick<CodexRequest, "encode" | "messages">,
-	lookup: Lookup,
-): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
-		request.encode({ lane: "clean", messages, model: realModel }),
-	);
 
 const sentItems = (text: string): Effect.Effect<readonly Item[]> =>
 	Effect.map(Effect.orDie(decodeSent(text)), ({ input }) => input);
@@ -74,7 +63,7 @@ const keysSeen = (
 			return "cleared";
 		};
 
-		yield* cleanBodyPastBorder(request, lookup);
+		yield* cleanBodyPastBorder(lookup)(request);
 
 		return seen;
 	});
@@ -174,7 +163,7 @@ const ownKeys = ([, respelled]: readonly [string, string]): Effect.Effect<
 const toolListRefused = (text: string): Effect.Effect<void, CodexRequestRejected | string, Digest.Digest> =>
 	Effect.gen(function* refuseToolList() {
 		const request = yield* decodeRequest(text, nothingWritten);
-		const error = yield* Effect.flip(cleanBodyPastBorder(request, () => "sealed"));
+		const error = yield* Effect.flip(cleanBodyPastBorder(() => "sealed")(request));
 
 		assert.isTrue(Predicate.isTagged(error, "ToolsNotCleared"));
 	});
@@ -218,7 +207,7 @@ const allSealed = Effect.gen(function* allSealed() {
 		return "sealed";
 	};
 
-	const encoded = yield* cleanBodyPastBorder(request, lookup);
+	const encoded = yield* cleanBodyPastBorder(lookup)(request);
 	const sent = yield* sentItems(encoded);
 	const carried = pipe(sent, Array.drop(toolListCount), Array.map(Struct.omit(["id", "arguments"])));
 
@@ -271,7 +260,7 @@ const anyLookup = ({
 			lookupOf((key) => toolList.has(key), verdicts),
 		);
 
-		const encoded = yield* cleanBodyPastBorder(request, lookup);
+		const encoded = yield* cleanBodyPastBorder(lookup)(request);
 
 		const original = yield* Effect.map(sentItems(text), Array.filter(isCall));
 		const sent = yield* sentItems(encoded);
@@ -292,7 +281,7 @@ const partField = Effect.gen(function* partField() {
 	)(requests.firstTurn);
 
 	const request = yield* decodeRequest(text, nothingWritten);
-	const clean = yield* cleanBodyPastBorder(request, () => "cleared");
+	const clean = yield* cleanBodyPastBorder(() => "cleared")(request);
 
 	assert.notStrictEqual(text, requests.firstTurn);
 	assert.notInclude(clean, canary);

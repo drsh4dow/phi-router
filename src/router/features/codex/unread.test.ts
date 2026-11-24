@@ -1,31 +1,16 @@
 import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
 import { Effect, Predicate, String as Str } from "effect";
+import { allCleared, cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
-import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
-import { guard } from "#router/features/border/index.ts";
 import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
-
-const realModel = "gpt-5.5";
 
 const canary = "chart 4471";
 
 const oneStub = 1;
-
-const allCleared: Lookup = () => "cleared";
-
-const nothingWritten = (): boolean => false;
-
-const cleanOf = (
-	request: Pick<CodexRequest, "encode" | "messages">,
-	lookup: Lookup,
-): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
-		request.encode({ lane: "clean", messages, model: realModel }),
-	);
 
 const futureItem = Str.replace('"input":[', `"input":[{"type":"future_item","note":"${canary}"},`);
 
@@ -51,7 +36,7 @@ const stubbedCase = ([, text]: readonly [string, string]): Effect.Effect<
 > =>
 	Effect.gen(function* stubOnClean() {
 		const request = yield* sealedAsSent(text);
-		const clean = yield* cleanOf(request, allCleared);
+		const clean = yield* cleanBodyPastBorder(allCleared)(request);
 		const stubCount = Str.split(clean, stubs.unknown).length - oneStub;
 
 		assert.strictEqual(stubCount, oneStub);
@@ -66,7 +51,7 @@ const refusedCase = ([, text]: readonly [string, string]): Effect.Effect<
 > =>
 	Effect.gen(function* refuseClean() {
 		const request = yield* sealedAsSent(text);
-		const error = yield* Effect.flip(cleanOf(request, allCleared));
+		const error = yield* Effect.flip(cleanBodyPastBorder(allCleared)(request));
 
 		assert.isTrue(Predicate.isTagged(error, "CleanLaneRefused"));
 	});

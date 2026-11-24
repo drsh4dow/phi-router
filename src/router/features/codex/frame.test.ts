@@ -1,25 +1,13 @@
 import { Array, Effect, Predicate, String as Str, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, CodexRequestRejected } from "./index.ts";
 import { assert, it } from "@effect/vitest";
+import { cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
-import { guard } from "#router/features/border/index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
-
-const realModel = "gpt-5.5";
-
-const nothingWritten = (): boolean => false;
-
-const cleanOf = (
-	request: Pick<CodexRequest, "encode" | "messages">,
-	lookup: Lookup,
-): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
-		request.encode({ lane: "clean", messages, model: realModel }),
-	);
 
 const withFormat = (description: string): ((text: string) => string) =>
 	Str.replace(
@@ -58,9 +46,9 @@ const changeRefused = ([text, changed]: readonly [string, string]): Effect.Effec
 		const lookup = yield* clearing(text);
 		const request = yield* decodeRequest(text, nothingWritten);
 		const changedRequest = yield* decodeRequest(changed, nothingWritten);
-		const error = yield* Effect.flip(cleanOf(changedRequest, lookup));
+		const error = yield* Effect.flip(cleanBodyPastBorder(lookup)(changedRequest));
 
-		yield* cleanOf(request, lookup);
+		yield* cleanBodyPastBorder(lookup)(request);
 
 		assert.notStrictEqual(changed, text);
 		assert.isTrue(Predicate.isTagged(error, "ToolsNotCleared"));

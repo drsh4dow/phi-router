@@ -1,24 +1,11 @@
 import { Array, Effect, Predicate, String as Str, pipe } from "effect";
-import type { CleanLaneRefused, CodexRequest, CodexRequestRejected } from "./index.ts";
+import type { CleanLaneRefused, CodexRequestRejected } from "./index.ts";
+import { allCleared, cleanBodyPastBorder } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import { replies, requests } from "./captures/index.ts";
 import { Digest } from "effect/crypto";
-import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
-import { guard } from "#router/features/border/index.ts";
-
-const realModel = "gpt-5.5";
-
-const allCleared: Lookup = () => "cleared";
-
-const cleanBodyPastBorder = (
-	request: Pick<CodexRequest, "encode" | "messages">,
-	lookup: Lookup,
-): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-	Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
-		request.encode({ lane: "clean", messages, model: realModel }),
-	);
 
 const blob = "gAAAAABtool-description-blob-0001";
 
@@ -42,7 +29,7 @@ const cleanAfter = (
 		const written = new Set(keys);
 		const request = yield* decodeRequest(text, (key) => written.has(key));
 
-		return yield* cleanBodyPastBorder(request, allCleared);
+		return yield* cleanBodyPastBorder(allCleared)(request);
 	});
 
 const withCallBlob = Str.replace('"name":"exec_command","arguments"', `"name":"${blob}","arguments"`);
