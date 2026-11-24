@@ -51,7 +51,7 @@ const answers: Script = () => ({ events: Stream.fromIterable(textEvents(["ok"]))
 const failing: Script = () => ({ body: "{}", kind: "status", status: 500 });
 
 /** The router writes the line as it lets go of a request the harness hung up on, so the test waits for it. */
-const lineRetry = { schedule: Schedule.spaced("20 millis"), times: 100 } as const;
+const lineRetry = { schedule: Schedule.spaced("20 millis") } as const;
 
 /**
  * The open account answers 500, the BAA account takes the request and never answers, and the harness hangs up while

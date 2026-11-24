@@ -110,9 +110,10 @@ const gates: readonly Gate[] = [
 	{
 		fixture: "live-bounds",
 		messages: [
-			"A unit test bounds nothing by the real clock.",
+			"A unit test bounds nothing by the real clock",
 			"src/router/features/sample/bounded.test.ts:5:",
 			"src/router/features/sample/bounded.test.ts:7:",
+			"src/router/features/sample/bounded.test.ts:10:",
 		],
 		script: "comments",
 	},
