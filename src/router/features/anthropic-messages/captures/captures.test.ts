@@ -1,4 +1,4 @@
-import { Array, Effect, Record, Result, String as Str, pipe } from "effect";
+import { Array, Effect, Exit, Predicate, Record, Result, Schema, String as Str, pipe } from "effect";
 import {
 	UnreadableReply,
 	UnreadableRequest,
@@ -8,6 +8,9 @@ import {
 import { assert, it } from "@effect/vitest";
 import { replies, requests } from "./index.ts";
 import { Digest } from "effect/crypto";
+import type { Message } from "#router/features/parts/index.ts";
+import type { MessagesRequest } from "#router/features/anthropic-messages/index.ts";
+import { bridgesFor } from "#router/features/border/index.ts";
 
 const nobodyWrote = (): boolean => false;
 
@@ -112,6 +115,189 @@ const cutReply = Effect.gen(function* cutReply() {
 	assert.instanceOf(failedFailure, UnreadableReply);
 });
 
+const placeholderSignature = "signature-placeholder";
+
+const placeholderIds = { account_uuid: "", device_id: "device-id-placeholder", session_id: "session-id-placeholder" };
+
+const Signed = Schema.Struct({ signature: Schema.optionalKey(Schema.String) });
+
+const RecordedTurn = Schema.Struct({ content: Schema.Union([Schema.String, Schema.Array(Signed)]) });
+
+const RecordedMetadata = Schema.Struct({ user_id: Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)) });
+
+const RecordedRequest = Schema.fromJsonString(
+	Schema.Struct({ messages: Schema.Array(RecordedTurn), metadata: Schema.optionalKey(RecordedMetadata) }),
+);
+
+const RecordedEvent = Schema.fromJsonString(Schema.Struct({ delta: Schema.optionalKey(Signed) }));
+
+const dataPrefix = "data: ";
+
+const replyData = pipe(
+	replies.toolCallReply,
+	Str.split("\n"),
+	Array.filter(Str.startsWith(dataPrefix)),
+	Array.map(Str.slice(dataPrefix.length)),
+);
+
+const placeholders = Effect.gen(function* placeholders() {
+	const recorded = yield* Effect.forEach(
+		Record.values(requests),
+		(body) => Schema.decodeEffect(RecordedRequest)(body),
+		{ concurrency: 1 },
+	);
+
+	const events = yield* Effect.forEach(replyData, (line) => Schema.decodeEffect(RecordedEvent)(line), {
+		concurrency: 1,
+	});
+
+	const deltas = pipe(
+		events,
+		Array.flatMap((event) => Array.fromNullishOr(event.delta)),
+	);
+
+	const signatures = pipe(
+		recorded,
+		Array.flatMap((body) => body.messages),
+		Array.flatMap((message) => {
+			if (Predicate.isString(message.content)) {
+				return [];
+			}
+
+			return message.content;
+		}),
+		Array.appendAll(deltas),
+		Array.map((block) => block.signature),
+		Array.filter(Predicate.isNotUndefined),
+	);
+
+	const ids = pipe(
+		recorded,
+		Array.flatMap((body) => Array.fromNullishOr(body.metadata)),
+		Array.map((metadata) => metadata.user_id),
+	);
+
+	assert.deepStrictEqual(Array.dedupe(signatures), [placeholderSignature]);
+	assert.isNotEmpty(ids);
+
+	for (const each of ids) {
+		assert.deepStrictEqual(each, placeholderIds);
+	}
+});
+
+type SystemTool = Extract<Message, { readonly role: "system" }>["tools"][number];
+
+const toolsOf = (request: MessagesRequest): readonly SystemTool[] =>
+	pipe(
+		request.messages,
+		Array.flatMap((message) => {
+			if (message.role === "system") {
+				return message.tools;
+			}
+
+			return [];
+		}),
+	);
+
+const ClassifierContext = Schema.Struct({
+	home_dir: Schema.String,
+	permission_mode: Schema.String,
+	user_identity: Schema.String,
+});
+
+const Safeguards = Schema.fromJsonString(
+	Schema.Array(Schema.Struct({ classifier_context: ClassifierContext, type: Schema.String })),
+);
+
+const autoModeSafeguards = Effect.gen(function* autoModeSafeguards() {
+	const request = yield* decodeRequest(requests.autoMode, nobodyWrote, "claude");
+
+	const judged = pipe(
+		toolsOf(request),
+		Array.filter((tool) => tool.name === "safeguards"),
+	);
+
+	const safeguards = yield* Effect.forEach(judged, (tool) => Schema.decodeEffect(Safeguards)(tool.parameters), {
+		concurrency: 1,
+	});
+
+	assert.deepStrictEqual(safeguards, [
+		[
+			{
+				classifier_context: { home_dir: "/home/user", permission_mode: "auto", user_identity: "user" },
+				type: "dangerous_tool_use",
+			},
+		],
+	]);
+});
+
+const webSearchTool = '{"type":"web_search_20250305","name":"web_search","max_uses":8}';
+
+const serverTool = Effect.gen(function* serverTool() {
+	const request = yield* decodeRequest(requests.webSearch, nobodyWrote, "claude");
+	const clean = yield* request.encode({ lane: "clean", messages: request.messages, model: "claude-target" });
+
+	assert.deepStrictEqual(toolsOf(request), [{ description: "", name: "web_search", parameters: webSearchTool }]);
+	assert.include(clean, webSearchTool);
+	assert.include(clean, '"tool_choice":{"type":"auto"}');
+});
+
+const enabledThinking = Effect.gen(function* enabledThinking() {
+	const body = Str.replace(
+		'"thinking":{"type":"adaptive","display":"updates"}',
+		'"thinking":{"type":"enabled","budget_tokens":1024}',
+	)(requests.toolResult);
+
+	assert.notStrictEqual(body, requests.toolResult);
+	const failure = yield* Effect.flip(decodeRequest(body, nobodyWrote, "claude"));
+
+	assert.instanceOf(failure, UnreadableRequest);
+	assert.include(failure.reason, "thinking");
+});
+
+const twoResults = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Read both."},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{}},{"type":"tool_use","id":"toolu_2","name":"Read","input":{}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"one"},{"type":"tool_result","tool_use_id":"toolu_2","content":"two"},{"type":"text","text":"Go on."}]}],"max_tokens":1000}`;
+
+const resultMessages = Effect.gen(function* resultMessages() {
+	const request = yield* decodeRequest(twoResults, nobodyWrote, "claude");
+
+	const roles = pipe(
+		request.messages,
+		Array.map((message) => message.role),
+	);
+
+	const answered = pipe(
+		request.messages,
+		Array.flatMap((message) => {
+			if (message.role === "toolResult") {
+				return [message.toolCallId];
+			}
+
+			return [];
+		}),
+	);
+
+	assert.deepStrictEqual(roles, ["system", "user", "assistant", "toolResult", "toolResult", "user"]);
+	assert.deepStrictEqual(answered, ["toolu_1", "toolu_2"]);
+});
+
+const lostMessages = 1;
+
+const misaligned = Effect.gen(function* misaligned() {
+	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
+	const messages = Array.dropRight(request.messages, lostMessages);
+	const sent = yield* Effect.exit(request.encode({ lane: "clean", messages, model: "claude-target" }));
+
+	assert.isTrue(Exit.hasDies(sent));
+});
+
+const piBridge = Effect.gen(function* piBridge() {
+	const request = yield* decodeRequest(requests.piFirstTurn, nobodyWrote, "pi");
+	const sent = yield* request.encode({ lane: "sealed", model: request.model, pinned: false });
+
+	assert.include(sent, bridgesFor.pi);
+	assert.notInclude(sent, bridgesFor.claude);
+});
+
 it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	test.effect("every captured request decodes", () => everyCapture);
 
@@ -139,4 +325,30 @@ it.layer(Digest.layerWebCrypto)("captured requests", (test) => {
 	);
 
 	test.effect("a streamed reply cut before message_stop, or holding an error event, gives no key", () => cutReply);
+
+	test.effect("every capture's thinking signatures and metadata ids are the fixed placeholders", () => placeholders);
+
+	test.effect(
+		"the auto-mode capture's safeguards reach the judge as a tool entry, with a placeholder home and user",
+		() => autoModeSafeguards,
+	);
+
+	test.effect(
+		"the WebSearch capture's server tool reaches the judge whole, and its tool_choice leaves as sent",
+		() => serverTool,
+	);
+
+	test.effect(
+		"a top-level field outside its recorded shape fails the request and names the field",
+		() => enabledThinking,
+	);
+
+	test.effect(
+		"the system message comes first, then one message per turn, and each tool result of a user turn is its own message",
+		() => resultMessages,
+	);
+
+	test.effect("the clean lane dies when the border's messages do not line up with the request's", () => misaligned);
+
+	test.effect("a pi request gets pi's bridge, not Claude Code's", () => piBridge);
 });

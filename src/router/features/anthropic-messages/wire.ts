@@ -2,7 +2,6 @@ import { Record, Schema, SchemaTransformation } from "effect";
 
 const Judged = Schema.Unknown;
 
-/** The one field the clean lane forwards unjudged: Claude Code's ids, no session content. */
 const Metadata = Schema.Unknown;
 
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
@@ -31,11 +30,6 @@ const cacheControl = Schema.optionalKey(forwarded.cache_control);
 
 const ThinkingDisplay = Schema.Literals(["omitted", "updates", "summarized"]);
 
-/**
- * Top-level fields in their recorded closed shapes. A value outside one fails the request, as ADR 0001 says. pi 1.6.0
- * asks for `summarized` thinking, or turns it off. Claude Code 2.1.330 drops `display` when it sends a request again
- * after a 400.
- */
 const ThinkingConfig = Schema.Union([
 	Schema.Struct({ display: Schema.optionalKey(ThinkingDisplay), type: Schema.Literal("adaptive") }),
 	Schema.Struct({ type: Schema.Literal("disabled") }),

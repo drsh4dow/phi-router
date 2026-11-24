@@ -18,13 +18,7 @@ type Turn = Decoded["turns"][number];
 
 interface MessagesRequest {
 	readonly model: string;
-	/** The system message first, then one message per turn. A user turn holding tool results gives one per result. */
 	readonly messages: readonly Message[];
-	/**
-	 * The body for the upstream: the bytes Claude Code sent with edits applied, so every byte no edit touches leaves as
-	 * sent. The clean lane fails with `CleanLaneRefused` when a member it would carry is outside its shape. Dies when a
-	 * clean lane's messages do not line up with `messages`.
-	 */
 	readonly encode: (upstream: Target) => Effect.Effect<string, CleanLaneRefused>;
 }
 
@@ -160,11 +154,6 @@ const encoded = Effect.fnUntraced(function* encoded(
 	return edited(decoded.source, [model, bridged]);
 });
 
-/**
- * Decodes a /v1/messages body Claude Code or pi sent. `openWrote` holds the keys `replyKeys` gave for completed
- * open-account streams. A reply is `open-account` when its text and tool calls match one, and each thinking block goes
- * to the clean lane only when its own key is held. `harness` picks the bridge `encode` adds.
- */
 const decodeRequest = Effect.fn("decodeRequest")(function* decodeRequest(
 	body: string,
 	openWrote: OpenWrote,

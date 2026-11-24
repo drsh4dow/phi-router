@@ -153,6 +153,16 @@ const toolReference = Effect.gen(function* toolReference() {
 	assert.deepStrictEqual(results, [[{ text: "tool_reference: NotebookEdit", type: "text" }]]);
 });
 
+const strayInUnreadable = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":[{"type":"text","text":"Go on.","cache_control":{"type":"ephemeral","note":"PATIENT-SECRET"}}],"new_vendor_field":"x"}],"max_tokens":1000}`;
+
+const refusedInUnreadable = Effect.gen(function* refusedInUnreadable() {
+	const request = yield* decodeRequest(strayInUnreadable, nobodyWrote, "claude");
+	const failure = yield* Effect.flip(request.encode(clean(request)));
+
+	assert.instanceOf(failure, CleanLaneRefused);
+	assert.strictEqual(failure.reason, "messages[0].content[0].cache_control");
+});
+
 it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	test.effect(
 		"a member the clean lane would carry, outside its shape, refuses the clean lane and leaves for the BAA as it came",
@@ -186,5 +196,10 @@ it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	test.effect(
 		"a key that appears twice in one object fails the request and names where, even when one spelling is escaped",
 		() => repeatedKey,
+	);
+
+	test.effect(
+		"a member outside its shape refuses the clean lane, even in a message the codec cannot name",
+		() => refusedInUnreadable,
 	);
 });

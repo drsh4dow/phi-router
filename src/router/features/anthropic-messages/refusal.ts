@@ -15,13 +15,6 @@ const fits = (key: ForwardedKey, text: string): boolean => {
 	return Option.isSome(decode(text, { onExcessProperty: "error" }));
 };
 
-/**
- * Each object the clean lane may carry members out of, by path: a system block, a message, its blocks and a tool
- * result's blocks. Read from the scan, so the blocks of a message the parse could not name are checked too.
- *
- * @param {Span} body The body.
- * @returns {readonly (readonly [string, Span])[]} The objects and their paths.
- */
 const carriersOf = (body: Span): readonly (readonly [string, Span])[] => {
 	const withBlocks = (path: string, object: Span): readonly (readonly [string, Span])[] => [
 		[path, object],
