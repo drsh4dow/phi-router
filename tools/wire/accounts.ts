@@ -121,7 +121,7 @@ const billed = ([line, turn]: readonly [LaneLogLine, Turn]): Option.Option<numbe
 		return Option.some(free);
 	}
 
-	return costOf({ model: line.model, tokens: turn.tokens });
+	return costOf({ model: line.model, tokens: turn.reportedTokens });
 };
 
 const costDecimals = 4;

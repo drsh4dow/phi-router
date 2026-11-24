@@ -22,7 +22,7 @@ interface Routed {
 /** What one harness turn left: its exit code, and the tokens its machine output reports. */
 interface Turn {
 	readonly exitCode: number;
-	readonly tokens: Tokens;
+	readonly reportedTokens: Tokens;
 }
 
 /**
@@ -44,7 +44,7 @@ const turnsOn = {
 				session: sessionFlags,
 			});
 
-			return { exitCode: ran.exitCode, tokens: tokensIn.claude(ran.printed) } satisfies Turn;
+			return { exitCode: ran.exitCode, reportedTokens: tokensIn.claude(ran.printed) } satisfies Turn;
 		});
 
 		return yield* Effect.all([turn(clean, ["--session-id", session]), turn(canary, ["--resume", session])], {
@@ -68,7 +68,7 @@ const turnsOn = {
 				router: routed.url,
 			});
 
-			return { exitCode: ran.exitCode, tokens: tokensIn.codex(ran.stdout) } satisfies Turn;
+			return { exitCode: ran.exitCode, reportedTokens: tokensIn.codex(ran.stdout) } satisfies Turn;
 		});
 
 		return yield* Effect.all([turn([...exec, clean]), turn([...exec, "resume", "--last", canary])], {
@@ -89,7 +89,7 @@ const turnsOn = {
 				until: rpcAnswered,
 			});
 
-			return { exitCode: ran.exitCode, tokens: tokensIn.pi(ran.printed) } satisfies Turn;
+			return { exitCode: ran.exitCode, reportedTokens: tokensIn.pi(ran.printed) } satisfies Turn;
 		});
 
 		return yield* Effect.all([turn(clean), turn(canary)], { concurrency: 1 });
