@@ -3,7 +3,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import { NodeServices } from "@effect/platform-node";
-import { installedJar } from "./tla2tools.ts";
+import { pinnedJar } from "./tla2tools.ts";
 
 class JavaMissing extends Schema.TaggedError<JavaMissing, { readonly brand: unique symbol }>()("JavaMissing", {
 	message: Schema.String,
@@ -11,8 +11,7 @@ class JavaMissing extends Schema.TaggedError<JavaMissing, { readonly brand: uniq
 
 type Folder = "holds" | "breaks";
 
-/** TLC's exit code for a check that found no violation. */
-const passed = 0;
+const noViolationExitCode = 0;
 
 interface Violation {
 	readonly exitCode: number;
@@ -21,13 +20,6 @@ interface Violation {
 
 const temporal: Violation = { exitCode: 13, line: "Error: Temporal properties were violated." };
 
-/**
- * What TLC reports when the rules a configuration under breaks/ names are broken. It names a broken invariant, and a
- * broken temporal property only by its kind.
- *
- * @param {string} text The configuration's text.
- * @returns {readonly Violation[]} One violation for each rule the configuration names.
- */
 const violationsOf = (text: string): readonly Violation[] =>
 	Array.flatMap(String.split(text, "\n"), (line) => {
 		if (String.startsWith("INVARIANT ")(line)) {
@@ -41,8 +33,11 @@ const violationsOf = (text: string): readonly Violation[] =>
 		return [];
 	});
 
-/** A run that must pass explores on every core. A run that must break uses one worker, which keeps its trace the shortest. */
-const workers: Record<Folder, string> = { breaks: "1", holds: "auto" };
+const everyCore = "auto";
+
+const oneWorkerForTheShortestTrace = "1";
+
+const workers: Record<Folder, string> = { breaks: oneWorkerForTheShortestTrace, holds: everyCore };
 
 const patient = { timeout: 300_000 };
 
@@ -58,31 +53,26 @@ const configurations = Effect.fn("configurations")(function* configurations(fold
 	);
 });
 
-/**
- * Runs TLC on `<folder>/<file>`, whose module is the file name up to its first dot, and returns
- * its exit code and everything it printed. Each run gets its own temporary folder, because TLC
- * unpacks its standard modules into `java.io.tmpdir` and two runs that share it can read each
- * other's half-written files.
- */
 const tlc = Effect.fn("tlc")(function* tlc(folder: Folder, file: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const jar = yield* installedJar;
-	const scratch = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-tlc-" });
+	const jar = yield* pinnedJar;
+	const tmpdirOfThisRun = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-tlc-" });
+	const moduleFile = `${Array.headNonEmpty(String.split(file, "."))}.tla`;
 
 	const args = [
 		"-XX:+UseParallelGC",
-		`-Djava.io.tmpdir=${scratch}`,
+		`-Djava.io.tmpdir=${tmpdirOfThisRun}`,
 		"-cp",
 		jar,
 		"tlc2.TLC",
 		"-workers",
 		workers[folder],
 		"-metadir",
-		scratch,
+		tmpdirOfThisRun,
 		"-config",
 		`${folder}/${file}`,
-		`${Array.headNonEmpty(String.split(file, "."))}.tla`,
+		moduleFile,
 	];
 
 	const command = ChildProcess.make("java", args, { cwd: import.meta.dirname });
@@ -141,7 +131,7 @@ it.layer(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))("the model", (t
 				for (const config of found) {
 					const run = yield* tlc("holds", config.file);
 
-					assert.strictEqual(run.exitCode, passed, run.output);
+					assert.strictEqual(run.exitCode, noViolationExitCode, run.output);
 					assert.include(run.output, "Model checking completed. No error has been found.", config.file);
 				}
 			}),
