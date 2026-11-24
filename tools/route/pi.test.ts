@@ -123,10 +123,10 @@ const unmarked = Effect.gen(function* unmarked() {
 	const body = yield* piBodyOnAuto([turns.clean]);
 	const response = yield* post({ body, session: "" });
 	const text = yield* response.text;
-	const refusal = yield* Schema.decodeEffect(AnthropicError)(text);
+
+	yield* Schema.decodeEffect(AnthropicError)(text);
 
 	assert.strictEqual(response.status, status.unreadable);
-	assert.strictEqual(refusal.type, "error");
 	assert.deepStrictEqual([...(yield* mocks.open.received), ...(yield* mocks.baa.received)], []);
 });
 
