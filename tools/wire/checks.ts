@@ -117,13 +117,6 @@ const someHold = (tokens: readonly string[], sent: readonly Sent[]): boolean =>
 		Array.some((one) => holds(tokens, one)),
 	);
 
-/**
- * Whether there is at least one item, and `predicate` holds for each.
- *
- * @param {readonly Item[]} items The items.
- * @param {Function} predicate What each must hold.
- * @returns {boolean} Whether it holds.
- */
 const everyOf: {
 	<Item>(predicate: (item: Item) => boolean): (items: readonly Item[]) => boolean;
 	<Item>(items: readonly Item[], predicate: (item: Item) => boolean): boolean;

@@ -173,7 +173,7 @@
 	"tools/wire/account-turns.ts": 3,
 	"tools/wire/accounts.ts": 7,
 	"tools/wire/cases.ts": 2,
-	"tools/wire/checks.ts": 3,
+	"tools/wire/checks.ts": 2,
 	"tools/wire/claude.ts": 7,
 	"tools/wire/codex-mocks.ts": 10,
 	"tools/wire/codex.ts": 12,
