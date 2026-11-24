@@ -1,7 +1,7 @@
 import { Array, Config, Effect, FileSystem, Path, String as Str, Stream, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { CodexTurned, Listing, Outcome, Run } from "./checks.ts";
-import { baaScript, catalogOf, files, installed, listedIn, openScript, sessionOf } from "./codex-mocks.ts";
+import { baaScript, catalogOf, catalogSlugsOf, files, installed, openScript, sessionOf } from "./codex-mocks.ts";
 import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
@@ -258,7 +258,7 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const [models, clean] = turns;
 
 	const listing = {
-		listedByCodex: yield* listedIn(models.stdout),
+		listedByCodex: yield* catalogSlugsOf(models.stdout),
 		remote,
 		servedByOpenMock: served,
 	} satisfies Listing;

@@ -114,9 +114,8 @@ const Catalog = Schema.fromJsonString(Schema.Struct({ models: Schema.Array(Entry
 /** The bundled model whose entry the target model copies. Its plain function tools let a mock call `exec_command`. */
 const dialect = "gpt-5.5";
 
-/** The slugs of a catalog `codex debug models` printed. */
-const listedIn = Effect.fnUntraced(function* listedIn(printed: string) {
-	const { models } = yield* Schema.decodeEffect(Catalog)(printed);
+const catalogSlugsOf = Effect.fnUntraced(function* catalogSlugsOf(catalog: string) {
+	const { models } = yield* Schema.decodeEffect(Catalog)(catalog);
 
 	return pipe(
 		models,
@@ -171,4 +170,4 @@ const sessionOf = (printed: string): Effect.Effect<string, Cause.NoSuchElementEr
 		Effect.fromOption,
 	);
 
-export { baaScript, catalogOf, files, installed, listedIn, openScript, sessionOf };
+export { baaScript, catalogOf, catalogSlugsOf, files, installed, openScript, sessionOf };
