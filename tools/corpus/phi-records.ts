@@ -17,7 +17,6 @@ interface PhiCaseRequest {
 	readonly used: Readonly<Set<string>>;
 }
 
-/** The record a PHI case plants, which holds at least the identifier of its stratum. */
 interface PlantedRecord extends PhiRecord {
 	readonly fields: Array.NonEmptyReadonlyArray<Field>;
 }
@@ -28,12 +27,6 @@ const companionsByIdentifier: Partial<Record<TextIdentifier, readonly TextIdenti
 
 const companionsByCarrier: Partial<Record<TextCarrier, readonly TextIdentifier[]>> = { "x12-837": x12Requires };
 
-/**
- * Identifiers the case needs beside its stratum's: a birth date is planted with its owner's name.
- *
- * @param {TextStrata} strata The case's stratum.
- * @returns {readonly TextIdentifier[]} The other identifiers its record holds.
- */
 const companionsOf = (strata: TextStrata): readonly TextIdentifier[] =>
 	pipe(
 		[...(companionsByIdentifier[strata.identifier] ?? []), ...(companionsByCarrier[strata.carrier] ?? [])],

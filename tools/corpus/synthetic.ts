@@ -9,7 +9,6 @@ import { diagnoses } from "./health.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 import { nameIn } from "./identifiers.ts";
 
-/** The QA test members of this corpus. Their identities are on the exact list, so a case holding only them is clean. */
 const personas: Array.NonEmptyReadonlyArray<{ readonly name: PersonName; readonly member: string }> = [
 	{ member: "ZQA900000417", name: { family: "Testmember", given: "Quinlan", lang: "en" } },
 	{ member: "ZQA900000522", name: { family: "Fixtureson", given: "Avery", lang: "en" } },

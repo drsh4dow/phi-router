@@ -80,12 +80,6 @@ const birthDateAlone = (rng: Random): Sample => {
 	};
 };
 
-/**
- * A given name of six letters or more, so it is long enough to track.
- *
- * @param {Random} rng The draw source.
- * @returns {string} The given name.
- */
 const givenName = (rng: Random): string => {
 	const shortestTrackable = 6;
 	const { given } = drawName("en")(rng);

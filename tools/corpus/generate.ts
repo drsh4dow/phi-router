@@ -33,7 +33,7 @@ const generate = ({ seed, images }: { readonly seed: number; readonly images: Re
 
 	const clean = pipe(
 		planNegatives(),
-		Array.map(({ negative, turn }) => cleanCase({ negative, rng, turn, used })),
+		Array.map(({ negative, indexInNegative }) => cleanCase({ indexInNegative, negative, rng, used })),
 	);
 
 	const cleanPictured = cleanImageCases({ images, rng });

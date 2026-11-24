@@ -7,7 +7,6 @@ import { ascii } from "./people.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 import { identifierLabels } from "./labels.ts";
 
-/** Identifiers an 837P cannot leave out: the subscriber's name and member id, which the subscriber's NM1 carries. */
 const x12Requires: readonly TextIdentifier[] = [identifierKind.patientName, identifierKind.memberNumber];
 
 const decimal = 10;
@@ -17,12 +16,6 @@ const npiPrefix = "80840";
 
 const digitSum = (value: number): number => Math.floor(value / decimal) + (value % decimal);
 
-/**
- * A valid NPI: Luhn over the `80840` prefix and the first nine digits.
- *
- * @param {string} nine The NPI's first nine digits.
- * @returns {string} The ten-digit NPI.
- */
 const npi = (nine: string): string => {
 	const sum = pipe(
 		Array.fromIterable(`${npiPrefix}${nine}`),
@@ -48,21 +41,20 @@ const drawServiceDate = (rng: Random): string =>
 
 type Place = (value: string, label: string) => string;
 
-/** Segments of the subscriber loop, 2010BA, that carry an identifier. */
-const subscriberLoop: Partial<Record<TextIdentifier, Place>> = {
+const subscriberLoop2010BA: Partial<Record<TextIdentifier, Place>> = {
 	[identifierKind.birthDate]: (value) => `DMG*D8*${value}*F`,
 	[identifierKind.streetAddress]: (value) => `N3*${value}`,
 	[identifierKind.socialSecurityNumber]: (value) => `REF*SY*${value}`,
 };
 
-/** Segments of the claim loop, 2300, that carry an identifier: a native one, else a claim note. */
-const claimLoop: Partial<Record<TextIdentifier, Place>> = {
+const claimLoop2300: Partial<Record<TextIdentifier, Place>> = {
 	[identifierKind.medicalRecordNumber]: (value) => `REF*EA*${value}`,
 };
 
 const claimNote: Place = (value, label) => `NTE*ADD*${Str.toUpperCase(ascii(label))} ${value}`;
 
-const subscriberPlace = (kind: TextIdentifier): Option.Option<Place> => Option.fromUndefinedOr(subscriberLoop[kind]);
+const subscriberPlace = (kind: TextIdentifier): Option.Option<Place> =>
+	Option.fromUndefinedOr(subscriberLoop2010BA[kind]);
 
 interface Envelope {
 	readonly date: string;
@@ -105,7 +97,7 @@ const loopSegmentsOf = (record: PhiRecord): LoopSegments => {
 	const claim = pipe(
 		others,
 		Array.filter((field) => Option.isNone(subscriberPlace(field.kind))),
-		Array.map((field) => (claimLoop[field.kind] ?? claimNote)(field.value, label(field))),
+		Array.map((field) => (claimLoop2300[field.kind] ?? claimNote)(field.value, label(field))),
 	);
 
 	return { claim, subscriber };
@@ -148,12 +140,6 @@ const controlNumberDigits = 9;
 const firstGroupControl = 1;
 const lastGroupControl = 9999;
 
-/**
- * An 837 professional claim (005010X222A1) for one subscriber with one service line.
- *
- * @param {RenderInput} input The record, the draw source, and whether to write it on one line.
- * @returns {string} The interchange, one segment per line unless minified.
- */
 const x12837 = (input: RenderInput): string => {
 	const stamp = Str.replaceAll(/\D/gu, "")(systemTime(input.rng));
 

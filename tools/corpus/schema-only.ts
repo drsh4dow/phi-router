@@ -29,8 +29,7 @@ const column = (name: string, sql: string, required: boolean): Column => ({
 	sql: Bool.match(required, { onFalse: () => sql, onTrue: () => `${sql} NOT NULL` }),
 });
 
-/** The type a Prisma or SQLAlchemy model gives each kind of column. */
-const modelTypes = { date: "DateTime", text: "String" } satisfies Record<ColumnKind, string>;
+const ormTypeByColumnKind = { date: "DateTime", text: "String" } satisfies Record<ColumnKind, string>;
 
 const columns: Array.NonEmptyReadonlyArray<Column> = [
 	column("first_name", "varchar(100)", true),
@@ -110,7 +109,7 @@ const prisma = (rng: Random): Sample => {
 		Array.map(({ name, camel, kind, required }) => {
 			const optional = Bool.match(required, { onFalse: () => "?", onTrue: () => "" });
 
-			return `  ${Str.padEnd(fieldNameWidth)(camel)} ${modelTypes[kind]}${optional} @map("${name}")`;
+			return `  ${Str.padEnd(fieldNameWidth)(camel)} ${ormTypeByColumnKind[kind]}${optional} @map("${name}")`;
 		}),
 	);
 
@@ -186,7 +185,7 @@ const migration = (rng: Random): Sample => {
 				"import sqlalchemy as sa",
 				"",
 				"def upgrade():",
-				`    op.add_column("${table}", sa.Column("${name}", sa.${modelTypes[kind]}(), nullable=True))`,
+				`    op.add_column("${table}", sa.Column("${name}", sa.${ormTypeByColumnKind[kind]}(), nullable=True))`,
 				`    op.create_index("ix_${table}_${name}", "${table}", ["${name}"])`,
 				"",
 				"def downgrade():",
@@ -258,7 +257,7 @@ const sqlalchemy = (rng: Random): Sample => {
 		Array.map(({ name, kind, required }) => {
 			const nullable = Bool.match(required, { onFalse: () => "True", onTrue: () => "False" });
 
-			return `    ${name} = Column(${modelTypes[kind]}, nullable=${nullable})`;
+			return `    ${name} = Column(${ormTypeByColumnKind[kind]}, nullable=${nullable})`;
 		}),
 	);
 

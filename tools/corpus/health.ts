@@ -1,9 +1,10 @@
 import type { Array } from "effect";
 import type { ByLang } from "./people.ts";
 
-/** The health half of a PHI record: an ICD-10-CM diagnosis and the drug that treats it. */
+type Icd10CmCode = string;
+
 export interface Diagnosis {
-	readonly code: string;
+	readonly code: Icd10CmCode;
 	readonly text: ByLang<string>;
 	readonly medication: ByLang<string>;
 }

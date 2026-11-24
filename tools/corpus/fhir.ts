@@ -33,17 +33,16 @@ const telecom = (system: string, value: string): JsonObject => ({
 	],
 });
 
-/** Where one identifier goes: fields of the Patient resource, and any resources of its own. */
 interface Placement {
-	readonly patient: JsonObject;
-	readonly resources: readonly JsonObject[];
+	readonly patientFields: JsonObject;
+	readonly ownResources: readonly JsonObject[];
 }
 
 type Place = (value: string, patientRef: string) => Placement;
 
 const inPatient =
 	(build: (value: string) => JsonObject): Place =>
-	(value) => ({ patient: build(value), resources: [] });
+	(value) => ({ ownResources: [], patientFields: build(value) });
 
 const medicareMedicaidIdentifier = (value: string): JsonObject => {
 	if (/^\d[A-Z]/u.test(value)) {
@@ -90,8 +89,7 @@ const placements: Readonly<Record<TextIdentifier, Place>> = {
 		identifier: [medicareMedicaidIdentifier(value)],
 	})),
 	[identifierKind.memberNumber]: (value, patientRef) => ({
-		patient: {},
-		resources: [
+		ownResources: [
 			Rec.fromEntries([
 				["resourceType", "Coverage"],
 				["status", "active"],
@@ -100,6 +98,7 @@ const placements: Readonly<Record<TextIdentifier, Place>> = {
 				["payor", [{ display: "Cascade Mutual Health Plan" }]],
 			]),
 		],
+		patientFields: {},
 	}),
 };
 
@@ -154,7 +153,7 @@ const fhirJson = ({ record, rng, minified }: RenderInput): string => {
 		["id", patientId],
 		...pipe(
 			placed,
-			Array.flatMap((placement) => Rec.toEntries(placement.patient)),
+			Array.flatMap((placement) => Rec.toEntries(placement.patientFields)),
 		),
 		["gender", rng.pick(["female", "male"])],
 	]);
@@ -162,7 +161,7 @@ const fhirJson = ({ record, rng, minified }: RenderInput): string => {
 	const others: readonly JsonObject[] = [
 		...pipe(
 			placed,
-			Array.flatMap((placement) => placement.resources),
+			Array.flatMap((placement) => placement.ownResources),
 		),
 		condition(record, patientRef),
 		medicationStatement(record, patientRef),

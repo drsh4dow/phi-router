@@ -9,7 +9,6 @@ import { schemaOnly } from "./schema-only.ts";
 import { staffContacts } from "./staff-contacts.ts";
 import { syntheticListed } from "./synthetic.ts";
 
-/** A negative stratum whose cases are text. Clean screenshots come from the image set instead. */
 type TextNegative = Exclude<typeof Negative.Type, "clean-screenshot">;
 
 const samplers = {

@@ -15,8 +15,7 @@ interface NameParts {
 	readonly givenEnds: Syllables;
 	readonly familyStarts: Syllables;
 	readonly familyEnds: Syllables;
-	/** What goes between a given name's two syllables. */
-	readonly givenSeparator: string;
+	readonly givenSyllableSeparator: string;
 }
 
 const parts = {
@@ -24,43 +23,43 @@ const parts = {
 		familyEnds: ["mann", "ler", "berger", "hof", "bach", "inger", "stein", "rath"],
 		familyStarts: ["Brau", "Kess", "Lind", "Stoll", "Wern", "Holz", "Falk", "Rieg", "Mahl", "Dorn"],
 		givenEnds: ["trud", "degard", "bert", "sel", "mar", "rike", "helm", "wig"],
-		givenSeparator: "",
 		givenStarts: ["Ger", "Hil", "Wal", "Lie", "Fri", "Ul", "Ans", "Ott", "Hel", "Rein"],
+		givenSyllableSeparator: "",
 	},
 	en: {
 		familyEnds: ["anek", "ford", "ley", "mere", "wick", "stone", "berry", "ton", "well", "gard", "holt", "ridge"],
 		familyStarts: ["Tov", "Quill", "Brann", "Hask", "Pell", "Strand", "Wick", "Ald", "Dunn", "Fenn", "Kest", "Thorn"],
 		givenEnds: ["a", "ena", "iel", "on", "ia", "ett", "ard", "ine", "ley", "is", "wyn", "ora"],
-		givenSeparator: "",
 		givenStarts: ["Mar", "Tal", "Bren", "Cor", "Del", "Jor", "Kel", "Lor", "Nal", "Quin", "Ros", "Sel", "Vel", "Wyn"],
+		givenSyllableSeparator: "",
 	},
 	es: {
 		familyEnds: ["ández", "ero", "alles", "illo", "aza", "edo", "ueña", "arro"],
 		familyStarts: ["Gar", "Quin", "Bel", "Mon", "Tor", "Var", "Esc", "Lar", "Cav", "Zam"],
 		givenEnds: ["ela", "isa", "iano", "ita", "ando", "encia", "ino", "una"],
-		givenSeparator: "",
 		givenStarts: ["Mar", "Lu", "Car", "Ro", "Fer", "Gua", "Ine", "Iso", "Ra", "Vale", "Eus", "Cle"],
+		givenSyllableSeparator: "",
 	},
 	fr: {
 		familyEnds: ["ançon", "ollet", "èvre", "eau", "ier", "ault", "ette", "oux"],
 		familyStarts: ["Ber", "Dum", "Lef", "Mor", "Rou", "Vau", "Char", "Delac", "Fon", "Gir"],
 		givenEnds: ["élie", "édicte", "ément", "ton", "oïse", "ceau", "ange", "baut"],
-		givenSeparator: "",
 		givenStarts: ["Aur", "Bén", "Gas", "Hél", "Mar", "Sol", "Thi", "Év", "Lé", "Ros"],
+		givenSyllableSeparator: "",
 	},
 	pt: {
 		familyEnds: ["rvalho", "dão", "reira", "sa", "ttos", "ixoto", "meida", "marães", "beiro"],
 		familyStarts: ["Ca", "Bran", "Fer", "Sou", "Ma", "Pe", "Al", "Gui", "Ri", "Va"],
 		givenEnds: ["ana", "rcia", "imundo", "esa", "ciana", "berto", "ina", "valdo"],
-		givenSeparator: "",
 		givenStarts: ["Jo", "Ma", "Ra", "Ter", "Lu", "Gil", "Cel", "Al", "Ro", "Dal"],
+		givenSyllableSeparator: "",
 	},
 	vi: {
 		familyEnds: [""],
 		familyStarts: ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Võ", "Đặng", "Bùi", "Đỗ"],
 		givenEnds: ["Khuê", "Lan", "Hải", "Phúc", "Tâm", "Long", "Yến", "Trung", "Nhung", "Vy"],
-		givenSeparator: " ",
 		givenStarts: ["Thị", "Văn", "Ngọc", "Minh", "Đức", "Thanh", "Quốc", "Hữu", "Bảo", "Gia"],
+		givenSyllableSeparator: " ",
 	},
 } satisfies ByLang<NameParts>;
 
@@ -73,8 +72,8 @@ interface PersonName {
 const drawName =
 	(lang: Lang): ((rng: Random) => PersonName) =>
 	(rng: Random): PersonName => {
-		const { givenStarts, givenEnds, givenSeparator, familyStarts, familyEnds } = parts[lang];
-		const given = `${rng.pick(givenStarts)}${givenSeparator}${rng.pick(givenEnds)}`;
+		const { givenStarts, givenEnds, givenSyllableSeparator, familyStarts, familyEnds } = parts[lang];
+		const given = `${rng.pick(givenStarts)}${givenSyllableSeparator}${rng.pick(givenEnds)}`;
 
 		return { family: rng.pick(familyStarts) + rng.pick(familyEnds), given, lang };
 	};

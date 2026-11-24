@@ -6,7 +6,6 @@ import type { Sample } from "./conversation.ts";
 interface Contact {
 	readonly name: string;
 	readonly email: string;
-	/** A business line in the 555-01xx range, which is reserved for fiction. */
 	readonly phone: string;
 }
 

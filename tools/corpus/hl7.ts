@@ -47,10 +47,9 @@ const insurance = (fields: readonly Field[]): string[] =>
 		}),
 	);
 
-/** The MSH and EVN segments of a message, and the control id MSH carries. */
 interface MessageHead {
 	readonly controlId: string;
-	readonly segments: readonly string[];
+	readonly mshAndEvn: readonly string[];
 }
 
 const header = (rng: Random, type: string): MessageHead => {
@@ -76,7 +75,7 @@ const header = (rng: Random, type: string): MessageHead => {
 
 	return {
 		controlId,
-		segments: [msh, segment("EVN", { 1: Str.slice(triggerEventStart, triggerEventEnd)(type), 2: stamp })],
+		mshAndEvn: [msh, segment("EVN", { 1: Str.slice(triggerEventStart, triggerEventEnd)(type), 2: stamp })],
 	};
 };
 
@@ -97,10 +96,10 @@ const pidSegment = ({ fields, internalId }: PhiRecord, rng: Random): string => {
 const hl7v2 = ({ record, rng, minified }: RenderInput): string => {
 	const { lang, diagnosis } = record;
 	const type = rng.pick(["ADT^A01^ADT_A01", "ADT^A04^ADT_A01", "ADT^A08^ADT_A01"]);
-	const { controlId, segments: head } = header(rng, type);
+	const { controlId, mshAndEvn } = header(rng, type);
 
 	const segments = [
-		...head,
+		...mshAndEvn,
 		pidSegment(record, rng),
 		segment("PV1", {
 			1: "1",

@@ -16,12 +16,6 @@ const tables = {
 
 const sqlString = (value: string): string => `'${Str.replaceAll("'", "''")(value)}'`;
 
-/**
- * A record as one row object, its internal id first.
- *
- * @param {PhiRecord} record The record.
- * @returns {Record<string, number | string>} The row, keyed by column name.
- */
 const rowObject = (record: PhiRecord): Record<string, number | string> => {
 	const labelled = recordObject(labelledValues(record));
 

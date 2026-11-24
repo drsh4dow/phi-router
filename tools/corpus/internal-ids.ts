@@ -134,7 +134,6 @@ const migration = (rng: Random): Sample => {
 
 const internalIds: Array.NonEmptyReadonlyArray<(rng: Random) => Sample> = [syncQueue, apiPayload, workerLog, migration];
 
-/** Every text carrier but the 837, which cannot leave out the subscriber's name and member id. */
 const internalOnly: Array.NonEmptyReadonlyArray<TextCarrier> = [
 	"sql-dump",
 	"csv",

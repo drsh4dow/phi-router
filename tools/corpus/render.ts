@@ -3,8 +3,7 @@ import type { Report } from "./report.ts";
 
 interface Table {
 	readonly header: readonly string[];
-	/** How many leading columns are labels, padded on the right. The rest are numbers, padded on the left. */
-	readonly labels: number;
+	readonly labelColumns: number;
 	readonly rows: readonly (readonly string[])[];
 }
 
@@ -12,7 +11,7 @@ const costDecimals = 4;
 
 const rateDecimals = 4;
 
-const table = ({ header, labels, rows }: Table): string => {
+const table = ({ header, labelColumns, rows }: Table): string => {
 	const widths = pipe(
 		header,
 		Array.map((title, column) =>
@@ -27,7 +26,7 @@ const table = ({ header, labels, rows }: Table): string => {
 	);
 
 	const cellOf = ([cell, width]: readonly [string, number], column: number): string => {
-		if (column < labels) {
+		if (column < labelColumns) {
 			return Str.padEnd(width)(cell);
 		}
 
@@ -95,7 +94,10 @@ const casesTable = (title: string, cases: Report["leaks"]): string => {
 	);
 
 	return Array.join(
-		[title, table({ header: ["case", "identifier", "carrier", "transform", "entry", "request"], labels: 5, rows })],
+		[
+			title,
+			table({ header: ["case", "identifier", "carrier", "transform", "entry", "request"], labelColumns: 5, rows }),
+		],
 		"\n",
 	);
 };
@@ -108,7 +110,7 @@ const splitTable = ({ splits }: Report): string =>
 const strataTable = ({ strata }: Report): string =>
 	table({
 		header: ["axis", "value", "N", "leaks", "upper95"],
-		labels: 2,
+		labelColumns: 2,
 		rows: pipe(
 			strata,
 			Array.map((row) => [
@@ -137,7 +139,7 @@ const overRoutingTable = (report: Report): string => {
 
 	return table({
 		header: ["negative", "N", "over-routed", "requests", "sealed"],
-		labels: 1,
+		labelColumns: 1,
 		rows: [
 			...rows,
 			["all", String(clean.cases), String(clean.overRouted), String(clean.requests), String(clean.onSealed)],
