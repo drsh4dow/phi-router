@@ -8,6 +8,16 @@ on:
 jobs:
    check:
       runs-on: ubuntu-latest
+      strategy:
+         fail-fast: false
+         matrix:
+            run:
+               - bun run check
+               - bun run test:perf
+               - bun run test:e2e --shard=1/4
+               - bun run test:e2e --shard=2/4
+               - bun run test:e2e --shard=3/4
+               - bun run test:e2e --shard=4/4
       steps:
          - uses: actions/checkout@v5
          - name: install
@@ -16,6 +26,4 @@ jobs:
               bun install --frozen-lockfile
          - name: allow user namespaces, which the wire's empty /tmp test mounts in
            run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-         - run: bun run check
-         - run: bun run test:e2e
-         - run: bun run test:perf
+         - run: ${{ matrix.run }}
