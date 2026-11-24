@@ -161,11 +161,11 @@ const accountsAdd = Effect.fn("accountsAdd")(function* accountsAdd(request: AddR
 		}),
 	);
 
-	if (!placed.added) {
+	if (!placed.isNew) {
 		return yield* Console.log(`${placed.name} is already on the ${placed.lane} lane. Nothing changed.`);
 	}
 
-	const where = Option.match(placed.after, {
+	const where = Option.match(placed.vendorAccountBefore, {
 		onNone: () => `the first ${found.label} account there`,
 		onSome: (before) => `after ${before}`,
 	});
