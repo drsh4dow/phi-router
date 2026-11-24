@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Option, Predicate, Schema, Struct, pipe } from "effect";
-import { absent, configFile } from "./configuration.ts";
-import type { KeySource } from "./configuration.ts";
+import { absent, configFile } from "./config-file.ts";
+import type { KeySource } from "./config-file.ts";
 import { UserDirectories } from "effect/persistence";
 
 /** The vendor whose wire an account speaks: Anthropic Messages, or OpenAI Responses. */

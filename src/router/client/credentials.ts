@@ -14,10 +14,9 @@ import {
 	Stream,
 	Struct,
 } from "effect";
+import type { KeySource, Vendor } from "./configuration/index.ts";
 import { LoginEnded, loginFolders } from "./login-folders.ts";
-import type { KeySource } from "./configuration.ts";
 import type { Login } from "./login-folders.ts";
-import type { Vendor } from "./lane-configuration.ts";
 
 /** A key source gave no key. It names the variable or the command, and never holds what either printed. */
 class KeyUnreadable extends Schema.TaggedError<KeyUnreadable, { readonly brand: unique symbol }>()("KeyUnreadable", {

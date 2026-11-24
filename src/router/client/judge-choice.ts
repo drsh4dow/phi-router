@@ -1,10 +1,8 @@
 import { Array, Effect, Option, Schema, pipe } from "effect";
-import { Configuration } from "./configuration.ts";
+import { Configuration, configuredAccounts } from "./configuration/index.ts";
+import type { KeySource, NamedAccount } from "./configuration/index.ts";
 import type { JudgeName } from "./judge.ts";
-import type { KeySource } from "./configuration.ts";
-import type { NamedAccount } from "./lane-configuration.ts";
 import { claudeModel } from "./judge-claude.ts";
-import { configuredAccounts } from "./lane-configuration.ts";
 import { decisionsModel } from "./judge-decisions.ts";
 
 /** The judge a configuration picks, with the model it runs. */

@@ -4,7 +4,7 @@ import { sealingWhen, serveJudge } from "./mock-upstreams.ts";
 import { Listener } from "./server.ts";
 import type { Said } from "./mock-accounts.ts";
 import { UserDirectories } from "effect/persistence";
-import { configFile } from "./configuration.ts";
+import { configFile } from "./configuration/index.ts";
 import { writePrivately } from "./private-file.ts";
 
 /** The request bodies the open and the BAA mock received. Bodies only, so no header, and no login, leaves this file. */

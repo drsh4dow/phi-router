@@ -1,4 +1,4 @@
-import { Configuration } from "#router/client/configuration.ts";
+import { Configuration } from "#router/client/configuration/index.ts";
 import { Judge } from "#router/client/judge.ts";
 import { Layer } from "effect";
 

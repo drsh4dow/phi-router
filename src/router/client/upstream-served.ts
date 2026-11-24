@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, SynchronizedRef } from "effect";
 import type { Served } from "./upstream.ts";
 import { UserDirectories } from "effect/persistence";
-import { configText } from "./configuration.ts";
+import { configText } from "./configuration/index.ts";
 import { servedBy } from "./upstream.ts";
 import { upstreamHttp } from "./upstream-http.ts";
 

@@ -1,6 +1,6 @@
 import { Config, Context, Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import type { Vendor } from "./lane-configuration.ts";
+import type { Vendor } from "./configuration/index.ts";
 
 /** What a vendor said of a key: it took it, it refused it, or it gave no answer setup can read. */
 type KeyCheck = "accepted" | "refused" | "unanswered";

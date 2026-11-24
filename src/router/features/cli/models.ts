@@ -1,7 +1,7 @@
 import { Console, Effect, Option, Record, Schema, pipe } from "effect";
 import { ModelsJson, spelling } from "#shared/cli.ts";
 import { Command } from "effect/cli";
-import { configuredLanes } from "#router/client/lane-configuration.ts";
+import { configuredLanes } from "#router/client/configuration/index.ts";
 
 /**
  * `phi-router models`, unlisted, which the pi package runs to give `phi/auto` and `phi/sealed` the limits of the models

@@ -3,7 +3,7 @@ import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./judge.
 import type { ChosenJudge } from "./judge-choice.ts";
 import { HttpClientRequest } from "effect/http";
 import { JudgeFailed } from "./judge-failed.ts";
-import type { NamedAccount } from "./lane-configuration.ts";
+import type { NamedAccount } from "./configuration/index.ts";
 import type { Usage } from "./judge-failed.ts";
 import { askingOf } from "./upstream.ts";
 import { textOf } from "./judge-decisions.ts";

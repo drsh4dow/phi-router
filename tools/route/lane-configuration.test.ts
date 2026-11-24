@@ -1,8 +1,8 @@
 import { Array, Effect, Option, Schema, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
-import type { VendorLanes } from "#router/client/lane-configuration.ts";
-import { laneConfiguration } from "#router/client/lane-configuration.ts";
+import type { VendorLanes } from "#router/client/configuration/index.ts";
+import { laneConfiguration } from "#router/client/configuration/index.ts";
 
 const judge = { endpoint: "http://127.0.0.1:9/v1", keyEnv: "PHI_TEST_JUDGE_KEY" };
 

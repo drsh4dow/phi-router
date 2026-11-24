@@ -1,5 +1,5 @@
 import { Array, Console, DateTime, Effect, Option, Predicate, Redacted, Schema, String as Str, pipe } from "effect";
-import type { Lane, Vendor } from "#router/client/lane-configuration.ts";
+import type { Lane, Vendor } from "#router/client/configuration/index.ts";
 import { loginFolders, loginIn } from "#router/client/login-folders.ts";
 import { CliError } from "effect/cli";
 import type { NewAccount } from "#router/client/config-writer.ts";

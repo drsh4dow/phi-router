@@ -3,7 +3,7 @@ import type { ChildProcessSpawner } from "effect/process";
 import { NoConfigFile } from "./no-config-file.ts";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
-import { realFolder } from "./processes.ts";
+import { realFolder } from "#router/client/processes.ts";
 
 /**
  * Where a key comes from: the name of an environment variable, a shell command that prints the key, or the absolute path
@@ -93,7 +93,9 @@ const configText = Effect.gen(function* configText() {
  * What `phi-router/config.json` under the XDG config folder says, read once when the layer is built. The file never
  * holds a key, only the key's source.
  */
-class Configuration extends Context.Service<Configuration, Configured>()("phi-router/router/client/configuration") {
+class Configuration extends Context.Service<Configuration, Configured>()(
+	"phi-router/router/client/configuration/config-file/Configuration",
+) {
 	public static readonly layer: Layer.Layer<
 		Configuration,
 		NoConfigFile | PlatformError.PlatformError | Schema.SchemaError,

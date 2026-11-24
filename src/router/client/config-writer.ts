@@ -1,8 +1,7 @@
 import { Array, Effect, FileSystem, Option, Predicate, Schema, Struct, pipe } from "effect";
-import type { Lane, Vendor } from "./lane-configuration.ts";
-import { LaneFile } from "./lane-configuration.ts";
+import type { Lane, Vendor } from "./configuration/index.ts";
+import { LaneFile, configFile } from "./configuration/index.ts";
 import { UserDirectories } from "effect/persistence";
-import { configFile } from "./configuration.ts";
 import { realFolder } from "./processes.ts";
 import { writePrivately } from "./private-file.ts";
 

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { LaneChoice, pinning } from "#router/features/lanes/index.ts";
-import { Configuration } from "#router/client/configuration.ts";
+import { Configuration } from "#router/client/configuration/index.ts";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge.ts";
 import { LaneLog } from "#router/client/lane-log.ts";

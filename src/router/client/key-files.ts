@@ -1,6 +1,6 @@
 import { Effect, Option, Path, Redacted } from "effect";
 import { UserDirectories } from "effect/persistence";
-import type { Vendor } from "./lane-configuration.ts";
+import type { Vendor } from "./configuration/index.ts";
 import { readKey } from "./credentials.ts";
 import { writePrivately } from "./private-file.ts";
 
