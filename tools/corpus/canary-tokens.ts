@@ -234,6 +234,6 @@ const tokensOf = Effect.fn("tokensOf")(function* tokensOf(subject: Case) {
 	} satisfies Tracked;
 });
 
-export { tokensOf };
+export { imagesOf, tokensOf };
 
 export type { Split, Tracked };

@@ -6,6 +6,7 @@ import { foundIn } from "./request-bodies.ts";
 import { gzip } from "./encodings.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 import { seenOn } from "./seen.ts";
+import { textsOf } from "./default-corpus.ts";
 import { tokensOf } from "./canary-tokens.ts";
 
 const mrn = "MRN 4417-2290";
@@ -43,18 +44,6 @@ const seen = Effect.fnUntraced(function* seen(
 	return seenOn({ baa, open, tracked });
 });
 
-const textsOf = (subject: Case): string[] =>
-	pipe(
-		subject.messages,
-		Array.flatMap((message) => {
-			if ("text" in message) {
-				return [message.text];
-			}
-
-			return [];
-		}),
-	);
-
 const nothing = { fragments: [], leaked: [], missing: [], split: [], unstubbed: [] };
 
 const completeLeak = Effect.gen(function* completeLeak() {
@@ -65,8 +54,8 @@ const completeLeak = Effect.gen(function* completeLeak() {
 		{ role: "user", text: `${ask}\n${record}` },
 	]);
 
-	const onBaa = yield* seen(subject, { baa: textsOf(subject), open: [ask] });
-	const onOpen = yield* seen(subject, { baa: textsOf(subject), open: textsOf(subject) });
+	const onBaa = yield* seen(subject, { baa: textsOf(subject.messages), open: [ask] });
+	const onOpen = yield* seen(subject, { baa: textsOf(subject.messages), open: textsOf(subject.messages) });
 
 	assert.deepStrictEqual(onBaa, nothing);
 	assert.deepStrictEqual(onOpen.leaked, [mrn]);
@@ -82,7 +71,7 @@ const redactedLeak = Effect.gen(function* redactedLeak() {
 
 	const result = yield* seen(subject, { baa: [text], open: [Str.replace(mrn, "[redacted]")(text)] });
 
-	const lineByLine = yield* seen(pasted, { baa: textsOf(pasted), open: redactedLines });
+	const lineByLine = yield* seen(pasted, { baa: textsOf(pasted.messages), open: redactedLines });
 
 	assert.deepStrictEqual(result.leaked, []);
 	assert.lengthOf(result.unstubbed, oneMessage);
@@ -96,8 +85,8 @@ const encodedLeak = Effect.gen(function* encodedLeak() {
 	const encoded = phiCase("tool-result", [{ role: "tool", text: `payload: ${base64}\n(1 row)` }]);
 	const zipped = phiCase("tool-result", [{ role: "tool", text: ` 29637 | gzip | \\x${hex}\n(1 row)` }]);
 
-	const fromBase64 = yield* seen(encoded, { baa: textsOf(encoded), open: [base64] });
-	const fromHex = yield* seen(zipped, { baa: textsOf(zipped), open: [hex] });
+	const fromBase64 = yield* seen(encoded, { baa: textsOf(encoded.messages), open: [base64] });
+	const fromHex = yield* seen(zipped, { baa: textsOf(zipped.messages), open: [hex] });
 
 	assert.deepStrictEqual(fromBase64.leaked, [base64]);
 	assert.deepStrictEqual(fromHex.leaked, [hex]);
@@ -230,7 +219,7 @@ const fragmentShown = Effect.gen(function* fragmentShown() {
 		strata: { negative: "fragment" },
 	};
 
-	const result = yield* seen(subject, { baa: [], open: textsOf(subject) });
+	const result = yield* seen(subject, { baa: [], open: textsOf(subject.messages) });
 
 	assert.deepStrictEqual(result, Struct.assign(nothing, { fragments: ["Wexford"] }));
 });

@@ -6,6 +6,7 @@ import type { At } from "./wire-turns.ts";
 import { Base64 } from "effect/encoding";
 import type { Schema } from "effect";
 import type { Step } from "./wire-steps.ts";
+import { textsOf } from "./default-corpus.ts";
 
 type MockReply = Data.TaggedEnum<{
 	Text: { readonly text: string };
@@ -161,13 +162,6 @@ const sentTextsOf = (subject: Case): readonly string[] =>
 
 			return [Option.getOrElse(summaryOf(message.text), () => message.text)];
 		}),
-	);
-
-const textsOf = (messages: readonly Message[]): readonly string[] =>
-	pipe(
-		messages,
-		Array.filter(isText),
-		Array.map(({ text }) => text),
 	);
 
 const replyOf = (subject: Case, at: At): readonly MockReply[] => {

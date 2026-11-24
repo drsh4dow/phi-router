@@ -5,6 +5,7 @@ import { assert, it } from "@effect/vitest";
 import type { Message } from "./manifest.ts";
 import type { Phi } from "./default-corpus.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
+import { imagesOf } from "./canary-tokens.ts";
 
 const minImageCanaryLength = 24;
 
@@ -13,18 +14,6 @@ const jpegHeaderLength = 8;
 const runPatterns = { base64: /[A-Za-z0-9+/]{40,}={0,2}/gu, gzipHex: /1f8b08[0-9a-f]+/gu };
 
 const roles: readonly Message["role"][] = ["system", "user", "assistant", "tool"];
-
-const imagesOf = (item: Phi): readonly string[] =>
-	pipe(
-		item.messages,
-		Array.flatMap((message) => {
-			if ("image" in message) {
-				return [message.image.data];
-			}
-
-			return [];
-		}),
-	);
 
 const plainViews = (item: Phi): readonly string[] => {
 	const texts = textsOf(item.messages);
