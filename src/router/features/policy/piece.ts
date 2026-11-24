@@ -1,7 +1,8 @@
+type Base64 = string;
+
 interface Image {
 	readonly mimeType: string;
-	/** Base64. */
-	readonly data: string;
+	readonly data: Base64;
 }
 
 type PieceKind = "system" | "user" | "tool-result" | "reply-open" | "reply-other";
