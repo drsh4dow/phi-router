@@ -5,7 +5,7 @@ import { fakes } from "#tools/route/fake-credentials.ts";
 import { isClaudeJudgeCall } from "#router/client/mock-upstreams/index.ts";
 import { shownIn } from "./phi-checks.ts";
 
-const printedTail = 400;
+const printedTailLength = 400;
 
 const followUp = "Thanks. Now say the same in one short line.";
 
@@ -21,7 +21,7 @@ const during = Effect.fnUntraced(function* during<Ran extends { readonly printed
 		baa: Array.drop(baa, baaBefore.length),
 		open: Array.drop(open, openBefore.length),
 		piecesJudged: judged.length - judgedBefore.length,
-		printedTail: Str.slice(-printedTail)(ran.printed),
+		printedTail: Str.slice(-printedTailLength)(ran.printed),
 		shown: shownIn(ran.printed),
 	});
 });
