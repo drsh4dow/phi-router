@@ -2,7 +2,7 @@
 
 ## Rules a gate enforces
 
-`bun run check` runs every gate below. A rule here needs no reminder, only the gate's message when it fails.
+`bun run check` runs every gate below, except the two `.e2e.test.ts` gates, which `bun run test:e2e` runs. A rule here needs no reminder, only the gate's message when it fails.
 
 | Rule                                                                                                                                                                                                                                                                                                                        | Gate                                                                                                     |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -34,8 +34,8 @@
 | No file in `src/` or `tools/` outside `src/router/features/policy/` spells an identifier kind's name as a string, a template or a property name. Code takes the kinds from the policy's `index.ts`, and a test holds the rule's list equal to the policy's                                                                  | `tools/ast-grep/rules/identifier-kinds.yml`, `tools/gates/identifier-kinds.test.ts`                      |
 | No file in `src/` or `tools/` holds a suppression directive, such as `oxlint-disable`, `ast-grep-ignore` or `@ts-expect-error`. It is a text scan, so no directive switches it off                                                                                                                                          | `bun run suppressions`                                                                                   |
 | No unused file, export, dependency or subpath import                                                                                                                                                                                                                                                                        | `bun run unused`, `knip.jsonc`                                                                           |
-| Each gate passes the repository, fails on a fixture that breaks it, and passes the files the map prescribes                                                                                                                                                                                                                 | `tools/gates/gates.test.ts`, `tools/gates/fixtures/`                                                     |
-| The built entry runs under Bun and Node and answers `status`                                                                                                                                                                                                                                                                | `tools/gates/entry.test.ts`                                                                              |
+| Each gate passes the repository, fails on a fixture that breaks it, and passes the files the map prescribes                                                                                                                                                                                                                 | `tools/gates/gates.e2e.test.ts`, `tools/gates/fixtures/`                                                 |
+| The built entry runs under Bun and Node and answers `status`                                                                                                                                                                                                                                                                | `tools/gates/entry.e2e.test.ts`                                                                          |
 
 ## Rules that need judgment
 
@@ -44,6 +44,7 @@
 - **Each durable value has one writer.** A new file, store or setting gets its `client/` file before a feature reads or writes it, and every caller goes through that file.
 - **New product work adds files.** A command is one file in `src/router/features/cli/` and one entry in the command list in its `index.ts`. The list parses flags into contract types, and the command is a plain Effect function that takes them.
 - **A contract lives in `src/shared/`.** Both runtimes encode and decode with the same schema, and the command names pi spells come from the same file.
+- **`bun run test` stays fast under load.** A test that builds the plugin or starts a process is a `*.e2e.test.ts`, and a test that holds code to a wall-clock bound is a `*.perf.test.ts`. `bun run test` runs neither.
 - **A test drives the code through its interface.** Replace a `client/` service with a test layer, and assert what a caller or an outside system observes.
 - **Use the glossary's words.** Name code, tests and messages with the terms in `GLOSSARY.md`.
 - **Vendored code keeps its upstream.** `tools/oxlint/anti-slop/` changes only by rerunning the upstream install script its `UPSTREAM.md` names.

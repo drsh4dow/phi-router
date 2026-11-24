@@ -21,4 +21,4 @@ We chose this because the router holds the developer's credentials and state, an
 - A process of the same user passes, a container run as that uid included. The check keeps other users out, not the developer's own processes.
 - Linux reads only `/proc/net/tcp`, so a caller on an IPv6 socket, such as one connected to `::ffff:127.0.0.1`, is refused. Every harness connects to `127.0.0.1` over IPv4.
 - The router reads the kernel's addresses as little-endian, which every machine it runs on is. On a big-endian Linux every request would be refused.
-- Each file and folder the router writes under the XDG state folder is created with mode 0600 or 0700. `tools/route/private.test.ts` runs the router under umask 000 and fails on any other mode, and the wire run checks the XDG state and config folders the same way.
+- Each file and folder the router writes under the XDG state folder is created with mode 0600 or 0700. `tools/route/private.e2e.test.ts` runs the router under umask 000 and fails on any other mode, and the wire run checks the XDG state and config folders the same way.
