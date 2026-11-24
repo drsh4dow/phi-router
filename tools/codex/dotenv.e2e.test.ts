@@ -99,25 +99,24 @@ const appended = "OPENAI_ORG=acme";
 
 const own = "A=1\n# hosts my proxy skips\nNO_PROXY=corp.example # corp\nB=2";
 
-/** A `.env` that ends with a newline, one that ends without one, or none at all, and the bytes `off` must leave. */
 interface Appended {
+	readonly existingDotenv?: string;
 	readonly off: string;
-	readonly seed?: string;
 }
 
 const appendSeeds: readonly Appended[] = [
-	{ off: `${own}\n${appended}\n`, seed: `${own}\n` },
-	{ off: `${own}\n${appended}\n`, seed: own },
+	{ existingDotenv: `${own}\n`, off: `${own}\n${appended}\n` },
+	{ existingDotenv: own, off: `${own}\n${appended}\n` },
 	{ off: `${appended}\n` },
 ];
 
-const appendAfterOn = Effect.fnUntraced(function* appendAfterOn({ seed }: Appended) {
+const appendAfterOn = Effect.fnUntraced(function* appendAfterOn({ existingDotenv }: Appended) {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* codexFolders;
 	const file = dotenvFile(dir);
 	const bytes = fs.readFileString(file);
 
-	yield* Option.match(Option.fromUndefinedOr(seed), {
+	yield* Option.match(Option.fromUndefinedOr(existingDotenv), {
 		onNone: () => Effect.void,
 		onSome: (text) => fs.writeFileString(file, text),
 	});

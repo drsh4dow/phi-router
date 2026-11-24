@@ -40,8 +40,7 @@ const productPort = 47_411;
 
 const dead = "http://127.0.0.1:9";
 
-/** `ALL_PROXY`, `HTTP_PROXY` and `HTTPS_PROXY`, each in both spellings but the first. */
-const deadVariables = 5;
+const deadProxyVariables = ["ALL_PROXY", "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"];
 
 const seenBy = (marker: string): string => {
 	const config = '"$XDG_CONFIG_HOME/phi-router" "$XDG_CONFIG_HOME/phi-router/config.json"';
@@ -51,7 +50,13 @@ const seenBy = (marker: string): string => {
 	const launcher = `stat -c %a ${plugins}/cache/phi-router/phi-router/*/bin/phi-router`;
 	const address = `grep -o 'http://127.0.0.1:[0-9]*' "$CODEX_HOME/config.toml"`;
 
-	const proxy = 'echo "$ALL_PROXY $HTTP_PROXY $HTTPS_PROXY $http_proxy $https_proxy $NO_PROXY $no_proxy"';
+	const proxyValues = pipe(
+		[...deadProxyVariables, "NO_PROXY", "no_proxy"],
+		Array.map((name) => `$${name}`),
+		Array.join(" "),
+	);
+
+	const proxy = `echo "${proxyValues}"`;
 
 	const stdin = "timeout 1 cat > /dev/null; echo $?";
 
@@ -182,7 +187,7 @@ const passes = Effect.gen(function* passes() {
 			kept: true,
 			launcherMode: "700",
 			notPrivate: "0",
-			proxy: `${Array.join(Array.replicate(dead, deadVariables), " ")} localhost localhost`,
+			proxy: `${Array.join(Array.replicate(dead, deadProxyVariables.length), " ")} localhost localhost`,
 			stdinRead: "0",
 		},
 		"the mocks' config.json and codex's plugin copy are private, codex runs behind a dead proxy that localhost alone does not avoid with its stdin at its end, and the user's config.toml is as it was",
