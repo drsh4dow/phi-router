@@ -1,6 +1,5 @@
 import type { Harness } from "#router/features/border/index.ts";
 
-/** Why phi-router stopped a message before any of it reached an account. */
 type Stop = "noBaaKey" | "baaKeyRefused" | "notStarted";
 
 /** The line the developer reads when a message stops, naming the command that fixes it in their harness. */

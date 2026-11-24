@@ -4,6 +4,7 @@ import { Configuration } from "#router/client/configuration/index.ts";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge/index.ts";
 import { LaneLog } from "#router/client/lane-log.ts";
+import type { Pinning } from "#router/features/lanes/index.ts";
 import { Upstream } from "#router/client/accounts/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
@@ -15,13 +16,10 @@ interface Routing {
 	readonly choose: typeof LaneChoice.Service;
 	readonly store: VerdictStore["Service"];
 	readonly laneLog: LaneLog["Service"];
-	/** The exact texts the configuration lists as fixtures. */
 	readonly fixtures: readonly string[];
-	/** Why a request is pinned, given its session's pin from the arrival read and the request, with the configured BAA repos. */
-	readonly pinnedBy: Effect.Success<ReturnType<typeof pinning>>;
+	readonly pinnedBy: Pinning;
 }
 
-/** What judging and keying a request needs while it is handled. */
 type Judging = Judge | Digest.Digest;
 
 /** The judge and the digest of the build context, and nothing else, so each request keeps the scope its server gives it. */

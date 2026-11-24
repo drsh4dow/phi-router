@@ -6,7 +6,6 @@ import { SessionId, StatusJson } from "#shared/cli.ts";
 import type { Routing } from "./routing.ts";
 import type { Status } from "#shared/cli.ts";
 
-/** The name and vendor of each account on one lane. */
 type LaneAccounts = (typeof Status.Type)["accounts"]["clean"];
 
 const namesOn =
@@ -17,12 +16,6 @@ const namesOn =
 			Array.map(({ name }) => ({ name, vendor })),
 		);
 
-/**
- * Each lane's accounts the router serves now, named without their credentials.
- *
- * @param {Function} served The accounts the router serves.
- * @returns {Effect.Effect} Each lane's names and vendors, in the file's order.
- */
 const listed = (served: () => Effect.Effect<Served>): Effect.Effect<(typeof Status.Type)["accounts"]> =>
 	Effect.map(served(), (now) => {
 		const on = (lane: "clean" | "sealed"): LaneAccounts => [

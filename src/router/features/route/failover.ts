@@ -243,9 +243,9 @@ const dispatched = Effect.fnUntraced(function* dispatched(arrival: Arrived) {
 
 	const stopping = (aim: Aim, spend: Spend): Effect.Effect<Stop> =>
 		Ref.modify(walked, (now) => {
-			const { after, before } = stopped({ aim, spend, walked: now });
+			const { afterSpend, beforeSpend } = stopped({ aim, spend, walked: now });
 
-			return [before, after];
+			return [beforeSpend, afterSpend];
 		});
 
 	const walking: Walking = Struct.assign(arrival, { stopping });

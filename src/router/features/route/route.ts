@@ -15,7 +15,6 @@ import { wires } from "./harness.ts";
 
 const statuses = { failed: 500, notFound: 404, ok: 200, refused: 502, unreadable: 400 } as const;
 
-/** The answer to a path the router lacks (ADR 0001). */
 const notFound: Outgoing = { body: Stream.empty, headers: {}, kind: "relayed", status: statuses.notFound };
 
 /**
@@ -27,7 +26,7 @@ const notFound: Outgoing = { body: Stream.empty, headers: {}, kind: "relayed", s
  * @returns {Effect.Effect<Outgoing>} The answer.
  */
 const refusal = (wire: HarnessWire, status: number, message: string): Effect.Effect<Outgoing> =>
-	Effect.map(wire.errorBody(status, message), (body) => ({ body, kind: "whole", status }));
+	Effect.map(wire.vendorErrorBody(status, message), (body) => ({ body, kind: "whole", status }));
 
 /** The failures that say the judge itself gave no usable answer. A binary or too-large piece is sealed without asking it. */
 const judgeFailed = new Set(["judge-error", "judge-timeout", "judge-refused"]);
@@ -79,7 +78,7 @@ const judgedOn = Effect.fnUntraced(function* judgedOn(
 const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: string, incoming: Incoming) {
 	const arrival = yield* serving.store.read(session, serving.policy);
 	const request = yield* serving.wire.decode(incoming.body, arrival.openWrote);
-	const pinned = yield* serving.pinnedBy({ asked: request, pinned: arrival.pinned, session });
+	const pinned = yield* serving.pinnedBy({ asked: request, session, sessionPinned: arrival.pinned });
 
 	if (Option.isSome(pinned)) {
 		const choice: Choice = { by: pinned.value, kind: "pinned" };

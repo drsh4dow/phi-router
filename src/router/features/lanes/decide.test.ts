@@ -22,7 +22,6 @@ const usage = { calls: 1, cost: 0, inputTokens: 1, ms: 1 };
 
 const sealsHigh = 0.9;
 
-/** Scores a piece that names the patient as an identifier, and clears the rest. */
 const answering = Judge.of({
 	identifier: ({ piece }) => {
 		if (Str.includes(patient)(piece)) {
@@ -68,7 +67,6 @@ const reply = (writtenBy: "open-account" | "other", text: string): Message => ({
 
 const opening = [system, asked("Why does the admissions import drop rows?")];
 
-/** One session's verdicts, and `send`, which decides a request's lane and records what it found. */
 interface Session {
 	readonly lookup: Lookup;
 	readonly send: (messages: readonly Message[], judge?: Judge["Service"]) => Effect.Effect<Lane, never, Digest.Digest>;
@@ -184,12 +182,6 @@ const judgeFails = Effect.gen(function* judgeFails() {
 	assert.deepStrictEqual([failed, next], ["sealed", "clean"]);
 });
 
-/**
- * A store that holds the parts of `message` sealed and every other part cleared.
- *
- * @param {Message} message The sealed message.
- * @returns {Effect.Effect<Lookup, never, Digest.Digest>} The store's lookup.
- */
 const sealing = (message: Message): Effect.Effect<Lookup, never, Digest.Digest> =>
 	Effect.map(partsOf(message), (parts) => (key) => {
 		if (

@@ -4,7 +4,6 @@ import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { piecesOf } from "#router/features/parts/index.ts";
 
-/** The lane a request runs on: its open accounts, or its BAA accounts. */
 type Lane = "clean" | "sealed";
 
 const isSealed = Verdicts.$is("Sealed");

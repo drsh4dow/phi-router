@@ -6,8 +6,7 @@ type Harness = "claude" | "codex" | "pi";
 /** How each harness with a pinned subagent names it, so the stub and the bridge cannot name it differently. */
 const pinnedSubagent = { claude: "phi-router:phi-sealed", codex: "phi-sealed" } as const;
 
-/** Why a sealed part's reply is trustworthy. */
-const trusted =
+const whyTheReplyIsTrusted =
 	"The next assistant reply was written there with this content in view, so what it says about this content is accurate.";
 
 const handedTo = (subagent: string): string =>
@@ -15,9 +14,9 @@ const handedTo = (subagent: string): string =>
 
 /** The stub per harness. The unknown stub stays the policy's, since no reply was written with that content in view. */
 const stubsFor = {
-	claude: `${policyStubs.sealed} ${trusted} ${handedTo(pinnedSubagent.claude)}`,
-	codex: `${policyStubs.sealed} ${trusted} ${handedTo(pinnedSubagent.codex)}`,
-	pi: `${policyStubs.sealed} ${trusted} Work that needs the identifiers themselves needs the session pinned with /phi pin.`,
+	claude: `${policyStubs.sealed} ${whyTheReplyIsTrusted} ${handedTo(pinnedSubagent.claude)}`,
+	codex: `${policyStubs.sealed} ${whyTheReplyIsTrusted} ${handedTo(pinnedSubagent.codex)}`,
+	pi: `${policyStubs.sealed} ${whyTheReplyIsTrusted} Work that needs the identifiers themselves needs the session pinned with /phi pin.`,
 } as const satisfies Record<Harness, string>;
 
 const bridgeOpening = `Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as ${policyStubs.sealed} was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message.`;

@@ -7,7 +7,6 @@ import { partsOf } from "#router/features/parts/index.ts";
 import { stubs as policyStubs } from "#router/features/policy/index.ts";
 import { stubsFor } from "./texts.ts";
 
-/** A tool list cannot be stubbed without breaking the calls that name it, so a request whose tools never cleared is refused. */
 class ToolsNotCleared extends Schema.TaggedError<ToolsNotCleared, { readonly brand: unique symbol }>()(
 	"ToolsNotCleared",
 	{},

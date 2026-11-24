@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Path, String as Str, pipe } from "effect";
+import { Array, Effect, Option, Path, String as Str, Struct, pipe } from "effect";
 import { LeaseRegistry } from "#router/client/leases.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import type { Reason } from "#router/client/lane-log.ts";
@@ -11,7 +11,6 @@ import { piWire } from "#shared/pi.ts";
  */
 type PinnedBy = Extract<Reason, "pinned" | "BAA repo" | "title">;
 
-/** The model name that pins every request that carries it, the pinned subagent's, and pi's `/model phi/sealed`. */
 const pinnedModel = piWire.models.sealed;
 
 /** The first line of the pinned subagent's instructions, which reach its system prompt whatever model it runs on. */
@@ -30,7 +29,6 @@ const holdsPinnedLine = (message: Message): boolean =>
 		Array.some(Str.includes(pinnedLine)),
 	);
 
-/** What the pin reads of a request: the model it names, its messages, and whether it is Codex's title request. */
 interface Asked {
 	readonly model: string;
 	readonly messages: readonly Message[];
@@ -60,10 +58,9 @@ const insideOf =
 	(folder: string): boolean =>
 		Option.isSome(path.resolveWithin(repo, path.relative(repo, folder)));
 
-/** What a request's arrival says about its pin: its session, the session's pin, and the request itself. */
 interface Arrival {
 	readonly session: string;
-	readonly pinned: boolean;
+	readonly sessionPinned: boolean;
 	readonly asked: Asked;
 }
 
@@ -74,11 +71,11 @@ interface Arrival {
  */
 const pinnedBy = Effect.fnUntraced(function* pinnedBy(request: {
 	readonly session: string;
-	readonly pinned: boolean;
+	readonly sessionPinned: boolean;
 	readonly asked: Asked;
 	readonly baaRepos: readonly string[];
 }) {
-	if (request.pinned || pinsItself(request.asked)) {
+	if (request.sessionPinned || pinsItself(request.asked)) {
 		return Option.some<PinnedBy>("pinned");
 	}
 
@@ -111,18 +108,20 @@ const pinnedBy = Effect.fnUntraced(function* pinnedBy(request: {
  * `pinnedBy` with `baaRepos` and the services in context, as the route calls it. Codex's title request is pinned for
  * `title` before anything is read.
  */
+type Pinning = (arrival: Arrival) => Effect.Effect<Option.Option<PinnedBy>, RegistryFailed>;
+
 const pinning = Effect.fnUntraced(function* pinning(baaRepos: readonly string[]) {
 	const services = yield* Effect.context<LeaseRegistry | Path.Path>();
 
-	return ({ asked, pinned, session }: Arrival): Effect.Effect<Option.Option<PinnedBy>, RegistryFailed> => {
-		if (asked.title === true) {
+	return (arrival: Arrival): ReturnType<Pinning> => {
+		if (arrival.asked.title === true) {
 			return Effect.succeedSome<PinnedBy>("title");
 		}
 
-		return Effect.provideContext(pinnedBy({ asked, baaRepos, pinned, session }), services);
+		return Effect.provideContext(pinnedBy(Struct.assign(arrival, { baaRepos })), services);
 	};
 });
 
 export { pinnedLine, pinnedModel, pinning };
 
-export type { PinnedBy };
+export type { PinnedBy, Pinning };

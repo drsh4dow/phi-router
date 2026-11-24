@@ -14,7 +14,6 @@ interface Clean {
 	readonly messages: readonly Message[];
 }
 
-/** Where a decoded request goes, the same shape for every codec. `model` is the upstream's real model. */
 type Target = Clean | Sealed;
 
 export type { Clean, Sealed, Target };

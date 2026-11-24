@@ -1,11 +1,6 @@
 import type { Account, Accounts } from "#router/client/accounts/index.ts";
 import { Array, Hash, Option, Order, pipe } from "effect";
 
-/**
- * The accounts one request may still try, the current one first: the open accounts left, then every BAA account left.
- * It only shrinks, so a request never moves back to the clean lane. `baa` is never empty, so a walk always has a
- * current account.
- */
 interface Walk {
 	readonly open: readonly Account[];
 	readonly baa: Array.NonEmptyReadonlyArray<Account>;
@@ -47,24 +42,12 @@ const walkOf = (at: {
 	};
 };
 
-/**
- * The walk's current account and its lane.
- *
- * @param {Walk} walk The walk.
- * @returns {object} The account to send to now.
- */
 const current = (walk: Walk): { readonly lane: "clean" | "sealed"; readonly account: Account } =>
 	Option.match(Array.head(walk.open), {
 		onNone: () => ({ account: Array.headNonEmpty(walk.baa), lane: "sealed" as const }),
 		onSome: (account) => ({ account, lane: "clean" as const }),
 	});
 
-/**
- * The walk of a send that went sealed: its open accounts dropped for good.
- *
- * @param {Walk} walk The walk.
- * @returns {Walk} The BAA accounts alone.
- */
 const sealedOnly = (walk: Walk): Walk => ({ baa: walk.baa, open: [] });
 
 /**

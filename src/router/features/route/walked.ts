@@ -5,7 +5,6 @@ import type { Routed } from "#router/client/lane-log.ts";
 import type { Walk } from "#router/features/accounts/index.ts";
 import { modelsAt } from "./send.ts";
 
-/** An account on the walk, with its lane. */
 type At = ReturnType<typeof current>;
 
 /**
@@ -34,10 +33,9 @@ interface Walked {
 	readonly send: Pick<Aim["send"], "model" | "reason" | "substitute">;
 }
 
-/** The aim's account's stop before it spent, and the walk after. */
 interface Stopped {
-	readonly before: Stop;
-	readonly after: Walked;
+	readonly beforeSpend: Stop;
+	readonly afterSpend: Walked;
 }
 
 const unspent = { fit: false, resent: false } as const;
@@ -91,7 +89,10 @@ const stopped = (of: { readonly walked: Walked; readonly aim: Aim; readonly spen
 
 	const stop: Stop = Struct.assign(before, Struct.assign({ at }, spends[spend]));
 
-	return { after: { send: aim.send, start: walked.start, stops: Array.append(earlier, stop) }, before };
+	return {
+		afterSpend: { send: aim.send, start: walked.start, stops: Array.append(earlier, stop) },
+		beforeSpend: before,
+	};
 };
 
 /**

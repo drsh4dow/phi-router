@@ -22,13 +22,6 @@ const badRequest = 400;
 
 const answered = (status: number, reply: string): Outgoing => ({ body: `{"lease":"${reply}"}`, kind: "whole", status });
 
-/**
- * The leases whose pid runs with the lease's start time.
- *
- * @param {Leases} leases The leases.
- * @param {readonly LiveProcess[]} running The processes that run now.
- * @returns {Leases} The leases that hold.
- */
 const held = (leases: Leases, running: readonly LiveProcess[]): Leases =>
 	pipe(
 		leases,

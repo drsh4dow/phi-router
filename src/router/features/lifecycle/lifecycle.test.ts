@@ -27,7 +27,6 @@ const leaseLine = (pid: number): string => `{"folder":"/work","pid":${String(pid
 const leaseOf = (pid: number, started: string): typeof Lease.Type => ({ folder: "/work", pid, session: "s1", started });
 const runningAs = (pid: number, started: string): LiveProcess => ({ pid, started });
 
-/** A fault the machine injects: none, a `ps` that reads nothing, or a full disk. */
 type Fault = "none" | "unread" | "full";
 
 const diskFull = PlatformError.badArgument({
@@ -36,11 +35,6 @@ const diskFull = PlatformError.badArgument({
 	module: "FileSystem",
 });
 
-/**
- * The processes of a test machine, `running` at first. `calls` counts the `ps` calls, and a `ps` that asks about
- * `harness` waits while `gate` is closed. While `fault` is `unread` every `ps` reads nothing, and while it is `full` every
- * write of the registry fails.
- */
 const processesOf = Effect.fnUntraced(function* processesOf(running: readonly LiveProcess[]) {
 	const processes = yield* Ref.make(running);
 	const calls = yield* Ref.make(none);
@@ -76,7 +70,6 @@ const processesOf = Effect.fnUntraced(function* processesOf(running: readonly Li
 	return { calls, ends, fault, gate, ps };
 });
 
-/** A machine whose processes are `running` and whose lease registry holds `stored`. `writes` counts the stores. */
 const machine = Effect.fnUntraced(function* machine(running: readonly LiveProcess[], stored: Leases) {
 	const { calls, ends, fault, gate, ps } = yield* processesOf(running);
 	const registry = yield* Ref.make(stored);

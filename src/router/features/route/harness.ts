@@ -8,21 +8,17 @@ import type { Message } from "#router/features/parts/index.ts";
 import type { Routing } from "./routing.ts";
 import { piWire } from "#shared/pi.ts";
 
-/** A codec's "send this request on the sealed lane", whichever codec refused. */
 interface CleanLaneRefused {
 	readonly _tag: "CleanLaneRefused";
 }
 
-/** A request of any harness, as the route core reads it. Each codec's request is one, with no adapter. */
 interface Decoded {
-	/** The model the harness named, such as `phi/auto`. */
 	readonly model: string;
 	readonly messages: readonly Message[];
 	/** The body for one lane. The clean lane takes what the border returned for `messages`, same length and order. */
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	/** `encode` with every reasoning item dropped from the clean body, for an account that could not read one. Codex alone has it. */
 	readonly withoutReasoning?: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
-	/** Whether Codex sent it to write a thread's title. Codex alone has it. */
 	readonly title?: boolean;
 }
 
@@ -38,22 +34,15 @@ class Unreadable extends Schema.TaggedError<Unreadable, { readonly brand: unique
 interface HarnessWire {
 	/** Picks the stub in `guard`. */
 	readonly harness: Harness;
-	/** The header that names the session, the verdict store's key. */
 	readonly sessionHeader: string;
 	readonly decode: (
 		body: string,
 		openWrote: (key: string) => boolean,
 	) => Effect.Effect<Decoded, Unreadable, Digest.Digest>;
-	/** The reply keys of one completed stream from an open account. */
 	readonly replyKeys: (reply: string) => Effect.Effect<readonly string[], { readonly message: string }, Digest.Digest>;
-	/** The vendor's error JSON for an answer the router writes itself. */
-	readonly errorBody: (status: number, message: string) => Effect.Effect<string>;
+	readonly vendorErrorBody: (status: number, message: string) => Effect.Effect<string>;
 }
 
-/**
- * One harness served: the shared routing, the harness's wire, its vendor's accounts and the 429 stamps. The route core's
- * argument.
- */
 interface Serving extends Routing {
 	readonly wire: HarnessWire;
 	readonly accounts: Accounts;
@@ -85,10 +74,8 @@ const anthropicErrorBody = (status: number, message: string): Effect.Effect<stri
 		}),
 	);
 
-/** The model ids the pi package sends inside its provider `phi`, with the model name each stands for. */
-const piNames: Readonly<Record<string, string>> = piWire.models;
+const piModelNames: Readonly<Record<string, string>> = piWire.models;
 
-/** The path the pi package's requests take. */
 const piMessages = `${piWire.base}/v1/messages` as const;
 
 const OpenAiError = Schema.fromJsonString(
@@ -98,26 +85,24 @@ const OpenAiError = Schema.fromJsonString(
 type Wires = { readonly [Name in Harness]: HarnessWire & { readonly harness: Name } };
 
 const wires: Wires = {
-	/** Claude Code: `x-claude-code-session-id`, the Messages codec, and the Anthropic error shape it shows. */
 	claude: {
 		decode: (body, openWrote) =>
 			Effect.mapError(decodeRequest(body, openWrote, "claude"), ({ reason }) => Unreadable.make({ reason })),
-		errorBody: anthropicErrorBody,
 		harness: "claude",
 		replyKeys,
 		sessionHeader: "x-claude-code-session-id",
+		vendorErrorBody: anthropicErrorBody,
 	},
-	/** Codex: `session-id`, the Codex codec, the keys of clean-lane replies that completed, and the OpenAI error shape. */
 	codex: {
 		decode: (body, openWrote) =>
 			Effect.mapError(decodeResponsesRequest(body, openWrote), ({ reason }) => Unreadable.make({ reason })),
-		errorBody: (status, message) =>
-			Effect.orDie(
-				Schema.encodeEffect(OpenAiError)({ error: { message, type: errorType(status, "server_error") } }),
-			),
 		harness: "codex",
 		replyKeys: cleanLaneKeys,
 		sessionHeader: "session-id",
+		vendorErrorBody: (status, message) =>
+			Effect.orDie(
+				Schema.encodeEffect(OpenAiError)({ error: { message, type: errorType(status, "server_error") } }),
+			),
 	},
 	/**
 	 * The pi package: `x-phi-session`, which it adds, the Messages codec with pi's bridge, and the Anthropic error shape.
@@ -129,13 +114,13 @@ const wires: Wires = {
 				onFailure: ({ reason }) => Unreadable.make({ reason }),
 				onSuccess: (decoded) =>
 					Struct.assign(decoded, {
-						model: Option.getOrElse(Record.get(piNames, decoded.model), () => decoded.model),
+						model: Option.getOrElse(Record.get(piModelNames, decoded.model), () => decoded.model),
 					}),
 			}),
-		errorBody: anthropicErrorBody,
 		harness: "pi",
 		replyKeys,
 		sessionHeader: piWire.sessionHeader,
+		vendorErrorBody: anthropicErrorBody,
 	},
 };
 

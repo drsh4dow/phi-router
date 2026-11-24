@@ -11,7 +11,6 @@ import { guard } from "#router/features/border/index.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 import { sealedOnly } from "#router/features/accounts/index.ts";
 
-/** The model name that stands for the configured target model. Any other name is its own target model. */
 const auto = "phi/auto";
 
 /**
@@ -22,7 +21,6 @@ type Choice =
 	| { readonly kind: "pinned"; readonly by: PinnedBy }
 	| { readonly kind: "judged"; readonly laneAt: (now: Lookup) => Lane };
 
-/** One request of one session, decoded and judged: what each of its sends is built from. */
 interface Arrived {
 	readonly serving: Serving;
 	readonly session: string;
@@ -32,7 +30,6 @@ interface Arrived {
 	readonly judged: { readonly cost: number; readonly failures: number };
 }
 
-/** The model a send names, and whether it is the substitute for a target model its BAA account lacks. */
 interface SendModel {
 	readonly model: string;
 	readonly substitute: boolean;
