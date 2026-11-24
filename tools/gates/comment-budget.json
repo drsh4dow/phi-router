@@ -9,7 +9,6 @@
 	"src/pi/features/uploads/index.ts": 16,
 	"src/pi/index.test.ts": 3,
 	"src/pi/index.ts": 18,
-	"src/router/client/accounts/account-state.ts": 3,
 	"src/router/client/accounts/credentials.ts": 4,
 	"src/router/client/accounts/login-folders.ts": 3,
 	"src/router/client/accounts/served.ts": 1,

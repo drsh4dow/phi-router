@@ -3,10 +3,6 @@ import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "#router/client/private-file.ts";
 
-/**
- * `phi-router/accounts.json` under the XDG state folder: each rate-limited account by name, with the time it is back.
- * No field can hold a credential or content.
- */
 const Stored = Schema.fromJsonString(
 	Schema.Struct({ rateLimited: Schema.Record(Schema.String, Schema.DateTimeUtcFromString) }),
 );
@@ -20,9 +16,7 @@ const oneWriter = 1;
 class AccountState extends Context.Service<
 	AccountState,
 	{
-		/** The stamps in force on `accounts`, each name to the time it is back, read from the file on each call. */
 		readonly stamps: (accounts: readonly string[]) => Effect.Effect<ReadonlyMap<string, DateTime.Utc>, StoreFailed>;
-		/** Stamps an account until 30 minutes from now, and drops the stamps that ran out. */
 		readonly stamp: (account: string) => Effect.Effect<void, StoreFailed>;
 	}
 >()("phi-router/router/client/accounts/account-state/AccountState") {

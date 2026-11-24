@@ -56,10 +56,10 @@ const firstAccount = 0;
 
 const tries = 100;
 
-const homedFirst = (prefix: string): Effect.Effect<string, Cause.NoSuchElementError> =>
+const homedFirst = (prefix: string, count = twoAccounts): Effect.Effect<string, Cause.NoSuchElementError> =>
 	pipe(
 		Array.makeBy(tries, (index) => `${prefix}-${String(index)}`),
-		Array.findFirst((session) => homeOf({ count: twoAccounts, session }) === firstAccount),
+		Array.findFirst((session) => homeOf({ count, session }) === firstAccount),
 		Effect.fromOption,
 	);
 
@@ -89,6 +89,43 @@ const stamped = Effect.gen(function* stamped() {
 			atEnd: [[one, three], [one, two, three], []],
 			atSkip: [[one], [one, two], []],
 			statuses: [status.ok, status.ok, status.ok],
+		},
+	);
+});
+
+const threeAccounts = 3;
+
+const privateFolder = 0o700;
+
+const stampedAt = 1_780_000_000_000;
+
+const JsonFile = Schema.fromJsonString(Schema.Unknown);
+
+const stampsInFile = Effect.gen(function* stampsInFile() {
+	const fs = yield* FileSystem.FileSystem;
+
+	yield* TestClock.setTime(stampedAt);
+
+	const session = yield* homedFirst("failover-7", threeAccounts);
+	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary, opens: [limited, ok, ok] });
+	const file = `${state}/accounts.json`;
+
+	yield* fs.makeDirectory(state, { mode: privateFolder, recursive: true });
+	yield* fs.writeFileString(
+		file,
+		'{"rateLimited":{"open-2":"2026-05-28T20:36:40.000Z","ran-out":"2026-05-28T20:25:40.000Z"}}',
+	);
+
+	const answer = yield* posted(post, session, [clean(one)]);
+	const received = yield* mocks.accounts;
+	const written = yield* Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(JsonFile));
+
+	assert.deepStrictEqual<unknown>(
+		{ received: tagsOf(received), status: answer.status, written },
+		{
+			received: [[one], [], [one], []],
+			status: status.ok,
+			written: { rateLimited: { open: "2026-05-28T20:56:40.000Z", "open-2": "2026-05-28T20:36:40.000Z" } },
 		},
 	);
 });
@@ -258,6 +295,10 @@ it.layer(NodeServices.layer)("several accounts per lane", (test) => {
 	test.effect(
 		"a home account's 429 sends the request to the next open account, and the session skips it for 30 minutes",
 		() => stamped,
+	);
+	test.effect(
+		"a 429 stamps the account in accounts.json until 30 minutes later, the walk skips an account another process stamped there, and a stamp that ran out leaves the file",
+		() => stampsInFile,
 	);
 	test.effect(
 		"every open account answering 429, a 500 whose body never ends, refusing or resetting sends the request to the BAA account, whose one lane log line says failover",
