@@ -14,12 +14,6 @@ const blobsIn = (text: string): readonly string[] =>
 		Array.map(([found]) => found),
 	);
 
-/**
- * The key a clean-lane reply's blob or reasoning summary text is remembered under, so the router stores neither.
- *
- * @param {string} value A blob or a summary text.
- * @returns {Effect.Effect<ContentKey, never, Digest.Digest>} Its key.
- */
 const cleanLaneKey = (value: string): Effect.Effect<typeof ContentKey.Type, never, Digest.Digest> =>
 	contentKey(["clean-lane", value]);
 

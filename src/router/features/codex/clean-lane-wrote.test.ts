@@ -27,7 +27,9 @@ data: {"type":"response.completed"}`;
 
 const withBlob = Str.replace('"description":"', `"description":"${blob} `);
 
-const summaryItem = '"summary":[{"type":"summary_text","text":"Counting the lines of notes.txt"}]';
+const summaryText = "Counting the lines of notes.txt";
+
+const summaryItem = `"summary":[{"type":"summary_text","text":"${summaryText}"}]`;
 
 const withSummary = Str.replaceAll('"summary":[]', summaryItem);
 
@@ -126,6 +128,16 @@ const echoed = Effect.gen(function* echoed() {
 	]);
 });
 
+const keysHoldNoText = Effect.gen(function* keysHoldNoText() {
+	const keys = yield* cleanLaneKeys(withSummary(replies.customToolCallReply));
+	const kept = Array.join(keys, "\n");
+
+	assert.isNotEmpty(keys);
+	assert.include(withSummary(replies.customToolCallReply), "gAAAAA");
+	assert.notInclude(kept, "gAAAAA");
+	assert.notInclude(kept, summaryText);
+});
+
 it.layer(Digest.layerWebCrypto)("what the clean lane wrote", (test) => {
 	test.effect.each([requests.firstTurn, requests.functionCall])(
 		"a tool list with a blob no clean-lane reply wrote refuses the clean lane",
@@ -148,4 +160,5 @@ it.layer(Digest.layerWebCrypto)("what the clean lane wrote", (test) => {
 	test.effect("a call name with a blob no clean-lane reply wrote refuses the clean lane", () =>
 		blobRefused(withCallBlob(requests.functionCall)),
 	);
+	test.effect("a reply's keys hold none of its blobs or summary texts", () => keysHoldNoText);
 });

@@ -27,7 +27,6 @@ type WirePart =
 			readonly unwrittenBlob: boolean;
 	  }
 	| {
-			/** An input item the codec cannot read, which the engine reads as an empty user message with no key. */
 			readonly kind: "unread";
 			readonly message: Message;
 			readonly paired: boolean;

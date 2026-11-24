@@ -30,13 +30,6 @@ const readItem = Schema.decodeUnknownOption(Item);
 
 const readRaw = Schema.decodeUnknownOption(Raw);
 
-/**
- * Each input item of a body, read when the clean lane may get it as sent, else unread. A body whose `input` is no
- * list has none.
- *
- * @param {Raw} body The body as sent.
- * @returns {readonly InputEntry[]} Its items.
- */
 const entriesOf = (body: typeof Raw.Type): readonly InputEntry[] =>
 	pipe(
 		readInput(body["input"]),

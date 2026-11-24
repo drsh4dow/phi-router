@@ -9,6 +9,7 @@ import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
+import { stubs } from "#router/features/policy/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
 
@@ -29,6 +30,8 @@ const Sent = Schema.fromJsonString(Schema.Struct({ input: Schema.Array(SentItem)
 
 const decodeSent = Schema.decodeUnknownEffect(Sent);
 
+const encodeMessages = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
+
 const Verdict = Schema.Literals(["cleared", "sealed", "unknown"]);
 
 const Capture = Schema.Literals(["customToolCall", "functionCall", "resumed", "subagentParent"]);
@@ -40,6 +43,8 @@ const oneOutput = 1;
 const toolListCount = 1;
 
 const sixAsks = 6;
+
+const canary = "chart 4471";
 
 const nothingWritten = (): boolean => false;
 
@@ -121,30 +126,50 @@ const cmdFirst = String.raw`{\"cmd\":\"cat notes.txt\",\"workdir\":\"/tmp/phi-20
 
 const workdirFirst = String.raw`{\"workdir\":\"/tmp/phi-20/work\",\"cmd\":\"cat notes.txt\",`;
 
+const withEnv = (env: string): string =>
+	Str.replace(String.raw`\"workdir\":\"/tmp/phi-20/work\",`, String.raw`\"env\":${env},`)(requests.functionCall);
+
 const argumentsKeys = Effect.gen(function* argumentsKeys() {
 	const spaced = Str.replace(String.raw`{\"cmd\":`, String.raw`{ \"cmd\": `)(requests.functionCall);
 	const reordered = Str.replace(cmdFirst, workdirFirst)(requests.functionCall);
+	const nestedSorted = withEnv(String.raw`{\"home\":\"/tmp\",\"lang\":\"C\"}`);
+	const nestedReordered = withEnv(String.raw`{\"lang\":\"C\",\"home\":\"/tmp\"}`);
 	const compact = yield* keysSeen(requests.functionCall);
 	const respelled = yield* keysSeen(spaced);
 	const resorted = yield* keysSeen(reordered);
+	const nested = yield* keysSeen(nestedSorted);
+	const nestedResorted = yield* keysSeen(nestedReordered);
 
 	assert.notStrictEqual(reordered, requests.functionCall);
+	assert.notStrictEqual(nestedSorted, requests.functionCall);
 	assert.deepStrictEqual(respelled, compact);
 	assert.deepStrictEqual(resorted, compact);
+	assert.deepStrictEqual(nestedResorted, nested);
 });
 
-const twiceKeys = Effect.gen(function* twiceKeys() {
-	const twice = Str.replace(
-		String.raw`{\"cmd\":`,
-		String.raw`{\"cmd\":\"cat chart_4471.txt\",\"cmd\":`,
-	)(requests.functionCall);
+const respellings = [
+	[
+		"name a key twice",
+		Str.replace(String.raw`{\"cmd\":`, String.raw`{\"cmd\":\"cat chart_4471.txt\",\"cmd\":`)(requests.functionCall),
+	],
+	[
+		"are written with escapes",
+		Str.replace(String.raw`\"cat notes.txt\"`, String.raw`\"cat\\u0020notes.txt\"`)(requests.functionCall),
+	],
+] as const;
 
-	const compact = yield* keysSeen(requests.functionCall);
-	const doubled = yield* keysSeen(twice);
+const ownKeys = ([, respelled]: readonly [string, string]): Effect.Effect<
+	void,
+	CodexRequestRejected | CleanLaneRefused | ToolsNotCleared,
+	Digest.Digest
+> =>
+	Effect.gen(function* lookUpRespelled() {
+		const compact = yield* keysSeen(requests.functionCall);
+		const own = yield* keysSeen(respelled);
 
-	assert.notStrictEqual(twice, requests.functionCall);
-	assert.notDeepEqual(doubled, compact);
-});
+		assert.notStrictEqual(respelled, requests.functionCall);
+		assert.notDeepEqual(own, compact);
+	});
 
 const toolListRefused = (text: string): Effect.Effect<void, CodexRequestRejected | string, Digest.Digest> =>
 	Effect.gen(function* refuseToolList() {
@@ -260,11 +285,40 @@ const anyLookup = ({
 		}
 	});
 
+const partField = Effect.gen(function* partField() {
+	const text = Str.replace(
+		'{"type":"input_text","text":"Run the shell',
+		`{"type":"input_text","future_key":"${canary}","text":"Run the shell`,
+	)(requests.firstTurn);
+
+	const request = yield* decodeRequest(text, nothingWritten);
+	const clean = yield* cleanBodyPastBorder(request, () => "cleared");
+
+	assert.notStrictEqual(text, requests.firstTurn);
+	assert.notInclude(clean, canary);
+	assert.include(clean, stubs.unknown);
+});
+
+const unreadItem = Effect.gen(function* unreadItem() {
+	const text = Str.replace('"input":[', `"input":[{"type":"future_item","note":"${canary}"},`)(requests.firstTurn);
+	const { messages } = yield* decodeRequest(text, nothingWritten);
+	const read = yield* Effect.orDie(encodeMessages(messages));
+
+	assert.deepInclude(messages, { content: [], role: "user" });
+	assert.notInclude(read, canary);
+});
+
+const inputNotAList = Effect.gen(function* inputNotAList() {
+	const { messages } = yield* decodeRequest(`{"model":"phi/auto","input":"${canary}"}`, nothingWritten);
+
+	assert.deepStrictEqual(messages, []);
+});
+
 it.layer(Digest.layerWebCrypto)("Codex clean lane", (test) => {
 	test.effect("a tool output keeps its key under a new call id, and new text changes it", () => outputKeysByText);
 	test.effect("a request that differs only in a reasoning item looks up the same keys", () => reasoningKeys);
 	test.effect("call arguments spelled another way look up the same keys", () => argumentsKeys);
-	test.effect("call arguments that name a key twice look up their own keys", () => twiceKeys);
+	test.effect.each(respellings)("call arguments that %s look up their own keys", ownKeys);
 	test.effect("every part sealed but the tool list goes as the border's stub, each item and id kept", () => allSealed);
 	test.effect.each([requests.customToolCall, requests.functionCall])(
 		"a tool list not cleared refuses the clean lane",
@@ -276,4 +330,7 @@ it.layer(Digest.layerWebCrypto)("Codex clean lane", (test) => {
 		{ capture: Capture, verdicts: Schema.NonEmptyArray(Verdict) },
 		anyLookup,
 	);
+	test.effect("a text part with a field the codec does not know goes as the stub, though cleared", () => partField);
+	test.effect("an item the codec cannot read is an empty user message", () => unreadItem);
+	test.effect("a body whose input is not a list reads as no message", () => inputNotAList);
 });

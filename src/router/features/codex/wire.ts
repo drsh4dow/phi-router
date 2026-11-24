@@ -180,7 +180,6 @@ const Body = Schema.Struct({
 
 const Empty = Schema.Tuple([]);
 
-/** The text parts the codec reads. A part of any other type, or with another field, is unread. */
 const ReadPart = Schema.Union([
 	Schema.Struct({ text: Schema.String, type: Schema.Literal("input_text") }),
 	Schema.Struct({ annotations: Empty, logprobs: Empty, text: Schema.String, type: Schema.Literal("output_text") }),
