@@ -132,6 +132,8 @@ const lackingDefault = Struct.assign(accounts.openaiBaa, { lacks: ["gpt-6.1-sol"
 
 const relativeKeyFile = Struct.assign(accounts.anthropicFile, { keyFile: "keys/anthropic" });
 
+const twoCredentials = Struct.assign(accounts.codexFolder, { keyEnv: "PHI_TEST_BAA_KEY" });
+
 const refused = Effect.gen(function* refused() {
 	const files = [
 		Struct.assign(both, { sealed: [accounts.anthropicBaa] }),
@@ -144,6 +146,7 @@ const refused = Effect.gen(function* refused() {
 		Struct.assign(both, { clean: [accounts.anthropicOpen, lackingFolder] }),
 		Struct.assign(both, { sealed: [lackingSealed, accounts.openaiBaa], sealedModel: { anthropic: "claude-sealed" } }),
 		Struct.assign(both, { sealed: [accounts.anthropicBaa, lackingTarget] }),
+		Struct.assign(both, { clean: [accounts.anthropicOpen, accounts.openaiOpen, twoCredentials] }),
 	];
 
 	const lanes = yield* Effect.forEach(files, (file) => Effect.flatMap(jsonOf(file), configured), { concurrency: 1 });
@@ -191,7 +194,7 @@ it.layer(NodeServices.layer)("the lanes in config.json", (test) => {
 		() => sideBySide,
 	);
 	test.effect(
-		"refuse a vendor missing from a lane, two accounts of one name, a relative login folder or key file, an OpenAI OAuth key, an open account of either vendor that lacks a model and a BAA account that lacks its sealedModel or, with none, its target model",
+		"refuse a vendor missing from a lane, two accounts of one name, a relative login folder or key file, an account that names two credentials, an OpenAI OAuth key, an open account of either vendor that lacks a model and a BAA account that lacks its sealedModel or, with none, its target model",
 		() => refused,
 	);
 	test.effect(

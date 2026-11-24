@@ -264,6 +264,52 @@ const listsTrouble = Effect.gen(function* listsTrouble() {
 	);
 });
 
+const sameNameTwice =
+	'{"clean":[{"forwarded":true,"name":"claude-1","vendor":"anthropic"}],"sealed":[{"forwarded":true,"name":"claude-1","vendor":"anthropic"}]}';
+
+const readers: readonly (readonly string[])[] = [["accounts"], ["models"]];
+
+const unconfigured = Effect.gen(function* unconfigured() {
+	const fs = yield* FileSystem.FileSystem;
+	const run = yield* prepared("both");
+
+	yield* fs.remove(run.configFile);
+
+	const missing = yield* Effect.forEach(readers, (args) => phiRouter(run.env, args), { concurrency: 1 });
+
+	yield* fs.writeFileString(run.configFile, sameNameTwice);
+
+	const refused = yield* Effect.forEach(readers, (args) => phiRouter(run.env, args), { concurrency: 1 });
+
+	assert.deepStrictEqual(
+		{
+			missing,
+			refused: pipe(
+				refused,
+				Array.map(({ exitCode, stdout }) => ({
+					failed: exitCode !== succeeded,
+					named: Str.includes("two accounts are named claude-1")(stdout),
+				})),
+			),
+		},
+		{
+			missing: [
+				{
+					exitCode: succeeded,
+					stderr: "",
+					stdout:
+						"No accounts yet. The install for your harness writes the first ones, and phi-router accounts add adds more.\n",
+				},
+				{ exitCode: succeeded, stderr: "", stdout: "{}\n" },
+			],
+			refused: [
+				{ failed: true, named: true },
+				{ failed: true, named: true },
+			],
+		},
+	);
+});
+
 it.layer(NodeServices.layer)("phi-router accounts", (test) => {
 	test.effect(
 		"add names a Claude config folder, a Codex home folder, a token command and a sealed key after their vendors, and the list shows them",
@@ -289,6 +335,11 @@ it.layer(NodeServices.layer)("phi-router accounts", (test) => {
 	test.effect(
 		"add refuses an account that leaves its vendor with no sealed account, and writes nothing",
 		() => noSealedAccount,
+		patient,
+	);
+	test.effect(
+		"the list and models, with no config.json, show no accounts and no models, and fail on a file the router would refuse",
+		() => unconfigured,
 		patient,
 	);
 	test.effect(

@@ -52,6 +52,15 @@ The company whose wire an account speaks: Anthropic, for Claude Code's Messages 
 **Account**:
 One credential for one model vendor.
 
+**Credential**:
+How an account authenticates: a forwarded login, a key the router reads from its key source, or a login folder.
+
+**Forwarded login**:
+The login the harness sends with each request, which the router passes on to the account.
+
+**Key source**:
+Where the router reads a key: an environment variable, a command that prints the key, or the absolute path of a key file. `config.json` holds the key source, never the key.
+
 **BAA account**:
 An account under a business associate agreement, whose models may read PHI.
 

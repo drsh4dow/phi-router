@@ -10,7 +10,6 @@
 	"src/pi/index.test.ts": 3,
 	"src/pi/index.ts": 18,
 	"src/router/client/config-writer.ts": 9,
-	"src/router/client/configuration/lanes.ts": 15,
 	"src/router/client/harnesses/claude-code.ts": 14,
 	"src/router/client/harnesses/codex.ts": 12,
 	"src/router/client/harnesses/pi.ts": 12,

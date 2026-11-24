@@ -7,11 +7,6 @@ const Vendors = Schema.Literals(["anthropic", "openai"]);
 
 type Vendor = typeof Vendors.Type;
 
-/**
- * How an account authenticates: the login the harness forwards on each request, a key the router reads itself, or a
- * login folder its vendor's CLI logged into and refreshes. The vendor says what a login folder is: a Claude config
- * folder or a Codex home folder.
- */
 type Credential =
 	| { readonly kind: "forwarded" }
 	| { readonly kind: "key"; readonly scheme: "apiKey" | "oauth"; readonly source: KeySource }
@@ -19,10 +14,6 @@ type Credential =
 
 type Lane = "clean" | "sealed";
 
-/**
- * One account of a lane, its name unique in the file. `endpoint` is the file's, or the vendor's own when the file names
- * none. `lacks` names the models a BAA account does not carry, and is empty on an open account.
- */
 interface NamedAccount {
 	readonly vendor: Vendor;
 	readonly name: string;
@@ -31,10 +22,6 @@ interface NamedAccount {
 	readonly lacks: readonly string[];
 }
 
-/**
- * One vendor's side of the two lanes: its open accounts and its BAA accounts, each in the file's order, the model
- * `phi/auto` stands for there, and the substitute, the file's `sealedModel` or else that target model.
- */
 interface VendorLanes {
 	readonly clean: Array.NonEmptyReadonlyArray<NamedAccount>;
 	readonly sealed: Array.NonEmptyReadonlyArray<NamedAccount>;
@@ -42,10 +29,6 @@ interface VendorLanes {
 	readonly sealedModel: string;
 }
 
-/**
- * The vendor's own address when the file names no `endpoint`. A forwarded OpenAI login and a Codex home folder are
- * ChatGPT logins.
- */
 const endpoints = {
 	anthropic: {
 		forwarded: "https://api.anthropic.com",
@@ -72,7 +55,6 @@ const perVendor = Schema.Struct({
 
 const absolutePath = Schema.NonEmptyString.check(Schema.isPattern(/^\//u));
 
-/** An account names one credential: each of these but its own is absent. */
 const noCredential = { forwarded: absent, keyCommand: absent, keyEnv: absent, keyFile: absent, loginFolder: absent };
 
 const byEnv = Struct.assign(noCredential, { keyEnv: Schema.NonEmptyString });
@@ -81,7 +63,6 @@ const byCommand = Struct.assign(noCredential, { keyCommand: Schema.NonEmptyStrin
 
 const byFile = Struct.assign(noCredential, { keyFile: absolutePath });
 
-/** An Anthropic key is an API key or a long-lived OAuth token. An OpenAI key is an API key. */
 const anthropicKey = { scheme: Schema.Literals(["apiKey", "oauth"]), vendor: Schema.Literal("anthropic") };
 
 const openaiKey = { scheme: Schema.Literal("apiKey"), vendor: Schema.Literal("openai") };
@@ -90,7 +71,6 @@ const forwarded = Struct.assign(noCredential, { forwarded: Schema.Literal(true),
 
 const Forwarded = Schema.Struct(Struct.assign(named, forwarded));
 
-/** A login folder by its absolute path. Its vendor says which credential file the router reads in it. */
 const LoginFolder = Schema.Struct(
 	Struct.assign(named, Struct.assign(noCredential, { loginFolder: absolutePath, scheme: absent, vendor: Vendors })),
 );
@@ -115,7 +95,6 @@ type AccountEntry = typeof Account.Type;
 const modelOr = (model: string): Schema.withDecodingDefaultKey<Schema.NonEmptyString> =>
 	Schema.NonEmptyString.pipe(Schema.withDecodingDefaultKey(Effect.succeed(model)));
 
-/** The model `phi/auto` stands for, per vendor: the file's, or else the vendor's default. */
 const TargetModels = Schema.Struct({ anthropic: modelOr("claude-opus-5-5"), openai: modelOr("gpt-6.1-sol") }).pipe(
 	Schema.withDecodingDefaultKey(Effect.succeed({})),
 );
@@ -132,12 +111,6 @@ const countOf = (lane: readonly AccountEntry[], vendor: Vendor): number =>
 
 const unnamed = 0;
 
-/**
- * A vendor's substitute: the file's `sealedModel` for it, or else its target model, the file's or the vendor's default.
- *
- * @param {Lanes} lanes The decoded lanes.
- * @returns {Function} The substitute of a vendor.
- */
 const sealedModelOf =
 	(lanes: typeof Lanes.Type) =>
 	(vendor: Vendor): string =>
@@ -147,12 +120,6 @@ const sealedModelOf =
 			Option.getOrElse(() => lanes.targetModel[vendor]),
 		);
 
-/**
- * Each BAA account that lacks its vendor's substitute, which runs the models it lacks.
- *
- * @param {Lanes} lanes The decoded lanes.
- * @returns {readonly string[]} The problems.
- */
 const lackingSubstitute = (lanes: typeof Lanes.Type): readonly string[] =>
 	pipe(
 		lanes.sealed,
@@ -168,15 +135,6 @@ const lackingSubstitute = (lanes: typeof Lanes.Type): readonly string[] =>
 
 const once = 1;
 
-/**
- * Why the lanes cannot be served, or nothing. A vendor has at least one account in `clean` and one in `sealed`, or
- * none in either. No two accounts share a name, on either lane. Only a BAA account lacks a model,
- * since the clean lane runs every model a request names, and none lacks its vendor's substitute, which runs the models
- * it lacks.
- *
- * @param {Lanes} lanes The decoded lanes.
- * @returns {readonly string[]} The problems.
- */
 const problemsOf = (lanes: typeof Lanes.Type): readonly string[] => {
 	const vendors = pipe(
 		Vendors.literals,
@@ -248,7 +206,6 @@ const lanesOf =
 		});
 	};
 
-/** Per vendor, its two lanes, or none when the file names no account of it. */
 type LaneConfiguration = Readonly<Record<Vendor, Option.Option<VendorLanes>>>;
 
 const byVendor = (lanes: typeof Lanes.Type): LaneConfiguration => {
@@ -260,7 +217,6 @@ const byVendor = (lanes: typeof Lanes.Type): LaneConfiguration => {
 const laneConfiguration = (text: string): Effect.Effect<LaneConfiguration, Schema.SchemaError> =>
 	Effect.map(Schema.decodeEffect(LaneFile)(text), byVendor);
 
-/** The decoded `config.json`, or none when there is no such file. A file the router would refuse fails. */
 const configuredFile = Effect.gen(function* configuredFile() {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
@@ -275,10 +231,6 @@ const configuredFile = Effect.gen(function* configuredFile() {
 	return yield* Schema.decodeEffect(LaneFile)(text).pipe(Effect.asSome);
 });
 
-/**
- * Each lane's accounts in the file's order, vendors mixed, or none when there is no `config.json`. A file the router
- * would refuse fails.
- */
 const configuredAccounts = configuredFile.pipe(
 	Effect.map(
 		Option.map(({ clean, sealed }) => ({
@@ -288,7 +240,6 @@ const configuredAccounts = configuredFile.pipe(
 	),
 );
 
-/** What `config.json` says about each vendor's lanes, or none when there is no such file. A refused file fails. */
 const configuredLanes = configuredFile.pipe(Effect.map(Option.map(byVendor)));
 
 export { LaneFile, configuredAccounts, configuredLanes, laneConfiguration };
