@@ -80,7 +80,6 @@ const claudeTurn = Effect.fnUntraced(
 	Effect.timeout("3 minutes"),
 );
 
-/** A file the open mock asks Claude Code to read in the fourth turn. It holds no PHI. */
 const planted = { name: "planted-notes.txt", text: "The build runs at noon on Fridays, after the lint step." };
 
 const readPlanted = `Read the file ${planted.name} and tell me what it says.`;
@@ -92,20 +91,12 @@ const calling = (call: { readonly id: string; readonly name: string; readonly in
 	kind: "events",
 });
 
-/** The open mock's `Agent` call, which starts the plugin's pinned subagent. */
 const startSubagent = calling({
 	id: "toolu_wire_agent",
 	input: `{"description":"Look up the member","prompt":"${subagent.prompt}","run_in_background":false,"subagent_type":"phi-router:phi-sealed"}`,
 	name: "Agent",
 });
 
-/**
- * The open mock: text after a tool result, a `Read` of the planted file when the last message names it, the pinned
- * subagent's start when it asks for the hand-off, and `ok` otherwise.
- *
- * @param {string} file The planted file's absolute path.
- * @returns {Function} The script.
- */
 const openScript =
 	(file: string) =>
 	(asked: Asked): Said => {
@@ -124,12 +115,6 @@ const openScript =
 		return said(["ok"]);
 	};
 
-/**
- * The BAA mock: the pinned subagent's answer, which names the member, to the subagent, and `ok` otherwise.
- *
- * @param {Asked} asked What it was asked.
- * @returns {Said} Its answer.
- */
 const baaScript = (asked: Asked): Said => {
 	if (isSubagent(asked)) {
 		return said([subagent.answer]);
@@ -138,11 +123,6 @@ const baaScript = (asked: Asked): Said => {
 	return said(["ok"]);
 };
 
-/**
- * The three mocks, the router as its own process from the source entry, and a fresh place for `claude` with the
- * planted file in its working folder. Returns the router's state folder and `turn`, which plays one `claude -p` turn
- * and returns what each mock received during it.
- */
 const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => boolean) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
