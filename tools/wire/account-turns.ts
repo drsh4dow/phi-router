@@ -13,22 +13,16 @@ const canary = `Reply with the single word ok. The member's SSN is ${voidedSsn}.
 
 const session = "29292929-2929-4929-8929-292929292929";
 
-/** The router of a run: its URL, and the XDG folders it reads, which each harness's check of the router gets too. */
 interface Routed {
 	readonly url: string;
 	readonly folders: Readonly<Record<string, string>>;
 }
 
-/** What one harness turn left: its exit code, and the tokens its machine output reports. */
 interface Turn {
 	readonly exitCode: number;
 	readonly reportedTokens: Tokens;
 }
 
-/**
- * Two turns of one session of each harness on `phi/auto` through the router, from a fresh place with a fake login, in
- * order: a clean prompt, then a prompt whose canary is the voided SSN.
- */
 const turnsOn = {
 	claude: Effect.fnUntraced(function* claudeTurns(routed: Routed) {
 		const where = yield* claudePlace;

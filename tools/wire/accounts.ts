@@ -11,7 +11,6 @@ const runtimeAndScript = 2;
 
 const Harness = Schema.Literals(["claude", "codex", "pi"]);
 
-/** The router's environment: a fresh state folder, beside the caller's config folder when the caller names one. */
 const routerEnv = Effect.fnUntraced(function* routerEnv() {
 	const fs = yield* FileSystem.FileSystem;
 	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-accounts-state-" });
@@ -35,7 +34,6 @@ const textsUnder = Effect.fnUntraced(function* textsUnder(folder: string) {
 	);
 });
 
-/** The router as its own process with a fresh state folder, and one session of `harness` through it. */
 const sessionOf = Effect.fnUntraced(function* sessionOf(harness: typeof Harness.Type) {
 	const path = yield* Path.Path;
 	const env = yield* routerEnv();
@@ -48,13 +46,6 @@ const sessionOf = Effect.fnUntraced(function* sessionOf(harness: typeof Harness.
 	return { lines, stateFileTexts, turns } satisfies Ran;
 });
 
-/**
- * `bun run wire:accounts <harness>` drives the real harness binary through the router on the real accounts that the
- * caller's `phi-router/config.json` names, in one session: a clean prompt, then a prompt whose canary is a voided SSN.
- * It prints each lane log line, the checks, the judge's cost and the BAA accounts' token cost, and exits non-zero when
- * a check fails or no price is known for the model a BAA account ran. Every account must hold a login folder or a key
- * the router reads, since the harness runs in throwaway folders with a fake login.
- */
 const program = Effect.gen(function* program() {
 	const [named = ""] = Array.drop(process.argv, runtimeAndScript);
 
