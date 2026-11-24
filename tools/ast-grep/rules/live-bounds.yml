@@ -1,0 +1,25 @@
+id: live-bounds
+language: TypeScript
+severity: error
+message: A unit test bounds nothing by the real clock. Wait for the outcome and let the runner's timeout catch a hang, or move the bound to a .perf.test.ts.
+files:
+   - "**/*.test.ts"
+ignores:
+   - "**/*.e2e.test.ts"
+   - "**/*.perf.test.ts"
+   - tools/gates/fixtures/**
+utils:
+   timeout:
+      kind: call_expression
+      has:
+         field: function
+         regex: "^Effect\\.timeout"
+rule:
+   kind: call_expression
+   any:
+      - all:
+           - has: { field: arguments, has: { pattern: TestClock.withLive } }
+           - has: { field: arguments, has: { matches: timeout } }
+      - all:
+           - has: { field: function, pattern: TestClock.withLive }
+           - has: { field: arguments, has: { matches: timeout, stopBy: end } }
