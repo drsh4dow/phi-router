@@ -67,10 +67,10 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 			() => piRun(where, args, { env: routed, rpc, until }),
 		);
 
-		const leased = yield* leasedPids(state).pipe(Effect.orElseSucceed((): readonly number[] => []));
-		const routerUp = yield* answering;
+		const leasedAfterExit = yield* leasedPids(state).pipe(Effect.orElseSucceed((): readonly number[] => []));
+		const routerUpAfterExit = yield* answering;
 
-		return Struct.assign(played, { leased, routerUp });
+		return Struct.assign(played, { leasedAfterExit, routerUpAfterExit });
 	});
 
 	return {

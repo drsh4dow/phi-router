@@ -12,15 +12,11 @@ import { rpcAnswered } from "./pi-run.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 import { windowsOf } from "./stored.ts";
 
-/**
- * What one `pi` run left, with its pid, whether its whole output showed pi's login, and the pids leased and whether the
- * router answered on the play's port after it.
- */
 interface PiTurned extends PhiTurned {
 	readonly pid: number;
 	readonly showedLogin: boolean;
-	readonly leased: readonly number[];
-	readonly routerUp: boolean;
+	readonly leasedAfterExit: readonly number[];
+	readonly routerUpAfterExit: boolean;
 }
 
 interface PiPlayed extends Played {
@@ -124,7 +120,7 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 	{ name: "no router answers on the port before the first pi starts", ok: !played.routerBefore },
 	{
 		name: "the first pi session leaves a router answering on the port PHI_ROUTER_PORT names",
-		ok: Array.headNonEmpty(played.turns).routerUp,
+		ok: Array.headNonEmpty(played.turns).routerUpAfterExit,
 	},
 	...wireChecksOf(played),
 	{
@@ -137,7 +133,7 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 		name: "each pi's own pid holds a lease once it exits",
 		ok: pipe(
 			played.turns,
-			Array.every((turn) => Array.contains(turn.leased, turn.pid)),
+			Array.every((turn) => Array.contains(turn.leasedAfterExit, turn.pid)),
 		),
 	},
 	{ name: "the router is down within 11 s of the last pi exiting", ok: played.routerStopped },
