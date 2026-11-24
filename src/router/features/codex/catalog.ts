@@ -33,14 +33,6 @@ const catalogWith =
 			return yield* Effect.transposeOption(pipe(appended, Option.map(rawText)));
 		});
 
-/**
- * Whether a request came from Codex, which names itself in `originator`: `codex_cli_rs` from `codex` and `codex_exec`
- * from `codex exec` (measured, 0.166.0). Claude Code asks `GET /v1/models` with no `originator` (measured, 2.1.325), and
- * its login must never reach an OpenAI account.
- *
- * @param {Readonly<Record<string, string | undefined>>} headers The request's headers.
- * @returns {boolean} Whether its `originator` starts with `codex_`.
- */
 const fromCodex = (headers: Readonly<Record<string, string | undefined>>): boolean =>
 	Str.startsWith("codex_")(headers["originator"] ?? "");
 
@@ -48,13 +40,6 @@ const codexVersion = /^\d+(?:\.\d+)*(?:-(?:alpha|beta|rc)(?:\.\d+)*)?$/u;
 
 const versionLimit = 32;
 
-/**
- * The query the model catalog is asked with: Codex's `client_version` when it has the shape of a version, so no
- * caller text reaches an open account's URL. None when it has another shape.
- *
- * @param {Readonly<Record<string, string | undefined>>} query The request's query parameters.
- * @returns {Option.Option<Readonly<Record<string, string>>>} The query to forward, or none to refuse the request.
- */
 const catalogQuery = (
 	query: Readonly<Record<string, string | undefined>>,
 ): Option.Option<Readonly<Record<string, string>>> => {

@@ -1,6 +1,6 @@
 import { Effect, Option, Schema, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { catalogWith } from "./index.ts";
+import { catalogQuery, catalogWith, fromCodex } from "./index.ts";
 
 const Entry = Schema.Struct({
 	context_window: Schema.Finite,
@@ -61,3 +61,21 @@ it.effect(
 );
 
 it.effect("a catalog that lists no target, or text that is no catalog, gives none", () => refused);
+
+const originators = Effect.sync(() => {
+	assert.deepStrictEqual(
+		[fromCodex({ originator: "codex_cli_rs" }), fromCodex({ originator: "codex_exec" }), fromCodex({})],
+		[true, true, false],
+	);
+});
+
+const unversioned = Effect.sync(() => {
+	assert.deepStrictEqual(catalogQuery({}), Option.some({}));
+});
+
+it.effect(
+	"a request is from Codex when its originator is codex_cli_rs or codex_exec, and not when it names none",
+	() => originators,
+);
+
+it.effect("a catalog request with no client_version is asked with no query", () => unversioned);

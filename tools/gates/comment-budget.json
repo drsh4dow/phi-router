@@ -46,7 +46,6 @@
 	"src/router/features/codex/captures/spawn.reply.ts": 1,
 	"src/router/features/codex/captures/subagent-parent.request.ts": 1,
 	"src/router/features/codex/captures/subagent.request.ts": 1,
-	"src/router/features/codex/catalog.ts": 2,
 	"src/router/features/codex/clean-lane-wrote.test.ts": 1,
 	"src/router/features/codex/clean-lane.test.ts": 1,
 	"src/router/features/codex/clean-lane.ts": 4,
