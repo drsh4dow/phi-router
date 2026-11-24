@@ -69,6 +69,6 @@ const LaneChoice = Context.Reference<typeof decide>("phi-router/router/features/
 	defaultValue: () => decide,
 });
 
-export { LaneChoice, decide };
+export { LaneChoice, decide, laneOf };
 
 export type { Lane };

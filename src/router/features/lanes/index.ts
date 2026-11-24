@@ -1,4 +1,4 @@
-export { LaneChoice, decide } from "./decide.ts";
+export { LaneChoice, decide, laneOf } from "./decide.ts";
 
 export type { Lane } from "./decide.ts";
 

@@ -1,9 +1,10 @@
 import { Array, Console, DateTime, Effect, Option, Predicate, Redacted, Schema, String as Str, pipe } from "effect";
-import type { Lane, Vendor } from "#router/client/configuration/index.ts";
 import { loginFolders, loginIn, readKey } from "#router/client/accounts/index.ts";
 import { CliError } from "effect/cli";
 import type { NewAccount } from "#router/client/config-writer.ts";
+import type { Vendor } from "#router/client/configuration/index.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
+import { laneOf } from "#router/features/lanes/index.ts";
 import { realFolder } from "#router/client/processes.ts";
 
 interface AddRequest {
@@ -116,14 +117,6 @@ const fromCommand = Effect.fnUntraced(function* fromCommand(command: string) {
 
 	return { account: { keyCommand: command, scheme, vendor }, summary, vendorName } satisfies Found;
 });
-
-const laneOf = (sealed: boolean): Lane => {
-	if (sealed) {
-		return "sealed";
-	}
-
-	return "clean";
-};
 
 const foundBy = Effect.fnUntraced(function* foundBy(request: AddRequest) {
 	const { keyCommand, loginFolder } = request;
