@@ -73,12 +73,12 @@ const sentOf = Effect.fn("sentOf")(function* sentOf(messages: readonly Message[]
 	const lane = decision.laneAt(book.lookup);
 
 	if (lane === "sealed") {
-		return { failures, lane, usage: decision.usage } satisfies Sent;
+		return { lane, sealedByJudgeFailure: failures, usage: decision.usage } satisfies Sent;
 	}
 
 	const body = yield* guardedBody(messages, book.lookup);
 
-	return { failures, lane, usage: decision.usage, view: body } satisfies Sent;
+	return { lane, openAccountBody: body, sealedByJudgeFailure: failures, usage: decision.usage } satisfies Sent;
 });
 
 /**

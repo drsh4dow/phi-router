@@ -8,7 +8,6 @@ type Block = ToolResultMessage["content"][number];
 
 type ToolCall = Extract<AssistantMessage["content"][number], { readonly type: "toolCall" }>;
 
-/** `requests.ts` writes a tool call as `<name> <id> <json input>`. */
 const callPattern = /^(?<name>\S+) (?<id>toolu_mock_\d+) (?<input>\{[\s\S]*\})$/u;
 
 const Input = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json));
@@ -31,12 +30,6 @@ const callFrom = (groups: Readonly<Record<string, string>>): Option.Option<ToolC
 	);
 };
 
-/**
- * The call's input as a harness encodes it again after decoding it.
- *
- * @param {string} text A reply part's text.
- * @returns {Option.Option<ToolCall>} The tool call the text writes, or none when it writes none.
- */
 const callOf = (text: string): Option.Option<ToolCall> =>
 	pipe(
 		Str.match(callPattern)(text),
@@ -65,12 +58,6 @@ const textOf = (parts: readonly Part[]): string =>
 		Array.join("\n"),
 	);
 
-/**
- * A corpus reply counts as written on a BAA account, so the router judges it.
- *
- * @param {readonly Part[]} parts The reply's parts.
- * @returns {AssistantMessage} The reply as the router reads it.
- */
 const replyOf = (parts: readonly Part[]): AssistantMessage => ({
 	content: pipe(
 		parts,
@@ -84,14 +71,8 @@ const replyOf = (parts: readonly Part[]): AssistantMessage => ({
 	writtenBy: "other",
 });
 
-/**
- * A tool turn's first part is its call's id.
- *
- * @param {readonly Part[]} parts The tool turn's parts.
- * @returns {ToolResultMessage} The tool result as the router reads it.
- */
 const toolResultOf = (parts: readonly Part[]): ToolResultMessage => {
-	const [, ...output] = parts;
+	const [callId, ...output] = parts;
 
 	return {
 		content: pipe(
@@ -100,7 +81,7 @@ const toolResultOf = (parts: readonly Part[]): ToolResultMessage => {
 		),
 		isError: false,
 		role: "toolResult",
-		toolCallId: textOf(Option.toArray(Array.head(parts))),
+		toolCallId: textOf(Option.toArray(Option.fromUndefinedOr(callId))),
 	};
 };
 

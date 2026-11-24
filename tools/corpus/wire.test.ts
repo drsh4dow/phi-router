@@ -1,8 +1,9 @@
-import { Array, Effect, Option, String as Str, pipe } from "effect";
+import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
 import type { Case, Message, PhiStrata } from "./manifest.ts";
-import { Replies, Steps, narrativeCap, planOf } from "./wire.ts";
+import { MockReplies, Steps, narrativeCap, planOf } from "./wire.ts";
 import { assert, it } from "@effect/vitest";
 import { identifierKind } from "#router/features/policy/index.ts";
+import { requestsOf } from "./requests.ts";
 import { tokensOf } from "./canary-tokens.ts";
 
 const mrn = "MRN 4417-2290";
@@ -60,27 +61,63 @@ it.effect("a steering message is sent while the slow tool call of its turn runs,
 		);
 
 		assert.deepStrictEqual(plan, {
-			agents: Option.some("You are a coding agent."),
 			files: [{ bytes: new TextEncoder().encode("FAIL mapper"), path: "files/2.txt" }],
 			replies: [
-				Replies.ToolUse({
-					before: Option.some("Running it."),
+				MockReplies.ToolUse({
 					input: { command: "sleep 3; cat files/2.txt" },
 					name: "bash",
+					textBefore: Option.some("Running it."),
 				}),
-				Replies.Text({ text: "Looking." }),
+				MockReplies.Text({ text: "Looking." }),
 			],
 			steps: [
 				Steps.Turn({
 					prompt: "Run the test.",
 					steer: Option.some({
-						images: [{ data: pixel.data, mimeType: pixel.mimeType, type: "image" }],
+						images: [pixel],
 						text: `Also this: ${record}`,
 					}),
 				}),
 				Steps.Turn({ prompt: "Thanks.", steer: Option.none() }),
 			],
 		});
+	}),
+);
+
+it.effect("only a plain message right after a tool result steers, and only the first in a turn", () =>
+	Effect.sync(() => {
+		const steered = planOf(
+			phiCase("steering", [
+				{ role: "user", text: "Run the test." },
+				{ role: "assistant", text: "Running it." },
+				{ role: "tool", text: "FAIL mapper" },
+				{ role: "user", text: "Steer one." },
+				{ role: "assistant", text: "Again." },
+				{ role: "tool", text: "FAIL parser" },
+				{ role: "user", text: "Steer two." },
+				{ role: "assistant", text: "Ok." },
+				{ role: "user", text: "Thanks." },
+			]),
+		);
+
+		const summarized = planOf(
+			phiCase("steering", [
+				{ role: "user", text: "Run the test." },
+				{ role: "assistant", text: "Running it." },
+				{ role: "tool", text: "FAIL mapper" },
+				{ role: "user", text: `${summaryLead}\n\n<summary>\nFix the parser.\n</summary>` },
+			]),
+		);
+
+		assert.deepStrictEqual(steered.steps, [
+			Steps.Turn({ prompt: "Run the test.", steer: Option.some("Steer one.") }),
+			Steps.Turn({ prompt: "Steer two.", steer: Option.none() }),
+			Steps.Turn({ prompt: "Thanks.", steer: Option.none() }),
+		]);
+
+		const compactions = pipe(summarized.steps, Array.map(Steps.$is("Compact")));
+
+		assert.deepStrictEqual(compactions, [false, false, false, true, false]);
 	}),
 );
 
@@ -93,7 +130,7 @@ it.effect(
 			assert.deepStrictEqual(plan.steps, [opening]);
 
 			assert.deepStrictEqual(plan.replies, [
-				Replies.ToolUse({ before: Option.none(), input: { command: "cat files/0.txt" }, name: "bash" }),
+				MockReplies.ToolUse({ input: { command: "cat files/0.txt" }, name: "bash", textBefore: Option.none() }),
 			]);
 		}),
 );
@@ -117,8 +154,8 @@ it.effect(
 			]);
 
 			assert.deepStrictEqual(plan.replies, [
-				Replies.Text({ text: record }),
-				Replies.ToolUse({ before: Option.none(), input: { path: "files/0.txt" }, name: "read" }),
+				MockReplies.Text({ text: record }),
+				MockReplies.ToolUse({ input: { path: "files/0.txt" }, name: "read", textBefore: Option.none() }),
 			]);
 		}),
 );
@@ -198,7 +235,7 @@ it.effect("a tool text over pi's 50 KB output limit is read a page at a time, ev
 		const ranges = pipe(
 			plan.replies,
 			Array.flatMap((reply) => {
-				if (Replies.$is("ToolUse")(reply) && reply.input["path"] === "files/2.txt") {
+				if (MockReplies.$is("ToolUse")(reply) && reply.input["path"] === "files/2.txt") {
 					return [{ limit: Number(reply.input["limit"]), offset: Number(reply.input["offset"]) }];
 				}
 
@@ -221,5 +258,45 @@ it.effect("a tool text over pi's 50 KB output limit is read a page at a time, ev
 		);
 
 		assert.isTrue(fits);
+	}),
+);
+
+it.effect("a canary cut at the end of a compaction summary is tracked by pieces the case's requests carry", () =>
+	Effect.gen(function* summarySplit() {
+		const subject = Struct.assign(
+			phiCase("compaction-summary", [
+				{ role: "user", text: `${summaryLead}<summary>Import of the chart: MRN 4417-</summary>` },
+				{ role: "user", text: "2290\nreschedule the visit" },
+			]),
+			{ canaryParts: { [mrn]: ["MRN 4417-", "2290"] as const } },
+		);
+
+		const { splits } = yield* tokensOf(subject);
+		const requests = yield* requestsOf(subject);
+
+		const sent = pipe(
+			requests,
+			Array.flatten,
+			Array.flatMap(({ parts }) => parts),
+			Array.flatMap((part) => {
+				if (part.kind === "text") {
+					return [part.text];
+				}
+
+				return [];
+			}),
+		);
+
+		const carried = pipe(
+			splits,
+			Array.map(({ parts }) =>
+				pipe(
+					parts,
+					Array.every((part) => pipe(sent, Array.some(Str.includes(part)))),
+				),
+			),
+		);
+
+		assert.deepStrictEqual(carried, [true]);
 	}),
 );

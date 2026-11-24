@@ -140,7 +140,7 @@ const ruleOff = Effect.gen(function* ruleOff() {
 	);
 
 	assert.deepStrictEqual(withRule.leaks, []);
-	assert.deepStrictEqual(withoutRule.leaks, [{ id: "rule-only", request: 2, strata }]);
+	assert.deepStrictEqual(withoutRule.leaks, [{ firstShownIn: 2, id: "rule-only", strata }]);
 });
 
 const boundsHold = Effect.sync(() => {
@@ -157,9 +157,9 @@ const sealedThenStubbed = Effect.gen(function* sealedThenStubbed() {
 	const shown = pipe(
 		sent,
 		Array.map((each) => ({
-			canary: each.lane === "clean" && Str.includes("canary-sealed")(each.view),
+			canary: each.lane === "clean" && Str.includes("canary-sealed")(each.openAccountBody),
 			lane: each.lane,
-			stub: each.lane === "clean" && Str.includes(stubs.sealed)(each.view),
+			stub: each.lane === "clean" && Str.includes(stubs.sealed)(each.openAccountBody),
 		})),
 	);
 
@@ -173,7 +173,7 @@ const sealedThenStubbed = Effect.gen(function* sealedThenStubbed() {
 const leakAtFirstShowing = Effect.gen(function* leakAtFirstShowing() {
 	const report = yield* evaluate({ cases: [sealed, missed, clean], synthetic: noSynthetic });
 
-	assert.deepStrictEqual(report.leaks, [{ id: "missed", request: 2, strata }]);
+	assert.deepStrictEqual(report.leaks, [{ firstShownIn: 2, id: "missed", strata }]);
 	assert.deepInclude(report.overRouting, {
 		cases: 1,
 		negative: "schema-only",
@@ -195,9 +195,9 @@ const splitApart = Effect.gen(function* splitApart() {
 	assert.deepStrictEqual(
 		pipe(
 			report.splits,
-			Array.map(({ id, request }) => ({ id, request })),
+			Array.map(({ firstShownIn, id }) => ({ firstShownIn, id })),
 		),
-		[{ id: "apart", request: 2 }],
+		[{ firstShownIn: 2, id: "apart" }],
 	);
 
 	assert.deepStrictEqual(report.fragments, { cases: 1, shown: 1 });

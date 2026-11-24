@@ -1,4 +1,4 @@
-import { Array, Data, Option, Record, Result, String as Str, pipe } from "effect";
+import { Array, Data, Option, Predicate, Record, Result, String as Str, pipe } from "effect";
 import type { Case, Message } from "./manifest.ts";
 import { isSteering, isText, playedOf, walk } from "./wire-turns.ts";
 import { stepsOf, summaryOf } from "./wire-steps.ts";
@@ -7,34 +7,29 @@ import { Base64 } from "effect/encoding";
 import type { Schema } from "effect";
 import type { Step } from "./wire-steps.ts";
 
-/** What the mock model answers a request with: text, or a tool call with the text before it. */
-type Reply = Data.TaggedEnum<{
+type MockReply = Data.TaggedEnum<{
 	Text: { readonly text: string };
-	ToolUse: { readonly before: Option.Option<string>; readonly name: string; readonly input: Schema.JsonObject };
+	ToolUse: { readonly textBefore: Option.Option<string>; readonly name: string; readonly input: Schema.JsonObject };
 }>;
 
-const Replies = Data.taggedEnum<Reply>();
+const MockReplies = Data.taggedEnum<MockReply>();
 
-/** A file the case's pi reads, at `path` under its project folder. */
-interface Planted {
+interface PlantedFile {
 	readonly path: string;
 	readonly bytes: Uint8Array;
 }
 
 interface Plan {
-	readonly agents: Option.Option<string>;
-	readonly files: readonly Planted[];
-	readonly replies: readonly Reply[];
+	readonly files: readonly PlantedFile[];
+	readonly replies: readonly MockReply[];
 	readonly steps: Step[];
 }
 
-/** A tool call the mock asks for. Its input's key order is data, since the request carries it as JSON. */
 interface Call {
 	readonly input: Schema.JsonObject;
 	readonly name: string;
 }
 
-/** A line range of a tool text, 1-based and inclusive, of at most `pageBytes`, so pi's 50 KB output limit cuts none. */
 interface Page {
 	readonly first: number;
 	readonly last: number;
@@ -104,14 +99,6 @@ const pageTextsOf = (text: string): readonly string[] => {
 
 const isCat = (subject: Case): boolean => subject.expect === "phi" && subject.strata.entry === "tool-result";
 
-/**
- * A text over one page is read a page at a time, as an agent pages through a long file or output.
- *
- * @param {Case} subject The case.
- * @param {string} path The file that holds the text.
- * @param {string} text The text.
- * @returns {readonly Call[]} One call per page.
- */
 const pagedCalls = (subject: Case, path: string, text: string): readonly Call[] => {
 	const pages = pagesOf(text);
 	const cat = isCat(subject);
@@ -143,12 +130,8 @@ const pagedCalls = (subject: Case, path: string, text: string): readonly Call[] 
 	);
 };
 
-const awaitsSteering = (subject: Case, after: readonly Message[]): boolean =>
-	isSteering(subject) &&
-	pipe(
-		after,
-		Array.some((next) => next.role === "user" && isText(next)),
-	);
+const awaitsSteering = (subject: Case, after: At["after"]): boolean =>
+	isSteering(subject) && Predicate.isNotUndefined(after) && after.role === "user" && isText(after);
 
 const toolCalls = (subject: Case, at: At): readonly Call[] => {
 	const path = pathOf(at);
@@ -164,13 +147,6 @@ const toolCalls = (subject: Case, at: At): readonly Call[] => {
 	return pagedCalls(subject, path, at.message.text);
 };
 
-/**
- * Each text the case's pi sends as one message: the summary compaction keeps, each page of a paged tool output, or the
- * text.
- *
- * @param {Case} subject The case.
- * @returns {readonly string[]} The texts.
- */
 const sentTextsOf = (subject: Case): readonly string[] =>
 	pipe(
 		walk(subject.messages),
@@ -194,48 +170,36 @@ const textsOf = (messages: readonly Message[]): readonly string[] =>
 		Array.map(({ text }) => text),
 	);
 
-/**
- * A tool message is a tool call the mock asks for, with the assistant text before it; other assistant text is a reply.
- *
- * @param {Case} subject The case.
- * @param {At} at The turn.
- * @returns {readonly Reply[]} What the mock answers for it.
- */
-const replyOf = (subject: Case, at: At): readonly Reply[] => {
+const replyOf = (subject: Case, at: At): readonly MockReply[] => {
 	if (at.message.role === "tool") {
 		const firstPage = 0;
 
 		const said = pipe(
-			at.before,
-			Array.filter((message) => message.role === "assistant"),
-			textsOf,
-			Array.head,
+			Option.fromUndefinedOr(at.before),
+			Option.filter((message) => message.role === "assistant"),
+			Option.filter(isText),
+			Option.map(({ text }) => text),
 		);
 
 		return pipe(
 			toolCalls(subject, at),
 			Array.map(({ input, name }, page) =>
-				Replies.ToolUse({
-					before: pipe(
+				MockReplies.ToolUse({
+					input,
+					name,
+					textBefore: pipe(
 						said,
 						Option.filter(() => page === firstPage),
 					),
-					input,
-					name,
 				}),
 			),
 		);
 	}
 
-	const ends =
-		at.message.role === "assistant" &&
-		!pipe(
-			at.after,
-			Array.some((next) => next.role === "tool"),
-		);
+	const ends = at.message.role === "assistant" && (Predicate.isUndefined(at.after) || at.after.role !== "tool");
 
 	if (ends && isText(at.message)) {
-		return [Replies.Text({ text: at.message.text })];
+		return [MockReplies.Text({ text: at.message.text })];
 	}
 
 	return [];
@@ -244,14 +208,7 @@ const replyOf = (subject: Case, at: At): readonly Reply[] => {
 const planOf = (subject: Case): Plan => {
 	const { leadingReply, walked } = playedOf(subject);
 
-	const systems = pipe(
-		subject.messages,
-		Array.filter((message) => message.role === "system"),
-		textsOf,
-	);
-
 	return {
-		agents: Option.liftPredicate(Array.join(systems, "\n\n"), Str.isNonEmpty),
 		files: pipe(
 			walked,
 			Array.filter(({ message }) => message.role === "tool"),
@@ -260,7 +217,7 @@ const planOf = (subject: Case): Plan => {
 		replies: [
 			...pipe(
 				textsOf(leadingReply),
-				Array.map((text) => Replies.Text({ text })),
+				Array.map((text) => MockReplies.Text({ text })),
 			),
 			...pipe(
 				walked,
@@ -271,10 +228,10 @@ const planOf = (subject: Case): Plan => {
 	};
 };
 
-export { planOf, Replies, sentTextsOf };
+export { planOf, MockReplies, sentTextsOf };
 
-export type { Reply };
+export type { MockReply };
 
 export { fillerMark, narrativeCap, Steps } from "./wire-steps.ts";
 
-export type { Sent } from "./wire-steps.ts";
+export type { SentPrompt } from "./wire-steps.ts";

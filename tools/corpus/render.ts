@@ -84,13 +84,13 @@ const casesTable = (title: string, cases: Report["leaks"]): string => {
 
 	const rows = pipe(
 		cases,
-		Array.map(({ id, strata, request }) => [
+		Array.map(({ id, strata, firstShownIn }) => [
 			id,
 			strata.identifier,
 			strata.carrier,
 			strata.transform,
 			strata.entry,
-			String(request),
+			String(firstShownIn),
 		]),
 	);
 

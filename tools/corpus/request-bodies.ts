@@ -28,12 +28,6 @@ const stringsOf = (json: Json): readonly string[] => {
 	return [];
 };
 
-/**
- * A body as sent, and each string in it once decoded, so a token with a quote or a line break still matches.
- *
- * @param {string} body A request body.
- * @returns {readonly string[]} The body and its strings.
- */
 const textsOf = (body: string): readonly string[] => [
 	body,
 	...pipe(decodeJson(body), Option.toArray, Array.flatMap(stringsOf)),
@@ -50,12 +44,6 @@ const foundIn = (input: { readonly bodies: readonly string[]; readonly tokens: r
 
 const isToolResult = (block: Json): boolean => isJsonObject(block) && block["type"] === "tool_result";
 
-/**
- * Pi sends each tool result as its own message, and the Anthropic body groups consecutive ones in one turn.
- *
- * @param {Json} turn One turn of a body's `messages`.
- * @returns {readonly Json[]} Each tool result of the turn, then the rest of it, or the turn as it is.
- */
 const turnMessages = (turn: Json): readonly Json[] => {
 	if (!isJsonObject(turn)) {
 		return [turn];
@@ -106,14 +94,6 @@ const messagesOfJson = (json: Json): (readonly string[])[] => {
 	return [...pipe(messages, Array.map(stringsOf)), stringsOf(rest)];
 };
 
-/**
- * The strings of each message in a request body: each tool result and each other turn of an Anthropic body, with the
- * rest of the body (system prompt, tools) as one more, or each element of the engine eval's message array. A body that
- * is no JSON is one message.
- *
- * @param {string} body A request body.
- * @returns {(readonly string[])[]} The strings of each message.
- */
 const messagesOf = (body: string): (readonly string[])[] =>
 	Option.match(decodeJson(body), { onNone: () => [[body]], onSome: messagesOfJson });
 

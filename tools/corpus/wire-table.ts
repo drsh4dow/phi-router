@@ -2,30 +2,19 @@ import { Array, Predicate, pipe } from "effect";
 import type { Case } from "./manifest.ts";
 import type { Seen } from "./seen.ts";
 
-/** What one corpus case did on the wire. */
-interface Outcome extends Seen {
+interface WireOutcome extends Seen {
 	readonly id: string;
 	readonly expect: Case["expect"];
-	/** Requests that reached an open account's mock, and those the router sent to the BAA account's mock. */
-	readonly open: number;
-	readonly baa: number;
-	/** Why the harness did not play the case through, when it broke on it. */
-	readonly broken?: string;
+	readonly openRequests: number;
+	readonly baaRequests: number;
+	readonly brokenBecause?: string;
 }
 
-/**
- * A case fails the gate when a complete identifier or a sealed message reached an open account's mock, its PHI did not
- * all reach the BAA account's mock, or the harness broke on it. A fragment, and an identifier split across messages,
- * are reported and pass.
- *
- * @param {Outcome} outcome What the case did on the wire.
- * @returns {boolean} Whether the case fails the gate.
- */
-const failed = (outcome: Pick<Outcome, "broken" | "leaked" | "missing" | "unsealed">): boolean =>
+const failed = (outcome: Pick<WireOutcome, "brokenBecause" | "leaked" | "missing" | "unsealed">): boolean =>
 	Array.isReadonlyArrayNonEmpty(outcome.leaked) ||
 	Array.isReadonlyArrayNonEmpty(outcome.unsealed) ||
 	Array.isReadonlyArrayNonEmpty(outcome.missing) ||
-	Predicate.isString(outcome.broken);
+	Predicate.isString(outcome.brokenBecause);
 
 const none = 0;
 
@@ -41,27 +30,20 @@ const shareOf = (part: number, whole: number): number => {
 	return Math.round((part / whole) * percentScale) / tenths;
 };
 
-const laneOf = ({ open }: Outcome): string => {
-	if (open > none) {
+const laneOf = ({ openRequests }: WireOutcome): string => {
+	if (openRequests > none) {
 		return "open";
 	}
 
 	return "BAA only";
 };
 
-/** How many clean cases reached an open account's mock, and one report line per clean case, then the share. */
 interface CleanReach {
 	readonly reached: number;
 	readonly lines: readonly string[];
 }
 
-/**
- * Each clean case's lane, and how many clean cases reached an open account's mock.
- *
- * @param {readonly Outcome[]} outcomes What each case did on the wire.
- * @returns {CleanReach} The clean cases that reached an open account's mock, and the report.
- */
-const cleanReachOf = (outcomes: readonly Outcome[]): CleanReach => {
+const cleanReachOf = (outcomes: readonly WireOutcome[]): CleanReach => {
 	const clean = pipe(
 		outcomes,
 		Array.filter(({ expect }) => expect === "clean"),
@@ -69,7 +51,7 @@ const cleanReachOf = (outcomes: readonly Outcome[]): CleanReach => {
 
 	const reached = pipe(
 		clean,
-		Array.filter(({ open }) => open > none),
+		Array.filter(({ openRequests }) => openRequests > none),
 	).length;
 
 	const percent = shareOf(reached, clean.length);

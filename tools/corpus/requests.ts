@@ -1,24 +1,22 @@
 import { Array, Effect, Number as Num, Option, Order, Predicate, Schema, String as Str, pipe } from "effect";
 import type { Case, Part, Transcript, Turn } from "./manifest.ts";
-import { Replies, Steps, fillerMark, planOf } from "./wire.ts";
-import type { Reply, Sent } from "./wire.ts";
+import { MockReplies, Steps, fillerMark, planOf } from "./wire.ts";
+import type { MockReply, SentPrompt } from "./wire.ts";
 import { Base64 } from "effect/encoding";
 import type { Cause } from "effect";
 
 type Bytes = Readonly<Uint8Array<Readonly<ArrayBufferLike>>>;
 
-/** What the case's mock serves: the files its pi reads, and the scripted reply at each index, `done` past the last. */
 interface Script {
 	readonly files: readonly { readonly bytes: Bytes; readonly path: string }[];
-	readonly replyAt: (index: number) => Reply;
+	readonly replyAt: (index: number) => MockReply;
 }
 
-/** The conversation pi holds, the files it read, how many scripted replies it used and the requests it sent. */
-interface Pi {
+interface PiState {
+	readonly conversation: Transcript;
 	readonly pathsRead: readonly string[];
-	readonly requests: readonly Transcript[];
-	readonly turns: Transcript;
-	readonly used: number;
+	readonly repliesUsed: number;
+	readonly requestsSent: readonly Transcript[];
 }
 
 class UnknownToolCall extends Schema.TaggedError<UnknownToolCall, { readonly brand: unique symbol }>()(
@@ -28,12 +26,11 @@ class UnknownToolCall extends Schema.TaggedError<UnknownToolCall, { readonly bra
 
 type Failure = UnknownToolCall | Cause.NoSuchElementError | Schema.SchemaError;
 
-/** `sed` and pi's `read` number a file's lines from 1. */
 const firstLineNumber = 1;
 
 const text = (value: string): Part => ({ kind: "text", text: value });
 
-const userTurn = (sent: Sent): Turn => {
+const userTurn = (sent: SentPrompt): Turn => {
 	if (Predicate.isString(sent)) {
 		return { parts: [text(sent)], role: "user" };
 	}
@@ -99,14 +96,6 @@ const Read = Schema.Struct({
 	path: Schema.String,
 });
 
-/**
- * A page of a file as pi's `read` returns it, with pi's note on how to read on when lines are left.
- *
- * @param {string} content The whole file.
- * @param {number} offset The page's first line.
- * @param {number} limit How many lines the page holds at most.
- * @returns {string} The page.
- */
 const pageOf = (content: string, offset: number, limit: number): string => {
 	const last = offset - firstLineNumber + limit;
 	const page = linesOf(content, offset, last);
@@ -139,7 +128,6 @@ const readOf =
 
 const Bash = Schema.Struct({ command: Schema.String });
 
-/** The two ways a scripted bash call reads a file: whole with `cat`, or a range of lines with `sed`. */
 const fileRead = /^(?:(?:sleep \d+; )?cat|sed -n '(?<first>\d+),(?<last>\d+)p') (?<path>\S+)$/u;
 
 const bashOf = (files: Script["files"]): ((call: typeof Bash.Type) => Effect.Effect<readonly Part[], Failure>) =>
@@ -176,7 +164,7 @@ const outputOf = (files: Script["files"], tool: string, json: string): Effect.Ef
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
 
-const pathRead = Replies.$match({
+const pathRead = MockReplies.$match({
 	Text: () => Option.none<string>(),
 	ToolUse: ({ input, name }) => {
 		if (name !== "read") {
@@ -187,28 +175,28 @@ const pathRead = Replies.$match({
 	},
 });
 
-const replyTo = (script: Script, pi: Pi): readonly [reply: Reply, used: number] => {
-	if (Option.exists(Array.last(pi.turns), isFiller)) {
-		return [Replies.Text({ text: "ok" }), pi.used];
+const replyTo = (script: Script, pi: PiState): readonly [reply: MockReply, repliesUsed: number] => {
+	if (Option.exists(Array.last(pi.conversation), isFiller)) {
+		return [MockReplies.Text({ text: "ok" }), pi.repliesUsed];
 	}
 
-	return [script.replyAt(pi.used), Num.increment(pi.used)];
+	return [script.replyAt(pi.repliesUsed), Num.increment(pi.repliesUsed)];
 };
 
-const answered = Effect.fnUntraced(function* answered(script: Script, pi: Pi) {
-	const requests = [...pi.requests, pi.turns];
-	const [reply, used] = replyTo(script, pi);
+const answered = Effect.fnUntraced(function* answered(script: Script, pi: PiState) {
+	const requestsSent = [...pi.requestsSent, pi.conversation];
+	const [reply, repliesUsed] = replyTo(script, pi);
 
-	const answer = yield* Replies.$match(reply, {
+	const answer = yield* MockReplies.$match(reply, {
 		Text: ({ text: said }) => Effect.succeed<Transcript>([{ parts: [text(said)], role: "assistant" }]),
-		ToolUse: ({ before, input, name }) =>
+		ToolUse: ({ input, name, textBefore }) =>
 			Effect.gen(function* toolUse() {
-				const id = `toolu_mock_${String(requests.length)}`;
+				const id = `toolu_mock_${String(requestsSent.length)}`;
 				const json = yield* encodeJson(input);
 				const output = yield* outputOf(script.files, name, json);
 
 				const said = pipe(
-					Option.toArray(before),
+					Option.toArray(textBefore),
 					Array.map((value) => text(value)),
 				);
 
@@ -220,12 +208,12 @@ const answered = Effect.fnUntraced(function* answered(script: Script, pi: Pi) {
 	});
 
 	const pathsRead = [...pi.pathsRead, ...Option.toArray(pathRead(reply))];
-	const next: Pi = { pathsRead, requests, turns: [...pi.turns, ...answer], used };
+	const next: PiState = { conversation: [...pi.conversation, ...answer], pathsRead, repliesUsed, requestsSent };
 
-	return { next, toolUse: Replies.$is("ToolUse")(reply) };
+	return { next, toolUse: MockReplies.$is("ToolUse")(reply) };
 });
 
-const prompted = (script: Script, pi: Pi): Effect.Effect<Pi, Failure> =>
+const prompted = (script: Script, pi: PiState): Effect.Effect<PiState, Failure> =>
 	Effect.flatMap(answered(script, pi), ({ next, toolUse }) => {
 		if (toolUse) {
 			return prompted(script, next);
@@ -234,39 +222,34 @@ const prompted = (script: Script, pi: Pi): Effect.Effect<Pi, Failure> =>
 		return Effect.succeed(next);
 	});
 
-const withTurns = (pi: Pi, turns: Transcript): Pi => ({
+const withConversation = (pi: PiState, conversation: Transcript): PiState => ({
+	conversation,
 	pathsRead: pi.pathsRead,
-	requests: pi.requests,
-	turns,
-	used: pi.used,
+	repliesUsed: pi.repliesUsed,
+	requestsSent: pi.requestsSent,
 });
 
-const withTurn = (pi: Pi, turn: Turn): Pi => withTurns(pi, [...pi.turns, turn]);
+const withTurn = (pi: PiState, turn: Turn): PiState => withConversation(pi, [...pi.conversation, turn]);
 
-const compacted = (pi: Pi, summary: string): Pi => {
+const compacted = (pi: PiState, summary: string): PiState => {
 	const kept = pipe(
-		pi.turns,
+		pi.conversation,
 		Array.findLastIndex((turn) => turn.role === "user"),
-		Option.getOrElse(() => pi.turns.length),
+		Option.getOrElse(() => pi.conversation.length),
 	);
 
-	return withTurns(pi, [summaryTurn(summary, pi.pathsRead), ...Array.drop(pi.turns, kept)]);
+	return withConversation(pi, [summaryTurn(summary, pi.pathsRead), ...Array.drop(pi.conversation, kept)]);
 };
 
-/**
- * The conversation each request carries, in order, without system turns: the scenario's pi sends its own system
- * prompt. Compaction requests are left out, since they route `direct` to the BAA account. A steering message joins
- * the conversation after the prompt's first reply.
- */
 const requestsOf = Effect.fn("requestsOf")(function* requestsOf(subject: Case) {
 	const plan = planOf(subject);
 
 	const script: Script = {
 		files: plan.files,
-		replyAt: (index) => Option.getOrElse(Array.get(plan.replies, index), () => Replies.Text({ text: "done" })),
+		replyAt: (index) => Option.getOrElse(Array.get(plan.replies, index), () => MockReplies.Text({ text: "done" })),
 	};
 
-	let pi: Pi = { pathsRead: [], requests: [], turns: [], used: 0 };
+	let pi: PiState = { conversation: [], pathsRead: [], repliesUsed: 0, requestsSent: [] };
 
 	for (const step of plan.steps) {
 		const before = pi;
@@ -287,7 +270,7 @@ const requestsOf = Effect.fn("requestsOf")(function* requestsOf(subject: Case) {
 		});
 	}
 
-	return pi.requests;
+	return pi.requestsSent;
 });
 
 export { requestsOf };

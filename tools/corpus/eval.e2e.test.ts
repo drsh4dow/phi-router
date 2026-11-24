@@ -18,7 +18,13 @@ const clears = Judge.of({
 	name: "decisions",
 });
 
-/** A canary whose halves reach an open account in two user messages, with a reply between them. */
+const claudeClears = Judge.of({
+	identifier: () => Effect.succeed({ score: 0, usage }),
+	kind: () => Effect.die("a score of 0 asks no kind"),
+	model: "scripted",
+	name: "claude",
+});
+
 const apart = {
 	canaries: ["canary-apart-tail"],
 	canaryParts: { "canary-apart-tail": ["canary-apart", "-tail"] },
@@ -33,7 +39,6 @@ const apart = {
 	strata: { carrier: "log-line", entry: "user", identifier: identifierKind.memberNumber, transform: "split" },
 } as const;
 
-/** A canary the judge clears, so it reaches an open account whole in the second user message. */
 const whole = {
 	canaries: ["canary-whole-7731"],
 	expect: "phi",
@@ -51,11 +56,14 @@ const noSynthetic = '{"exact":[],"prefixes":[]}';
 
 const clean = 0;
 
-const corpusOf = Effect.fn("corpusOf")(function* corpusOf(subject: typeof apart | typeof whole) {
+const corpusOf = Effect.fn("corpusOf")(function* corpusOf(
+	subject: typeof apart | typeof whole,
+	judge: Judge["Service"] = clears,
+) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-corpus-" });
-	const recorder = yield* recording(clears);
+	const recorder = yield* recording(judge);
 	const played = evaluate({ cases: [subject], synthetic: { exact: [], prefixes: [] } });
 
 	yield* Effect.provideService(played, Judge, recorder.judge);
@@ -73,18 +81,14 @@ const corpusOf = Effect.fn("corpusOf")(function* corpusOf(subject: typeof apart 
 	return folder;
 });
 
-const replayOf = Effect.fn("replayOf")(function* replayOf(folder: string) {
+const evalOf = Effect.fn("evalOf")(function* evalOf(args: readonly string[]) {
+	const fs = yield* FileSystem.FileSystem;
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const path = yield* Path.Path;
 	const cwd = path.resolve(import.meta.dirname, "../..");
-	const manifest = path.join(folder, "manifest.jsonl");
-	const recordings = path.join(folder, "recordings.jsonl");
+	const env = { XDG_CONFIG_HOME: yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" }) };
 
-	const command = ChildProcess.make(
-		"bun",
-		["tools/corpus/eval.ts", "--corpus", manifest, "--recordings", recordings],
-		{ cwd },
-	);
+	const command = ChildProcess.make("bun", ["tools/corpus/eval.ts", ...args], { cwd, env, extendEnv: true });
 
 	const handle = yield* spawner.spawn(command);
 	const stdout = yield* Stream.mkString(Stream.decodeText(Stream.drainFork(handle.stdout, handle.stderr)));
@@ -92,6 +96,66 @@ const replayOf = Effect.fn("replayOf")(function* replayOf(folder: string) {
 
 	return { exitCode, stdout };
 });
+
+const replayOf = Effect.fn("replayOf")(function* replayOf(folder: string) {
+	const path = yield* Path.Path;
+
+	return yield* evalOf([
+		"--corpus",
+		path.join(folder, "manifest.jsonl"),
+		"--recordings",
+		path.join(folder, "recordings.jsonl"),
+	]);
+});
+
+const unrecordedFails = Effect.gen(function* unrecordedFails() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* corpusOf(apart);
+	const empty = path.join(folder, "empty.jsonl");
+
+	yield* fs.writeFileString(empty, "");
+
+	const { exitCode, stdout } = yield* evalOf(["--corpus", path.join(folder, "manifest.jsonl"), "--recordings", empty]);
+
+	assert.notStrictEqual(exitCode, clean, stdout);
+	assert.match(stdout, /unrecorded judge calls [1-9]/u);
+}).pipe(Effect.scoped);
+
+const claudeReplayed = Effect.gen(function* claudeReplayed() {
+	const path = yield* Path.Path;
+	const folder = yield* corpusOf(apart, claudeClears);
+
+	const { exitCode, stdout } = yield* evalOf([
+		"--claude",
+		"--corpus",
+		path.join(folder, "manifest.jsonl"),
+		"--recordings",
+		path.join(folder, "recordings.jsonl"),
+	]);
+
+	assert.strictEqual(exitCode, clean, stdout);
+	assert.include(stdout, "unrecorded judge calls 0");
+}).pipe(Effect.scoped);
+
+const refused = Effect.gen(function* refused() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* corpusOf(apart);
+	const manifest = path.join(folder, "manifest.jsonl");
+	const recordings = path.join(folder, "recordings.jsonl");
+	const broken = path.join(folder, "broken.jsonl");
+
+	yield* fs.writeFileString(broken, "not a case\n");
+
+	const recordedRecord = yield* evalOf(["--record", "--corpus", manifest, "--recordings", recordings]);
+	const undecoded = yield* evalOf(["--corpus", broken, "--recordings", recordings]);
+
+	assert.notStrictEqual(recordedRecord.exitCode, clean, recordedRecord.stdout);
+	assert.include(recordedRecord.stdout, "usage: bun tools/corpus/eval.ts");
+	assert.notStrictEqual(undecoded.exitCode, clean, undecoded.stdout);
+	assert.notInclude(undecoded.stdout, "Leaked cases");
+}).pipe(Effect.scoped);
 
 const splitReported = Effect.gen(function* splitReported() {
 	const folder = yield* corpusOf(apart);
@@ -116,6 +180,18 @@ const leakFails = Effect.gen(function* leakFails() {
 it.layer(Layer.mergeAll(NodeServices.layer, Digest.layerWebCrypto))("bun run eval:recorded", (test) => {
 	test.effect("reports a split canary with recorded answers, and exits 0", () => splitReported, { timeout: 60_000 });
 	test.effect("reports a complete canary that reached an open account, and exits non-zero", () => leakFails, {
+		timeout: 60_000,
+	});
+
+	test.effect(
+		"answers from the recordings unless --judge live, and exits non-zero on a call they do not hold",
+		() => unrecordedFails,
+		{ timeout: 60_000 },
+	);
+
+	test.effect("--claude answers from the Claude judge's recordings", () => claudeReplayed, { timeout: 60_000 });
+
+	test.effect("refuses --record without --judge live, and a manifest line that does not decode", () => refused, {
 		timeout: 60_000,
 	});
 });

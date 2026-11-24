@@ -3,15 +3,13 @@ import type { Case, Message } from "./manifest.ts";
 
 type TextMessage = Extract<Message, { readonly text: string }>;
 
-/** One of the case's turns with the message before and after it, none at either end. */
 interface At {
 	readonly message: Message;
 	readonly index: number;
-	readonly before: readonly Message[];
-	readonly after: readonly Message[];
+	readonly before: Message | undefined;
+	readonly after: Message | undefined;
 }
 
-/** The turns the wire scenario plays: a reply that opens the case, and the turns after it but its system messages. */
 interface Played {
 	readonly leadingReply: readonly TextMessage[];
 	readonly walked: readonly At[];
@@ -25,8 +23,8 @@ const walk = (turns: readonly Message[]): readonly At[] =>
 	pipe(
 		turns,
 		Array.map((message, index) => ({
-			after: Option.toArray(Array.get(turns, index + neighbor)),
-			before: Option.toArray(Array.get(turns, index - neighbor)),
+			after: Option.getOrUndefined(Array.get(turns, index + neighbor)),
+			before: Option.getOrUndefined(Array.get(turns, index - neighbor)),
 			index,
 			message,
 		})),

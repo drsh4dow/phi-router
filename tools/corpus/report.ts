@@ -9,12 +9,12 @@ import { seenOn } from "./seen.ts";
 
 interface Decided {
 	readonly usage: typeof Usage.Type;
-	/** Pieces this request sealed because the judge failed on them. */
-	readonly failures: number;
+	readonly sealedByJudgeFailure: number;
 }
 
-/** A request on the clean lane carries the body the open account received. A sealed request shows open accounts nothing. */
-type Sent = (Decided & { readonly lane: "clean"; readonly view: string }) | (Decided & { readonly lane: "sealed" });
+type Sent =
+	| (Decided & { readonly lane: "clean"; readonly openAccountBody: string })
+	| (Decided & { readonly lane: "sealed" });
 
 interface Played {
 	readonly case: Case;
@@ -30,7 +30,6 @@ const noFragments = 0;
 
 const half = 0.5;
 
-/** Bisection steps, far more than the four decimals the report prints need. */
 const bisectionSteps = 100;
 
 interface Tally {
@@ -66,12 +65,6 @@ const binomialCdf = (tally: Tally, rate: number): number => {
 	);
 };
 
-/**
- * The exact one-sided Clopper-Pearson upper bound at 95%: the rate where P(X <= misses; cases, rate) = 0.05.
- *
- * @param {Tally} tally The misses and the cases.
- * @returns {number} The upper bound of the miss rate.
- */
 const missRateUpperBound = (tally: Tally): number => {
 	if (tally.misses >= tally.cases) {
 		return maxRate;
@@ -96,8 +89,7 @@ const missRateUpperBound = (tally: Tally): number => {
 interface CaseAt {
 	readonly id: string;
 	readonly strata: PhiStrata;
-	/** The first request that showed it. */
-	readonly request: number;
+	readonly firstShownIn: number;
 }
 
 interface Report {
@@ -109,7 +101,6 @@ interface Report {
 		readonly leakRateUpper95: number;
 	}[];
 	readonly leaks: readonly CaseAt[];
-	/** Positive cases that showed open accounts every part of a split canary, only in different messages, and no leak. */
 	readonly splits: readonly CaseAt[];
 	readonly overRouting: readonly {
 		readonly negative: typeof Negative.Type;
@@ -133,7 +124,7 @@ const seenOf = ({ sent, tracked }: Played, upTo: number): Seen => {
 		Array.take(upTo),
 		Array.flatMap((each) => {
 			if (each.lane === "clean") {
-				return [each.view];
+				return [each.openAccountBody];
 			}
 
 			return [];
@@ -143,13 +134,6 @@ const seenOf = ({ sent, tracked }: Played, upTo: number): Seen => {
 	return seenOn({ baa: [], open, tracked });
 };
 
-/**
- * The number, counting from 1, of the first request by which the open accounts were shown what `shown` looks for.
- *
- * @param {Played} played The case and its requests.
- * @param {Function} shown What the open accounts' bodies must show.
- * @returns {Option.Option<number>} The request's number, or none.
- */
 const firstAt = (played: Played, shown: (seen: Seen) => boolean): Option.Option<number> =>
 	pipe(
 		played.sent,
@@ -238,7 +222,7 @@ const judgeOf = (sent: readonly Sent[]): Report["judge"] => {
 	return {
 		calls: total(({ usage }) => usage.calls),
 		cost: total(({ usage }) => usage.cost),
-		failures: total(({ failures }) => failures),
+		failures: total(({ sealedByJudgeFailure }) => sealedByJudgeFailure),
 		inputTokens: total(({ usage }) => usage.inputTokens),
 		ms: total(({ usage }) => usage.ms),
 	};
@@ -263,7 +247,7 @@ const reportOf = (played: readonly Played[]): Report => {
 			Array.flatMap((each) =>
 				pipe(
 					at(each),
-					Option.map((request) => ({ id: each.case.id, request, strata: each.case.strata })),
+					Option.map((firstShownIn) => ({ firstShownIn, id: each.case.id, strata: each.case.strata })),
 					Option.toArray,
 				),
 			),

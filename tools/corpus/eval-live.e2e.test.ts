@@ -7,7 +7,6 @@ import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { encodeCorpus } from "./generate.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 
-/** A canary the judge clears, so it reaches an open account whole in the second user message. */
 const whole = {
 	canaries: ["canary-whole-7731"],
 	expect: "phi",
@@ -23,7 +22,6 @@ const whole = {
 
 const tokensPerCall = 1000;
 
-/** $0.10 per million input tokens, the default judge's price. */
 const costPerCall = 0.0001;
 
 const clears: Reply = {

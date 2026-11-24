@@ -21,9 +21,8 @@ const runtimeAndScript = 2;
 
 const noUnrecordedCalls = 0;
 
-/** The corpus the command plays, none for the default one, and the judge that answers. */
 interface Args {
-	readonly corpus: Option.Option<string>;
+	readonly manifest: Option.Option<string>;
 	readonly judge: JudgeChoice;
 }
 
@@ -33,21 +32,20 @@ const switches = ["--claude", "--record"];
 
 const flagAndValue = 2;
 
-/** The judge the flags name: its source, whether it is the Claude judge, and where its recordings are. */
-interface Named {
-	readonly name: string;
+interface JudgeFlags {
+	readonly source: string;
 	readonly claude: boolean;
 	readonly record: boolean;
 	readonly recordings: string | undefined;
 }
 
-const choiceOf = ({ name, claude, record, recordings }: Named): Option.Option<JudgeChoice> => {
-	if (name === "live") {
-		return Option.some({ claude, name, record, recordings });
+const choiceOf = ({ source, claude, record, recordings }: JudgeFlags): Option.Option<JudgeChoice> => {
+	if (source === "live") {
+		return Option.some({ claude, name: source, record, recordings });
 	}
 
-	if (name === "recorded" && !record) {
-		return Option.some({ claude, name, recordings });
+	if (source === "recorded" && !record) {
+		return Option.some({ claude, name: source, recordings });
 	}
 
 	return Option.none();
@@ -74,21 +72,20 @@ const argsOf = (argv: readonly string[]): Effect.Effect<Args, Cause.IllegalArgum
 
 	const judge = choiceOf({
 		claude: Array.contains(argv, "--claude"),
-		name: given.get("--judge") ?? "recorded",
 		record: Array.contains(argv, "--record"),
 		recordings: given.get("--recordings"),
+		source: given.get("--judge") ?? "recorded",
 	});
 
 	if (!known || given.size * flagAndValue !== pairs.length || Option.isNone(judge)) {
 		return Effect.fail(new Cause.IllegalArgumentError(usage));
 	}
 
-	return Effect.succeed({ corpus: Option.fromUndefinedOr(given.get("--corpus")), judge: judge.value });
+	return Effect.succeed({ judge: judge.value, manifest: Option.fromUndefinedOr(given.get("--corpus")) });
 };
 
 const decodeSynthetic = Schema.decodeUnknownEffect(Schema.fromJsonString(SyntheticIdentities));
 
-/** A corpus from a manifest, with the test identities in the `synthetic.json` beside it. */
 const corpusAt = Effect.fn("corpusAt")(function* corpusAt(manifest: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -112,25 +109,10 @@ const gate = (leaks: number, unrecorded: number): Effect.Effect<void, GateFailed
 	return Effect.void;
 };
 
-/**
- * `bun tools/corpus/eval.ts [--judge recorded|live] [--claude] [--record] [--corpus <manifest.jsonl>] [--recordings <recordings.jsonl>]`
- * plays a corpus through `decide` and `guard` with a judge and prints, per stratum, the positive cases whose complete
- * canary reached an open account, then the split canaries, over-routing, fragments, lanes and judge cost. Without
- * `--corpus` it plays the default generated corpus, and a `--corpus` manifest needs its `synthetic.json` beside it.
- * `--judge recorded`, the default, answers from `--recordings`, or the judge's recordings kept beside this file.
- * `--judge live` asks the judge the router's configuration file picks, and costs money. It prints the judge's name,
- * model and start time first. `--claude` takes the Claude judge instead: live, on the configuration's first Anthropic
- * BAA account, or its recordings. `--record`, taken only with `--judge live`, writes the live judge's answers to
- * `--recordings`, or its recordings beside this file, once the report prints and before the run exits, so a run that
- * leaks keeps them.
- *
- * It exits non-zero on a leak among positive cases, on an unrecorded judge call and on a manifest line that does not
- * decode. A canary split across messages is reported apart and never fails it.
- */
 const program = Effect.gen(function* program() {
 	const args = yield* argsOf(Array.drop(process.argv, runtimeAndScript));
 
-	const { cases, synthetic } = yield* Option.match(args.corpus, {
+	const { cases, synthetic } = yield* Option.match(args.manifest, {
 		onNone: () => defaultCorpus,
 		onSome: (manifest) => corpusAt(manifest),
 	});
