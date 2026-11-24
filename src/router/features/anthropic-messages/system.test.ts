@@ -1,4 +1,4 @@
-import { Array, Effect, Schema, Struct, pipe } from "effect";
+import { Array, Effect, Record, Schema, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { BodyJson } from "./wire.ts";
 import { Digest } from "effect/crypto";
@@ -170,5 +170,76 @@ it.layer(Digest.layerWebCrypto)("the system blocks and the model", (test) => {
 	test.effect(
 		"safeguards and output_config.format are judged whole, as tool-list entries holding their source JSON",
 		() => wholesJudged,
+	);
+});
+
+const claudeCodeRequests = {
+	autoMode: requests.autoMode,
+	compaction: requests.compaction,
+	firstTurn: requests.firstTurn,
+	subagent: requests.subagent,
+	toolResult: requests.toolResult,
+	toolSearch: requests.toolSearch,
+	webSearch: requests.webSearch,
+};
+
+const attributionBlocks = 1;
+
+const sectionNamesOf = (request: MessagesRequest): readonly string[] =>
+	pipe(
+		request.messages,
+		Array.flatMap((message) => {
+			if (message.role === "system") {
+				return message.sections;
+			}
+
+			return [];
+		}),
+		Array.map(({ name }) => name),
+	);
+
+const attributionOfEach = Effect.gen(function* attributionOfEach() {
+	for (const [name, body] of Record.toEntries(claudeCodeRequests)) {
+		const request = yield* decodeRequest(body, nobodyWrote, "claude");
+		const original = yield* decodeBody(body);
+
+		const judgedBlockNames = pipe(
+			original.system ?? [],
+			Array.map((_block, index) => String(index)),
+			Array.drop(attributionBlocks),
+		);
+
+		assert.deepStrictEqual(sectionNamesOf(request), judgedBlockNames, name);
+	}
+});
+
+const bridgeBlock = `{"type":"text","text":"${bridge.text}"}`;
+
+const emptySystem = '{"model":"m","system":[],"messages":[{"role":"user","content":"hi"}],"max_tokens":10}';
+
+const sealedOnOwnModel: Target = { lane: "sealed", model: "m", pinned: false };
+
+const bridgeOpensSystem = Effect.gen(function* bridgeOpensSystem() {
+	const withoutSystem = yield* decodeRequest(wholes, nobodyWrote, "claude");
+	const withEmptySystem = yield* decodeRequest(emptySystem, nobodyWrote, "claude");
+	const toBaa = yield* withoutSystem.encode(sealedOnOwnModel);
+	const toOpen = yield* withoutSystem.encode({ lane: "clean", messages: withoutSystem.messages, model: "m" });
+	const emptyToBaa = yield* withEmptySystem.encode(sealedOnOwnModel);
+	const bridged = Str.replace(/\}$/u, `,"system":[${bridgeBlock}]}`)(wholes);
+
+	assert.strictEqual(toBaa, bridged);
+	assert.strictEqual(toOpen, bridged);
+	assert.strictEqual(emptyToBaa, Str.replace('"system":[]', `"system":[${bridgeBlock}]`)(emptySystem));
+});
+
+it.layer(Digest.layerWebCrypto)("the system blocks of a body", (test) => {
+	test.effect(
+		"each captured Claude Code request's first system block is its attribution, so no section",
+		() => attributionOfEach,
+	);
+
+	test.effect(
+		"a body with no system blocks gets the bridge as its only one, and leaves every other byte as sent, safeguards and output_config.format included",
+		() => bridgeOpensSystem,
 	);
 });

@@ -11,11 +11,6 @@ type SystemBlock = NonNullable<WireBody["system"]>[number];
 
 type WireTool = NonNullable<WireBody["tools"]>[number];
 
-/**
- * Claude Code's attribution block, in the pairs and values Claude Code 2.1.325 was recorded sending, so no session
- * content can hide in it. Only a first system block that is plain text and matches stays out of the sections. Any other
- * first block is a section and is judged.
- */
 const attribution =
 	/^x-anthropic-billing-header: cc_version=2\.1\.\d{1,3}\.[\da-f]{3}; cc_entrypoint=(?:cli|sdk-cli);(?: cc_is_subagent=true;)?$/u;
 
@@ -27,7 +22,6 @@ interface LocatedSection {
 	readonly kept: readonly string[];
 }
 
-/** Where the bridge goes: the text between `start` and `end` becomes `before`, the bridge block, then `after`. */
 interface BridgeSlot {
 	readonly start: number;
 	readonly end: number;
@@ -50,12 +44,6 @@ const afterLastMember = (body: Span): BridgeSlot => {
 	return { after: "]", before: ',"system":[', end, start: end };
 };
 
-/**
- * The bridge closes the `system` array, or opens one after the body's last member when the body has none.
- *
- * @param {Span} body The body.
- * @returns {BridgeSlot} Where the bridge goes.
- */
 const bridgeSlot = (body: Span): BridgeSlot =>
 	pipe(
 		valueOf("system")(body),
@@ -103,13 +91,6 @@ const toolOf = Effect.fnUntraced(function* toolOf({
 	return { description: wire.description, name: wire.name, parameters: textOf(schema) };
 });
 
-/**
- * Top-level fields judged whole with the tools, as entries after them: their every byte is in the tool-list part, and
- * guard refuses the clean lane while that part is not cleared. Nothing edits them, so they leave as sent.
- *
- * @param {Span} body The body.
- * @returns {readonly SystemMessage["tools"][number][]} One entry per field present.
- */
 const judgedWhole = (body: Span): readonly SystemMessage["tools"][number][] => {
 	const format = pipe(valueOf("output_config")(body), Option.flatMap(valueOf("format")));
 
