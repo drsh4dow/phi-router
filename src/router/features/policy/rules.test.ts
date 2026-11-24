@@ -87,6 +87,7 @@ const silent: readonly string[] = [
 	"a digit where a letter belongs: 37R7-KX2-PN45, and an excluded S: 3SR7-KX2-PN45",
 	`${msh}\rPID|1||00482913^^^MRN||||`,
 	`${msh}\rPID|1||00482913^^^MRN||^^||`,
+	String.raw`{"hl7": "${msh}\rPID|1||00482913^^^MRN||\rPV1|1|I"}`,
 	'{"resourceType": "Observation", "subject": {"reference": "Patient/123"}, "valueQuantity": {"value": 7.2}}',
 	'{"resourceType": "Patient", "id": "8812", "identifier": [{"system": "https://acme.example/patient-id", "value": "4471"}]}',
 	'{"entry": [{"resource": {"resourceType": "Patient", "id": "8812"}}, {"resource": {"resourceType": "Practitioner", "name": [{"family": "Fakedoc"}]}}]}',

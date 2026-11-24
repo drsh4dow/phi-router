@@ -1,7 +1,6 @@
 import { Array, Context, Option, pipe } from "effect";
 import type { IdentifierKind } from "./policy.ts";
 
-/** One HL7 v2 field: anything up to the next `|` or segment end, a literal `\r` or `\n` in serialized text included. */
 const hl7Field = String.raw`(?:[^|\r\n\\]|\\(?![rn]))*`;
 
 const hl7Filled = String.raw`[^|\r\n\\\p{L}\p{N}]*[\p{L}\p{N}]`;
