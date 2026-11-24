@@ -147,7 +147,7 @@ const textOf = Effect.fn("textOf")(function* textOf(piece: Piece<string>, blank:
 
 	const expanded = expand(pipe(texts, Array.map(blank)));
 	const readings = yield* Effect.mapError(expanded, (why) => Verdicts.Sealed({ finding: Findings.Failure({ why }) }));
-	const text = blank(piece.seam) + Array.join(readings, "\n");
+	const text = blank(piece.seam.text) + Array.join(readings, "\n");
 	const active = yield* Rules;
 	const hit = firstHitOf(active)(text);
 

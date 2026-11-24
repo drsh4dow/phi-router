@@ -1,7 +1,7 @@
 import { Array, Effect, Option, String as Str, pipe } from "effect";
 import type { Message, SystemMessage } from "./message.ts";
-import type { Piece, PieceKind, Seam } from "#router/features/policy/index.ts";
-import { window as policyWindow, seamChars, stubs } from "#router/features/policy/index.ts";
+import type { Piece, PieceKind } from "#router/features/policy/index.ts";
+import { Seam, window as policyWindow, seamChars, stubs } from "#router/features/policy/index.ts";
 import { textsOf, unitsOf } from "./parts.ts";
 import type { ContentKey } from "#router/primitives/content-key.ts";
 import type { Digest } from "effect/crypto";
@@ -68,17 +68,17 @@ const endsMidWord = /[\p{L}\p{N}]$/u;
 
 const startsAtOnce = /^\S/u;
 
-const seamAfter = (previous: string, text: string): Seam => {
+const seamAfter = (previous: string, text: string): typeof Seam.Type => {
 	if (endsMidWord.test(previous) && startsAtOnce.test(text)) {
-		return Str.takeRight(previous, seamChars);
+		return Seam.make({ text: Str.takeRight(previous, seamChars) });
 	}
 
-	return "";
+	return Seam.make({ text: "" });
 };
 
 interface ContextReader {
 	readonly contextOf: (message: Message) => readonly string[];
-	readonly seamOf: (message: Message) => Seam;
+	readonly seamOf: (message: Message) => typeof Seam.Type;
 	readonly remember: (read: { readonly message: Message; readonly sealed: boolean }) => void;
 }
 
@@ -87,9 +87,9 @@ const contextReader = (window: number): ContextReader => {
 	const items: string[] = [];
 	const lastText = new Map<Message["role"], string>();
 
-	const seamOf = (message: Message): Seam => {
+	const seamOf = (message: Message): typeof Seam.Type => {
 		if (message.role === "system") {
-			return "";
+			return Seam.make({ text: "" });
 		}
 
 		return seamAfter(lastText.get(message.role) ?? "", textOf(message));

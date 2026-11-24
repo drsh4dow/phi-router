@@ -1,7 +1,7 @@
 import { Array, Effect, String as Str, Struct, pipe } from "effect";
 import { Findings, Fixtures, Verdicts } from "./index.ts";
 import type { Question, Script } from "./scripted-judge.ts";
-import { Synthetic, thresholds } from "#router/features/policy/index.ts";
+import { Seam, Synthetic, thresholds } from "#router/features/policy/index.ts";
 import { assert, it } from "@effect/vitest";
 import { judgeAll, judgedOne, namedKind, pieceOf, ssnHit } from "./scripted-judge.ts";
 import { Base64 } from "effect/encoding";
@@ -129,7 +129,7 @@ const ruleHit = Effect.gen(function* ruleHit() {
 
 const seamHit = Effect.gen(function* seamHit() {
 	const piece = yield* pieceOf("23 on file");
-	const seamed = Struct.assign(piece, { seam: "Patient SSN 412-56-78" });
+	const seamed = Struct.assign(piece, { seam: Seam.make({ text: "Patient SSN 412-56-78" }) });
 	const { questions, verdicts } = yield* judgedOne({ piece: seamed, script: sealing });
 
 	assert.deepStrictEqual({ questions, verdicts }, { questions: [], verdicts: ruleSealed });

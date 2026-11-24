@@ -1,3 +1,5 @@
+import { Schema } from "effect";
+
 type Base64 = string;
 
 interface Image {
@@ -7,7 +9,7 @@ interface Image {
 
 type PieceKind = "system" | "user" | "tool-result" | "reply-open" | "reply-other";
 
-type Seam = string;
+const Seam = Schema.Struct({ text: Schema.String }).pipe(Schema.brand("Seam"));
 
 interface Piece<Key> {
 	readonly key: Key;
@@ -15,7 +17,9 @@ interface Piece<Key> {
 	readonly texts: readonly string[];
 	readonly images: readonly Image[];
 	readonly context: readonly string[];
-	readonly seam: Seam;
+	readonly seam: typeof Seam.Type;
 }
 
-export type { Image, Piece, PieceKind, Seam };
+export { Seam };
+
+export type { Image, Piece, PieceKind };

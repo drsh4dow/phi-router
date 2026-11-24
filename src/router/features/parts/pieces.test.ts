@@ -198,7 +198,7 @@ it.layer(Digest.layerWebCrypto)("piecesOf context", (test) => {
 				assert.deepStrictEqual(
 					pipe(
 						pieces,
-						Array.map(({ piece }) => piece.seam),
+						Array.map(({ piece }) => piece.seam.text),
 					),
 					["", "", "member 4471, ssn 412-56-78", "", "", "", ""],
 				);

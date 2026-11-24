@@ -8,6 +8,7 @@ import { judgeFrom, mockOn } from "./configured.ts";
 import { judgingOn, sealingWhen, serveAnthropic } from "#router/client/mock-upstreams/index.ts";
 import { Judge } from "#router/client/judge/index.ts";
 import type { Piece } from "#router/features/policy/index.ts";
+import { Seam } from "#router/features/policy/index.ts";
 
 const scoreQuestion: ScoreQuestion = { criteria: { false: "F", true: "T" }, instructions: "Is it so?", type: "bool" };
 
@@ -257,7 +258,7 @@ const pieceOf = (text: string): Piece<string> => ({
 	images: [],
 	key: text,
 	kind: "user",
-	seam: "",
+	seam: Seam.make({ text: "" }),
 	texts: [text],
 });
 

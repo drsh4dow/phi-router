@@ -1,5 +1,6 @@
 import { Effect, Fiber, Latch, Layer, Struct } from "effect";
 import { Findings, Verdicts, verdictsFor } from "#router/features/verdicts/index.ts";
+import { Seam, judgeLimits } from "#router/features/policy/index.ts";
 import { assert, it } from "@effect/vitest";
 import { mockOn, mockedJudge } from "./configured.ts";
 import { Digest } from "effect/crypto";
@@ -10,7 +11,6 @@ import type { Piece } from "#router/features/policy/index.ts";
 import type { Reply } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 import type { Verdict } from "#router/features/verdicts/index.ts";
-import { judgeLimits } from "#router/features/policy/index.ts";
 import { sealingWhen } from "#router/client/mock-upstreams/index.ts";
 
 const fromEnv: Named = { keyEnv: "PHI_TEST_KEY" };
@@ -31,7 +31,7 @@ const pieceOf = (text: string): Piece<string> => ({
 	images: [],
 	key: text,
 	kind: "user",
-	seam: "",
+	seam: Seam.make({ text: "" }),
 	texts: [text],
 });
 

@@ -2,7 +2,7 @@ import { Array, Effect, Option, pipe } from "effect";
 import type { ChoiceQuestion, JudgeInput } from "#router/client/judge/index.ts";
 import type { IdentifierKind, Piece } from "#router/features/policy/index.ts";
 import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
-import { firstHit, identifierKindNames } from "#router/features/policy/index.ts";
+import { Seam, firstHit, identifierKindNames } from "#router/features/policy/index.ts";
 import type { ContentKey } from "#router/primitives/content-key.ts";
 import { contentKey } from "#router/primitives/content-key.ts";
 import { verdictsFor } from "./engine.ts";
@@ -84,7 +84,7 @@ const pieceOf = Effect.fnUntraced(function* pieceOf(text: string) {
 		images: [],
 		key: yield* contentKey([text]),
 		kind: "user",
-		seam: "",
+		seam: Seam.make({ text: "" }),
 		texts: [text],
 	};
 
