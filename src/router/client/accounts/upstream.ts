@@ -225,7 +225,6 @@ interface Served {
 	readonly openai: Option.Option<OpenAiAccounts>;
 }
 
-/** The accounts a `config.json` text names, each key read from its source. */
 const servedBy = Effect.fnUntraced(function* servedBy(text: string) {
 	const lanes = yield* laneConfiguration(text);
 	const anthropic = yield* Effect.transposeOption(pipe(lanes.anthropic, Option.map(accountsOf)));

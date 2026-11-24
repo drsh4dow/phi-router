@@ -1,10 +1,24 @@
-import { Array, Effect, FileSystem, Layer, Predicate, Schema, Struct, pipe } from "effect";
+import {
+	Array,
+	ConfigProvider,
+	Context,
+	Effect,
+	Exit,
+	FileSystem,
+	Layer,
+	Path,
+	Predicate,
+	Schema,
+	Struct,
+	pipe,
+} from "effect";
 import { ConfigFile, JsonText, leaks, phiRouter, prepared, tokens } from "./accounts-run.ts";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "#tools/route/mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Said } from "#router/client/mock-upstreams/index.ts";
+import { Upstream } from "#router/client/accounts/index.ts";
 import { harnesses } from "#tools/route/harnesses.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 
@@ -167,6 +181,56 @@ const unservable = Effect.gen(function* unservable() {
 	assert.deepStrictEqual({ listed, status }, { listed: ["open"], status: 200 });
 }).pipe(Effect.scoped);
 
+const keyFailed = 3;
+
+const keyRuns = Effect.gen(function* keyRuns() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const xdgConfig = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });
+	const runs = path.join(xdgConfig, "key-runs.log");
+	const file = path.join(xdgConfig, "phi-router", "config.json");
+
+	const keyed = Effect.fnUntraced(function* keyed(run: string, exit: number) {
+		const text = yield* Schema.encodeEffect(JsonText)({
+			clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }],
+			sealed: [
+				{
+					keyCommand: `printf '${run}\\n' >> '${runs}'; printf sk-phi-test-key; exit ${String(exit)}`,
+					name: "enterprise",
+					scheme: "apiKey",
+					vendor: "anthropic",
+				},
+			],
+			targetModel: { anthropic: "claude-target" },
+		});
+
+		yield* fs.writeFileString(file, text);
+	});
+
+	const provider = ConfigProvider.fromEnv({ env: { XDG_CONFIG_HOME: xdgConfig } });
+	const upstream = Upstream.layer.pipe(Layer.provide(ConfigProvider.layer(provider)));
+
+	yield* fs.makeDirectory(path.dirname(file));
+	yield* keyed("served", exited);
+
+	const built = yield* Layer.build(upstream);
+	const { served } = Context.get(built, Upstream);
+
+	yield* served;
+	yield* served;
+	yield* keyed("unservable", keyFailed);
+	yield* served;
+	yield* served;
+
+	const restarted = yield* Effect.exit(Layer.build(upstream));
+	const ran = yield* fs.readFileString(runs);
+
+	assert.deepStrictEqual(
+		{ ran, restarted: Exit.isFailure(restarted) },
+		{ ran: "served\nunservable\nunservable\n", restarted: true },
+	);
+});
+
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("a running router", (test) => {
 	test.effect.each(ways)(
 		"serves an account accounts add writes by $way at once: status lists it, and the next request after the home account's 429 reaches it",
@@ -176,4 +240,8 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("a running rout
 	test.effect("keeps the accounts it serves when config.json changes to a file it cannot serve", () => unservable, {
 		timeout: 60_000,
 	});
+	test.effect(
+		"runs each key command once per config.json text it reads, tries a text it cannot serve once, and fails to start on it",
+		() => keyRuns,
+	);
 });

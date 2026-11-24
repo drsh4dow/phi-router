@@ -13,13 +13,6 @@ interface Serving {
 const kept = (error: { readonly message: string }): Effect.Effect<void> =>
 	Effect.logWarning(`phi-router keeps the accounts it serves: ${error.message}`);
 
-/**
- * The accounts the router serves. `served` reads `config.json` on every call and builds the accounts again when its
- * text changed since the call before, so an account `accounts add` writes serves the next request. A text it cannot
- * serve, or a file it cannot read, keeps the accounts it serves, and it tries a changed text once. A request reads
- * `served` once, when it arrives, and walks those accounts to its end. The router fails to start on a file it cannot
- * read or serve (ADR 0008).
- */
 class Upstream extends Context.Service<Upstream, { readonly served: Effect.Effect<Served> }>()(
 	"phi-router/router/client/accounts/served/Upstream",
 ) {

@@ -9,8 +9,6 @@
 	"src/pi/features/uploads/index.ts": 16,
 	"src/pi/index.test.ts": 3,
 	"src/pi/index.ts": 18,
-	"src/router/client/accounts/served.ts": 1,
-	"src/router/client/accounts/upstream.ts": 1,
 	"src/router/client/config-writer.ts": 9,
 	"src/router/client/configuration/config-file.ts": 7,
 	"src/router/client/configuration/lanes.ts": 15,
