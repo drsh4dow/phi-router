@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Option, String as Str, pipe } from "effect";
 import type { AssistantMessage, Message, ToolResultMessage } from "#router/features/parts/index.ts";
 import type { Case, Part, Transcript } from "./manifest.ts";
 import { requestsOf } from "./requests.ts";
@@ -10,31 +10,14 @@ type ToolCall = Extract<AssistantMessage["content"][number], { readonly type: "t
 
 const callPattern = /^(?<name>\S+) (?<id>toolu_mock_\d+) (?<input>\{[\s\S]*\})$/u;
 
-const Input = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json));
-
-const decodeInput = Schema.decodeUnknownOption(Input);
-
-const encodeInput = Schema.encodeUnknownOption(Input);
-
-const callFrom = (groups: Readonly<Record<string, string>>): Option.Option<ToolCall> => {
-	const input = pipe(
-		decodeInput(groups["input"]),
-		Option.flatMap((decoded) => encodeInput(decoded)),
-	);
-
-	const fields = Option.all([Option.fromNullishOr(groups["name"]), Option.fromNullishOr(groups["id"]), input]);
-
-	return pipe(
-		fields,
-		Option.map(([name, id, json]) => ({ arguments: json, id, name, type: "toolCall" })),
-	);
-};
-
 const callOf = (text: string): Option.Option<ToolCall> =>
 	pipe(
 		Str.match(callPattern)(text),
 		Option.flatMapNullishOr((found) => found.groups),
-		Option.flatMap((groups) => callFrom(groups)),
+		Option.flatMap(({ id, input, name }) =>
+			Option.all([Option.fromNullishOr(name), Option.fromNullishOr(id), Option.fromNullishOr(input)]),
+		),
+		Option.map(([name, id, json]) => ({ arguments: json, id, name, type: "toolCall" })),
 	);
 
 const blockOf = (part: Part): Block => {
