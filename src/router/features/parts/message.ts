@@ -41,7 +41,6 @@ interface UserMessage {
 interface AssistantMessage {
 	readonly role: "assistant";
 	readonly content: readonly (TextBlock | ToolCall)[];
-	/** `open-account` when an open account wrote the reply, so rules alone decide it; else `other`, which is judged. */
 	readonly writtenBy: "open-account" | "other";
 }
 

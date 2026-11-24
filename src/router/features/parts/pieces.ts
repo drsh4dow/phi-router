@@ -82,14 +82,6 @@ interface ContextReader {
 	readonly remember: (read: { readonly message: Message; readonly sealed: boolean }) => void;
 }
 
-/**
- * Remembers the items and tool calls read so far, a sealed one as its stub, and gives the next message its context. A
- * user message or tool result that starts right where the previous one of its role stopped mid-word, as an output cut
- * at a limit and fetched again does, gets that one's end as its seam, so an identifier cut in two is judged whole.
- *
- * @param {number} window How many preceding items a context holds at most.
- * @returns {ContextReader} The reader of one request's messages, in order.
- */
 const contextReader = (window: number): ContextReader => {
 	const calls = new Map<string, string>();
 	const items: string[] = [];
@@ -139,7 +131,6 @@ const contextReader = (window: number): ContextReader => {
 
 interface PieceAt {
 	readonly piece: Piece<typeof ContentKey.Type>;
-	/** In the request's own new content: the last assistant message and everything after it. */
 	readonly own: boolean;
 }
 

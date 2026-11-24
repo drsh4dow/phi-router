@@ -172,10 +172,6 @@ const unitsOf = Effect.fnUntraced(function* unitsOf(
 	}
 });
 
-/**
- * The stub-able parts of one message and their keys. Keys leave out `toolCallId` and `writtenBy`, so a retry, a resend
- * after compaction and a repeated file read share a key.
- */
 const partsOf = Effect.fnUntraced(function* partsOf(
 	message: Message,
 ): Effect.fn.Return<readonly Part[], never, Digest.Digest> {
