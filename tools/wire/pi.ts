@@ -16,14 +16,14 @@ const sessions = ["17171717-1717-4717-8717-171717171717", "27272727-2727-4727-87
 const [first, second] = sessions;
 
 /** A turn: a prompt with `-p`, or a line pi's RPC mode reads, such as the `compact` command. */
-type Asked = { readonly prompt: string } | RpcLine;
+type PiTurn = { readonly prompt: string } | RpcLine;
 
 /** How pi runs a turn: its arguments, the RPC line its stdin holds, empty for a prompt, and what ends the turn. */
 interface PiArgs extends RpcLine {
 	readonly args: readonly string[];
 }
 
-const runOf = (session: string, asked: Asked): PiArgs => {
+const runOf = (session: string, asked: PiTurn): PiArgs => {
 	const on = ["--model", "phi/auto", "--session-id", session];
 
 	if ("prompt" in asked) {
@@ -59,7 +59,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const install = yield* installedIn(where);
 	const answering = Effect.provideContext(answers(port), http);
 
-	const turn = Effect.fnUntraced(function* turn(asked: Asked, session: string) {
+	const turn = Effect.fnUntraced(function* turn(asked: PiTurn, session: string) {
 		const { args, stdinLine, turnEnd } = runOf(session, asked);
 
 		const played = yield* during(
