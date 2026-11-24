@@ -9,11 +9,6 @@ const printedTail = 400;
 
 const followUp = "Thanks. Now say the same in one short line.";
 
-/**
- * What `run`, one harness run, returns, with the end of what it printed, what it showed of `/phi` and the seal notice,
- * what the open and BAA mocks received while it ran, and how many pieces the judge mock received. `received` reads
- * what the three have received so far.
- */
 const during = Effect.fnUntraced(function* during<Ran extends { readonly printed: string }, Failure, Needs>(
 	received: () => Effect.Effect<Received>,
 	run: () => Effect.Effect<Ran, Failure, Needs>,
@@ -31,10 +26,6 @@ const during = Effect.fnUntraced(function* during<Ran extends { readonly printed
 	});
 });
 
-/**
- * A play's checks, and the credential rule as one more, read once the play is over. `breaches` reads each breach
- * in everything the open, BAA and judge mocks received.
- */
 const withCredentialRule = Effect.fnUntraced(function* withCredentialRule(
 	checks: readonly Check[],
 	breaches: () => Effect.Effect<readonly string[]>,
@@ -47,13 +38,6 @@ const withCredentialRule = Effect.fnUntraced(function* withCredentialRule(
 
 type Received = readonly [open: readonly Sent[], baa: readonly Sent[], judged: readonly unknown[]];
 
-/**
- * What the mocks received, with each Claude judge call on the BAA mock counted as the judge's, so the BAA mock's list
- * holds only model requests.
- *
- * @param {Received} received What the open, BAA and judge mocks received.
- * @returns {Received} The same, the judge calls moved.
- */
 const judgeCallsApart = ([open, baa, judged]: Received): Received => [
 	open,
 	pipe(
@@ -69,13 +53,6 @@ const judgeCallsApart = ([open, baa, judged]: Received): Received => [
 	],
 ];
 
-/**
- * The check that the Claude judge ran on the BAA account: the BAA mock received judge calls, each with its key, and
- * the Decisions mock received none.
- *
- * @param {Received} received What the open, BAA and judge mocks received.
- * @returns {Check} The check.
- */
 const claudeJudgeCheck = ([, baa, decided]: Received): Check => {
 	const calls = pipe(
 		baa,
