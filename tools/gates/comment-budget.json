@@ -24,9 +24,9 @@
 	"tools/plugin/agent-file.ts": 1,
 	"tools/plugin/build.ts": 1,
 	"tools/plugin/bundles.ts": 1,
-	"tools/plugin/hooked.ts": 7,
+	"tools/plugin/hooked.ts": 6,
 	"tools/plugin/phi-command.test.ts": 1,
 	"tools/plugin/prompt-hook.test.ts": 1,
 	"tools/plugin/seal-notice.test.ts": 1,
-	"tools/plugin/session-hook.ts": 7
+	"tools/plugin/session-hook.ts": 6
 }

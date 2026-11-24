@@ -57,17 +57,24 @@ const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Events }));
  */
 const instanceScript = 'sh -c "$HOOK" >"$1" 2>"$2"; echo $? >"$3.part"; mv "$3.part" "$3"; exec sleep 300';
 
-/** Where each harness finds the plugin's hook, and the names it gives the hook the plugin's folder and the address by. */
 const harnesses = {
-	claude: { address: "ANTHROPIC_BASE_URL", file: "hooks/hooks.json", root: "CLAUDE_PLUGIN_ROOT" },
-	codex: { address: "PHI_ROUTER_ADDRESS", file: "hooks/codex.json", root: "PLUGIN_ROOT" },
+	claude: {
+		hooksFile: "hooks/hooks.json",
+		modelAddressVariable: "ANTHROPIC_BASE_URL",
+		pluginFolderVariable: "CLAUDE_PLUGIN_ROOT",
+	},
+	codex: {
+		hooksFile: "hooks/codex.json",
+		modelAddressVariable: "PHI_ROUTER_ADDRESS",
+		pluginFolderVariable: "PLUGIN_ROOT",
+	},
 } as const;
 
 type Harness = keyof typeof harnesses;
 
 const hookOf = Effect.fnUntraced(function* hookOf(copy: string, harness: Harness, event: Event) {
 	const fs = yield* FileSystem.FileSystem;
-	const text = yield* fs.readFileString(`${copy}/${harnesses[harness].file}`);
+	const text = yield* fs.readFileString(`${copy}/${harnesses[harness].hooksFile}`);
 	const { hooks } = yield* Schema.decodeEffect(Hooks)(text);
 	const [{ hooks: matched }] = hooks[event];
 
@@ -183,7 +190,7 @@ const hooked = Effect.fnUntraced(function* hooked({
 	yield* Effect.addFinalizer(() => ran(["pkill", "-9", "-f", copy], {}).pipe(Effect.orDie));
 
 	const base = Struct.assign(Struct.assign(world, more), {
-		[harnesses[harness].root]: copy,
+		[harnesses[harness].pluginFolderVariable]: copy,
 		CLAUDE_CONFIG_DIR: config,
 		HOME: copy,
 		HOOK: hook.command,
@@ -198,7 +205,10 @@ const hooked = Effect.fnUntraced(function* hooked({
 
 	const env = pipe(
 		addressed(port),
-		Option.match({ onNone: () => base, onSome: (url) => Record.set(base, harnesses[harness].address, url) }),
+		Option.match({
+			onNone: () => base,
+			onSome: (url) => Record.set(base, harnesses[harness].modelAddressVariable, url),
+		}),
 	);
 
 	const instance = yield* underInstance(env, stdin);
@@ -206,6 +216,6 @@ const hooked = Effect.fnUntraced(function* hooked({
 	return Struct.assign(instance, { hook, port, state });
 });
 
-export { blockedBy, hookInputs, hooked, loopback, unset };
+export { blockedBy, harnesses, hookInputs, hooked, loopback, unset };
 
 export type { Blocking, Event, Harness, ModelAddress };

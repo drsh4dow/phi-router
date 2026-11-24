@@ -1,5 +1,7 @@
 import { Array, Config, Effect, FileSystem, Schema, String as Str, Stream, Struct } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import type { Harness } from "./session-hook.ts";
+import { harnesses } from "./session-hook.ts";
 import { mocked } from "#tools/route/mocked-router.ts";
 import { pluginCopy } from "./copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
@@ -16,14 +18,6 @@ const Matcher = Schema.Struct({ hooks: Schema.NonEmptyArray(HookCommand) });
 const Events = Schema.Struct({ Stop: Schema.Tuple([Matcher]), UserPromptSubmit: Schema.Tuple([Matcher]) });
 
 const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Events }));
-
-/** Where each harness finds the plugin's hooks, and the names it gives the plugin's folder and the model address. */
-const harnesses = {
-	claude: { address: "ANTHROPIC_BASE_URL", file: "hooks/hooks.json", root: "CLAUDE_PLUGIN_ROOT" },
-	codex: { address: "PHI_ROUTER_ADDRESS", file: "hooks/codex.json", root: "PLUGIN_ROOT" },
-} as const;
-
-type Harness = keyof typeof harnesses;
 
 /** One run of a hook: the harness whose hook file names it, its event, its stdin and the model address, empty for none. */
 interface HookRun {
@@ -58,7 +52,7 @@ const subcommands = { Stop: "turn-end", UserPromptSubmit: "prompt-submit" } as c
 
 const commandOf = Effect.fnUntraced(function* commandOf(world: World, run: HookRun) {
 	const fs = yield* FileSystem.FileSystem;
-	const text = yield* fs.readFileString(`${world.copy}/${harnesses[run.harness].file}`);
+	const text = yield* fs.readFileString(`${world.copy}/${harnesses[run.harness].hooksFile}`);
 	const { hooks } = yield* Schema.decodeEffect(Hooks)(text);
 	const [{ hooks: matched }] = hooks[run.event];
 	const ran = Str.includes(` ${subcommands[run.event]} `);
@@ -83,8 +77,8 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	const env = Struct.assign(world.folders, {
 		HOME: world.home,
 		PATH: searchPath,
-		[named.address]: run.address,
-		[named.root]: world.copy,
+		[named.modelAddressVariable]: run.address,
+		[named.pluginFolderVariable]: world.copy,
 	});
 
 	const options = { env, extendEnv: false, stdin: Stream.encodeText(Stream.make(run.input)) };
@@ -105,4 +99,6 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 
 export { canary, hook, session, setUp };
 
-export type { Harness, World };
+export type { World };
+
+export type { Harness } from "./session-hook.ts";
