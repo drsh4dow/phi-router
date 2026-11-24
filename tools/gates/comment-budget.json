@@ -9,7 +9,6 @@
 	"src/pi/features/uploads/index.ts": 16,
 	"src/pi/index.test.ts": 3,
 	"src/pi/index.ts": 18,
-	"src/router/client/router-port/proof.ts": 1,
 	"src/router/features/accounts/walk.ts": 6,
 	"src/router/features/anthropic-messages/captures.test.ts": 1,
 	"src/router/features/anthropic-messages/captures/auto-mode.ts": 1,

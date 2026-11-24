@@ -32,13 +32,6 @@ const zero = 0;
 
 const encoder = new TextEncoder();
 
-/**
- * The exclusive or of two bytes, as the sum of their bits' differences, since the lint bans bitwise operators.
- *
- * @param {number} first A byte.
- * @param {number} second A byte.
- * @returns {number} The byte.
- */
 const xor = (first: number, second: number): number =>
 	Array.reduce(
 		Array.makeBy(bitsPerByte, (bit) => binary ** bit),
