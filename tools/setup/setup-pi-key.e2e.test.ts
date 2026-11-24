@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Formatter, String as Str, Struct } from "effect";
 import type { Typed, TypedRan, World } from "./world.ts";
 import { assert, it } from "@effect/vitest";
-import { configOf, enter, keyFiles, layer, leaks, ok, patient, piAuthOf, setUp } from "./set-up.ts";
+import { configOf, enter, keyFiles, keysOutsideKeyFiles, layer, ok, patient, piAuthOf, setUp } from "./set-up.ts";
 import { keys, world } from "./world.ts";
 import type { PlatformError } from "effect";
 
@@ -50,10 +50,10 @@ const assertOnceBefore = (shown: string, first: string, second: string): void =>
 	assert.include(after, second, `${second} after ${first}`);
 };
 
-const assertNoLeak = Effect.fnUntraced(function* assertNoLeak(of: World, run: TypedRan) {
-	const leaked = yield* leaks(of, [run.shown]);
+const assertKeysInKeyFiles = Effect.fnUntraced(function* assertKeysInKeyFiles(of: World, run: TypedRan) {
+	const outside = yield* keysOutsideKeyFiles(of, [run.shown]);
 
-	assert.deepStrictEqual(leaked, [], "no key outside its key file");
+	assert.deepStrictEqual(outside, [], "no key outside its key file");
 });
 
 const assertTaken = Effect.fnUntraced(function* assertTaken(of: World, run: TypedRan) {
@@ -77,7 +77,7 @@ const takenOnYes = Effect.gen(function* takenOnYes() {
 	const run = yield* setUp(of, "claude", [answered("y"), enter]);
 
 	yield* assertTaken(of, run);
-	yield* assertNoLeak(of, run);
+	yield* assertKeysInKeyFiles(of, run);
 }).pipe(Effect.scoped);
 
 const pastedOnNo = Effect.gen(function* pastedOnNo() {
@@ -94,7 +94,7 @@ const pastedOnNo = Effect.gen(function* pastedOnNo() {
 	assert.include(run.shown, "pi started");
 	assert.property(config, "sealed");
 
-	yield* assertNoLeak(of, run);
+	yield* assertKeysInKeyFiles(of, run);
 }).pipe(Effect.scoped);
 
 const pastedOnEnter = Effect.gen(function* pastedOnEnter() {
@@ -107,7 +107,7 @@ const pastedOnEnter = Effect.gen(function* pastedOnEnter() {
 	assertOnceBefore(run.shown, offer, pasteQuestion);
 	assert.include(run.shown, subscriptionCopy);
 
-	yield* assertNoLeak(of, run);
+	yield* assertKeysInKeyFiles(of, run);
 }).pipe(Effect.scoped);
 
 const refusedThenPasted = Effect.gen(function* refusedThenPasted() {
@@ -124,7 +124,7 @@ const refusedThenPasted = Effect.gen(function* refusedThenPasted() {
 	assert.include(run.shown, subscriptionCopy);
 	assert.isFalse(saved, "no key saved");
 
-	yield* assertNoLeak(of, run);
+	yield* assertKeysInKeyFiles(of, run);
 }).pipe(Effect.scoped);
 
 interface Unoffered {

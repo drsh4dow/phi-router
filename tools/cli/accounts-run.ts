@@ -139,7 +139,7 @@ const phiRouter = Effect.fnUntraced(function* phiRouter(
 	return { exitCode: Number(exitCode), stderr, stdout };
 }, Effect.scoped);
 
-const leaks = Effect.fnUntraced(function* leaks(
+const credentialHolders = Effect.fnUntraced(function* credentialHolders(
 	roots: readonly string[],
 	printed: readonly string[],
 	credentials: readonly string[] = Record.values(tokens),
@@ -182,6 +182,6 @@ const leaks = Effect.fnUntraced(function* leaks(
 	);
 });
 
-export { ConfigFile, JsonText, claudeCredentials, leaks, phiRouter, prepared, tokens };
+export { ConfigFile, JsonText, claudeCredentials, credentialHolders, phiRouter, prepared, tokens };
 
 export type { Prepared };

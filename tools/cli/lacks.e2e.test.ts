@@ -1,5 +1,5 @@
 import { Array, Effect, FileSystem, Schema, Struct } from "effect";
-import { ConfigFile, leaks, phiRouter, prepared } from "./accounts-run.ts";
+import { ConfigFile, credentialHolders, phiRouter, prepared } from "./accounts-run.ts";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 
@@ -19,16 +19,16 @@ const listsLacks = Effect.gen(function* listsLacks() {
 	const listed = yield* phiRouter(run.env, ["accounts"]);
 	const after = yield* fileOf(run.configFile);
 
-	const leaked = yield* leaks(
+	const holders = yield* credentialHolders(
 		[run.env.XDG_CONFIG_HOME, run.env.XDG_STATE_HOME],
 		[added.stdout, added.stderr, listed.stdout, listed.stderr],
 	);
 
 	assert.deepStrictEqual<unknown>(
-		{ kept: Struct.omit(after, ["clean"]), leaked, listed },
+		{ holders, kept: Struct.omit(after, ["clean"]), listed },
 		{
+			holders: [],
 			kept: Struct.omit(before, ["clean"]),
-			leaked: [],
 			listed: {
 				exitCode: succeeded,
 				stderr: "",

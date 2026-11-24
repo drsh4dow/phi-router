@@ -27,19 +27,19 @@ const moved = Effect.fnUntraced(function* moved([event, path]: readonly [Blockin
 	});
 
 	const [, stderr] = hook.printed;
-	const leaked = pipe(hook.printed, Array.some(Str.includes(credential)));
+	const printedCredential = pipe(hook.printed, Array.some(Str.includes(credential)));
 	const received = yield* other.received;
 	const listening = yield* answers(hook.port);
 
 	assert.deepStrictEqual(
 		{
 			blocked: blockedBy({ event, harness: "claude", hook: hook.hook, printed: hook.printed }),
-			leaked,
 			listening,
 			named: movedOff("ANTHROPIC_BASE_URL")(stderr),
+			printedCredential,
 			received,
 		},
-		{ blocked: true, leaked: false, listening: false, named: true, received: [] },
+		{ blocked: true, listening: false, named: true, printedCredential: false, received: [] },
 		"Claude Code holds the prompt or compaction back, the developer reads which setting moved it without the login, and neither the other listener nor a router got a request",
 	);
 }, Effect.scoped);

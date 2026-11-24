@@ -147,8 +147,8 @@ const kept = Effect.gen(function* kept() {
 	const printed = `${on.printed}${off.printed}`;
 
 	assert.deepStrictEqual(
-		{ after, leaked: Str.includes("sk-user-secret-value")(printed), once, role, twice },
-		{ after: user, leaked: false, once: userOn, role: false, twice: userOn },
+		{ after, once, printedSecret: Str.includes("sk-user-secret-value")(printed), role, twice },
+		{ after: user, once: userOn, printedSecret: false, role: false, twice: userOn },
 	);
 }).pipe(Effect.scoped);
 

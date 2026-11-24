@@ -139,11 +139,7 @@ const holdsKey = (text: string): boolean =>
  */
 const piAuthOf = (of: World): string => `${of.folders.PI_CODING_AGENT_DIR}/auth.json`;
 
-/**
- * Every file under the world's root and what setup printed, none of which may hold a key outside its key file and the
- * `auth.json` a test gives pi.
- */
-const leaks = Effect.fnUntraced(function* leaks(of: World, printed: readonly string[]) {
+const keysOutsideKeyFiles = Effect.fnUntraced(function* keysOutsideKeyFiles(of: World, printed: readonly string[]) {
 	const files = yield* snapshot(of.root);
 
 	const outsideKeys = pipe(
@@ -174,7 +170,7 @@ export {
 	keyAnswer,
 	keyFiles,
 	layer,
-	leaks,
+	keysOutsideKeyFiles,
 	modeOf,
 	ok,
 	ownSettings,

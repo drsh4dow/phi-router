@@ -1,6 +1,18 @@
 import { Array, Effect, FileSystem, Formatter, Path, String as Str, pipe } from "effect";
 import type { TypedRan, World } from "./world.ts";
-import { argsOf, callsOf, configOf, enter, keyFiles, layer, leaks, ok, patient, setUp, version } from "./set-up.ts";
+import {
+	argsOf,
+	callsOf,
+	configOf,
+	enter,
+	keyFiles,
+	keysOutsideKeyFiles,
+	layer,
+	ok,
+	patient,
+	setUp,
+	version,
+} from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
 
@@ -50,9 +62,9 @@ const codexSetUp = Effect.gen(function* codexSetUp() {
 	assertCodexScreens(run);
 	yield* configuredCodex(of);
 
-	const leaked = yield* leaks(of, [run.shown]);
+	const outside = yield* keysOutsideKeyFiles(of, [run.shown]);
 
-	assert.deepStrictEqual(leaked, [], "no key outside its key file");
+	assert.deepStrictEqual(outside, [], "no key outside its key file");
 }).pipe(Effect.scoped);
 
 const keyed = Effect.fnUntraced(function* keyed(of: World) {

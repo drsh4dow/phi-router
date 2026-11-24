@@ -9,7 +9,7 @@ import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
-import { leaks } from "#tools/cli/accounts-run.ts";
+import { credentialHolders } from "#tools/cli/accounts-run.ts";
 
 const minute = 60_000;
 
@@ -68,7 +68,7 @@ const through = Effect.fnUntraced(function* through(vendor: Vendor, first: Lifet
 
 	const [opened = [], sealed = []] = yield* mocks.accounts;
 
-	const leaked = yield* leaks(
+	const leaked = yield* credentialHolders(
 		[env.XDG_CONFIG_HOME, env.XDG_STATE_HOME],
 		[],
 		[login.tokens.first, login.tokens.renewed],

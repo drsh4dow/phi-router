@@ -8,8 +8,8 @@ import {
 	enter,
 	keyAnswer,
 	keyFiles,
+	keysOutsideKeyFiles,
 	layer,
-	leaks,
 	modeOf,
 	ok,
 	owned,
@@ -145,9 +145,9 @@ const claudeSetUp = Effect.gen(function* claudeSetUp() {
 	yield* savedKeys(of);
 
 	const again = yield* rerunClaude(of);
-	const leaked = yield* leaks(of, [run.shown, again.shown]);
+	const outside = yield* keysOutsideKeyFiles(of, [run.shown, again.shown]);
 
-	assert.deepStrictEqual(leaked, [], "no key outside its key file");
+	assert.deepStrictEqual(outside, [], "no key outside its key file");
 }).pipe(Effect.scoped);
 
 const endOfInput = "\u0004";

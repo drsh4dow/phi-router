@@ -5,8 +5,8 @@ import { bodyOf, claudeRequest, mocked } from "./mocked-router.ts";
 import type { AccountScript } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
+import { credentialHolders } from "#tools/cli/accounts-run.ts";
 import { fakes } from "./harnesses.ts";
-import { leaks } from "#tools/cli/accounts-run.ts";
 import { routerProcess } from "./router-process.ts";
 
 const minute = 60_000;
@@ -101,7 +101,7 @@ const printsNoCredential = Effect.gen(function* printsNoCredential() {
 	const answered = yield* postedOnce(env);
 	const [opened = [], sealed = []] = yield* mocks.accounts;
 	const printed = yield* login.printed;
-	const leaked = yield* leaks(roots, [printed], credentials);
+	const leaked = yield* credentialHolders(roots, [printed], credentials);
 
 	assert.deepStrictEqual<unknown>(
 		{

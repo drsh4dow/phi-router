@@ -1,5 +1,5 @@
 import { Array, Config, Effect, FileSystem, Path, Schema, String as Str, Struct, pipe } from "effect";
-import { ConfigFile, claudeCredentials, leaks, phiRouter, prepared, tokens } from "./accounts-run.ts";
+import { ConfigFile, claudeCredentials, credentialHolders, phiRouter, prepared, tokens } from "./accounts-run.ts";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 import type { Prepared } from "./accounts-run.ts";
@@ -38,7 +38,7 @@ const addsOf = (run: Prepared): readonly (readonly string[])[] => [
 interface AddedAll {
 	readonly added: readonly string[];
 	readonly clean: readonly Readonly<Record<string, string>>[];
-	readonly leaked: readonly string[];
+	readonly holders: readonly string[];
 	readonly listed: string;
 	readonly note: string;
 	readonly sealed: readonly Readonly<Record<string, string>>[];
@@ -57,7 +57,7 @@ const addedAll = (run: Prepared): AddedAll => ({
 		{ loginFolder: run.folders.codex, name: "codex-2", vendor: "openai" },
 		{ keyCommand: run.commands.token, name: "claude-3", scheme: "oauth", vendor: "anthropic" },
 	],
-	leaked: [],
+	holders: [],
 	listed: Array.join(
 		[
 			"Clean lane",
@@ -84,7 +84,7 @@ const addsEach = Effect.gen(function* addsEach() {
 	const added = yield* Effect.forEach(addsOf(run), (args) => phiRouter(run.env, args), { concurrency: 1 });
 	const listed = yield* phiRouter(run.env, ["accounts"]);
 	const written = yield* Effect.flatMap(textOf(run.configFile), Schema.decodeEffect(ConfigFile));
-	const leaked = yield* leaks(rootsOf(run), printedBy([...added, listed]));
+	const holders = yield* credentialHolders(rootsOf(run), printedBy([...added, listed]));
 
 	assert.deepStrictEqual<unknown>(
 		{
@@ -93,7 +93,7 @@ const addsEach = Effect.gen(function* addsEach() {
 				Array.map(({ stdout }) => stdout),
 			),
 			clean: Array.drop(written.clean, startingAccounts),
-			leaked,
+			holders,
 			listed: listed.stdout,
 			note: written["note"],
 			sealed: Array.drop(written.sealed, startingAccounts),
@@ -153,9 +153,12 @@ const addsOnce = Effect.gen(function* addsOnce() {
 	const spellings = [`${run.folders.claude}/../claude/`, link, `${hop}/../claude`];
 	const again = yield* Effect.forEach(spellings, (folder) => sealedAdd(run, folder), { concurrency: 1 });
 	const after = yield* textOf(run.configFile);
-	const leaked = yield* leaks(rootsOf(run), printedBy([first, ...again]));
+	const holders = yield* credentialHolders(rootsOf(run), printedBy([first, ...again]));
 
-	assert.deepStrictEqual({ after, again, leaked }, { after: before, again: [already, already, already], leaked: [] });
+	assert.deepStrictEqual(
+		{ after, again, holders },
+		{ after: before, again: [already, already, already], holders: [] },
+	);
 });
 
 const namedThroughLink = Effect.gen(function* namedThroughLink() {
@@ -187,7 +190,7 @@ const refusedWith = Effect.fnUntraced(function* refusedWith(
 	const before = yield* textOf(run.configFile);
 	const refused = yield* phiRouter(run.env, args(run));
 	const after = yield* textOf(run.configFile);
-	const leaked = yield* leaks(rootsOf(run), printedBy([refused]));
+	const holders = yield* credentialHolders(rootsOf(run), printedBy([refused]));
 
 	const missing = pipe(
 		named(run),
@@ -195,8 +198,8 @@ const refusedWith = Effect.fnUntraced(function* refusedWith(
 	);
 
 	assert.deepStrictEqual(
-		{ after, failed: refused.exitCode !== succeeded, leaked, missing },
-		{ after: before, failed: true, leaked: [], missing: [] },
+		{ after, failed: refused.exitCode !== succeeded, holders, missing },
+		{ after: before, failed: true, holders: [], missing: [] },
 		refused.stderr,
 	);
 });
@@ -255,12 +258,12 @@ const listsTrouble = Effect.gen(function* listsTrouble() {
 	yield* fs.writeFileString(path.join(run.state, "accounts.json"), stamped);
 
 	const listed = yield* phiRouter(run.env, ["accounts"]);
-	const leaked = yield* leaks(rootsOf(run), printedBy([...added, listed]));
+	const holders = yield* credentialHolders(rootsOf(run), printedBy([...added, listed]));
 
 	assert.deepStrictEqual(
-		{ leaked, listed },
+		{ holders, listed },
 		{
-			leaked: [],
+			holders: [],
 			listed: {
 				exitCode: succeeded,
 				stderr: "",

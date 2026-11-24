@@ -29,7 +29,7 @@
 	"tools/plugin/prompt-hook.test.ts": 1,
 	"tools/plugin/seal-notice.test.ts": 1,
 	"tools/plugin/session-hook.ts": 7,
-	"tools/setup/set-up.ts": 14,
+	"tools/setup/set-up.ts": 13,
 	"tools/setup/setup-claude.test.ts": 1,
 	"tools/setup/setup-codex-pi.test.ts": 1,
 	"tools/setup/setup-pi-key.test.ts": 4,

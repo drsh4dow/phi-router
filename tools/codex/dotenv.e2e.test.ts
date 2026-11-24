@@ -29,8 +29,8 @@ const kept = Effect.gen(function* kept() {
 	const after = yield* bytes;
 
 	assert.deepStrictEqual(
-		{ after, leaked: Str.includes("sk-user-dotenv-secret")(`${on.printed}${off.printed}`), once, twice },
-		{ after: user, leaked: false, once: userOn, twice: userOn },
+		{ after, once, printedSecret: Str.includes("sk-user-dotenv-secret")(`${on.printed}${off.printed}`), twice },
+		{ after: user, once: userOn, printedSecret: false, twice: userOn },
 	);
 }).pipe(Effect.scoped);
 

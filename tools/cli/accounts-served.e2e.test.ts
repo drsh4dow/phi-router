@@ -12,7 +12,7 @@ import {
 	Struct,
 	pipe,
 } from "effect";
-import { ConfigFile, JsonText, leaks, phiRouter, prepared, tokens } from "./accounts-run.ts";
+import { ConfigFile, JsonText, credentialHolders, phiRouter, prepared, tokens } from "./accounts-run.ts";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "#tools/route/mocked-router.ts";
@@ -134,7 +134,7 @@ const servedAtOnce = Effect.fnUntraced(function* servedAtOnce(way: (typeof ways)
 
 	const afterStatus = yield* posted(router.url, sessionId);
 	const onSecond = yield* router.second.received;
-	const leaked = yield* leaks(router.roots, [added.stdout, added.stderr]);
+	const holders = yield* credentialHolders(router.roots, [added.stdout, added.stderr]);
 
 	assert.deepStrictEqual<unknown>(
 		{
@@ -142,7 +142,7 @@ const servedAtOnce = Effect.fnUntraced(function* servedAtOnce(way: (typeof ways)
 			afterStatus,
 			before,
 			beforeStatus,
-			leaked,
+			holders,
 			listed,
 			second: pipe(
 				onSecond,
@@ -157,7 +157,7 @@ const servedAtOnce = Effect.fnUntraced(function* servedAtOnce(way: (typeof ways)
 			afterStatus: 200,
 			before: ["open"],
 			beforeStatus: 200,
-			leaked: [],
+			holders: [],
 			listed: ["open", "claude-1"],
 			second: [way.sent],
 		},
