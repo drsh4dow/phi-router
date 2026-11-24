@@ -17,8 +17,7 @@ const sealWords = "held patient identifiers and ran only on the BAA account";
 interface Shown {
 	readonly pinOn: boolean;
 	readonly pinOff: boolean;
-	/** The accounts of both lanes and the message counts. */
-	readonly accounts: boolean;
+	readonly statusBlock: boolean;
 	readonly seal: boolean;
 	/** A pi status line that names the BAA account and a model as the last request's. */
 	readonly baaLine: boolean;
@@ -46,12 +45,12 @@ const shownIn = (printed: string): Shown => {
 	const has = (text: string): boolean => Str.includes(text)(printed);
 
 	return {
-		accounts: has("Clean lane: open") && has("Sealed lane: baa") && has(" sealed, ") && has("Last request: "),
 		baaLine: has("phi · baa, model "),
 		handled: has(`"disposition":"handled"`),
 		pinOff: has("Pin: off"),
 		pinOn: has("Pin: on"),
 		seal: has(sealWords),
+		statusBlock: has("Clean lane: open") && has("Sealed lane: baa") && has(" sealed, ") && has("Last request: "),
 	};
 };
 
@@ -96,10 +95,10 @@ const phiChecksOf = (played: { readonly turns: PhiTurns; readonly cleanText: str
 const shownChecksOf = (turns: PhiTurns): readonly Check[] => [
 	{
 		name: "/phi shows the pin off, the accounts of both lanes, the last request and the counts",
-		ok: turns.status.shown.pinOff && turns.status.shown.accounts,
+		ok: turns.status.shown.pinOff && turns.status.shown.statusBlock,
 	},
-	{ name: "/phi pin shows the pin on", ok: turns.pin.shown.pinOn && turns.pin.shown.accounts },
-	{ name: "/phi unpin shows the pin off", ok: turns.unpin.shown.pinOff && turns.unpin.shown.accounts },
+	{ name: "/phi pin shows the pin on", ok: turns.pin.shown.pinOn && turns.pin.shown.statusBlock },
+	{ name: "/phi unpin shows the pin off", ok: turns.unpin.shown.pinOff && turns.unpin.shown.statusBlock },
 ];
 
 const sealCheckOf = ([sealing, ...others]: readonly [PhiTurned, ...PhiTurned[]]): Check => ({
