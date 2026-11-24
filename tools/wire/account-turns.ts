@@ -51,12 +51,12 @@ const turnsOn = {
 		const where = yield* codexPlace;
 		const exec = ["exec", "--skip-git-repo-check", "--json"];
 
-		yield* fs.writeFileString(path.join(where.routed, "config.toml"), configOf(routed.url));
+		yield* fs.writeFileString(path.join(where.routedCodexHome, "config.toml"), configOf(routed.url));
 
 		const turn = Effect.fnUntraced(function* turn(args: readonly string[]) {
 			const ran = yield* codexRun({
 				args,
-				codexHome: where.routed,
+				codexHome: where.routedCodexHome,
 				folders: routed.folders,
 				place: where,
 				router: routed.url,

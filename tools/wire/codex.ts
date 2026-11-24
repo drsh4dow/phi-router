@@ -17,11 +17,11 @@ const plugin = decodeURIComponent(new URL("../../plugins/claude", import.meta.ur
 const place = Effect.gen(function* place() {
 	const fs = yield* FileSystem.FileSystem;
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-home-" });
-	const bundled = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-codex-bundled-" });
-	const routed = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-codex-" });
+	const bundledCodexHome = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-codex-bundled-" });
+	const routedCodexHome = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-codex-" });
 	const work = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-work-" });
 
-	return { bundled, home, routed, work };
+	return { bundledCodexHome, home, routedCodexHome, work };
 });
 
 type Place = Readonly<Effect.Success<typeof place>>;
@@ -114,11 +114,11 @@ const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 
-	yield* fs.writeFileString(path.join(where.bundled, "config.toml"), noUpdateCheck);
+	yield* fs.writeFileString(path.join(where.bundledCodexHome, "config.toml"), noUpdateCheck);
 
 	const bundled = yield* codexRun({
 		args: ["debug", "models"],
-		codexHome: where.bundled,
+		codexHome: where.bundledCodexHome,
 		folders: {},
 		place: where,
 		router: "",
@@ -137,8 +137,8 @@ const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 
 	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 
-	yield* fs.writeFileString(path.join(where.routed, "config.toml"), configOf(router.url));
-	yield* installed({ home: where.routed, plugin });
+	yield* fs.writeFileString(path.join(where.routedCodexHome, "config.toml"), configOf(router.url));
+	yield* installed({ home: where.routedCodexHome, plugin });
 
 	return {
 		breaches,
@@ -213,7 +213,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const turn = Effect.fnUntraced(function* turn(args: readonly string[]) {
 		const ran = yield* during(
 			() => received,
-			() => codexRun({ args, codexHome: where.routed, folders, place: where, router }),
+			() => codexRun({ args, codexHome: where.routedCodexHome, folders, place: where, router }),
 		);
 
 		return Struct.assign(ran, {
