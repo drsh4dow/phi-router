@@ -80,10 +80,6 @@ const rfcCase = Effect.fnUntraced(function* rfcCase(test: RfcCase) {
 	assert.strictEqual(mac, test.mac);
 });
 
-/**
- * `phi-router start` from a fresh bundle for a live pid against the listener on `port`, with the developer's secret in
- * place: what it printed, and the routers it launched that still run.
- */
 const startedAgainst = Effect.fnUntraced(function* startedAgainst(port: number) {
 	const entry = yield* bundled();
 	const { env, state } = yield* mocked({ holdsPhi: () => false });
@@ -123,7 +119,6 @@ const flooded = Effect.fnUntraced(function* flooded() {
 	assert.isTrue(Str.includes(refusal)(started.printed), "start reads a bounded answer and refuses the listener");
 }, Effect.scoped);
 
-/** How a test takes the developer's secret away from under their running router. */
 const losses = {
 	removed: (fs: FileSystem.FileSystem, file: string) => fs.remove(file),
 	unreadable: (fs: FileSystem.FileSystem, file: string) =>
@@ -176,7 +171,6 @@ const lost = Effect.fnUntraced(function* lost(loss: keyof typeof losses) {
 	);
 }, Effect.scoped);
 
-/** A second router of the developer, on another port, wrote a fresh secret while the first one runs. */
 const rewritten = Effect.fnUntraced(function* rewritten() {
 	const { here, secret } = yield* ownRouter();
 	const second = yield* instance();

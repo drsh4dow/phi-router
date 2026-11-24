@@ -7,7 +7,6 @@ import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import { casesOfRun } from "./cases.ts";
 import { plays } from "./plays.ts";
 
-/** `process.argv` holds the runtime and the script before the arguments. */
 const runtimeAndScript = 2;
 
 /** Turns count from 1 in the report. */

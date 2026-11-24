@@ -21,7 +21,6 @@ import { succeeded } from "./checks.ts";
 import { turnsOn } from "./account-turns.ts";
 import { voidedNumber } from "./cases.ts";
 
-/** `process.argv` holds the runtime and the script before the arguments. */
 const runtimeAndScript = 2;
 
 const Harness = Schema.Literals(["claude", "codex", "pi"]);
@@ -45,7 +44,6 @@ const routerEnv = Effect.fnUntraced(function* routerEnv() {
 	});
 });
 
-/** The text of every file under `folder`. */
 const textsUnder = Effect.fnUntraced(function* textsUnder(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

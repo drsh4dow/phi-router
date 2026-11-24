@@ -17,7 +17,6 @@ const done = { exitCode: 0, printed: "" };
 const none = 0;
 const oneRouter = 1;
 
-/** A Claude request straight at the port. Returns `TransportError` when no connection opens, else the status. */
 const claudeAt = Effect.fnUntraced(function* claudeAt(port: number) {
 	const client = yield* HttpClient.HttpClient;
 	const body = yield* bodyOf([{ role: "user", text: "list the build steps" }]);
@@ -32,7 +31,6 @@ const claudeAt = Effect.fnUntraced(function* claudeAt(port: number) {
 	);
 });
 
-/** A fresh world over a fresh bundle, and two stand-in instances. */
 const twoInstances = Effect.fnUntraced(function* twoInstances() {
 	const here = yield* bundled().pipe(Effect.flatMap(world));
 	const first = yield* instance();
@@ -41,7 +39,6 @@ const twoInstances = Effect.fnUntraced(function* twoInstances() {
 	return { first, here, second };
 });
 
-/** Starts for both instances, and what each left: its exit, the routers, the leases, and an answer after a check. */
 const startedTwice = Effect.fnUntraced(function* startedTwice() {
 	const { first, here, second } = yield* twoInstances();
 	const started = yield* here.start(first.pid);
@@ -58,7 +55,6 @@ const startedTwice = Effect.fnUntraced(function* startedTwice() {
 	return { afterCheck, first, here, joined, leases, router, routers, second, started };
 });
 
-/** Once the last instance ended: how long the port took to refuse, a Claude request and HOME's files. */
 const afterTheLastEnd = Effect.fnUntraced(function* afterTheLastEnd(port: number, home: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const gone = yield* TestClock.withLive(refusedWithin(port, tenSeconds));
@@ -113,7 +109,6 @@ const lifecycle = Effect.fnUntraced(function* lifecycle() {
 	assert.deepStrictEqual(after.installed, [], "nothing was installed under HOME, no systemd or launchd unit");
 }, Effect.scoped);
 
-/** SIGKILLs the router `killed` on the port and waits until the port refuses. Returns its pid and a request meanwhile. */
 const crashed = Effect.fnUntraced(function* crashed(port: number, killed: number) {
 	yield* ran(["kill", "-9", String(killed)], {});
 	yield* TestClock.withLive(refusedWithin(port, tenSeconds));
@@ -172,7 +167,6 @@ const ended = Effect.fnUntraced(function* ended() {
 	assert.include(refused.printed, "the process is not running");
 }, Effect.scoped);
 
-/** The environment of a world whose config folder holds a `phi-router` folder with `files` alone. */
 const configHolding = Effect.fnUntraced(function* configHolding(files: Readonly<Record<string, string>>) {
 	const fs = yield* FileSystem.FileSystem;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });

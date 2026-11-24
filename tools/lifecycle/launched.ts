@@ -33,7 +33,6 @@ const ran = Effect.fnUntraced(function* ran(
 	return { exitCode: Number(exitCode), printed };
 }, Effect.scoped);
 
-/** The router's entry, bundled once into its own temp folder, so it never races another test over `dist/`. */
 const bundled = Effect.fnUntraced(function* bundled() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -66,12 +65,6 @@ const badPorts: ReadonlySet<string> = new Set(
 const portBelow = (held: number): Option.Option<number> =>
 	Option.filter(Option.some(held - belowHeld), (port) => !badPorts.has(String(port)));
 
-/**
- * A loopback port nothing listens on and nothing else takes. A port from port 0 goes back to the kernel once released,
- * and the next listener that asks for port 0 can get it before the caller's router binds it. So the scope keeps that
- * port bound, and the caller gets the one 30000 below it, which the kernel never hands out and no other holder maps to.
- * When Fetch refuses that one, it holds another port and maps that instead.
- */
 const freePort = Effect.gen(function* freePort() {
 	const built = yield* Layer.build(NodeHttpServer.layerTest);
 	const { address } = Context.get(built, HttpServer.HttpServer);
@@ -98,14 +91,12 @@ const instance = Effect.fnUntraced(function* instance() {
  */
 const serving = (entry: string, port: number): string => `${entry} serve --port ${String(port)}$`;
 
-/** The pids of the router processes serving `port` from the bundle `entry`. */
 const routersOn = Effect.fnUntraced(function* routersOn(entry: string, port: number) {
 	const { printed } = yield* ran(["pgrep", "-f", serving(entry, port)], {});
 
 	return pipe(Str.split(Str.trim(printed), "\n"), Array.filter(Str.isNonEmpty), Array.map(Number));
 });
 
-/** Whether anything accepts a connection on the port. */
 const answers = Effect.fnUntraced(function* answers(port: number) {
 	const client = yield* HttpClient.HttpClient;
 
@@ -119,7 +110,6 @@ const StoredLease = Schema.Struct({ folder: Schema.String, pid: Schema.Finite, s
 
 const Stored = Schema.fromJsonString(Schema.Struct({ leases: Schema.Array(StoredLease) }));
 
-/** The leases the lease registry in the state folder `state` holds, in order, each with its pid, session and folder. */
 const leasesIn = Effect.fnUntraced(function* leasesIn(state: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -129,7 +119,6 @@ const leasesIn = Effect.fnUntraced(function* leasesIn(state: string) {
 	return stored.leases;
 });
 
-/** The pids the lease registry in the state folder `state` holds, in order. */
 const leasedPids = Effect.fnUntraced(function* leasedPids(state: string) {
 	const leases = yield* leasesIn(state);
 

@@ -179,15 +179,10 @@ const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => b
 	return { breaches, judging: received.pipe(Effect.map(claudeJudgeCheck)), roots, state, turn };
 });
 
-/**
- * The sessions `--session-id` names: the main one, and the one that hands work to the pinned subagent. Each run has a
- * fresh config folder and state folder, so fixed ids are enough.
- */
 const session = "17171717-1717-4717-8717-171717171717";
 
 const handingOff = "27272727-2727-4727-8727-272727272727";
 
-/** Claude Code prints the turn-end hook's notice only in its event stream, not in `-p` text. */
 const events = ["--output-format", "stream-json", "--verbose"];
 
 const started = ["--session-id", session, ...events];
@@ -196,10 +191,6 @@ const resumed = ["--resume", session];
 
 const resumedEvents = [...resumed, ...events];
 
-/**
- * Four `claude -p` turns of one session, then `/phi`, `/phi pin`, the clean case, `/phi unpin` and the clean case again,
- * and the checks of what the mocks and the state folder hold after them.
- */
 const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	const { breaches, judging, roots, state, turn } = yield* setUp(run.judgeSeals);
 

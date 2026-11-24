@@ -56,11 +56,6 @@ const gitAsks = Effect.fnUntraced(function* gitAsks(args: readonly string[], whe
 	);
 });
 
-/**
- * The tree under test, tracked and untracked files alike but none that `.gitignore` names save the built bundles, which
- * a release adds the same way, committed into a fresh repository under the folder `git daemon` serves, so `pi install`
- * installs what is on disk rather than `HEAD`.
- */
 const snapshot = Effect.fnUntraced(function* snapshot(where: Folders) {
 	const path = yield* Path.Path;
 	const repo = path.join(where.served, repository);

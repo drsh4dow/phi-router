@@ -235,10 +235,6 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 
 const readChart = `Read the file ${files.chart} and tell me what it says.`;
 
-/**
- * `codex debug models`, then four `codex exec` turns of one session, then `/phi`, `/phi pin`, the clean case, `/phi
- * unpin` and the clean case again, and the checks of what the mocks and the state folder hold after them.
- */
 const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const { breaches, handingOff, roots, served, state, turn } = yield* setUp(run);
 	const resumed = (prompt: string): ReturnType<typeof turn> => turn([...exec, "resume", "--last", prompt]);

@@ -23,7 +23,6 @@ interface PiTurned extends PhiTurned {
 	readonly routerUp: boolean;
 }
 
-/** What the pi checks read: the install, the router before and after the turns, the verdict stores, and five turns. */
 interface PiPlayed extends Left {
 	readonly installed: boolean;
 	readonly doctored: boolean;
@@ -58,15 +57,8 @@ const isStoredIn =
 	(session: string): boolean =>
 		Array.contains(stores, `${Base64Url.encode(session)}.json`);
 
-/** The turns of the first pi session: the clean case, the canary case, the follow-up and the compaction. */
 const firstSessionTurns = 4;
 
-/**
- * How many model requests the accounts received during `turns`.
- *
- * @param {readonly PiTurned[]} turns The turns.
- * @returns {number} The count.
- */
 const requestsIn = (turns: readonly PiTurned[]): number =>
 	pipe(
 		turns,
@@ -74,14 +66,6 @@ const requestsIn = (turns: readonly PiTurned[]): number =>
 		Array.length,
 	);
 
-/**
- * Whether the lane log names each pi session once per request an account received in its turns: the first four turns
- * for the first session, the compaction's included, and the last turn for the second. The router answers 400 to a
- * request without `x-phi-session`, so a request reaches an account only with the header.
- *
- * @param {PiPlayed} played What the run left.
- * @returns {boolean} Whether it holds.
- */
 const sessionsHeld = (played: PiPlayed): boolean => {
 	const [first = "", second = ""] = played.sessions;
 	const named = (session: string): number => Array.countBy(played.stored.lines, (line) => line.session === session);
@@ -92,13 +76,6 @@ const sessionsHeld = (played: PiPlayed): boolean => {
 	);
 };
 
-/**
- * The checks of what reached each mock: the clean case on the open mock with pi's login, the canary case on the BAA
- * mock alone, the stub in the follow-up, and the session header on every request, the compaction's included.
- *
- * @param {PiPlayed} played What the run left.
- * @returns {readonly Check[]} The checks.
- */
 const wireChecksOf = (played: PiPlayed): readonly Check[] => {
 	const [clean, canary, followUp, compaction] = played.turns;
 
@@ -134,12 +111,6 @@ const wireChecksOf = (played: PiPlayed): readonly Check[] => {
 	];
 };
 
-/**
- * What the wire run checks of the pi route, each as one check.
- *
- * @param {PiPlayed} played What the run left.
- * @returns {readonly Check[]} The checks.
- */
 const piChecksOf = (played: PiPlayed): readonly Check[] => [
 	{
 		name: "pi install with the repository's git address adds the package to a fresh agent folder",
@@ -214,13 +185,6 @@ const isPost = ({ method }: Sent): boolean => method === "POST";
 
 const unjudged = 0;
 
-/**
- * The checks of the turn after `/model phi/sealed`: it reaches the BAA mock alone under the sealed model with no judge
- * call, and carries only pi's own tools, since the package ships no subagent tool.
- *
- * @param {PhiTurned} chosen The turn.
- * @returns {readonly Check[]} The checks.
- */
 const sealedModelChecksOf = (chosen: PhiTurned): readonly Check[] => {
 	const sealed = pipe(chosen.baa, Array.filter(isPost));
 
@@ -243,11 +207,6 @@ const sealedModelChecksOf = (chosen: PhiTurned): readonly Check[] => {
 	];
 };
 
-/**
- * The `/phi` turns of the pi play, typed in RPC mode, so pi shows what the extension notifies, with each clean prompt a
- * `pi -p` turn; then the PHI case typed in RPC mode, the turn that seals. `turn` runs one turn of the play's second
- * session. Returns these turns in order, and the checks of what they left.
- */
 const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, Failure, Needs>(
 	turn: (asked: { readonly prompt: string } | RpcLine) => Effect.Effect<Turn, Failure, Needs>,
 	run: Run,

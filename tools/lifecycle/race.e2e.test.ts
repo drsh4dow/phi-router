@@ -16,10 +16,6 @@ const settleLimit = "5 seconds";
 const sortedPids = (pids: readonly number[]): string =>
 	pipe(pids, Array.sortBy(Order.Number), Array.map(String), Array.join(","));
 
-/**
- * Two starts for two live instances, at once, against a port where no router runs. Returns their exits, the leases on
- * disk, and the router processes left once a launch that lost the bind has exited.
- */
 const raced = Effect.fnUntraced(function* raced(entry: string) {
 	const here = yield* world(entry);
 	const first = yield* instance();

@@ -7,7 +7,6 @@ import { pinnedLine } from "#router/features/lanes/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 import { voidedNumber } from "./cases.ts";
 
-/** The `/phi` prompts a play types. */
 const typed = { pin: "/phi pin", status: "/phi", unpin: "/phi unpin" } as const;
 
 /** The words of the seal notice that name what happened, the same in every harness. */
@@ -42,12 +41,6 @@ interface PhiTurns<Turn extends PhiTurned = PhiTurned> {
 	readonly inOrder: readonly Turn[];
 }
 
-/**
- * What `printed`, everything a harness run printed, shows of the `/phi` answer and the seal notice.
- *
- * @param {string} printed What it printed.
- * @returns {Shown} What it shows.
- */
 const shownIn = (printed: string): Shown => {
 	const has = (text: string): boolean => Str.includes(text)(printed);
 
@@ -79,14 +72,6 @@ const holdsClean =
 			),
 		);
 
-/**
- * The `/phi` checks that read the mocks: no `/phi` command sends a model request
- * or a judge call, a clean prompt after `/phi pin` reaches the BAA mock alone with no judge call, and the next clean
- * prompt after `/phi unpin` reaches the open mock.
- *
- * @param {object} played The `/phi` turns and the clean prompt.
- * @returns {readonly Check[]} The checks.
- */
 const phiChecksOf = (played: { readonly turns: PhiTurns; readonly cleanText: string }): readonly Check[] => {
 	const { cleanText, turns } = played;
 	const clean = holdsClean(cleanText);
@@ -107,12 +92,6 @@ const phiChecksOf = (played: { readonly turns: PhiTurns; readonly cleanText: str
 	];
 };
 
-/**
- * The `/phi` checks for a harness that shows the `/phi` answer in what it prints.
- *
- * @param {PhiTurns} turns The `/phi` turns.
- * @returns {readonly Check[]} The checks.
- */
 const shownChecksOf = (turns: PhiTurns): readonly Check[] => [
 	{
 		name: "/phi shows the pin off, the accounts of both lanes, the last request and the counts",
@@ -122,12 +101,6 @@ const shownChecksOf = (turns: PhiTurns): readonly Check[] => [
 	{ name: "/phi unpin shows the pin off", ok: turns.unpin.shown.pinOff && turns.unpin.shown.accounts },
 ];
 
-/**
- * The seal notice check for a harness that shows the seal notice in what it prints.
- *
- * @param {readonly PhiTurned[]} turns Every turn of the play, the one that seals first.
- * @returns {Check} The check.
- */
 const sealCheckOf = ([sealing, ...others]: readonly [PhiTurned, ...PhiTurned[]]): Check => ({
 	name: "the turn that seals shows the seal notice, and no other turn does",
 	ok:
@@ -138,15 +111,12 @@ const sealCheckOf = ([sealing, ...others]: readonly [PhiTurned, ...PhiTurned[]])
 		),
 });
 
-/** How a play runs one turn of its session: a `/phi` command, or a prompt. */
 interface PhiRun<Turn extends PhiTurned, Failure, Needs> {
 	readonly command: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
 	readonly prompt: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
-	/** The clean prompt. */
 	readonly clean: string;
 }
 
-/** Runs the five `/phi` turns of a play in order: `/phi`, `/phi pin`, the clean prompt, `/phi unpin`, the clean prompt. */
 const phiTurns = Effect.fnUntraced(function* phiTurns<Turn extends PhiTurned, Failure, Needs>(
 	play: PhiRun<Turn, Failure, Needs>,
 ) {
@@ -178,21 +148,8 @@ const subagent = {
 	prompt: "Find the member's internal id.",
 } as const;
 
-/**
- * Whether a request is the pinned subagent's: its instructions, which open with the pinned line, are in its body.
- *
- * @param {object} sent The request.
- * @param {string} sent.body Its body.
- * @returns {boolean} Whether it is.
- */
 const isSubagent = (sent: { readonly body: string }): boolean => Str.includes(pinnedLine)(sent.body);
 
-/**
- * Whether a request names `model`.
- *
- * @param {string} model The model.
- * @returns {Function} The test of one request.
- */
 const naming =
 	(model: string): ((sent: Sent) => boolean) =>
 	(sent) =>
@@ -212,20 +169,12 @@ const allOf = (sent: readonly Sent[], predicate: (one: Sent) => boolean): boolea
 
 const vendorOf = { claude: "anthropic", codex: "openai" } as const;
 
-/** The harness, and the two turns of a session that hands work to the pinned subagent. */
 interface HandedOff {
 	readonly harness: "claude" | "codex";
 	readonly handedOff: Turned;
 	readonly after: Turned;
 }
 
-/**
- * What the wire run checks of the pinned subagent: the open mock's answer to the hand-off starts the pinned subagent,
- * which runs on the BAA mock, and the turn after it carries the stub in place of the subagent's answer.
- *
- * @param {HandedOff} played The harness, which names its stub, the hand-off and the turn after it.
- * @returns {readonly Check[]} The checks.
- */
 const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Check[] => {
 	const started = pipe(handedOff.baa, Array.filter(isSubagent));
 

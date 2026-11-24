@@ -13,7 +13,6 @@ interface Stored {
 	readonly notPrivate: readonly string[];
 }
 
-/** The 40-character windows a text is cut into, end to end, so a stored copy of any of it is found. */
 const windowWidth = 40;
 
 const windowsOf = (text: string): readonly string[] =>

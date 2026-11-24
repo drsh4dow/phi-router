@@ -12,10 +12,6 @@ const succeeded = 0;
 
 type Script = Option.Option<string>;
 
-/**
- * Each stand-in `ps`, by what it does, as a script that may run the real `ps` at `realPs`. The missing one puts no `ps`
- * on the router's PATH at all.
- */
 const standIns = {
 	"answers after 3 s": (realPs: string): Script => Option.some(`#!/bin/sh\nsleep 3\nexec ${realPs} "$@"\n`),
 	"exits 0 with a malformed own row": (): Script => Option.some('#!/bin/sh\necho "$$ S not-a-date"\necho garbage\n'),
@@ -42,17 +38,12 @@ type Broken = keyof typeof standIns;
 
 const runnable = 0o755;
 
-/** Where `command -v` finds `name` on this machine. */
 const found = Effect.fnUntraced(function* found(name: string) {
 	const { printed } = yield* ran(["sh", "-c", `command -v ${name}`], {});
 
 	return Str.trim(printed);
 });
 
-/**
- * A folder that is the router's whole PATH: `node`, `sleep`, and a `ps` that is the real one until `breaks` puts the
- * stand-in for `broken` in its place, and again once `heals` runs.
- */
 const pathWithPs = Effect.fnUntraced(function* pathWithPs(broken: Broken) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -77,7 +68,6 @@ const pathWithPs = Effect.fnUntraced(function* pathWithPs(broken: Broken) {
 	return { breaks, folder, heals };
 });
 
-/** Whether the router answers and which pids it leases, once a check has run. */
 const afterACheck = Effect.fnUntraced(function* afterACheck(port: number, state: string) {
 	yield* TestClock.withLive(Effect.sleep(leaseIntervalAndAHalf));
 
@@ -87,7 +77,6 @@ const afterACheck = Effect.fnUntraced(function* afterACheck(port: number, state:
 	return { leases, up };
 });
 
-/** While `ps` is broken, past a check: whether the router answers and keeps the lease. Then how long it took to go. */
 const keptWhileUnread = Effect.fnUntraced(function* keptWhileUnread(entry: string, broken: Broken) {
 	const ps = yield* pathWithPs(broken);
 	const here = yield* world(entry, { PATH: ps.folder });

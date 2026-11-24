@@ -5,10 +5,8 @@ import { fakes } from "#tools/route/fake-credentials.ts";
 import { isClaudeJudgeCall } from "#router/client/mock-upstreams/index.ts";
 import { shownIn } from "./phi-checks.ts";
 
-/** How much of what a harness printed the report keeps. */
 const printedTail = 400;
 
-/** The third turn's prompt, the same for every harness. */
 const followUp = "Thanks. Now say the same in one short line.";
 
 /**

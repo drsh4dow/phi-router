@@ -22,7 +22,6 @@ interface Turned {
 interface Left {
 	readonly turns: readonly Turned[];
 	readonly stored: Stored;
-	/** The sessions the harness kept. */
 	readonly sessions: readonly string[];
 	readonly cleanText: string;
 	readonly phiCase: string;
@@ -31,7 +30,6 @@ interface Left {
 	readonly content: readonly string[];
 }
 
-/** What the Claude Code checks read: the four turns in order, then the `/phi` turns. */
 interface Played extends Left {
 	readonly turns: readonly [clean: Turned, canary: Turned, followUp: Turned, tool: Turned, ...phi: Turned[]];
 }
@@ -51,7 +49,6 @@ interface Listing {
 	readonly remote: string;
 }
 
-/** What the Codex checks read: `codex debug models`, then the four turns, in order. */
 interface CodexPlayed extends Left, Listing {
 	readonly turns: readonly [
 		models: CodexTurned,
@@ -74,7 +71,6 @@ interface Subject {
 	readonly text: string;
 }
 
-/** The corpus cases of a run, the tokens tracked in its PHI case, and whether the judge mock seals a piece. */
 interface Run {
 	readonly clean: Subject;
 	readonly phi: Subject;
@@ -82,7 +78,6 @@ interface Run {
 	readonly judgeSeals: (piece: string) => boolean;
 }
 
-/** What a play hands back: its checks, what the state folder holds, and each run of the harness. */
 interface Outcome {
 	readonly checks: readonly Check[];
 	readonly stored: Left["stored"];
@@ -135,12 +130,6 @@ const someHold = (tokens: readonly string[], sent: readonly Sent[]): boolean =>
 const everyOf = <Item>(items: readonly Item[], predicate: (item: Item) => boolean): boolean =>
 	Array.isReadonlyArrayNonEmpty(items) && pipe(items, Array.every(predicate));
 
-/**
- * What every play's checks read, from the run, the prompts its turns sent, the session they kept and its runs.
- *
- * @param {object} left The run, its prompts, its session, what the state folder holds, and its runs.
- * @returns {Left} What the checks read.
- */
 const leftOf = <Turns extends readonly Turned[]>(left: {
 	readonly run: Run;
 	readonly prompts: readonly string[];
@@ -162,13 +151,6 @@ const leftOf = <Turns extends readonly Turned[]>(left: {
 	turns: left.turns,
 });
 
-/**
- * The checks every play makes: each run exits 0, no open body holds a complete canary, no stored file holds corpus
- * text, and every lane log line names one of the run's sessions.
- *
- * @param {string} harness The harness binary's name.
- * @returns {Function} The checks of what a run of it left.
- */
 const commonChecksOf =
 	(harness: string) =>
 	(played: Left): readonly Check[] => [
@@ -192,12 +174,6 @@ const commonChecksOf =
 		},
 	];
 
-/**
- * What the wire run checks of the Claude Code route, each as one check.
- *
- * @param {Played} played What the run left.
- * @returns {readonly Check[]} The checks.
- */
 const checksOf = (played: Played): readonly Check[] => {
 	const [clean, canary, followUp, tool] = played.turns;
 	const cleanWindows = windowsOf(played.cleanText);
@@ -231,12 +207,6 @@ const checksOf = (played: Played): readonly Check[] => {
 	];
 };
 
-/**
- * What the wire run checks of the Codex route, each as one check.
- *
- * @param {CodexPlayed} played What the run left.
- * @returns {readonly Check[]} The checks.
- */
 const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 	const [models, clean, canary, followUp, tool] = played.turns;
 	const isListed = (slug: string): boolean => pipe(played.listed, Array.contains(slug));

@@ -23,7 +23,6 @@ import { TestClock } from "effect/testing";
 /** A shell that forks `sleep 0.1`, prints its pid and becomes `sleep 30` without reaping it: a zombie within 0.1 s. */
 const zombieMaker = ChildProcess.make("sh", ["-c", "sleep 0.1 & echo $!; exec sleep 30"]);
 
-/** The pid of a process that ran `true` and has ended. */
 const endedPid = Effect.fnUntraced(function* endedPid() {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const done = yield* spawner.spawn(ChildProcess.make("true"));
@@ -33,7 +32,6 @@ const endedPid = Effect.fnUntraced(function* endedPid() {
 	return Number(done.pid);
 });
 
-/** The pid of a running shell and of the zombie child it holds, once that child has ended. */
 const zombieAndParent = Effect.fnUntraced(function* zombieAndParent() {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const shell = yield* spawner.spawn(zombieMaker);

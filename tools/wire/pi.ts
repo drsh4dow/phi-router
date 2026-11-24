@@ -11,7 +11,6 @@ import { leftOf } from "./checks.ts";
 import { piWire } from "#router/features/route/index.ts";
 import { storedIn } from "./stored.ts";
 
-/** The two sessions of the run. Each run has a fresh agent folder and state folder, so fixed ids are enough. */
 const sessions = ["17171717-1717-4717-8717-171717171717", "27272727-2727-4727-8727-272727272727"] as const;
 
 const [first, second] = sessions;
@@ -24,13 +23,6 @@ interface PiArgs extends RpcLine {
 	readonly args: readonly string[];
 }
 
-/**
- * The arguments of a turn of `session`, and the line its stdin holds.
- *
- * @param {string} session The pi session.
- * @param {Asked} asked The turn.
- * @returns {PiArgs} How pi runs it.
- */
 const runOf = (session: string, asked: Asked): PiArgs => {
 	const on = ["--model", "phi/auto", "--session-id", session];
 
@@ -43,7 +35,6 @@ const runOf = (session: string, asked: Asked): PiArgs => {
 
 const compact = { rpc: `{"type":"compact"}\n`, until: rpcAnswered };
 
-/** The names of the verdict stores in the state folder `state`. */
 const storesIn = Effect.fnUntraced(function* storesIn(state: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -54,12 +45,6 @@ const storesIn = Effect.fnUntraced(function* storesIn(state: string) {
 /** How long the router may outlive the last pi, by ADR 0005, with a second for the poll. */
 const outlives = 11_000;
 
-/**
- * The three mocks, a free port for the router with none on it, and pi installed from this checkout's git address in a
- * fresh agent folder. Returns what the checks read of the install and `turn`, which plays one `pi -p` turn on
- * `phi/auto` and returns what each mock received during it, and the pids leased and whether the router answers on the
- * port after it.
- */
 const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const where = yield* place;
 
@@ -99,12 +84,6 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	};
 });
 
-/**
- * `pi install` with this checkout's git address in a fresh agent folder, then five `pi -p` turns on `phi/auto` with no
- * router running before the first: the clean case, the canary case, the follow-up and `/compact` in one session, then
- * the clean case in a second session, its `/phi` turns, and the canary case typed in RPC mode. Returns the checks of
- * what the mocks, the state folder and pi's output hold.
- */
 const piPlay = Effect.fnUntraced(function* piPlay(run: Run) {
 	const { answering, breaches, install, roots, state, stopped, turn } = yield* setUp(run);
 	const routerBefore = yield* answering;

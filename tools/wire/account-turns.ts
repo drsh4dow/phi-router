@@ -11,7 +11,6 @@ const clean = "Reply with the single word ok.";
 
 const canary = `Reply with the single word ok. The member's SSN is ${voidedNumber}.`;
 
-/** The session of the Claude Code and pi turns. Each run has a fresh config folder and state folder, so one id is enough. */
 const session = "29292929-2929-4929-8929-292929292929";
 
 /** The router of a run: its URL, and the XDG folders it reads, which each harness's check of the router gets too. */
