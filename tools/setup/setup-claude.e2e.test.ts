@@ -4,19 +4,19 @@ import {
 	argsOf,
 	callsOf,
 	claudeAnswers,
-	configOf,
 	enter,
+	filesSetupMayChange,
 	keyAnswer,
 	keyFiles,
 	keysOutsideKeyFiles,
 	layer,
-	modeOf,
 	ok,
-	owned,
 	patient,
+	permissionBitsOf,
 	setUp,
-	settled,
 	version,
+	writeOwnSettings,
+	writtenConfigOf,
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
@@ -50,13 +50,12 @@ const privateFolder = 0o700;
 
 const installedOnce = 1;
 
-/** What a screen splits into around one `Key: ` question: the text before it and the text after. */
-const oneQuestion = 2;
+const partsAroundOneQuestion = 2;
 
 const assertClaudeScreens = (run: TypedRan): void => {
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assert.include(run.shown, step3, "the spec's step 3 screen");
-	assert.strictEqual(Str.split("Key: ")(run.shown).length, oneQuestion, "one key question");
+	assert.strictEqual(Str.split("Key: ")(run.shown).length, partsAroundOneQuestion, "one key question");
 	assert.notInclude(run.shown, "OpenAI", "no question for an OpenAI key");
 	assert.include(run.shown, step4, "the spec's step 4 screen");
 	assert.include(run.shown, "claude started");
@@ -71,7 +70,7 @@ const claudeConfig = (of: World): ConfigFile => ({
 });
 
 const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World) {
-	const config = yield* configOf(of);
+	const config = yield* writtenConfigOf(of);
 
 	assert.deepStrictEqual(config, claudeConfig(of), "no judge block: the judge runs on the BAA key");
 
@@ -100,7 +99,7 @@ const savedKeys = Effect.fnUntraced(function* savedKeys(of: World) {
 
 	const keyFolder = path.dirname(anthropic);
 	const checked = [anthropic, keyFolder, path.dirname(keyFolder)];
-	const modes = yield* Effect.forEach(checked, modeOf, { concurrency: 1 });
+	const modes = yield* Effect.forEach(checked, permissionBitsOf, { concurrency: 1 });
 
 	assert.deepStrictEqual(modes, [privateFile, privateFolder, privateFolder]);
 });
@@ -114,9 +113,9 @@ const judged = Effect.fnUntraced(function* judged(of: World) {
 });
 
 const rerunClaude = Effect.fnUntraced(function* rerunClaude(of: World) {
-	const before = yield* Effect.andThen(judged(of), owned(of));
+	const before = yield* Effect.andThen(judged(of), filesSetupMayChange(of));
 	const again = yield* setUp(of, "claude", [enter]);
-	const after = yield* owned(of);
+	const after = yield* filesSetupMayChange(of);
 
 	assert.strictEqual(again.exitCode, ok, again.shown);
 	assert.notInclude(again.shown, "Key:", "a rerun with a saved key that still works asks nothing");
@@ -133,7 +132,7 @@ const rerunClaude = Effect.fnUntraced(function* rerunClaude(of: World) {
 const claudeSetUp = Effect.gen(function* claudeSetUp() {
 	const of = yield* world;
 
-	yield* settled(of);
+	yield* writeOwnSettings(of);
 
 	const run = yield* setUp(of, "claude", claudeAnswers);
 	const checked = yield* of.checkedKeys();
@@ -157,7 +156,7 @@ const lastQuestion = "Press Enter to start Claude Code with phi-router.";
 const echoedThenEnded = Effect.gen(function* echoedThenEnded() {
 	const of = yield* world;
 
-	yield* settled(of);
+	yield* writeOwnSettings(of);
 
 	const run = yield* setUp(of, "claude", [keyAnswer, { after: lastQuestion, typed: "go" }]);
 

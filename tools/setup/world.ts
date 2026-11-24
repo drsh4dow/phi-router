@@ -19,7 +19,6 @@ import { NodeHttpServer } from "@effect/platform-node";
 import { enabled } from "#tools/codex/configured.ts";
 import { ran } from "#tools/lifecycle/launched.ts";
 
-/** The keys a test pastes. The key mock accepts the first two and refuses the rest. */
 const keys = {
 	anthropic: "sk-ant-api03-phi-test-baa-key",
 	openai: "sk-proj-phi-test-openai-key",
@@ -31,10 +30,6 @@ const accepted: ReadonlySet<string> = new Set([keys.anthropic, keys.openai]);
 
 const statuses = { notFound: 404, ok: 200, unauthorized: 401 } as const;
 
-/**
- * A vendor's `GET /v1/models`, which records the key in either vendor's header, answers 200 to an accepted key and 401
- * to the rest, and 404 to any other request.
- */
 const keyMock = Effect.gen(function* keyMock() {
 	const server = yield* Layer.build(NodeHttpServer.layerTest);
 	const checked = yield* Ref.make<readonly string[]>([]);
@@ -79,14 +74,13 @@ const piCli = decodeURIComponent(
 	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
 );
 
-/** The copies of `plugins/claude` and the pi package that the fake installers install. */
 interface Copies {
-	readonly pkg: string;
-	readonly plugin: string;
+	readonly claudePlugin: string;
+	readonly piPackage: string;
 }
 
 const fakes = (copies: Copies): Readonly<Record<string, string>> => {
-	const installedPlugins = `{"version":2,"plugins":{"phi-router@phi-router":[{"installPath":"${copies.plugin}","scope":"user"}]}}`;
+	const installedPlugins = `{"version":2,"plugins":{"phi-router@phi-router":[{"installPath":"${copies.claudePlugin}","scope":"user"}]}}`;
 	const cache = '"$CODEX_HOME/plugins/cache/phi-router/phi-router"';
 	const hang = '[ -e "$here/hang" ] && { : > "$here/canary-ran"; exec sleep 30; }; [ -e "$here/fail" ] && exit 1';
 
@@ -102,7 +96,7 @@ ${hang}
 exec "$here/bun" '${claudeStandIn}' "$@"`,
 		codex: `case "$*" in
 "plugin marketplace "*) printf '\n[marketplaces.phi-router]\nsource_type = "local"\nsource = "%s"\n' "$4" >> "$CODEX_HOME/config.toml"; exit 0;;
-"plugin add "*) mkdir -p ${cache}; cp -R '${copies.plugin}' ${cache}/0.1.0; printf '%s' '${enabled}' >> "$CODEX_HOME/config.toml"; exit 0;;
+"plugin add "*) mkdir -p ${cache}; cp -R '${copies.claudePlugin}' ${cache}/0.1.0; printf '%s' '${enabled}' >> "$CODEX_HOME/config.toml"; exit 0;;
 "") echo "codex started"; exit 0;;
 esac
 ${hang}
@@ -111,13 +105,12 @@ exec "$here/bun" '${codexStandIn}' "$@"`,
 		pi: `case "$*" in
 "--model phi/auto") echo "pi started"; exit 0;;
 "-p "*) ${hang};;
-"install npm:"*) exec "$here/bun" '${piCli}' install '${copies.pkg}';;
+"install npm:"*) exec "$here/bun" '${piCli}' install '${copies.piPackage}';;
 esac
 exec "$here/bun" '${piCli}' "$@"`,
 	};
 };
 
-/** A fresh `bin` folder with the fake harnesses and a link to `bun`. */
 const fakeBin = Effect.fnUntraced(function* fakeBin(copies: Copies) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -140,7 +133,6 @@ const fakeBin = Effect.fnUntraced(function* fakeBin(copies: Copies) {
 	return bin;
 });
 
-/** A fresh root folder with the home and each harness's folder made in it, and the XDG folders named under it. */
 const rootFolders = Effect.gen(function* rootFolders() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -161,35 +153,30 @@ const rootFolders = Effect.gen(function* rootFolders() {
 	return { folders, root, xdg };
 });
 
-/**
- * One test's world: a root folder that holds the home, each harness's folder and the XDG folders, a `bin` beside it
- * with the fake harnesses and `bun`, the key mock, the environment that names them all, and the copies the fake
- * installers install.
- */
 interface World {
-	readonly bin: string;
 	readonly checkedKeys: () => Effect.Effect<readonly string[]>;
 	readonly copies: Copies;
 	readonly env: Readonly<Record<string, string>>;
+	readonly fakeHarnessFolder: string;
 	readonly folders: Readonly<Record<"CLAUDE_CONFIG_DIR" | "CODEX_HOME" | "HOME" | "PI_CODING_AGENT_DIR", string>>;
 	readonly root: string;
 	readonly xdg: Readonly<Record<"XDG_CACHE_HOME" | "XDG_CONFIG_HOME" | "XDG_DATA_HOME" | "XDG_STATE_HOME", string>>;
 }
 
 const world = Effect.gen(function* world() {
-	const copies = { pkg: yield* packageCopy, plugin: yield* pluginCopy };
-	const bin = yield* fakeBin(copies);
+	const copies = { claudePlugin: yield* pluginCopy, piPackage: yield* packageCopy };
+	const fakeHarnessFolder = yield* fakeBin(copies);
 	const { folders, root, xdg } = yield* rootFolders;
 	const { checkedKeys, endpoint } = yield* keyMock;
 
 	const env = Struct.assign(Struct.assign(folders, xdg), {
 		NO_PROXY: "",
-		PATH: `${bin}:/usr/bin:/bin`,
+		PATH: `${fakeHarnessFolder}:/usr/bin:/bin`,
 		PHI_ROUTER_KEY_CHECK_ENDPOINT: endpoint,
 		no_proxy: "",
 	});
 
-	return { bin, checkedKeys, copies, env, folders, root, xdg };
+	return { checkedKeys, copies, env, fakeHarnessFolder, folders, root, xdg };
 });
 
 interface TypedRan {
@@ -197,7 +184,6 @@ interface TypedRan {
 	readonly shown: string;
 }
 
-/** One answer a test types once the screen shows `after`, Enter included. */
 interface Typed {
 	readonly after: string;
 	readonly typed: string;
@@ -205,30 +191,19 @@ interface Typed {
 
 const entry = new URL("../../src/router/main.ts", import.meta.url).pathname;
 
-/**
- * The text that runs `bun <entry> args` in a POSIX shell, each word quoted.
- *
- * @param {readonly string[]} args The arguments.
- * @returns {string} The command line.
- */
-const commandLine = (args: readonly string[]): string =>
+const quotedCommandLine = (args: readonly string[]): string =>
 	pipe(
 		["bun", entry, ...args],
 		Array.map((word) => `'${Str.replaceAll("'", String.raw`'\''`)(word)}'`),
 		Array.join(" "),
 	);
 
-/**
- * Runs `phi-router` with `args` in a pseudo-terminal through `script`, as a human runs it, and types each answer once
- * the screen shows its `after` text past the last answer's. Gives what the terminal showed and the exit code. Its
- * scope ends the run.
- */
 const typedRun = Effect.fnUntraced(function* typedRun(of: World, args: readonly string[], answers: readonly Typed[]) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const keyboard = yield* Queue.unbounded<string>();
-	const screen = yield* Ref.make({ pending: answers, seen: "", shown: "" });
+	const screen = yield* Ref.make({ pending: answers, shown: "", shownSinceLastAnswer: "" });
 
-	const command = ChildProcess.make("script", ["-qefc", commandLine(args), "/dev/null"], {
+	const command = ChildProcess.make("script", ["-qefc", quotedCommandLine(args), "/dev/null"], {
 		env: of.env,
 		extendEnv: true,
 		stdin: Stream.encodeText(Stream.fromQueue(keyboard)),
@@ -237,8 +212,11 @@ const typedRun = Effect.fnUntraced(function* typedRun(of: World, args: readonly 
 	const handle = yield* spawner.spawn(command);
 
 	const read = Effect.fnUntraced(function* read(chunk: string) {
-		const { pending, seen, shown } = yield* Ref.updateAndGet(screen, (now) =>
-			Struct.assign(now, { seen: now.seen + chunk, shown: now.shown + chunk }),
+		const { pending, shown, shownSinceLastAnswer } = yield* Ref.updateAndGet(screen, (now) =>
+			Struct.assign(now, {
+				shown: now.shown + chunk,
+				shownSinceLastAnswer: now.shownSinceLastAnswer + chunk,
+			}),
 		);
 
 		if (!Array.isReadonlyArrayNonEmpty(pending)) {
@@ -247,9 +225,9 @@ const typedRun = Effect.fnUntraced(function* typedRun(of: World, args: readonly 
 
 		const [next] = pending;
 
-		if (Str.includes(next.after)(seen)) {
+		if (Str.includes(next.after)(shownSinceLastAnswer)) {
 			yield* Queue.offer(keyboard, `${next.typed}\r`);
-			yield* Ref.set(screen, { pending: Array.tailNonEmpty(pending), seen: "", shown });
+			yield* Ref.set(screen, { pending: Array.tailNonEmpty(pending), shown, shownSinceLastAnswer: "" });
 		}
 	});
 
@@ -261,8 +239,7 @@ const typedRun = Effect.fnUntraced(function* typedRun(of: World, args: readonly 
 	return { exitCode: Number(exitCode), shown: Str.replaceAll("\r\n", "\n")(shown) };
 }, Effect.scoped);
 
-/** Every file under `folder`, by path, with its bytes and its modification time. */
-const snapshot = Effect.fnUntraced(function* snapshot(folder: string) {
+const filesUnder = Effect.fnUntraced(function* filesUnder(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const names = yield* fs.readDirectory(folder, { recursive: true }).pipe(Effect.orElseSucceed(() => []));
@@ -286,6 +263,6 @@ const snapshot = Effect.fnUntraced(function* snapshot(folder: string) {
 	);
 });
 
-export { keys, snapshot, typedRun, world };
+export { filesUnder, keys, typedRun, world };
 
 export type { Typed, TypedRan, World };

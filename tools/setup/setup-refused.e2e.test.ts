@@ -3,18 +3,18 @@ import {
 	argsOf,
 	callsOf,
 	claudeAnswers,
+	filesSetupMayChange,
 	keyAnswer,
 	keyFiles,
 	layer,
 	ok,
 	ownSettings,
-	owned,
 	patient,
 	setUp,
-	settled,
+	writeOwnSettings,
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
-import { keys, snapshot, typedRun, world } from "./world.ts";
+import { filesUnder, keys, typedRun, world } from "./world.ts";
 import type { World } from "./world.ts";
 import { phiRouter } from "#tools/cli/accounts-run.ts";
 
@@ -45,11 +45,11 @@ const badKeys: readonly BadKey[] = [
 const badKey = Effect.fnUntraced(function* badKey({ copy, pasted }: BadKey) {
 	const of = yield* world;
 
-	yield* settled(of);
+	yield* writeOwnSettings(of);
 
-	const before = yield* owned(of);
+	const before = yield* filesSetupMayChange(of);
 	const run = yield* setUp(of, "claude", [{ after: "Key: ", typed: pasted }]);
-	const after = yield* owned(of);
+	const after = yield* filesSetupMayChange(of);
 
 	assert.notStrictEqual(run.exitCode, ok, run.shown);
 	assert.include(run.shown, copy);
@@ -62,9 +62,9 @@ const badKey = Effect.fnUntraced(function* badKey({ copy, pasted }: BadKey) {
 
 const noTerminal = Effect.gen(function* noTerminal() {
 	const of = yield* world;
-	const before = yield* owned(of);
+	const before = yield* filesSetupMayChange(of);
 	const run = yield* phiRouter(of.env, ["setup", "claude"]);
-	const after = yield* owned(of);
+	const after = yield* filesSetupMayChange(of);
 
 	assert.notStrictEqual(run.exitCode, ok);
 	assert.include(
@@ -79,11 +79,11 @@ const endOfInput = "\u0004";
 const endedAtKey = Effect.gen(function* endedAtKey() {
 	const of = yield* world;
 
-	yield* settled(of);
+	yield* writeOwnSettings(of);
 
-	const before = yield* owned(of);
+	const before = yield* filesSetupMayChange(of);
 	const run = yield* setUp(of, "claude", [{ after: "Key: ", typed: endOfInput }]);
-	const after = yield* owned(of);
+	const after = yield* filesSetupMayChange(of);
 
 	assert.notStrictEqual(run.exitCode, ok, run.shown);
 	assert.include(run.shown, "Setup ended before it got a key. Nothing was saved or changed.");
@@ -93,8 +93,8 @@ const endedAtKey = Effect.gen(function* endedAtKey() {
 const broken = Effect.fnUntraced(function* broken(of: World, how: "hang" | "fail") {
 	const fs = yield* FileSystem.FileSystem;
 
-	yield* settled(of);
-	yield* fs.writeFileString(`${of.bin}/${how}`, "");
+	yield* writeOwnSettings(of);
+	yield* fs.writeFileString(`${of.fakeHarnessFolder}/${how}`, "");
 });
 
 const untouched = Effect.fnUntraced(function* untouched(of: World) {
@@ -111,9 +111,9 @@ const failedTest = Effect.gen(function* failedTest() {
 
 	yield* broken(of, "fail");
 
-	const before = yield* snapshot(of.folders.CLAUDE_CONFIG_DIR);
+	const before = yield* filesUnder(of.folders.CLAUDE_CONFIG_DIR);
 	const run = yield* setUp(of, "claude", [keyAnswer]);
-	const after = yield* snapshot(of.folders.CLAUDE_CONFIG_DIR);
+	const after = yield* filesUnder(of.folders.CLAUDE_CONFIG_DIR);
 
 	assert.notStrictEqual(run.exitCode, ok, run.shown);
 	assert.include(
@@ -126,9 +126,9 @@ const failedTest = Effect.gen(function* failedTest() {
 
 const hollowInstaller = Effect.fnUntraced(function* hollowInstaller(of: World) {
 	const fs = yield* FileSystem.FileSystem;
-	const claude = `${of.bin}/claude`;
+	const claude = `${of.fakeHarnessFolder}/claude`;
 
-	yield* fs.rename(claude, `${of.bin}/claude-real`);
+	yield* fs.rename(claude, `${of.fakeHarnessFolder}/claude-real`);
 	yield* fs.writeFileString(
 		claude,
 		`#!/bin/sh\ncase "$1" in plugin) printf '%s\\n' "$*" >> "\${0%/*}/claude-args"; exit 0;; esac\nexec "\${0%/*}/claude-real" "$@"\n`,
@@ -140,7 +140,7 @@ const hollowInstall = Effect.gen(function* hollowInstall() {
 	const fs = yield* FileSystem.FileSystem;
 	const of = yield* world;
 
-	yield* settled(of);
+	yield* writeOwnSettings(of);
 	yield* hollowInstaller(of);
 
 	const run = yield* setUp(of, "claude", claudeAnswers);
@@ -187,7 +187,7 @@ const stopped = Effect.gen(function* stopped() {
 	yield* broken(of, "hang");
 
 	const canaryRan = fs
-		.exists(`${of.bin}/canary-ran`)
+		.exists(`${of.fakeHarnessFolder}/canary-ran`)
 		.pipe(Effect.repeat({ schedule: Schedule.spaced("100 millis"), until: Boolean }));
 
 	const run = setUp(of, "claude", [keyAnswer]);

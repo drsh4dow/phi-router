@@ -1,7 +1,17 @@
 import { Effect, FileSystem, Formatter, String as Str, Struct } from "effect";
 import type { Typed, TypedRan, World } from "./world.ts";
 import { assert, it } from "@effect/vitest";
-import { configOf, enter, keyFiles, keysOutsideKeyFiles, layer, ok, patient, piAuthOf, setUp } from "./set-up.ts";
+import {
+	enter,
+	keyFiles,
+	keysOutsideKeyFiles,
+	layer,
+	ok,
+	patient,
+	piAuthOf,
+	setUp,
+	writtenConfigOf,
+} from "./set-up.ts";
 import { keys, world } from "./world.ts";
 import type { PlatformError } from "effect";
 
@@ -14,38 +24,29 @@ const refusal =
 
 const subscriptionCopy = "That is a Claude subscription token, not an API key.";
 
-/** What a screen splits into around a line it shows once: the text before it and the text after. */
-const once = 2;
+const partsAroundOneLine = 2;
 
 const answered = (typed: string): Typed => ({ after: "[y/N] ", typed });
 
-/** A paste setup refuses at once, so a run that reaches the paste question ends there. */
 const stopAtPaste: Typed = { after: "Key: ", typed: keys.subscription };
 
-/** The Anthropic entry of pi's `auth.json`: an API key, or a subscription login. */
-type PiLogin =
+type PiAnthropicEntry =
 	| { readonly type: "api_key"; readonly key: string }
 	| { readonly type: "oauth"; readonly access: string; readonly refresh: string; readonly expires: number };
 
-const piHolds = Effect.fnUntraced(function* piHolds(of: World, anthropic: PiLogin) {
+const piHolds = Effect.fnUntraced(function* piHolds(of: World, anthropic: PiAnthropicEntry) {
 	const fs = yield* FileSystem.FileSystem;
 
 	yield* fs.writeFileString(piAuthOf(of), Formatter.formatJson({ anthropic }), { mode: 0o600 });
 });
 
-/**
- * An API-key entry of pi's `auth.json`.
- *
- * @param {string} key The key, or a `!` command that prints it.
- * @returns {PiLogin} The entry.
- */
-const piApiKey = (key: string): PiLogin => ({ key, type: "api_key" });
+const piApiKey = (key: string): PiAnthropicEntry => ({ key, type: "api_key" });
 
 const assertOnceBefore = (shown: string, first: string, second: string): void => {
 	const parts = Str.split(first)(shown);
 	const [before, after = ""] = parts;
 
-	assert.strictEqual(parts.length, once, `${first} once:\n${shown}`);
+	assert.strictEqual(parts.length, partsAroundOneLine, `${first} once:\n${shown}`);
 	assert.notInclude(before, second, `${second} not before ${first}`);
 	assert.include(after, second, `${second} after ${first}`);
 };
@@ -58,7 +59,7 @@ const assertKeysInKeyFiles = Effect.fnUntraced(function* assertKeysInKeyFiles(of
 
 const assertTaken = Effect.fnUntraced(function* assertTaken(of: World, run: TypedRan) {
 	const fs = yield* FileSystem.FileSystem;
-	const config = yield* configOf(of);
+	const config = yield* writtenConfigOf(of);
 	const { anthropic } = keyFiles(of);
 	const saved = yield* fs.readFileString(anthropic);
 
@@ -87,7 +88,7 @@ const pastedOnNo = Effect.gen(function* pastedOnNo() {
 
 	const run = yield* setUp(of, "pi", [answered("n"), { after: "Key: ", typed: keys.anthropic }, enter]);
 
-	const config = yield* configOf(of);
+	const config = yield* writtenConfigOf(of);
 
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assertOnceBefore(run.shown, offer, pasteQuestion);
@@ -136,7 +137,7 @@ const noPi = Effect.fnUntraced(function* noPi(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 
 	yield* piHolds(of, piApiKey(keys.anthropic));
-	yield* fs.remove(`${of.bin}/pi`);
+	yield* fs.remove(`${of.fakeHarnessFolder}/pi`);
 });
 
 const unoffered: readonly Unoffered[] = [

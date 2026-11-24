@@ -3,7 +3,6 @@ import type { TypedRan, World } from "./world.ts";
 import {
 	argsOf,
 	callsOf,
-	configOf,
 	enter,
 	keyFiles,
 	keysOutsideKeyFiles,
@@ -12,6 +11,7 @@ import {
 	patient,
 	setUp,
 	version,
+	writtenConfigOf,
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
@@ -22,12 +22,11 @@ Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.`;
 const piEnd =
 	"Press Enter to start pi on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.";
 
-/** What a screen splits into around one `Key: ` question: the text before it and the text after. */
-const oneQuestion = 2;
+const partsAroundOneQuestion = 2;
 
 const assertCodexScreens = (run: TypedRan): void => {
 	assert.strictEqual(run.exitCode, ok, run.shown);
-	assert.strictEqual(Str.split("Key: ")(run.shown).length, oneQuestion, "one key question");
+	assert.strictEqual(Str.split("Key: ")(run.shown).length, partsAroundOneQuestion, "one key question");
 	assert.include(run.shown, "It starts with sk-. Nothing shows while you paste. Then press Enter.");
 	assert.include(run.shown, "✓ OpenAI accepted the key");
 	assert.include(run.shown, "✓ Codex now sends its requests through phi-router");
@@ -36,7 +35,7 @@ const assertCodexScreens = (run: TypedRan): void => {
 };
 
 const configuredCodex = Effect.fnUntraced(function* configuredCodex(of: World) {
-	const config = yield* configOf(of);
+	const config = yield* writtenConfigOf(of);
 	const { openai } = keyFiles(of);
 
 	assert.deepStrictEqual(config, {

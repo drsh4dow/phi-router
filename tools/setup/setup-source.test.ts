@@ -1,5 +1,5 @@
 import { Array, Effect, String as Str, pipe } from "effect";
-import { argsOf, enter, layer, ok, patient, settled } from "./set-up.ts";
+import { argsOf, enter, layer, ok, patient, writeOwnSettings } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, typedRun, world } from "./world.ts";
 
@@ -27,9 +27,9 @@ const isInstall = (line: string): boolean => Str.startsWith("plugin ")(line) || 
 
 const fromCheckout = Effect.fnUntraced(function* fromCheckout({ harness, installs, key }: CheckoutInstall) {
 	const of = yield* world;
-	const checkout = of.copies.pkg;
+	const checkout = of.copies.piPackage;
 
-	yield* settled(of);
+	yield* writeOwnSettings(of);
 
 	const run = yield* typedRun(of, ["setup", harness, "--source", checkout], [{ after: "Key: ", typed: key }, enter]);
 	const args = yield* argsOf(of, harness);
