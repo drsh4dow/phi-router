@@ -142,16 +142,16 @@ const encoded = Effect.fnUntraced(function* encoded(
 
 		const edits = yield* cleanEdits(decoded, upstream, bridge);
 
-		return edited(decoded.source, [model, ...edits]);
+		return edited(decoded.sentBody, [model, ...edits]);
 	}
 
 	if (upstream.pinned) {
-		return edited(decoded.source, [model]);
+		return edited(decoded.sentBody, [model]);
 	}
 
 	const bridged = yield* bridgeEdit(decoded, bridge);
 
-	return edited(decoded.source, [model, bridged]);
+	return edited(decoded.sentBody, [model, bridged]);
 });
 
 const decodeRequest = Effect.fn("decodeRequest")(function* decodeRequest(

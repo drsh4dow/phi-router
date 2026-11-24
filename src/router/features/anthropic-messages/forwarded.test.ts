@@ -115,12 +115,13 @@ const plantedSites = Effect.fnUntraced(function* plantedSites(body: string): Eff
 	);
 });
 
-/** What one planted body does under one border: no clean body, a clean body without the marker, judged, or a leak. */
-type Outcome = "no clean body" | "absent" | "judged" | "leaked";
+type Outcome = "no clean body" | "marker absent" | "judged" | "leaked";
 
 type Lookup = (key: string) => "cleared" | "unknown";
 
 const everyPartCleared: Lookup = () => "cleared";
+
+const nothingCleared: Lookup = () => "unknown";
 
 const onlyCleared =
 	(cleared: string): Lookup =>
@@ -142,22 +143,16 @@ const cleanBodyOf = (
 		Effect.option,
 	);
 
-/**
- * The key of the request's tool-list part.
- *
- * @param {MessagesRequest} request The decoded request.
- * @returns {Effect.Effect<string>} The key, empty when the request has no system message.
- */
 const toolsKeyOf = Effect.fnUntraced(function* toolsKeyOf(
 	request: MessagesRequest,
-): Effect.fn.Return<string, never, Digest.Digest> {
+): Effect.fn.Return<Option.Option<string>, never, Digest.Digest> {
 	const system = Option.toArray(Array.head(request.messages));
 	const systemParts = yield* Effect.forEach(system, partsOf, { concurrency: 1 });
 
 	return pipe(
 		Array.flatten(systemParts),
 		Array.findFirst((part) => Predicate.isTagged(part.slot, "SystemTools")),
-		Option.match({ onNone: () => "", onSome: (part) => part.key }),
+		Option.map((part) => part.key),
 	);
 });
 
@@ -174,7 +169,7 @@ const outcomesOf = Effect.fnUntraced(function* outcomesOf(
 	const judged = yield* Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(request.messages));
 	const toolsKey = yield* toolsKeyOf(request);
 
-	const lookups = [everyPartCleared, onlyCleared(toolsKey)];
+	const lookups = [everyPartCleared, Option.match(toolsKey, { onNone: () => nothingCleared, onSome: onlyCleared })];
 
 	const cleanBodies = yield* Effect.forEach(lookups, (lookup) => cleanBodyOf(request, lookup), { concurrency: 1 });
 
@@ -186,7 +181,7 @@ const outcomesOf = Effect.fnUntraced(function* outcomesOf(
 			}
 
 			if (!Str.includes(site.marker)(clean.value)) {
-				return "absent";
+				return "marker absent";
 			}
 
 			if (Str.includes(site.marker)(judged)) {

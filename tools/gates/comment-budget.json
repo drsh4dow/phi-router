@@ -1,11 +1,8 @@
 {
 	"src/router/features/accounts/walk.ts": 6,
-	"src/router/features/anthropic-messages/forwarded.test.ts": 2,
-	"src/router/features/anthropic-messages/identity.test.ts": 3,
 	"src/router/features/anthropic-messages/stubs.test.ts": 1,
-	"src/router/features/anthropic-messages/system.test.ts": 1,
-	"src/router/features/anthropic-messages/system.ts": 9,
-	"src/router/features/anthropic-messages/turns.ts": 6,
+	"src/router/features/anthropic-messages/system.ts": 8,
+	"src/router/features/anthropic-messages/turns.ts": 5,
 	"src/router/features/anthropic-messages/written.ts": 12,
 	"src/router/features/border/guard.ts": 2,
 	"src/router/features/border/target.ts": 3,

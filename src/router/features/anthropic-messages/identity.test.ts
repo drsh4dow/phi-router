@@ -14,26 +14,24 @@ const requests = {
 const bridge =
 	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-router:phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.";
 
-/** Where `system` ends in every capture: its last block closes, then `tools` opens. */
-const systemEnd = '}],"tools":[';
+const systemThenTools = '}],"tools":[';
 
-/** A body split at its one end of `system` gives two pieces. */
-const oneEnd = 2;
+const piecesAroundOneEnd = 2;
 
 const nobodyWrote = (): boolean => false;
 
 const target = "claude-target";
 
-/** Above 2^53, so a JSON.parse round trip would turn it into 9007199254740992. */
-const input = '{"row":9007199254740993}';
+const inputAboveMaxSafeInteger = '{"row":9007199254740993}';
 
-const schema = '{"type":"object","properties":{"row":{"type":"integer","maximum":9007199254740993}}}';
+const schemaAboveMaxSafeInteger =
+	'{"type":"object","properties":{"row":{"type":"integer","maximum":9007199254740993}}}';
 
-const bigNumbers = `{"model":"phi/auto","messages":[{"role":"user","content":"Read the row."},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Lookup","input":${input}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"found"}]}],"tools":[{"name":"Lookup","description":"Reads a row.","input_schema":${schema}}],"max_tokens":1000}`;
+const bigNumbers = `{"model":"phi/auto","messages":[{"role":"user","content":"Read the row."},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Lookup","input":${inputAboveMaxSafeInteger}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"found"}]}],"tools":[{"name":"Lookup","description":"Reads a row.","input_schema":${schemaAboveMaxSafeInteger}}],"max_tokens":1000}`;
 
 const spaced = `{
   "max_tokens" : 1000,
-  "tools": [ { "input_schema": ${schema}, "description": "Reads a row.", "name": "Lookup" } ],
+  "tools": [ { "input_schema": ${schemaAboveMaxSafeInteger}, "description": "Reads a row.", "name": "Lookup" } ],
   "messages": [ { "content": "Read the row.", "role": "user" } ],
   "model": "phi/auto"
 }`;
@@ -52,8 +50,12 @@ const sealedAddsOnlyTheBridge = Effect.gen(function* sealedAddsOnlyTheBridge() {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
 		const sent = yield* request.encode({ lane: "sealed", model: request.model, pinned: false });
 
-		assert.lengthOf(Str.split(body, systemEnd), oneEnd, `${name} has one end of system`);
-		assert.strictEqual(sent, Str.replace(systemEnd, `},{"type":"text","text":"${bridge}"${systemEnd}`)(body), name);
+		assert.lengthOf(Str.split(body, systemThenTools), piecesAroundOneEnd, `${name} has one end of system`);
+		assert.strictEqual(
+			sent,
+			Str.replace(systemThenTools, `},{"type":"text","text":"${bridge}"${systemThenTools}`)(body),
+			name,
+		);
 	}
 });
 
@@ -88,12 +90,16 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 		}),
 	);
 
-	assert.deepStrictEqual(declared, [{ description: "Reads a row.", name: "Lookup", parameters: schema }]);
-	assert.deepStrictEqual(replied, [{ arguments: input, id: "toolu_1", name: "Lookup", type: "toolCall" }]);
+	assert.deepStrictEqual(declared, [
+		{ description: "Reads a row.", name: "Lookup", parameters: schemaAboveMaxSafeInteger },
+	]);
+	assert.deepStrictEqual(replied, [
+		{ arguments: inputAboveMaxSafeInteger, id: "toolu_1", name: "Lookup", type: "toolCall" },
+	]);
 
 	for (const sent of lanes) {
-		assert.include(sent, `"input":${input}`);
-		assert.include(sent, `"input_schema":${schema}`);
+		assert.include(sent, `"input":${inputAboveMaxSafeInteger}`);
+		assert.include(sent, `"input_schema":${schemaAboveMaxSafeInteger}`);
 	}
 });
 

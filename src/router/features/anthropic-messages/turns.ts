@@ -14,9 +14,8 @@ import { systemOf } from "./system.ts";
 
 type Raw = WireUnreadable["unreadable"];
 
-/** A body as the harness sent it, where its model sits, and the engine messages read from it. */
 interface Decoded {
-	readonly source: string;
+	readonly sentBody: string;
 	readonly model: Span;
 	readonly system: SystemRun;
 	readonly turns: readonly Turn[];
@@ -252,7 +251,7 @@ const decodedOf = Effect.fnUntraced(function* decodedOf(
 		concurrency: 1,
 	});
 
-	return { model, source: body.body, system, turns };
+	return { model, sentBody: body.body, system, turns };
 });
 
 export { decodedOf };

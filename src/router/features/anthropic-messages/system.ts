@@ -19,8 +19,7 @@ type WireTool = NonNullable<WireBody["tools"]>[number];
 const attribution =
 	/^x-anthropic-billing-header: cc_version=2\.1\.\d{1,3}\.[\da-f]{3}; cc_entrypoint=(?:cli|sdk-cli);(?: cc_is_subagent=true;)?$/u;
 
-/** A `system` block after the attribution block: its engine section beside its wire. */
-interface Section {
+interface LocatedSection {
 	readonly name: string;
 	readonly text: string;
 	readonly readable: boolean;
@@ -40,7 +39,7 @@ interface BridgeSlot {
 /** The body's `system` blocks and `tools`, the first engine message. */
 interface SystemRun {
 	readonly message: SystemMessage;
-	readonly sections: readonly Section[];
+	readonly sections: readonly LocatedSection[];
 	readonly bridge: BridgeSlot;
 }
 
@@ -75,7 +74,7 @@ const bridgeSlot = (body: Span): BridgeSlot =>
 		}),
 	);
 
-const sectionOf = ({ span, wire }: Located<SystemBlock>, index: number): Section => {
+const sectionOf = ({ span, wire }: Located<SystemBlock>, index: number): LocatedSection => {
 	const name = String(index);
 
 	if (wire.type === "unreadable") {
@@ -85,7 +84,7 @@ const sectionOf = ({ span, wire }: Located<SystemBlock>, index: number): Section
 	return { kept: kept(span), name, readable: true, span, text: wire.text };
 };
 
-const isAttribution = (section: Section): boolean => section.readable && attribution.test(section.text);
+const isAttribution = (section: LocatedSection): boolean => section.readable && attribution.test(section.text);
 
 /** A tool as the engine reads it. Tools are never rewritten, so a tool the codec cannot read is judged on every byte. */
 const toolOf = Effect.fnUntraced(function* toolOf({

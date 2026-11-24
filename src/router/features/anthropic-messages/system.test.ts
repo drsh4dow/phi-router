@@ -125,12 +125,12 @@ const lookalikeJudged = Effect.gen(function* lookalikeJudged() {
 	);
 });
 
-/** The source JSON of two fields the codec cannot read part by part, spaced as no encoder would write them. */
-const safeguards = '[ {"type":"dangerous_tool_use", "classifier_context":{"v":1,"live_cwd":"/tmp/WHOLE-MARKER"}} ]';
+const spacedSafeguards =
+	'[ {"type":"dangerous_tool_use", "classifier_context":{"v":1,"live_cwd":"/tmp/WHOLE-MARKER"}} ]';
 
-const format = '{ "type" : "json_schema", "schema" : {"description":"WHOLE-MARKER"} }';
+const spacedFormat = '{ "type" : "json_schema", "schema" : {"description":"WHOLE-MARKER"} }';
 
-const wholes = `{"model":"m","messages":[{"role":"user","content":"hi"}],"safeguards":${safeguards},"output_config":{"effort":"high","format":${format}},"max_tokens":10}`;
+const wholes = `{"model":"m","messages":[{"role":"user","content":"hi"}],"safeguards":${spacedSafeguards},"output_config":{"effort":"high","format":${spacedFormat}},"max_tokens":10}`;
 
 const wholesJudged = Effect.gen(function* wholesJudged() {
 	const request = yield* decodeRequest(wholes, nobodyWrote, "claude");
@@ -147,8 +147,8 @@ const wholesJudged = Effect.gen(function* wholesJudged() {
 	);
 
 	assert.deepStrictEqual(tools, [
-		{ description: "", name: "safeguards", parameters: safeguards },
-		{ description: "", name: "output_config.format", parameters: format },
+		{ description: "", name: "safeguards", parameters: spacedSafeguards },
+		{ description: "", name: "output_config.format", parameters: spacedFormat },
 	]);
 });
 
