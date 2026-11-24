@@ -103,6 +103,23 @@ const addsEach = Effect.gen(function* addsEach() {
 	);
 });
 
+const bothLogins = Effect.gen(function* bothLogins() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const run = yield* prepared("both");
+	const codexLogin = yield* textOf(path.join(run.folders.codex, "auth.json"));
+
+	yield* fs.writeFileString(path.join(run.folders.claude, "auth.json"), codexLogin);
+
+	const added = yield* phiRouter(run.env, ["accounts", "add", run.folders.claude]);
+
+	assert.deepStrictEqual(added, {
+		exitCode: succeeded,
+		stderr: "",
+		stdout: `Added claude-2 to the clean lane, after claude-1.\n  Claude login folder. Its login ends 2100-01-01. claude refreshes it.\n${restart}\n`,
+	});
+});
+
 const already = {
 	exitCode: succeeded,
 	stderr: "",
@@ -253,6 +270,7 @@ it.layer(NodeServices.layer)("phi-router accounts", (test) => {
 		() => addsEach,
 		patient,
 	);
+	test.effect("add names a folder that holds both a Claude and a Codex login after Claude", () => bothLogins, patient);
 	test.effect(
 		"add of a folder already on a lane, spelled with .., through a symlink or with .. after a symlink, and asked for the other lane, changes nothing",
 		() => addsOnce,

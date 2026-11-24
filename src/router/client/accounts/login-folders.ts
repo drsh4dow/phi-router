@@ -159,11 +159,6 @@ const loginFolders = {
 	},
 } as const;
 
-/**
- * Which vendor's CLI logged in to `folder`, and a Claude login's end, read without its tokens: a Claude config folder
- * when its `.credentials.json` holds `claudeAiOauth`, else a Codex home folder when its `auth.json` holds `tokens`.
- * None when neither does.
- */
 const loginIn = Effect.fnUntraced(function* loginIn(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
