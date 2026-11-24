@@ -179,6 +179,5 @@
 	"tools/wire/codex.ts": 12,
 	"tools/wire/pi-run.ts": 14,
 	"tools/wire/pi.ts": 3,
-	"tools/wire/run.ts": 3,
-	"tools/wire/spent.ts": 4
+	"tools/wire/run.ts": 3
 }

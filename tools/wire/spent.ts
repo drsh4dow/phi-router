@@ -1,6 +1,5 @@
 import { Array, Number as Num, Option, Record, Schema, String as Str, pipe } from "effect";
 
-/** Tokens one harness turn spent, by how its model bills them. `input` holds no cached token. */
 interface Tokens {
 	readonly uncachedInput: number;
 	readonly cacheRead: number;
@@ -78,11 +77,6 @@ const decodeCodex = decodedLines(Schema.decodeOption(CodexTurnCompleted));
 
 const decodePi = decodedLines(Schema.decodeOption(PiMessageEnd));
 
-/**
- * The tokens a turn spent, from what each harness prints in its machine output: the result object of `claude -p
- * --output-format json`, the `turn.completed` events of `codex exec --json`, whose input count holds the cached tokens,
- * and the assistant `message_end` events of `pi --mode json`.
- */
 const tokensIn = {
 	claude: (printed: string): Tokens =>
 		pipe(
@@ -119,7 +113,6 @@ const tokensIn = {
 		),
 } as const;
 
-/** US dollars per million tokens of each model a BAA account may run in the live run, as pi 1.6.0's catalog lists them. */
 const dollarsPerMillionTokens = {
 	"claude-haiku-5-5": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
 	"gpt-6-luna": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
@@ -127,14 +120,6 @@ const dollarsPerMillionTokens = {
 
 const perMillion = 1_000_000;
 
-/**
- * What a turn's tokens cost on the model a BAA account ran, or none when the live run knows no price for it.
- *
- * @param {object} spent The model and the tokens.
- * @param {string} spent.model The model the BAA account ran.
- * @param {Tokens} spent.tokens The tokens the turn spent.
- * @returns {Option.Option<number>} The cost in US dollars.
- */
 const costOf = ({ model, tokens }: { readonly model: string; readonly tokens: Tokens }): Option.Option<number> =>
 	Option.map(
 		pipe(
