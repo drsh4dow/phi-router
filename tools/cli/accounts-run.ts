@@ -63,12 +63,6 @@ interface Prepared {
 	readonly state: string;
 }
 
-/**
- * What a Claude login writes in `.credentials.json`, with the fake folder token.
- *
- * @param {number} ends When its access token expires and its login ends, in epoch milliseconds.
- * @returns {string} The file's text.
- */
 const claudeCredentials = (ends: number): string =>
 	`{"claudeAiOauth":{"accessToken":"${tokens.claudeFolder}","expiresAt":${String(ends)},"refreshTokenExpiresAt":${String(ends)}}}`;
 

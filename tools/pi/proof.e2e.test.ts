@@ -49,11 +49,6 @@ const piWorld = Effect.fnUntraced(function* piWorld(port: number) {
 	return { env, home };
 });
 
-/**
- * Runs pi on `phi/auto` with `args` and only the package in `installed`, in a fresh `piWorld` for the router's port
- * `port`. It writes each of `commands` to pi's stdin and keeps it open, or closes it when there are none, since `pi -p`
- * reads an open one. It returns what pi printed until a line matches `until`, or until pi ended.
- */
 const piRun = Effect.fnUntraced(function* piRun(run: {
 	readonly installed: string;
 	readonly port: number;

@@ -82,14 +82,6 @@ const breakers: Readonly<
 	whole: () => Effect.void,
 };
 
-/**
- * The packages the settings name: none, `.`, which pi reads from the agent folder and doctor must not read from its own
- * working folder, this checkout, the copy with a filter that loads none of its extensions, or the copy.
- *
- * @param {Install} install The install.
- * @param {string} copy The copy of the package.
- * @returns {readonly unknown[]} The settings' packages.
- */
 const sourcesOf = (install: Install, copy: string): readonly unknown[] => {
 	if (install === "filtered") {
 		return [{ extensions: [], source: copy }];
@@ -144,11 +136,6 @@ const promptSeen = Effect.fnUntraced(function* promptSeen(marker: string) {
 	});
 });
 
-/**
- * Variables a user's shell may hold that would change what pi prints, load or connect to, if doctor passed them on:
- * colour codes around `pi list`'s folders, a module node must load first, a proxy that answers nothing, and the
- * developer's own login.
- */
 const hostile = {
 	ANTHROPIC_OAUTH_TOKEN: "sk-ant-oat01-phi-test-shell-login",
 	FORCE_COLOR: "1",

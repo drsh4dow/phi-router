@@ -126,11 +126,6 @@ const already = {
 	stdout: "claude-2 is already on the clean lane. Nothing changed.\n",
 };
 
-/**
- * A run with the config `both`, a symlink beside its Claude login folder that points at it, and `hop`, a symlink in
- * another folder that points at the Codex folder, so `hop/../claude` is the Claude folder only as the operating system
- * resolves it.
- */
 const linked = Effect.gen(function* linked() {
 	const fs = yield* FileSystem.FileSystem;
 	const run = yield* prepared("both");
