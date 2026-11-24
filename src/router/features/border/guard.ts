@@ -19,9 +19,9 @@ interface Checked {
 
 type SystemMessage = Extract<Message, { readonly role: "system" }>;
 
-const stubbedCalls = (message: AssistantMessage): AssistantMessage["content"] =>
+const stubbedCalls = (content: AssistantMessage["content"]): AssistantMessage["content"] =>
 	pipe(
-		message.content,
+		content,
 		Array.flatMap((block) => {
 			if (block.type === "toolCall") {
 				return [{ arguments: "{}", id: block.id, name: block.name, type: "toolCall" } as const];
@@ -46,7 +46,11 @@ const stubbedMessage =
 			}
 
 			case "assistant": {
-				return { content: [text, ...stubbedCalls(message)], role: "assistant", writtenBy: message.writtenBy };
+				return {
+					content: [text, ...stubbedCalls(message.content)],
+					role: "assistant",
+					writtenBy: message.writtenBy,
+				};
 			}
 
 			default: {
@@ -144,4 +148,4 @@ const guard = Effect.fn("guard")(function* guard({
 	);
 });
 
-export { ToolsNotCleared, guard, stubbedMessage };
+export { ToolsNotCleared, guard, stubbedCalls, stubbedMessage };

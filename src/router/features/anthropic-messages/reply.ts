@@ -5,6 +5,7 @@ import type { Digest } from "effect/crypto";
 import { LooseCall } from "./wire.ts";
 import type { WireAssistantBlock } from "./wire.ts";
 import { contentKey } from "#router/primitives/content-key.ts";
+import { stubbedCalls } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 import { writerOf } from "#router/features/parts/index.ts";
 
@@ -66,20 +67,7 @@ const visibleOf = (block: ReplyBlock): ReplyContent => {
 	}
 };
 
-const withheldOf = (visible: ReplyContent): ReplyContent => {
-	const calls = pipe(
-		visible,
-		Array.flatMap((block) => {
-			if (block.type === "toolCall") {
-				return [{ arguments: "{}", id: block.id, name: block.name, type: "toolCall" } as const];
-			}
-
-			return [];
-		}),
-	);
-
-	return [withheld, ...calls];
-};
+const withheldOf = (visible: ReplyContent): ReplyContent => [withheld, ...stubbedCalls(visible)];
 
 const blank = /^\s*$/u;
 
