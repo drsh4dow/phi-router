@@ -30,9 +30,8 @@ const plus = (sum: typeof Usage.Type, more: typeof Usage.Type): typeof Usage.Typ
 
 const judgeConcurrency = 8;
 
-/** How the judge is asked about a piece: its calls, and the scores that ask the kind question and that seal. */
 interface Asking extends Call {
-	readonly kindBar: number;
+	readonly askKindAtOrAbove: number;
 	readonly sealAtOrAbove: number;
 }
 
@@ -49,10 +48,10 @@ type Thresholds = (typeof thresholds)[keyof typeof thresholds];
  */
 const askingOf = (system: boolean, spend: Spend, { clearBelow, sealAtOrAbove }: Thresholds): Asking => {
 	if (system) {
-		return { kindBar: sealAtOrAbove, retries: 1, sealAtOrAbove, spend };
+		return { askKindAtOrAbove: sealAtOrAbove, retries: 1, sealAtOrAbove, spend };
 	}
 
-	return { kindBar: clearBelow, retries: 0, sealAtOrAbove, spend };
+	return { askKindAtOrAbove: clearBelow, retries: 0, sealAtOrAbove, spend };
 };
 
 const clearedByJudge = Verdicts.Cleared({ by: "judge" });
@@ -139,7 +138,7 @@ const judged = Effect.fn("judged")(function* judged({
 
 	const { score } = answer.success;
 
-	if (score < call.kindBar) {
+	if (score < call.askKindAtOrAbove) {
 		return clearedByJudge;
 	}
 

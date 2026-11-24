@@ -21,8 +21,7 @@ const hexRadix = 16;
 
 const gzipMagic = { first: 31, second: 139 } as const;
 
-/** Byte values of the C0 controls text holds, the first byte past them, and DEL. */
-const byteValues = { carriageReturn: 13, del: 127, lineFeed: 10, space: 32, tab: 9 } as const;
+const byteValues = { carriageReturn: 13, del: 127, lineFeed: 10, pastC0: 32, tab: 9 } as const;
 
 const base64Run = /[\w+/-]{16,}={0,2}/gu;
 
@@ -138,7 +137,7 @@ const utf8 = new TextDecoder("utf-8", { fatal: true });
 const decodeUtf8 = Option.liftThrowable((bytes: Bytes) => utf8.decode(bytes));
 
 const isControl = (byte: number): boolean =>
-	(byte < byteValues.space &&
+	(byte < byteValues.pastC0 &&
 		byte !== byteValues.tab &&
 		byte !== byteValues.lineFeed &&
 		byte !== byteValues.carriageReturn) ||
