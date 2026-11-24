@@ -42,11 +42,11 @@ const playing = Effect.fnUntraced(function* playing(harness: Played) {
 		lanes: stored.lines,
 		turns: pipe(
 			turns,
-			Array.map(({ baa, exitCode, open, printed }, index) => ({
+			Array.map(({ baa, exitCode, open, printedTail }, index) => ({
 				baa: baa.length,
 				exitCode,
 				open: open.length,
-				printed,
+				printed: printedTail,
 				turn: index + counting,
 			})),
 		),

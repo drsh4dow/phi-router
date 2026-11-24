@@ -12,10 +12,9 @@ const succeeded = 0;
 
 const dataFirstArity = 2;
 
-/** What one harness run left: how it exited, the end of what it printed, and what each mock received during it. */
 interface Turned {
 	readonly exitCode: number;
-	readonly printed: string;
+	readonly printedTail: string;
 	readonly open: readonly Sent[];
 	readonly baa: readonly Sent[];
 }

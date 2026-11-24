@@ -26,7 +26,7 @@ const during = Effect.fnUntraced(function* during<Ran extends { readonly printed
 		baa: Array.drop(baa, baaBefore.length),
 		judged: judged.length - judgedBefore.length,
 		open: Array.drop(open, openBefore.length),
-		printed: Str.slice(-printedTail)(ran.printed),
+		printedTail: Str.slice(-printedTail)(ran.printed),
 		shown: shownIn(ran.printed),
 	});
 });
