@@ -52,10 +52,6 @@ const refusesThenFails = (): Script => {
 	};
 };
 
-/**
- * A Claude login folder whose token expires in a minute, a stand-in `claude` that renews it on every run, and the `env`
- * that puts the stand-in first on `PATH` and names the file the router's output goes to.
- */
 const expiring = Effect.gen(function* expiring() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -80,7 +76,6 @@ const expiring = Effect.gen(function* expiring() {
 	};
 });
 
-/** Every file under `roots`, and the printed output if it does, that holds one of the fake credentials. */
 const holding = Effect.fnUntraced(function* holding(roots: readonly string[], printed: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -123,7 +118,6 @@ const holding = Effect.fnUntraced(function* holding(roots: readonly string[], pr
 
 const teed = ["/bin/sh", "-c", 'bun src/router/main.ts "$@" 2>&1 | tee -a "$PHI_TEST_OUTPUT"', "sh"] as const;
 
-/** One Claude Code request of session `s1` through the router as its own process, all it prints kept in a file. */
 const postedOnce = Effect.fnUntraced(function* postedOnce(env: Readonly<Record<string, string>>) {
 	const client = yield* HttpClient.HttpClient;
 	const router = yield* routerProcess(teed, env);

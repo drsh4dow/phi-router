@@ -108,13 +108,6 @@ const unsentSession = "unsent-1";
 
 const onArrival = 1;
 
-/**
- * The router's verdict store, with every session pinned when `pinned` holds, and every read of `unsentSession` after
- * its first, on arrival, unreadable.
- *
- * @param {boolean} pinned Whether each read finds its session pinned.
- * @returns {Function} The store around the router's own.
- */
 const readsFailing =
 	(pinned: boolean) =>
 	(real: VerdictStore["Service"]): VerdictStore["Service"] => {

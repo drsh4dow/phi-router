@@ -19,7 +19,6 @@ const status = { notFound: 404, ok: 200, unreadable: 400 } as const;
 /** A top-level field no codec names, holding the canary. */
 const field = `"future_field":"${canary}"`;
 
-/** A harness, and a capture of its request with `field` added. */
 interface Unnamed {
 	readonly harness: "claude" | "codex";
 	readonly withField: string;
@@ -33,7 +32,6 @@ const unnamed: readonly Unnamed[] = [
 /** A block of a type no codec names, holding the canary. */
 const future = { note: canary, type: "future_block" } as const;
 
-/** Each harness's request whose newest content is `future`. */
 const withFuture = {
 	claude: jsonText({
 		max_tokens: 1024,
@@ -48,7 +46,6 @@ const login = { authorization: `Bearer ${fakes.harnessToken}` };
 
 const noted = HttpClientRequest.bodyText(`{"note":"${canary}"}`, "application/json");
 
-/** Paths a harness can send session content to and the router does not serve, each with a login and the canary. */
 const unknownPaths = pipe(
 	[
 		noted(HttpClientRequest.post("/memories/trace_summarize")),

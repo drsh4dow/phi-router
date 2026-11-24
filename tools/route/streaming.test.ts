@@ -16,10 +16,6 @@ const counted = pipe(
 
 const asked = "Count to ten.";
 
-/**
- * Each harness's request, and its reply: for Claude Code ten deltas with a `ping` after each, for Codex ten output
- * items, each added and done, between the opening and closing events.
- */
 const harnesses = {
 	claude: { body: bodyOf([{ role: "user", text: asked }]), events: textEvents(counted) },
 	codex: {
@@ -35,11 +31,6 @@ const harnesses = {
 
 const eventLine = "event: ";
 
-/**
- * The open mock sends each event only when the test offers it, and the test offers the next only once the harness side
- * has read the last. A router that buffers the reply never delivers the first, so the take waits until the test times
- * out.
- */
 const streaming = Effect.fnUntraced(function* streaming(harness: keyof typeof harnesses) {
 	const { events } = harnesses[harness];
 	const toSend = yield* Queue.unbounded<Event, Cause.Done>();

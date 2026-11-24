@@ -50,7 +50,6 @@ const piBodyOf = (sent: readonly Turn[]): Effect.Effect<string> =>
 		stream: true,
 	});
 
-/** What the open account read: the last system block, the model, and the text of every message. */
 const viewOf = Effect.fnUntraced(function* viewOf(sent: Received) {
 	const { messages, model, system } = yield* Schema.decodeEffect(Body)(sent.body);
 
@@ -65,12 +64,6 @@ const viewOf = Effect.fnUntraced(function* viewOf(sent: Received) {
 	};
 });
 
-/**
- * Whether `text` hands work that needs the identifiers to `/phi pin` and names no subagent, which stock pi lacks.
- *
- * @param {string} text A bridge or a stub.
- * @returns {boolean} Whether it does.
- */
 const pointsAtPin = (text: string): boolean => Str.includes("/phi pin")(text) && !Str.includes("subagent")(text);
 
 const pinPointed = Effect.sync(() => {

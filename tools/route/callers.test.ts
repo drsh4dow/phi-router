@@ -47,7 +47,6 @@ const answerFor = Effect.fnUntraced(function* answerFor(callerRows: readonly str
 	return yield* Context.get(built, Callers).isThisUser(asked);
 });
 
-/** What the check answers when `/proc/net/tcp` exists and cannot be read. */
 const unreadable = Effect.gen(function* unreadable() {
 	const table = FileSystem.layerNoop({ exists: () => Effect.succeed(true) });
 	const built = yield* Layer.build(Callers.layer.pipe(Layer.provide(table)));

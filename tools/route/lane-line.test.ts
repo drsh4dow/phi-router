@@ -21,7 +21,6 @@ const tries = 100;
 
 const homeIndex = 0;
 
-/** A Claude login folder whose login ended a day before the test clock's start. */
 const endedLogin = Effect.gen(function* endedLogin() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -36,7 +35,6 @@ const endedLogin = Effect.gen(function* endedLogin() {
 	return folder;
 });
 
-/** The account, lane and reason of each line of the lane log in `state`. */
 const linesIn = Effect.fnUntraced(function* linesIn(state: string) {
 	const lines = yield* laneLines(state);
 

@@ -86,12 +86,6 @@ const posted = Effect.fnUntraced(function* posted(
 
 const ModelOf = Schema.fromJsonString(Schema.Struct({ model: Schema.String }));
 
-/**
- * The model each request an account mock received names.
- *
- * @param {readonly Sent[]} received What the mock received.
- * @returns {Effect.Effect} The models, in order.
- */
 const modelsIn = (received: readonly Sent[]): Effect.Effect<readonly string[], Schema.SchemaError> =>
 	Effect.forEach(received, ({ body }) => Effect.map(Schema.decodeEffect(ModelOf)(body), ({ model }) => model), {
 		concurrency: 1,

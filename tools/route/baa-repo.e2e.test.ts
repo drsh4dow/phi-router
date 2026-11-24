@@ -60,7 +60,6 @@ const repositories = Effect.gen(function* repositories() {
 	return { folders, listed: [under("clinic-link"), `${under("ward")}/`, `${under("annex")}/ledger-link/..`] };
 });
 
-/** Leaves a lease for this process under `session` and `folder` with the router at `url`, then sends one request. */
 const leasedAndAsked = Effect.fnUntraced(function* leasedAndAsked(url: string, session: string, folder: string) {
 	const built = yield* Layer.build(LeaseRequests.layer);
 	const leases = Context.get(built, LeaseRequests);

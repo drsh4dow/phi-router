@@ -10,7 +10,6 @@ import { decide } from "#router/features/lanes/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 
-/** Synthetic markers. The judge mock seals a piece holding `sealed` and clears the rest. */
 const markers = {
 	cleared: "BORDER-CLEARED-5X2P",
 	neverJudged: "BORDER-NEVER-JUDGED-3M8T",
@@ -34,10 +33,6 @@ const jsonText = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown
 const hidesNeverJudged = (message: Message): Effect.Effect<boolean> =>
 	Effect.map(Effect.orDie(jsonText(message)), (text) => !Str.includes(markers.neverJudged)(text));
 
-/**
- * A wrong lane choice two ways at once: it always answers clean, and it never shows the judge a message that holds
- * `markers.neverJudged`, so that message reaches the border with no stored verdict.
- */
 const wrongChoice: typeof LaneChoice.Service = Effect.fnUntraced(function* wrongChoice({ messages, lookup }) {
 	const shown = yield* pipe(messages, Effect.filter(hidesNeverJudged));
 	const choice = yield* decide({ lookup, messages: shown });

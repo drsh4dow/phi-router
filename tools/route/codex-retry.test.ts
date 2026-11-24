@@ -31,13 +31,6 @@ interface Script {
 	readonly again: boolean;
 }
 
-/**
- * The open account: a reply with reasoning to "Think.", then `toBlob` to a body that carries the reasoning, and to the
- * follow-up with none either `ok` or, when `again` holds, the same refusal.
- *
- * @param {Script} script What it refuses with.
- * @returns {Function} The script.
- */
 const openScript =
 	(script: Script) =>
 	({ body, last }: Asked): Said => {
@@ -52,11 +45,6 @@ const openScript =
 		return replying([answer]);
 	};
 
-/**
- * Two turns of one session through a router whose open account answers by `script`: the first writes the reasoning,
- * the second sends it back. Returns the second answer, which bodies reached the open account with the blob, and the
- * lane log's lanes.
- */
 const twoTurns = Effect.fnUntraced(function* twoTurns(script: Script) {
 	const { mocks, post, state } = yield* routed({
 		harness: "codex",
@@ -167,24 +155,12 @@ const refused = { blob: false };
 
 const refusing = openScript({ again: false, toBlob: unreadableBlob });
 
-/**
- * The open account, which marks that it refused the reasoning.
- *
- * @param {Asked} asked What it was asked.
- * @returns {Said} What it says.
- */
 const marking = (asked: Asked): Said => {
 	refused.blob ||= Str.includes(blob)(asked.body);
 
 	return refusing(asked);
 };
 
-/**
- * The router's store, but every part reads sealed once the open account refused the reasoning.
- *
- * @param {VerdictStore["Service"]} real The router's store.
- * @returns {VerdictStore["Service"]} The store.
- */
 const sealedOnRefusal = (real: VerdictStore["Service"]): VerdictStore["Service"] =>
 	Struct.assign(real, {
 		read: (session: string, policy: string) =>

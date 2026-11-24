@@ -21,29 +21,18 @@ const session = "order-1";
 
 const lacksFirst = [[named.subagent], []];
 
-/**
- * The router's verdict store, with every session pinned.
- *
- * @param {VerdictStore} real The router's own store.
- * @returns {VerdictStore} The store, pinned.
- */
 const pinnedStore = (real: VerdictStore["Service"]): VerdictStore["Service"] =>
 	Struct.assign(real, {
 		read: (pinned: string, policy: string) =>
 			Effect.andThen(real.pin(pinned, policy, true), real.read(pinned, policy)),
 	});
 
-/** The status of the session the router at `url` reports, as `status` prints it. */
 const statusOn = Effect.fnUntraced(function* statusOn(url: string) {
 	const requests = yield* SessionRequests;
 
 	return yield* requests.status(Number(new URL(url).port), session);
 });
 
-/**
- * What each account received, open first, the lane log line of one request for `model`, else the subagent's, and the
- * last request `status` reports. The configuration lists a BAA repo, and `leasedInRepo` leases the session inside it.
- */
 const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
 	readonly scripts: Omit<Scripts, "holdsPhi" | "configured"> & {
 		readonly store?: (real: VerdictStore["Service"]) => VerdictStore["Service"];

@@ -65,12 +65,6 @@ const pinnedByName = Effect.fnUntraced(function* pinnedByName(harness: HarnessNa
 	);
 });
 
-/**
- * A Claude Code body under `model` whose system prompt is `system` and whose one user message is `text`.
- *
- * @param {object} sent The model, the system text, and the user message's text.
- * @returns {Effect.Effect<string>} The body.
- */
 const claudeBody = (sent: {
 	readonly model: string;
 	readonly system: string;
@@ -147,7 +141,6 @@ const askedParent: Json = {
 	role: "user",
 };
 
-/** The parent's conversation up to the subagent's answer, which names the patient it read, as its tool result. */
 const handedOver: readonly Json[] = [
 	askedParent,
 	{
@@ -169,7 +162,6 @@ const afterwards: readonly Json[] = [
 const parentBody = (messages: readonly Json[]): Effect.Effect<string> =>
 	Effect.orDie(jsonText({ max_tokens: 1024, messages, model: "phi/auto", stream: true }));
 
-/** The parent's question, the pinned subagent's request, the parent's request with its answer, and the next one. */
 const handedOff = Effect.fnUntraced(function* handedOff(post: Post) {
 	const [asking = "", answered = "", following = ""] = yield* Effect.forEach(
 		[[askedParent], handedOver, afterwards],

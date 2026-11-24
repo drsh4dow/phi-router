@@ -61,16 +61,11 @@ const claudeLayout = (home: string): string =>
 		"\n",
 	);
 
-/** Where a test puts the login under the home folder, and the link the account names it through, if any. */
 interface Spelled {
 	readonly folder: string;
 	readonly link?: string;
 }
 
-/**
- * A home folder with a `.claude.json`, a Claude login in it as `spelled` says, the folder the account names, and what
- * the login folder holds.
- */
 const homeWith = Effect.fnUntraced(function* homeWith(spelled: Spelled) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -94,7 +89,6 @@ const homeWith = Effect.fnUntraced(function* homeWith(spelled: Spelled) {
 	return { account, before, folder, home, login };
 });
 
-/** One sealed request to a BAA account in a login folder under `HOME`, answered 401 once. */
 const inHome = Effect.fnUntraced(function* inHome(spelled: Spelled) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

@@ -7,7 +7,6 @@ const session = "store-1";
 
 const racing = 20;
 
-/** The verdict store over a fresh temp state folder. */
 const store = Effect.gen(function* store() {
 	const fs = yield* FileSystem.FileSystem;
 	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-store-" });

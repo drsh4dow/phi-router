@@ -29,7 +29,6 @@ const laneLines = Effect.fnUntraced(function* laneLines(state: string) {
 	);
 });
 
-/** One line of the lane log, as a test reads it. */
 type LaneLogLine = typeof LaneLine.Type;
 
 export { laneLines };

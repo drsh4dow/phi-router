@@ -8,13 +8,6 @@ const prompt = "Generate a concise, single-line task title.\n\nUser prompt:\nWha
 
 const noJudgeCall = 0;
 
-/**
- * A Codex request whose turn metadata is the text `turn`, beside the other `client_metadata` keys in `beside`.
- *
- * @param {string} turn The `x-codex-turn-metadata` text.
- * @param {object} beside Other `client_metadata` keys.
- * @returns {Effect.Effect<string>} The body.
- */
 const titleBody = (turn: string, beside: Readonly<Record<string, string>> = {}): Effect.Effect<string> =>
 	Effect.map(
 		jsonText({
@@ -30,7 +23,6 @@ const titleBody = (turn: string, beside: Readonly<Record<string, string>> = {}):
 		Str.replace(/^\{/u, '{"model":"phi/auto",'),
 	);
 
-/** One request of a fresh session through its own router: where it went, its lane line, and the judge calls it made. */
 const routedAs = Effect.fnUntraced(function* routedAs(body: string) {
 	const { mocks, post, state } = yield* routed({ harness: "codex", holdsPhi: () => false });
 	const response = yield* post({ body, session: "codex-title" });

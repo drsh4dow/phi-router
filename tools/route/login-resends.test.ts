@@ -32,7 +32,6 @@ const unreadable = (): Said => ({
 	status: status.unreadable,
 });
 
-/** The open account seals the session once it is asked this many times, before it refuses the reasoning. */
 const refusedOn = 3;
 
 const thinks = (): Said => replying([reasoning, answer]);
@@ -41,18 +40,11 @@ const answers = (): Said => replying([answer]);
 
 const bearersOf = Array.map(({ headers }: Sent) => headers["authorization"]);
 
-/** An account mock's script, and how many times it was asked. */
 interface InTurn {
 	readonly asked: () => number;
 	readonly script: () => Said;
 }
 
-/**
- * An account that answers its asks in turn, and repeats its last answer after that.
- *
- * @param {object} turns Its answers, in order.
- * @returns {InTurn} The script, and how many times it was asked.
- */
 const inTurn = (turns: readonly [() => Said, ...(() => Said)[]]): InTurn => {
 	const asks = { count: 0 };
 
@@ -68,12 +60,6 @@ const inTurn = (turns: readonly [() => Said, ...(() => Said)[]]): InTurn => {
 	};
 };
 
-/**
- * The router's store, but every part reads sealed once `sealed` holds.
- *
- * @param {Function} sealed Whether the session is sealed now.
- * @returns {Function} The store.
- */
 const sealedOnce =
 	(sealed: () => boolean): ((real: VerdictStore["Service"]) => VerdictStore["Service"]) =>
 	(real: VerdictStore["Service"]): VerdictStore["Service"] =>

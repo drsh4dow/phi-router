@@ -14,28 +14,19 @@ const failing = (): Said => ({ body: "{}", kind: "status", status: 500 });
 
 const ok = (): Said => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
 
-/** One open account, a first BAA account that answers 500, and a second that answers. */
 const failingFirst = { baas: [failing, ok], holdsPhi: () => false } as const;
 
-/** The request reaches the second BAA account alone, and its one lane log line names it for failover. */
 const onlyBaa = {
 	lines: [["baa-2", "sealed", "failover"]],
 	received: { baa: [once, once], open: 0 },
 	status: 200,
 };
 
-/** A first BAA account's script, and how the verdict store the router reads is wrapped. */
 interface Unpinning {
 	readonly first: () => Said;
 	readonly store: (real: VerdictStore["Service"]) => VerdictStore["Service"];
 }
 
-/**
- * A first BAA account that answers 500, and a verdict store that holds the session pinned until that account has
- * answered and unpinned from then on, as an `unpin` does that lands between the request's first and second send.
- *
- * @returns {Unpinning} The account's script and the store.
- */
 const unpinnedAfterTheFirstSend = (): Unpinning => {
 	const answered = { yet: false };
 
@@ -54,7 +45,6 @@ const unpinnedAfterTheFirstSend = (): Unpinning => {
 	return { first, store };
 };
 
-/** Posts one request of `session`, reads the whole answer, and returns its status. */
 const asked = Effect.fnUntraced(function* asked(post: Post, session: string) {
 	const body = yield* bodyOf([{ role: "user", text: "List the build steps." }]);
 	const response = yield* post({ body, session });
@@ -64,19 +54,11 @@ const asked = Effect.fnUntraced(function* asked(post: Post, session: string) {
 	return response.status;
 });
 
-/** What the accounts received and the lane log holds, as `onlyBaa` names them. */
 interface Seen {
 	readonly lines: readonly (readonly string[])[];
 	readonly received: { readonly baa: readonly number[]; readonly open: number };
 }
 
-/**
- * What the accounts received and the lane log holds, as `onlyBaa` names them.
- *
- * @param {readonly (readonly Sent[])[]} received What each account received, the open one first.
- * @param {readonly LaneLogLine[]} lines The lane log's lines.
- * @returns {Seen} The open account's count, each BAA account's, and each line's account, lane and reason.
- */
 const seenIn = (received: readonly (readonly Sent[])[], lines: readonly LaneLogLine[]): Seen => {
 	const [open = [], ...baas] = received;
 

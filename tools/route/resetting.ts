@@ -11,7 +11,6 @@ const reset = Effect.gen(function* reset() {
 	return yield* Effect.never;
 });
 
-/** A test server on loopback. */
 const loopback = Effect.map(Layer.build(NodeHttpServer.layerTest), Context.get(HttpServer.HttpServer));
 
 /** A server on loopback that resets each connection once a request arrives, before any answer, and its address. */

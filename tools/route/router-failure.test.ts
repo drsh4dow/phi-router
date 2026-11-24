@@ -48,7 +48,6 @@ const turns = {
 	reply: { content: text("ok"), role: "assistant" },
 } as const;
 
-/** Posts one Claude Code body that carries `tools` and `messages`, and reads the whole answer. */
 const postedWithTools = Effect.fnUntraced(function* postedWithTools(
 	post: Effect.Success<ReturnType<typeof routed>>["post"],
 	messages: readonly (typeof turns)[keyof typeof turns][],

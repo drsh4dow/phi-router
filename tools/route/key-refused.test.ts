@@ -17,12 +17,6 @@ const ErrorMessage = Schema.fromJsonString(Schema.Struct({ error: Schema.Struct(
 
 type Harness = "claude" | "codex" | "pi";
 
-/**
- * A canary prompt of `harness`, as its codec spells it.
- *
- * @param {Harness} harness The harness that sends it.
- * @returns {Effect.Effect<string>} The request body.
- */
 const canaryBody = (harness: Harness): Effect.Effect<string> => {
 	if (harness === "codex") {
 		return codexBodyOf([userMessage(prompt)]);

@@ -54,7 +54,6 @@ interface Scripts {
 	readonly lacks?: readonly (readonly string[])[];
 }
 
-/** One request as a test sends it: the session it names and its body. */
 interface Sent {
 	readonly session: string;
 	readonly body: string;
@@ -146,20 +145,8 @@ const codexCatalog = HttpClientRequest.get("/v1/models").pipe(HttpClientRequest.
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/**
- * Any value as JSON text.
- *
- * @param {Json} value The value.
- * @returns {Effect.Effect<string>} Its JSON.
- */
 const jsonText = (value: Json): Effect.Effect<string> => Effect.orDie(jsonOf(value));
 
-/**
- * The headers of `names` alone, so a test compares only the ones it watches.
- *
- * @param {readonly string[]} names The header names kept.
- * @returns {Function} The filter for one request's headers.
- */
 const headersNamed =
 	(names: readonly string[]) =>
 	(headers: Readonly<Record<string, string>>): Readonly<Record<string, string>> =>

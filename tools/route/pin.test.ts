@@ -24,7 +24,6 @@ const whilePinned: readonly (readonly Turn[])[] = [
 	[user(asked.first), assistant(replies.first), user(asked.second)],
 ];
 
-/** The marked part of each turn of `afterUnpin`. */
 const marked = [asked.first, replies.first, asked.second, replies.second, asked.last];
 
 const none = 0;
@@ -37,7 +36,6 @@ const afterUnpin: readonly Turn[] = [
 	user(asked.last),
 ];
 
-/** Posts `turns` as one Claude Code request of `session` and reads the whole answer. */
 const postedIn = Effect.fnUntraced(function* postedIn(post: Post, session: string, turns: readonly Turn[]) {
 	const body = yield* bodyOf(turns);
 	const response = yield* post({ body, session });
@@ -49,7 +47,6 @@ const postedIn = Effect.fnUntraced(function* postedIn(post: Post, session: strin
 
 const jsonText = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/** The marked texts the judge mock was asked about in `received`, in the order of `texts`. */
 const judgedOf = Effect.fnUntraced(function* judgedOf(
 	received: readonly { readonly body: unknown }[],
 	texts: readonly string[],
@@ -76,14 +73,12 @@ const onePart = 1;
 
 const portOf = (url: string): number => Number(new URL(url).port);
 
-/** Sets the pin of session `pin-1` on the router at `url`, as `pin` and `unpin` do. */
 const pinnedOn = Effect.fnUntraced(function* pinnedOn(url: string, pinned: boolean) {
 	const requests = yield* SessionRequests;
 
 	yield* requests.pin(portOf(url), { pinned, session });
 });
 
-/** The status of session `of` the router at `url` reports, as `status` prints it. */
 const statusOn = Effect.fnUntraced(function* statusOn(url: string, of: string) {
 	const requests = yield* SessionRequests;
 	const status = yield* requests.status(portOf(url), of);
@@ -93,10 +88,6 @@ const statusOn = Effect.fnUntraced(function* statusOn(url: string, of: string) {
 
 type Shown = Effect.Success<ReturnType<typeof statusOn>>;
 
-/**
- * `pin`, the two requests of `whilePinned`, `unpin` and the request of `afterUnpin`, all of one session. Returns what
- * the judge mock, the lane log and `status` show while pinned and at the end.
- */
 const pinnedThenUnpinned = Effect.gen(function* pinnedThenUnpinned() {
 	const { mocks, post, state, url } = yield* routed({ holdsPhi: () => false });
 
@@ -125,12 +116,6 @@ const pinnedThenUnpinned = Effect.gen(function* pinnedThenUnpinned() {
 	};
 });
 
-/**
- * The status of session `pin-1`.
- *
- * @param {object} seen How many parts are cleared, the pin, and the account of the last request.
- * @returns {Shown} The status.
- */
 const statusOf = (seen: { readonly cleared: number; readonly pinned: boolean; readonly account: string }): Shown => ({
 	accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 	cleared: seen.cleared,
@@ -155,13 +140,6 @@ const pinnedStretch = Effect.gen(function* pinnedStretch() {
 	});
 });
 
-/**
- * The verdict store, but every read after the first unpins the session before it reads, as an `unpin` does that lands
- * between the first request's arrival and its send.
- *
- * @param {object} real The router's verdict store.
- * @returns {object} The store with that read.
- */
 const unpinnedBeforeTheSend = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
 	const reads = { arrived: false };
 
@@ -178,7 +156,6 @@ const unpinnedBeforeTheSend = (real: VerdictStore["Service"]): VerdictStore["Ser
 	return Struct.assign(real, { read });
 };
 
-/** A request that arrives pinned, whose session is unpinned before its send, then the next request of the session. */
 const lateUnpin = Effect.gen(function* lateUnpin() {
 	const { mocks, post, state, url } = yield* routed({ holdsPhi: () => false, store: unpinnedBeforeTheSend });
 

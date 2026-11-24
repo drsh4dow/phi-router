@@ -1,14 +1,7 @@
 import { Array, Effect, FileSystem, Path, pipe } from "effect";
 
-/** A mode's file type starts at this bit, above the permission bits. */
 const fileTypeBit = 0o1000;
 
-/**
- * The permission bits of a mode.
- *
- * @param {number} mode A mode as `stat` gives it.
- * @returns {number} Its permission bits.
- */
 const permissionsOf = (mode: number): number => mode % fileTypeBit;
 
 const octal = 8;

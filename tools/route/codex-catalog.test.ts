@@ -78,7 +78,6 @@ const listed = Effect.gen(function* listed() {
 
 const expired = '{"error":{"message":"token expired"}}';
 
-/** What the harness gets when the open account's catalog answers `body` with `answered`. */
 const answeredWith = Effect.fnUntraced(function* answeredWith(answered: number, body: string) {
 	const said: Said = { body, kind: "status", status: answered };
 	const { client } = yield* routed({ catalog: () => said, harness: "codex", holdsPhi: () => false });
@@ -132,7 +131,6 @@ const canary = "8A73DG5RM60";
 /** Digits and dots alone, one character over the 32 a version may take. */
 const longVersion = "0.166.0.0.0.0.0.0.0.0.0.0.0.0.0.0";
 
-/** What reaches the open account, and what the harness gets, for each `client_version`. */
 const versioned = Effect.gen(function* versioned() {
 	const { client, mocks } = yield* routed({ harness: "codex", holdsPhi: () => false });
 

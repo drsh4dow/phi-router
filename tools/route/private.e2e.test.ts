@@ -20,7 +20,6 @@ const written = ["/phi-router", "/phi-router/leases.json", "/phi-router/lanes.js
  */
 const withNoUmask = ["/bin/sh", "-c", 'umask 000 && exec bun src/router/main.ts "$@"', "sh"] as const;
 
-/** Posts one request of session `s1` that seals, as Claude Code sends it, to the router at `url`. */
 const sealedThrough = Effect.fnUntraced(function* sealedThrough(url: string) {
 	const client = yield* HttpClient.HttpClient;
 	const body = yield* bodyOf([{ role: "user", text: `Member ${canary} called.` }]);

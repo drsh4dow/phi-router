@@ -201,7 +201,6 @@ const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 	};
 });
 
-/** One turn of a test conversation, plain text, so each message is one part. */
 interface Turn {
 	readonly role: "user" | "assistant";
 	readonly text: string;
@@ -267,7 +266,6 @@ const routed = Effect.fnUntraced(function* routed(
 	return { breaches, client, env, mocks, post, state, url };
 });
 
-/** How a test posts one request to the router, as Claude Code does. */
 type Post = Effect.Success<ReturnType<typeof routed>>["post"];
 
 /** Posts `input` as one Codex request of `session`, reads the whole answer, and returns its status. */

@@ -42,7 +42,6 @@ const Body = Schema.fromJsonString(Schema.Struct({ messages: Schema.Array(Messag
 
 const shown = ["anthropic-beta", "authorization", "b3", "traceparent", "x-api-key", "x-not-carried"];
 
-/** What a test reads of one request an account mock received: the headers that matter, the model, and the text at `phiAt`. */
 const viewOf = Effect.fnUntraced(function* viewOf(sent: Sent) {
 	const { messages, model } = yield* Schema.decodeEffect(Body)(sent.body);
 
@@ -165,7 +164,6 @@ const opaqueBlocks = [
 
 type Opaque = (typeof opaqueBlocks)[number];
 
-/** What follows the opaque block in the BAA account's reply. Each block is sent whole in its start event. */
 const noteBlock = { text: "noted", type: "text" } as const;
 
 const saying = (blocks: readonly (Opaque["block"] | typeof noteBlock)[]) => (): Said => ({
@@ -189,7 +187,6 @@ const saying = (blocks: readonly (Opaque["block"] | typeof noteBlock)[]) => (): 
 
 const StoredReplyKeys = Schema.fromJsonString(Schema.Struct({ openWrote: Schema.Array(Schema.String) }));
 
-/** The reply keys of every session file under the router's state folder `state`. */
 const replyKeysIn = Effect.fnUntraced(function* replyKeysIn(state: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

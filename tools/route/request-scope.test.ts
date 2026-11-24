@@ -26,7 +26,6 @@ const okReply: Said = { events: Stream.fromIterable(textEvents(["ok"])), kind: "
 
 const opening = Array.take(textEvents(["one"]), first);
 
-/** The fetch the router calls its accounts with, and for each call it made to `endpoint`, whether its abort is held. */
 interface Spied {
 	readonly fetch: typeof globalThis.fetch;
 	readonly held: (endpoint: string) => readonly boolean[];
@@ -78,7 +77,6 @@ const flat = Effect.gen(function* flat() {
 	);
 });
 
-/** An open account that answers `ok`, but to the slow question sends one event and nothing more until it is hung up on. */
 const slowAccount = Effect.map(Latch.make(), (closed) => ({
 	closed: closed.await,
 	script: ({ last }: Asked): Said => {

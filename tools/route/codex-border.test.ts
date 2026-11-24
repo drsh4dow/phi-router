@@ -9,7 +9,6 @@ import { routed } from "./mocked-router.ts";
 import { stubs } from "#router/features/policy/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 
-/** Synthetic markers. The judge mock seals a piece holding `sealed` and clears the rest. */
 const markers = {
 	cleared: "CODEX-BORDER-CLEARED-4H7J",
 	neverJudged: "CODEX-BORDER-NEVER-JUDGED-9K3D",
@@ -48,7 +47,6 @@ const Item = Schema.Struct({ content: Content });
 
 const Sent = Schema.fromJsonString(Schema.Struct({ input: Schema.Array(Item) }));
 
-/** Every text of every item's content in a body the open account received. */
 const textsOf = Effect.fnUntraced(function* textsOf(body: string) {
 	const { input: items } = yield* Schema.decodeEffect(Sent)(body);
 

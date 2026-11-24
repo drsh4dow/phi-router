@@ -38,7 +38,6 @@ const Body = Schema.fromJsonString(
 
 const shown = ["authorization", "chatgpt-account-id"];
 
-/** What a test reads of one request an account mock received. */
 const viewOf = Effect.fnUntraced(function* viewOf(sent: Sent) {
 	const { input, instructions, model } = yield* Schema.decodeEffect(Body)(sent.body);
 
@@ -160,12 +159,6 @@ const blob = "gAAAAABopen-reasoning-blob-0001";
 
 const reasoning = { encrypted_content: blob, id: "rs_open", summary: [], type: "reasoning" } as const;
 
-/**
- * The open account's reply: a reasoning item, then text. "Think briefly." gets it cut before `response.completed`.
- *
- * @param {Asked} asked What the account is asked.
- * @returns {Said} The reply.
- */
 const thinking = ({ last }: Asked): Said => {
 	const events = responseEvents([reasoning, items.ok]);
 

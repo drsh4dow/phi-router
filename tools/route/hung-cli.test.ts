@@ -25,7 +25,6 @@ const token = "phi-test-hung-token";
 const body =
 	'{"max_tokens":1024,"messages":[{"content":[{"text":"Go on.","type":"text"}],"role":"user"}],"model":"phi/auto","stream":true}';
 
-/** A stand-in `claude` that marks that it started, ignores SIGTERM and never exits, and never writes the folder. */
 const hung = Array.join(
 	["#!/bin/sh", ': > "$(dirname "$0")/started"', "trap '' TERM", "while :; do sleep 1; done", ""],
 	"\n",
@@ -33,7 +32,6 @@ const hung = Array.join(
 
 const waiting = { schedule: Schedule.spaced("20 millis") } as const;
 
-/** A Claude login folder whose token expires in a minute of the test clock, and the stand-in on `PATH`. */
 const nearExpiry = Effect.gen(function* nearExpiry() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -49,7 +47,6 @@ const nearExpiry = Effect.gen(function* nearExpiry() {
 	return { bin, folder };
 });
 
-/** Waits, on the real clock, until the stand-in in `bin` has started. */
 const started = Effect.fnUntraced(function* started(bin: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -63,7 +60,6 @@ const started = Effect.fnUntraced(function* started(bin: string) {
 
 const paused = TestClock.withLive(Effect.sleep(pause));
 
-/** Moves the test clock a second at a time, with a real pause between, until the request ends. */
 const ticking = Effect.forever(Effect.andThen(TestClock.adjust(tick), paused));
 
 /**

@@ -28,7 +28,6 @@ const SentMetadata = Schema.fromJsonString(
 	Schema.Struct({ client_metadata: Schema.Struct({ "x-codex-turn-metadata": Schema.String }) }),
 );
 
-/** A Codex body around `text` whose client metadata carries the git folder's turn metadata. */
 const bodyInGit = Effect.fnUntraced(function* bodyInGit(text: string) {
 	const body = yield* codexBodyOf([userMessage(text)]);
 	const metadata = yield* Schema.encodeEffect(ClientMetadata)({ "x-codex-turn-metadata": inGit });
