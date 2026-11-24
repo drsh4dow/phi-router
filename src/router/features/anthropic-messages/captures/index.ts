@@ -3,7 +3,6 @@ import { compaction } from "./compaction.ts";
 import { firstTurn } from "./first-turn.ts";
 import { pi160Requests } from "./pi.ts";
 import { subagent } from "./subagent.ts";
-import { toolCallReply } from "./tool-call.ts";
 import { toolResult } from "./tool-result.ts";
 import { toolSearch } from "./tool-search.ts";
 import { webSearch } from "./web-search.ts";
@@ -22,6 +21,4 @@ const requests = {
 	webSearch,
 };
 
-const replies = { toolCallReply } as const;
-
-export { replies, requests };
+export { requests };

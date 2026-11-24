@@ -6,8 +6,9 @@ import {
 	replyKeys,
 } from "#router/features/anthropic-messages/index.ts";
 import { assert, it } from "@effect/vitest";
-import { replies, requests } from "./index.ts";
 import { Digest } from "effect/crypto";
+import { requests } from "./index.ts";
+import { toolCallReply } from "./tool-call.ts";
 
 const nobodyWrote = (): boolean => false;
 
@@ -43,7 +44,7 @@ const retried = Effect.gen(function* retried() {
 const openThinking = '{"type":"thinking","thinking":"","signature":"signature-placeholder"}';
 
 const echoOf = Effect.fnUntraced(function* echoOf(body: string) {
-	const keys = yield* replyKeys(replies.toolCallReply);
+	const keys = yield* replyKeys(toolCallReply);
 	const request = yield* decodeRequest(body, (key) => Array.contains(keys, key), "claude");
 	const clean = yield* request.encode({ lane: "clean", messages: request.messages, model: "claude-target" });
 
@@ -102,7 +103,7 @@ const mixedThinking = Effect.gen(function* mixedThinking() {
 });
 
 const cutReply = Effect.gen(function* cutReply() {
-	const cut = pipe(replies.toolCallReply, Str.split("event: message_stop"), Array.headNonEmpty);
+	const cut = pipe(toolCallReply, Str.split("event: message_stop"), Array.headNonEmpty);
 	const failed = `${cut}event: error\ndata: {"type":"error","error":{"type":"overloaded_error"}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n`;
 
 	const cutFailure = yield* Effect.flip(replyKeys(cut));
@@ -195,8 +196,8 @@ const beforeMessageDelta =
 		Str.replace("event: message_delta", `${event}event: message_delta`)(reply);
 
 const blankText = Effect.gen(function* blankText() {
-	const withBlank = yield* replyKeys(beforeMessageDelta(blankBlock)(replies.toolCallReply));
-	const without = yield* replyKeys(replies.toolCallReply);
+	const withBlank = yield* replyKeys(beforeMessageDelta(blankBlock)(toolCallReply));
+	const without = yield* replyKeys(toolCallReply);
 
 	assert.deepStrictEqual(withBlank, without);
 });
@@ -227,7 +228,7 @@ const unfoldable = [
 
 const unfoldableReply = Effect.gen(function* unfoldableReply() {
 	for (const event of unfoldable) {
-		const failure = yield* Effect.flip(replyKeys(beforeMessageDelta(event)(replies.toolCallReply)));
+		const failure = yield* Effect.flip(replyKeys(beforeMessageDelta(event)(toolCallReply)));
 
 		assert.instanceOf(failure, UnreadableReply);
 	}
