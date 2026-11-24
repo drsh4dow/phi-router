@@ -10,7 +10,6 @@ import type { Said } from "#router/client/mock-upstreams/index.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { storedIn } from "./stored.ts";
 
-/** The plugin in this checkout, whose hooks every routed `codex` run loads. */
 const plugin = decodeURIComponent(new URL("../../plugins/claude", import.meta.url).pathname);
 
 const place = Effect.gen(function* place() {
@@ -25,17 +24,8 @@ const place = Effect.gen(function* place() {
 
 type Place = Readonly<Effect.Success<typeof place>>;
 
-/** Codex's update prompt starts a global install, so every `CODEX_HOME` of the run turns the check off. */
 const noUpdateCheck = "check_for_update_on_startup = false";
 
-/**
- * The config of a `CODEX_HOME` whose provider is the router. The login is `auth.command` printing the fake harness
- * token beside a fake `ChatGPT-Account-ID`, so the run needs no ChatGPT login. Analytics and plugins are off, because
- * with them on `codex exec` called chatgpt.com, ab.chatgpt.com and github.com in a probe.
- *
- * @param {string} router The router's URL.
- * @returns {string} The `config.toml` text.
- */
 const configOf = (router: string): string =>
 	Array.join(
 		[
@@ -102,7 +92,6 @@ const codexRun = Effect.fnUntraced(
 
 const ok = 200;
 
-/** The three mocks, the open one serving the bundled catalog with the target model, and the router as its own process. */
 const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -144,13 +133,10 @@ const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 	};
 });
 
-/** What `codex exec` prints on stderr when the prompt-submit hook blocks the prompt. It shows the reason nowhere. */
 const promptBlocked = "hook: UserPromptSubmit Blocked";
 
-/** What Codex prints when no catalog entry names the model. */
 const fallback = "Defaulting to fallback metadata";
 
-/** The working folder's `origin`. Codex 0.166.0 sends a git folder's remotes in its turn metadata. */
 const remote = "https://github.com/example/phi-wire.git";
 
 const gitRepo = Effect.fnUntraced(function* gitRepo(where: Place) {
@@ -181,14 +167,8 @@ const gitRepo = Effect.fnUntraced(function* gitRepo(where: Place) {
 	);
 });
 
-/** The plugin's hooks are trusted in a TUI. A run with no TUI trusts them with this flag. */
 const exec = ["exec", "--skip-git-repo-check", "--dangerously-bypass-hook-trust"];
 
-/**
- * The routed `CODEX_HOME` and the planted files in a git repository: a clean note, and a chart holding the PHI case's text. Returns the
- * state folder, the slugs served and `turn`, which plays one `codex` run against the router and returns what each mock
- * received during it.
- */
 const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

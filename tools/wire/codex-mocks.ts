@@ -6,7 +6,6 @@ import { roleFile, sealedRole } from "#router/features/cli/index.ts";
 import type { Cause } from "effect";
 import { fakes } from "#tools/route/mocked-router.ts";
 
-/** The files planted in the working folder: a clean note, and a chart that holds the PHI case's text. */
 const files = { chart: "planted-chart.txt", notes: "planted-notes.txt" } as const;
 
 const catting = (call: { readonly file: string; readonly id: string }): Said =>
@@ -21,12 +20,6 @@ const catting = (call: { readonly file: string; readonly id: string }): Said =>
 		} satisfies Json,
 	]);
 
-/**
- * A call of Codex's multi-agent tools, which start the role `on codex` writes and wait for its answer.
- *
- * @param {object} call The tool's name and its arguments.
- * @returns {Said} The reply that calls it.
- */
 const multiAgent = (call: { readonly name: string; readonly arguments: string }): Said =>
 	replying([
 		{
@@ -40,7 +33,6 @@ const multiAgent = (call: { readonly name: string; readonly arguments: string })
 		} satisfies Json,
 	]);
 
-/** The started subagent's id in the output of `spawn_agent`, a JSON string inside the request's JSON. */
 const StartedAgent = /\\"agent_id\\":\\"(?<agent>[^\\"]+)\\"/u;
 
 const startedAgent = (asked: Asked): Option.Option<string> =>
@@ -54,13 +46,6 @@ const saying = (text: string): Said => replying([replyMessage({ id: "msg_wire", 
 
 const isToolOutput = (asked: Asked): boolean => Str.includes('"function_call_output"')(asked.last);
 
-/**
- * The open mock: a wait for the pinned subagent once it started, its start when the last item asks for the hand-off,
- * text after a tool result, a call that prints the chart file when the last item names it, and `ok`.
- *
- * @param {Asked} asked What it was asked.
- * @returns {Said} Its answer.
- */
 const openScript = (asked: Asked): Said => {
 	const agent = startedAgent(asked);
 
@@ -86,13 +71,6 @@ const openScript = (asked: Asked): Said => {
 	return saying("ok");
 };
 
-/**
- * The BAA mock: the pinned subagent's answer, which names the member, to the subagent, text after a tool result, and
- * otherwise a call that prints the clean notes file.
- *
- * @param {Asked} asked What it was asked.
- * @returns {Said} Its answer.
- */
 const baaScript = (asked: Asked): Said => {
 	if (isSubagent(asked)) {
 		return saying(subagent.answer);
@@ -111,7 +89,6 @@ const Entry = Schema.StructWithRest(Schema.Struct({ slug: Schema.String }), [
 
 const Catalog = Schema.fromJsonString(Schema.Struct({ models: Schema.Array(Entry) }));
 
-/** The bundled model whose entry the target model copies. Its plain function tools let a mock call `exec_command`. */
 const dialect = "gpt-5.5";
 
 const catalogSlugsOf = Effect.fnUntraced(function* catalogSlugsOf(catalog: string) {
@@ -123,7 +100,6 @@ const catalogSlugsOf = Effect.fnUntraced(function* catalogSlugsOf(catalog: strin
 	);
 });
 
-/** The open mock's catalog: Codex's bundled one, plus the bundled `dialect` entry renamed to the target model. */
 const catalogOf = Effect.fnUntraced(function* catalogOf(bundled: string) {
 	const { models } = yield* Schema.decodeEffect(Catalog)(bundled);
 
@@ -144,7 +120,6 @@ const catalogOf = Effect.fnUntraced(function* catalogOf(bundled: string) {
 	return { body, slugs };
 });
 
-/** What the Codex adapter installs in the `CODEX_HOME` `home`: the plugin's hooks, and the role `on codex` writes. */
 const installed = Effect.fnUntraced(function* installed(where: { readonly home: string; readonly plugin: string }) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

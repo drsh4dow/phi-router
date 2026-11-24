@@ -170,8 +170,6 @@
 	"tools/setup/setup-pi-key.test.ts": 10,
 	"tools/setup/setup-refused.test.ts": 3,
 	"tools/setup/world.ts": 13,
-	"tools/wire/codex-mocks.ts": 8,
-	"tools/wire/codex.ts": 9,
 	"tools/wire/pi-run.ts": 14,
 	"tools/wire/pi.ts": 3
 }
