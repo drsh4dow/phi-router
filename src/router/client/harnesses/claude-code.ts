@@ -42,15 +42,11 @@ interface UserSettings {
 	readonly enabledPlugins: readonly string[];
 }
 
-/**
- * One headless turn: its prompt, its model, the `env` block laid over Claude Code's settings for it alone, the plugin
- * folder it loads, and the environment the turn and its hooks get beside `PATH`.
- */
 interface Asked {
 	readonly prompt: string;
 	readonly model: string;
 	readonly settingsEnv: Readonly<Record<string, string>>;
-	readonly plugin: string;
+	readonly pluginFolder: string;
 	readonly env: Readonly<Record<string, string>>;
 }
 
@@ -64,8 +60,7 @@ const fakeLogin = "phi-doctor-login";
 /** Claude Code's config folder: `named`, else `CLAUDE_CONFIG_DIR`, else `.claude` under the home folder. */
 const configFolder = harnessFolder({ fallback: ".claude", variable: "CLAUDE_CONFIG_DIR" });
 
-/** The file `name` in the config folder. */
-const fileOf = Effect.fnUntraced(function* fileOf(named: string, name: string) {
+const configFile = Effect.fnUntraced(function* configFile(named: string, name: string) {
 	const path = yield* Path.Path;
 	const folder = yield* configFolder(named);
 
@@ -95,7 +90,7 @@ const read = Effect.fnUntraced(function* read(file: string) {
 
 /** What `settings.json` in the config folder holds. `named` is the folder the developer named, or empty. */
 const userSettings = Effect.fnUntraced(function* userSettings(named: string) {
-	const file = yield* fileOf(named, settingsName);
+	const file = yield* configFile(named, settingsName);
 	const { blocks } = yield* read(file);
 	const { enabledPlugins = {}, env = {} } = blocks;
 
@@ -113,7 +108,7 @@ const userSettings = Effect.fnUntraced(function* userSettings(named: string) {
 /** The folder Claude Code installed the plugin `id` into, from `plugins/installed_plugins.json`, if it installed it. */
 const claudePlugin = Effect.fnUntraced(function* claudePlugin(named: string, id: string) {
 	const fs = yield* FileSystem.FileSystem;
-	const file = yield* fileOf(named, "plugins/installed_plugins.json");
+	const file = yield* configFile(named, "plugins/installed_plugins.json");
 	const exists = yield* fs.exists(file);
 
 	if (!exists) {
@@ -144,7 +139,7 @@ const rewriteEnv = Effect.fnUntraced(function* rewriteEnv(
 	set: Readonly<Record<string, string>>,
 	unset: readonly string[],
 ) {
-	const file = yield* fileOf(named, settingsName);
+	const file = yield* configFile(named, settingsName);
 	const { blocks, settings } = yield* read(file);
 	const env = blocks.env ?? {};
 
@@ -187,7 +182,16 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const config = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-claude-" });
 	const settings = Formatter.formatJson({ env: asked.settingsEnv });
 
-	const args = ["-p", asked.prompt, "--model", asked.model, "--settings", settings, "--plugin-dir", asked.plugin];
+	const args = [
+		"-p",
+		asked.prompt,
+		"--model",
+		asked.model,
+		"--settings",
+		settings,
+		"--plugin-dir",
+		asked.pluginFolder,
+	];
 
 	return ChildProcess.make("claude", args, {
 		cwd: home,

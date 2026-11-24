@@ -13,7 +13,7 @@ import {
 	sealedRole,
 } from "./codex-settings.ts";
 import { canaryRun, reported } from "./doctor.ts";
-import { codexHome, codexPlugin, codexTurn, textOf } from "#router/client/harnesses/index.ts";
+import { codexHome, codexPlugin, codexTurn, textOrEmpty } from "#router/client/harnesses/index.ts";
 import { holds, hookTrust, pluginEnabled } from "./codex-holds.ts";
 import type { Check } from "./doctor.ts";
 
@@ -102,8 +102,8 @@ const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
 			dotenv: exemptionLine,
 			env: Struct.assign(env, { [addressEnv]: address }),
 			hookTrust: trusted,
-			installed: install.folder,
-			place: install.place,
+			installedPlugin: install.folder,
+			pluginCachePlace: install.place,
 			prompt,
 		}),
 	);
@@ -118,9 +118,9 @@ const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
 const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: string) {
 	const path = yield* Path.Path;
 	const home = yield* codexHome(named);
-	const config = yield* textOf(path.join(home, "config.toml"));
-	const dotenv = yield* textOf(path.join(home, dotenvFile));
-	const role = yield* textOf(path.join(home, ...roleFile));
+	const config = yield* textOrEmpty(path.join(home, "config.toml"));
+	const dotenv = yield* textOrEmpty(path.join(home, dotenvFile));
+	const role = yield* textOrEmpty(path.join(home, ...roleFile));
 	const installed = yield* codexPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
 
 	yield* reported(

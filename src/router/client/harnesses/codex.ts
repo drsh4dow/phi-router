@@ -3,19 +3,13 @@ import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 import { copyPrivately, rewritePrivately, writePrivately } from "#router/client/private-file.ts";
 import { ChildProcess } from "effect/process";
 
-/**
- * One headless turn: its prompt, the `config.toml` and `.env` it runs with, a plugin folder and the `place` under the
- * turn's own Codex home its copy goes, as Codex's plugin cache lays it out, and the environment the turn and its
- * hooks get beside `PATH`. Its hooks run on the trust `config.toml` holds, or, `bypassed`, on none, as before the
- * human first starts Codex with the plugin.
- */
 interface Asked {
 	readonly prompt: string;
 	readonly hookTrust: "persisted" | "bypassed";
 	readonly config: string;
 	readonly dotenv: string;
-	readonly installed: string;
-	readonly place: string;
+	readonly installedPlugin: string;
+	readonly pluginCachePlace: string;
 	readonly env: Readonly<Record<string, string>>;
 }
 
@@ -35,8 +29,7 @@ class NotUtf8 extends Schema.TaggedError<NotUtf8, { readonly brand: unique symbo
 /** Decodes UTF-8 and keeps a byte order mark, so the text encodes back to the same bytes. */
 const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-/** The text of `file`, none when there is no file. */
-const fileText = Effect.fnUntraced(function* fileText(file: string) {
+const textIfPresent = Effect.fnUntraced(function* textIfPresent(file: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const exists = yield* fs.exists(file);
 
@@ -52,9 +45,8 @@ const fileText = Effect.fnUntraced(function* fileText(file: string) {
 	});
 });
 
-/** The text of `file`, empty when there is no file. */
-const textOf = Effect.fnUntraced(function* textOf(file: string) {
-	const text = yield* fileText(file);
+const textOrEmpty = Effect.fnUntraced(function* textOrEmpty(file: string) {
+	const text = yield* textIfPresent(file);
 
 	return Option.getOrElse(text, () => "");
 });
@@ -66,8 +58,7 @@ const firstLine = Effect.fnUntraced(function* firstLine(file: string) {
 	return yield* fs.stream(file).pipe(Stream.decodeText, Stream.splitLines, Stream.runHead);
 });
 
-/** Removes `file`, and gives whether it was there. */
-const removed = Effect.fnUntraced(function* removed(file: string) {
+const removedIfPresent = Effect.fnUntraced(function* removedIfPresent(file: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const exists = yield* fs.exists(file);
 
@@ -125,7 +116,7 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-home-" });
 	const codex = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-codex-" });
 
-	yield* copyPrivately(asked.installed, path.join(codex, asked.place));
+	yield* copyPrivately(asked.installedPlugin, path.join(codex, asked.pluginCachePlace));
 	yield* writePrivately(path.join(codex, "config.toml"), asked.config);
 	yield* writePrivately(path.join(codex, ".env"), asked.dotenv);
 
@@ -155,4 +146,4 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 /** Runs the installed `codex exec` once in a fresh home and Codex home, and ends the turn after 2 minutes. */
 const codexTurn = harnessTurn(commandOf);
 
-export { codexHome, codexPlugin, codexTurn, firstLine, removed, rewritten, textOf };
+export { codexHome, codexPlugin, codexTurn, firstLine, removedIfPresent, rewritten, textOrEmpty };

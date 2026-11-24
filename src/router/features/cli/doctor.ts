@@ -216,7 +216,7 @@ const claudeCanary = Effect.fnUntraced(function* claudeCanary(folder: string) {
 			claudeTurn({
 				env,
 				model: auto,
-				plugin: folder,
+				pluginFolder: folder,
 				prompt,
 				settingsEnv: Struct.assign(
 					Struct.assign(claudeEnv, { [modelAddress]: address }),

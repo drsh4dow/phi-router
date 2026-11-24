@@ -9,7 +9,7 @@ const piCanary = Effect.fnUntraced(function* piCanary(folder: string) {
 		piTurn({
 			env: Struct.assign(env, { [piWire.portVariable]: new URL(address).port }),
 			model: "phi/auto",
-			package: folder,
+			packageFolder: folder,
 			prompt,
 		}),
 	);
@@ -30,7 +30,7 @@ const doctorPi = Effect.fn("doctor pi")(function* doctorPi(agentDir: string) {
 			{ name: "pi installed the package phi-router", passed: Option.isSome(installed) },
 			{
 				name: "pi loads all of the package, which no filter in pi's settings narrows",
-				passed: Option.exists(installed, ({ filtered }) => !filtered),
+				passed: Option.exists(installed, ({ narrowedBySettings }) => !narrowedBySettings),
 			},
 		],
 		"Run pi install with the address of the phi-router repository, and name it in pi's settings without a filter.",

@@ -1,5 +1,5 @@
 import { Array, Console, Effect, Option, Path, Schema, String as Str, pipe } from "effect";
-import { codexHome, removed, rewritten, textOf } from "#router/client/harnesses/index.ts";
+import { codexHome, removedIfPresent, rewritten, textOrEmpty } from "#router/client/harnesses/index.ts";
 import {
 	codexSettings,
 	dotenvFile,
@@ -44,14 +44,14 @@ const settingLines = pipe(
 
 /** Removes the router's exemption line from `.env`, and the file when the line was all it held. Gives whether it was there. */
 const unexempt = Effect.fnUntraced(function* unexempt(file: string) {
-	const text = yield* textOf(file);
+	const text = yield* textOrEmpty(file);
 
 	if (!holdsExemption(text)) {
 		return false;
 	}
 
 	yield* Option.match(withoutExemption(text), {
-		onNone: () => removed(file),
+		onNone: () => removedIfPresent(file),
 		onSome: (kept) => rewritten(file, text, kept),
 	});
 
@@ -73,7 +73,7 @@ const trustLine = (config: string): string => {
  */
 const codexSwitchedOn = Effect.fnUntraced(function* codexSwitchedOn(named: string) {
 	const files = yield* filesOf(named);
-	const before = yield* textOf(files.config);
+	const before = yield* textOrEmpty(files.config);
 	const owner = inlineOwner(before);
 
 	if (Option.isSome(owner)) {
@@ -81,7 +81,7 @@ const codexSwitchedOn = Effect.fnUntraced(function* codexSwitchedOn(named: strin
 	}
 
 	const after = switchedOn(before);
-	const [dotenv, role] = yield* Effect.all([textOf(files.dotenv), textOf(files.role)], { concurrency: 1 });
+	const [dotenv, role] = yield* Effect.all([textOrEmpty(files.dotenv), textOrEmpty(files.role)], { concurrency: 1 });
 
 	const writes = [
 		[files.config, before, after],
@@ -124,13 +124,13 @@ const onCodex = Effect.fn("on codex")(function* onCodex(named: string) {
  */
 const offCodex = Effect.fn("off codex")(function* offCodex(named: string) {
 	const files = yield* filesOf(named);
-	const before = yield* textOf(files.config);
+	const before = yield* textOrEmpty(files.config);
 	const { removed: keys, text } = switchedOff(before);
 
 	yield* rewritten(files.config, before, text);
 
 	const exempted = yield* unexempt(files.dotenv);
-	const role = yield* removed(files.role);
+	const role = yield* removedIfPresent(files.role);
 
 	const roleLine = pipe(
 		Option.liftPredicate(`phi-router removed the role phi-sealed from ${files.role}`, () => role),

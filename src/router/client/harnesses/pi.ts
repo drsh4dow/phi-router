@@ -20,11 +20,10 @@ const fakeLogin = "phi-doctor-fake-login";
 
 const PackageName = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 
-/** One headless turn: its prompt and model, the package folder it loads, and the environment beside `PATH`. */
 interface Asked {
 	readonly prompt: string;
 	readonly model: string;
-	readonly package: string;
+	readonly packageFolder: string;
 	readonly env: Readonly<Record<string, string>>;
 }
 
@@ -77,10 +76,9 @@ const holdsRouter = Effect.fnUntraced(function* holdsRouter(folder: string) {
 	);
 });
 
-/** Where pi installed the package `phi-router`, and whether the user's settings narrow what pi loads of it. */
 interface Installed {
 	readonly folder: string;
-	readonly filtered: boolean;
+	readonly narrowedBySettings: boolean;
 }
 
 const filteredMark = " (filtered)";
@@ -98,7 +96,7 @@ const installsOf = (printed: string, isAbsolute: (line: string) => boolean): rea
 	return pipe(
 		Array.zip(Array.prepend(lines, ""), lines),
 		Array.filter(([, line]) => isAbsolute(line)),
-		Array.map(([source, folder]) => ({ filtered: Str.endsWith(filteredMark)(source), folder })),
+		Array.map(([source, folder]) => ({ folder, narrowedBySettings: Str.endsWith(filteredMark)(source) })),
 	);
 };
 
@@ -137,7 +135,7 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-home-" });
 	const agent = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-pi-" });
 	const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-tmp-" });
-	const args = ["-p", asked.prompt, "--model", asked.model, "--no-extensions", "-e", asked.package];
+	const args = ["-p", asked.prompt, "--model", asked.model, "--no-extensions", "-e", asked.packageFolder];
 
 	return ChildProcess.make("pi", args, {
 		cwd: home,

@@ -1,6 +1,6 @@
 export { claudePlugin, claudeTurn, rewriteEnv, userSettings } from "./claude-code.ts";
 
-export { codexHome, codexPlugin, codexTurn, firstLine, removed, rewritten, textOf } from "./codex.ts";
+export { codexHome, codexPlugin, codexTurn, firstLine, removedIfPresent, rewritten, textOrEmpty } from "./codex.ts";
 
 export { installedPackage, piTurn, storedAnthropicKey } from "./pi.ts";
 
