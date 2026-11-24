@@ -12,13 +12,6 @@ const linesOf = (texts: readonly string[]): string[] =>
 		Array.filter((line) => line.length >= quoteMinChars),
 	);
 
-/**
- * Either holds a whole line of the other, so a quoted part of a long line counts as well as a quoted line.
- *
- * @param {readonly string[]} reply The reply's texts.
- * @param {readonly string[]} sealed The sealed piece's texts.
- * @returns {boolean} Whether one repeats a line of the other.
- */
 const repeats = (reply: readonly string[], sealed: readonly string[]): boolean => {
 	const replyText = Array.join(reply, "\n");
 	const sealedText = Array.join(sealed, "\n");
@@ -35,14 +28,6 @@ const repeats = (reply: readonly string[], sealed: readonly string[]): boolean =
 	);
 };
 
-/**
- * Each `reply-other` piece that repeats a line of a sealed piece before it, with the first such sealed piece.
- *
- * @param {object} root0 The pieces in order and the test for a sealed key.
- * @param {readonly Quotable[]} root0.pieces The pieces in their order.
- * @param {Function} root0.isSealed Whether a key's verdict is sealed.
- * @returns {ReadonlyMap} Each quoting reply's key with the key of the sealed piece it quotes.
- */
 const quotingReplies = <Key extends string>({
 	pieces,
 	isSealed,

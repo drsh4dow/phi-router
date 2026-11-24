@@ -49,6 +49,20 @@ const notQuoting = Effect.gen(function* notQuoting() {
 	assert.deepStrictEqual(Array.fromIterable(found), []);
 });
 
+const firstSource = Effect.gen(function* firstSource() {
+	const sealedRecord = yield* quotable("record", "tool-result", record);
+	const sealedRow = yield* quotable("sealed row", "user", "76696,76696,U2546280,CANARY-DX");
+	const row = yield* quotable("row", "reply-other", "The failing row is 76696,76696,U2546280,CANARY-DX");
+	const sealedKeys = new Set([sealedRecord.key, sealedRow.key]);
+
+	const found = quotingReplies({
+		isSealed: (key) => sealedKeys.has(key),
+		pieces: [sealedRecord, sealedRow, row],
+	});
+
+	assert.deepStrictEqual(Array.fromIterable(found), [[row.key, sealedRecord.key]]);
+});
+
 it.layer(Digest.layerWebCrypto)("quotingReplies", (test) => {
 	test.effect(
 		"a BAA account's reply that repeats a line of sealed content, or quotes part of a long one, names that content",
@@ -59,6 +73,8 @@ it.layer(Digest.layerWebCrypto)("quotingReplies", (test) => {
 		"a short shared line, an open-account reply, a user message and a reply before the sealed content do not count",
 		() => notQuoting,
 	);
+
+	test.effect("a reply that repeats lines of two sealed pieces names the first of them", () => firstSource);
 });
 
 const shortestQuote = Effect.gen(function* shortestQuote() {
