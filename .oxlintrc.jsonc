@@ -64,7 +64,7 @@
 		"typescript/prefer-readonly-parameter-types": ["error", { "ignoreInferredTypes": true }],
 		// approved off by the owner: it flags every export whose type names an unstable Effect module, such as a layer that needs FileSystem
 		"effecttsgo/api-stability-leak": "off",
-		// approved by the owner: allowedUnstableApis in tsconfig.json adds ten modules to the four approved first
+		// approved by the owner: allowedUnstableApis in tsconfig.json adds eight modules to the four approved first; the two effect/crypto modules for #32 await the owner's approval
 		"effecttsgo/unstable-api-usage": "error",
 	},
 	"overrides": [
