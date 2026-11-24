@@ -4,7 +4,6 @@ import { Listener, listensOn } from "#router/client/router-port/index.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { mockWorld } from "#router/client/mock-upstreams/index.ts";
 
-/** One line of the doctor's report: a claim about the installation, and whether it holds. */
 interface Check {
 	readonly name: string;
 	readonly passed: boolean;
@@ -117,10 +116,9 @@ const madeCanary = Effect.map(
 	(number) => `phi-doctor-canary-${String(number)}`,
 );
 
-/** What a harness's headless turn gets from a canary run: the router's address, the mocks' environment and the prompt. */
 interface Canaried {
-	readonly address: string;
-	readonly env: Readonly<Record<string, string>>;
+	readonly routerAddress: string;
+	readonly mockEnv: Readonly<Record<string, string>>;
 	readonly prompt: string;
 }
 
@@ -139,9 +137,11 @@ const canaryRun = Effect.fnUntraced(function* canaryRun<Failure, Needs>(
 	const world = yield* mockWorld(harness.vendor, Str.includes(canary));
 	const address = yield* bound(anyFreePort);
 
-	const turn = yield* turnOf({ address, env: world.env, prompt: `Reply with the word ok. ${canary}` }).pipe(
-		Effect.ensuring(routerStopped(address)),
-	);
+	const turn = yield* turnOf({
+		mockEnv: world.env,
+		prompt: `Reply with the word ok. ${canary}`,
+		routerAddress: address,
+	}).pipe(Effect.ensuring(routerStopped(address)));
 
 	const arrived = yield* world.arrived;
 

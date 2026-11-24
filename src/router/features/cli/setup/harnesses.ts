@@ -1,7 +1,7 @@
 import { Effect, Option, Path } from "effect";
 import { claudeCanary, codexCanary, piCanary } from "#router/features/cli/doctor/index.ts";
 import { claudePlugin, codexHome, codexPlugin, installedPackage } from "#router/client/harnesses/index.ts";
-import { plugin, switchedOn } from "#router/features/cli/claude/index.ts";
+import { pluginId, switchedOn } from "#router/features/cli/claude/index.ts";
 import type { Check } from "#router/features/cli/doctor/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
@@ -56,7 +56,7 @@ const harnesses = {
 		install: (source: Source): readonly Argv[] => [
 			["claude", "plugin", "install", "phi-router", "--marketplace", source.claude, "--scope", "user"],
 		],
-		installed: claudePlugin("", plugin),
+		installed: claudePlugin("", pluginId),
 		start: ["claude"] satisfies Argv,
 		subscription: "Claude",
 		switched: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
@@ -74,7 +74,7 @@ const harnesses = {
 		],
 		install: (source: Source): readonly Argv[] => [
 			["codex", "plugin", "marketplace", "add", ...source.codex],
-			["codex", "plugin", "add", plugin],
+			["codex", "plugin", "add", pluginId],
 		],
 		installed: Effect.gen(function* codexInstalled() {
 			const path = yield* Path.Path;

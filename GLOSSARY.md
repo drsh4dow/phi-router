@@ -215,3 +215,6 @@ A loopback test server that stands for the open account, the BAA account or the 
 
 **Leak**:
 A complete canary in any one message sent to an open account.
+
+**Check**:
+One line of `phi-router doctor`'s report: a claim about the installation, and whether it holds.

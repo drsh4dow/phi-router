@@ -9,25 +9,22 @@ interface Setting {
 	readonly reason: string;
 }
 
-/** The setting that holds the model address. */
-const modelAddress = "ANTHROPIC_BASE_URL";
+const modelAddressSetting = "ANTHROPIC_BASE_URL";
 
-/** The plugin's id as `enabledPlugins` holds it: the plugin's name at the marketplace's name. */
-const plugin = "phi-router@phi-router";
+const pluginId = "phi-router@phi-router";
 
-/** The model name `on claude` adds to the picker, and the one `doctor claude` asks for. */
-const auto = "phi/auto";
+const pickerModel = "phi/auto";
 
 const routerAddress = `http://${loopback}:${String(productPort)}`;
 
 /** The settings `on claude` writes and prints, `off claude` removes and `doctor claude` checks. */
 const claudeSettings: readonly Setting[] = [
 	{
-		name: modelAddress,
+		name: modelAddressSetting,
 		reason: "Claude Code sends every model request to the router, at the literal 127.0.0.1 and never localhost.",
 		value: routerAddress,
 	},
-	{ name: "ANTHROPIC_CUSTOM_MODEL_OPTION", reason: "Adds phi/auto to the /model picker.", value: auto },
+	{ name: "ANTHROPIC_CUSTOM_MODEL_OPTION", reason: "Adds phi/auto to the /model picker.", value: pickerModel },
 	{ name: "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME", reason: "Names phi/auto in the picker.", value: "PHI auto" },
 	{
 		name: "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION",
@@ -98,28 +95,26 @@ const shellLists = Effect.gen(function* shellLists() {
 	return Record.fromEntries(values);
 });
 
-/** The settings of Claude Code's `env` block, or of the shell, by name. */
-type Values = Readonly<Record<string, string>>;
+type Variables = Readonly<Record<string, string>>;
 
-/** The developer's own lists of hosts to reach without a proxy: in Claude Code's settings, and in their shell. */
-interface Own {
-	readonly settings: Values;
-	readonly shell: Values;
+interface NoProxyLists {
+	readonly settings: Variables;
+	readonly shell: Variables;
 }
 
 /**
  * The list of hosts Claude Code reaches without a proxy, as it reads it from its settings over its shell.
  *
- * @param {Own} own The developer's settings and shell.
+ * @param {NoProxyLists} lists The developer's settings and shell.
  * @returns {string} The list, empty when there is none.
  */
-const exemptList = (own: Own): string =>
+const exemptList = (lists: NoProxyLists): string =>
 	pipe(
 		exemptionNames,
 		Array.map((name) =>
 			pipe(
-				Record.get(own.settings, name),
-				Option.orElse(() => Record.get(own.shell, name)),
+				Record.get(lists.settings, name),
+				Option.orElse(() => Record.get(lists.shell, name)),
 				Option.getOrElse(() => ""),
 			),
 		),
@@ -151,8 +146,8 @@ const keepsDirect =
  */
 const exemption =
 	(address: string) =>
-	(own: Own): Option.Option<string> => {
-		const list = exemptList(own);
+	(lists: NoProxyLists): Option.Option<string> => {
+		const list = exemptList(lists);
 		const { host } = new URL(address);
 
 		if (keepsDirect(address)(list)) {
@@ -167,7 +162,7 @@ const exemption =
 	};
 
 interface EnvChange {
-	readonly set: Values;
+	readonly set: Variables;
 	readonly unset: readonly string[];
 }
 
@@ -180,11 +175,11 @@ interface EnvChange {
  */
 const exempted =
 	(address: string) =>
-	(own: Own): EnvChange =>
-		Option.match(exemption(address)(own), {
+	(lists: NoProxyLists): EnvChange =>
+		Option.match(exemption(address)(lists), {
 			onNone: () => ({ set: {}, unset: [] }),
 			onSome: (wrote) =>
-				Option.match(Record.get(own.settings, exemptionName), {
+				Option.match(Record.get(lists.settings, exemptionName), {
 					onNone: () => ({
 						set: { [exemptionName]: wrote, [exemptionRecord.wrote]: wrote },
 						unset: [exemptionRecord.replaced],
@@ -201,10 +196,10 @@ const exempted =
  * value `on` wrote, it gives back the developer's own value, or removes `no_proxy` when there was none. It leaves a
  * `no_proxy` changed since, and removes the record either way. Without a record it changes nothing.
  *
- * @param {Values} env The `env` block of the settings.
+ * @param {Variables} env The `env` block of the settings.
  * @returns {EnvChange} The values it gives back and the keys it removes.
  */
-const restored = (env: Values): EnvChange => {
+const restored = (env: Variables): EnvChange => {
 	const record = [exemptionRecord.wrote, exemptionRecord.replaced];
 	const wrote = Record.get(env, exemptionRecord.wrote);
 
@@ -223,7 +218,6 @@ const restored = (env: Values): EnvChange => {
 };
 
 export {
-	auto,
 	claudeEnv,
 	claudeSettings,
 	exempted,
@@ -231,12 +225,13 @@ export {
 	exemptionName,
 	exemptionReason,
 	keptReason,
-	modelAddress,
-	plugin,
+	modelAddressSetting,
+	pickerModel,
+	pluginId,
 	recordReason,
 	restored,
 	routerAddress,
 	shellLists,
 };
 
-export type { Own };
+export type { NoProxyLists };

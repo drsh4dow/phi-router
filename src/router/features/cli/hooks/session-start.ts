@@ -1,7 +1,7 @@
 import { Array, Config, Effect, Option, Record, Schema, String as Str, pipe } from "effect";
 import type { Pid } from "#shared/cli.ts";
 import { SessionId } from "#shared/cli.ts";
-import { modelAddress } from "#router/features/cli/claude/index.ts";
+import { modelAddressSetting } from "#router/features/cli/claude/index.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 import { start } from "#router/features/cli/start.ts";
 import { userSettings } from "#router/client/harnesses/index.ts";
@@ -59,7 +59,7 @@ const movedBy = Effect.fnUntraced(function* movedBy(address: string) {
 	const settings = yield* userSettings("");
 
 	const installed = pipe(
-		Record.get(settings.env, modelAddress),
+		Record.get(settings.env, modelAddressSetting),
 		Option.filter((value) => Option.isSome(portOf(value))),
 	);
 
@@ -83,7 +83,7 @@ const movedBy = Effect.fnUntraced(function* movedBy(address: string) {
 			),
 		onSome: (value) =>
 			pipe(
-				Option.some(modelAddress),
+				Option.some(modelAddressSetting),
 				Option.filter(() => value !== address),
 				Option.orElse(() => switched),
 			),

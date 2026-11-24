@@ -97,16 +97,18 @@ const codexCanary = Effect.fnUntraced(function* codexCanary(install: {
 		onSome: () => "persisted" as const,
 	});
 
-	return yield* canaryRun({ binary: "codex", headless: "codex exec", vendor: "openai" }, ({ address, env, prompt }) =>
-		codexTurn({
-			config: turnConfig({ address, trust: install.trust }),
-			dotenv: exemptionLine,
-			env: Struct.assign(env, { [addressEnv]: address }),
-			hookTrust: trusted,
-			installedPlugin: install.folder,
-			pluginCachePlace: install.place,
-			prompt,
-		}),
+	return yield* canaryRun(
+		{ binary: "codex", headless: "codex exec", vendor: "openai" },
+		({ mockEnv, prompt, routerAddress }) =>
+			codexTurn({
+				config: turnConfig({ address: routerAddress, trust: install.trust }),
+				dotenv: exemptionLine,
+				env: Struct.assign(mockEnv, { [addressEnv]: routerAddress }),
+				hookTrust: trusted,
+				installedPlugin: install.folder,
+				pluginCachePlace: install.place,
+				prompt,
+			}),
 	);
 });
 

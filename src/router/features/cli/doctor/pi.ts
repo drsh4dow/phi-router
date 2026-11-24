@@ -3,15 +3,16 @@ import { canaryRun, reported } from "./canary.ts";
 import { installedPackage, piTurn } from "#router/client/harnesses/index.ts";
 import { piWire } from "#shared/pi.ts";
 
-/** The canary run of `pi -p` on `phi/auto` through the package pi installed in `folder`. */
 const piCanary = Effect.fnUntraced(function* piCanary(folder: string) {
-	return yield* canaryRun({ binary: "pi", headless: "pi -p", vendor: "anthropic" }, ({ address, env, prompt }) =>
-		piTurn({
-			env: Struct.assign(env, { [piWire.portVariable]: new URL(address).port }),
-			model: "phi/auto",
-			packageFolder: folder,
-			prompt,
-		}),
+	return yield* canaryRun(
+		{ binary: "pi", headless: "pi -p", vendor: "anthropic" },
+		({ mockEnv, prompt, routerAddress }) =>
+			piTurn({
+				env: Struct.assign(mockEnv, { [piWire.portVariable]: new URL(routerAddress).port }),
+				model: piWire.models.auto,
+				packageFolder: folder,
+				prompt,
+			}),
 	);
 });
 

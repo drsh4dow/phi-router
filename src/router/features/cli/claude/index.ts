@@ -1,16 +1,16 @@
 export {
-	auto,
 	claudeEnv,
 	claudeSettings,
 	exempted,
 	exemption,
-	modelAddress,
-	plugin,
+	modelAddressSetting,
+	pickerModel,
+	pluginId,
 	routerAddress,
 	shellLists,
 } from "./settings.ts";
 
-export type { Own } from "./settings.ts";
+export type { NoProxyLists } from "./settings.ts";
 
 export { off } from "./off.ts";
 
