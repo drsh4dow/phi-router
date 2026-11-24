@@ -181,10 +181,22 @@ const printsNoCredential = Effect.gen(function* printsNoCredential() {
 	);
 });
 
+const listening = Effect.gen(function* listening() {
+	const { env } = yield* mocked({ holdsPhi: () => false });
+	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
+
+	assert.match(router.url, /^http:\/\/127\.0\.0\.1:\d+$/u);
+});
+
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("what the router prints", (test) => {
 	test.effect(
 		"through a CLI refresh, a 401 resend and a failover to a keyed account, holds no credential, nor does any file it writes",
 		() => printsNoCredential,
+		patient,
+	);
+	test.effect(
+		"says where it listens as http://127.0.0.1:<port>, the literal loopback address",
+		() => listening,
 		patient,
 	);
 });

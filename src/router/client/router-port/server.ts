@@ -8,7 +8,6 @@ const badRequest = 400;
 
 const forbidden = 403;
 
-/** Claude Code and Codex both print `error.message` of an error answer. */
 const notThisUser =
 	'{"type":"error","error":{"type":"permission_error","message":"phi-router answers only the user who runs it"}}';
 
@@ -21,17 +20,12 @@ const NodeSocket = Schema.Struct({
 	}),
 });
 
-/** One request as a route reads it: its headers under lower-case names, its query parameters, and its whole body. */
 interface Incoming {
 	readonly headers: Readonly<Record<string, string | undefined>>;
 	readonly query: Readonly<Record<string, string | undefined>>;
 	readonly body: string;
 }
 
-/**
- * What the router answers. `whole` is a JSON body the router wrote itself, such as an error. `relayed` is an
- * account's answer, written to the harness chunk by chunk as it arrives, with no length and no compression.
- */
 type Outgoing =
 	| { readonly kind: "whole"; readonly status: number; readonly body: string }
 	| {
@@ -41,10 +35,6 @@ type Outgoing =
 			readonly body: Stream.Stream<Uint8Array, unknown>;
 	  };
 
-/**
- * One row of the path table. `answer` turns every failure into an answer. It runs in the request's scope, which closes
- * when the answer's body ends.
- */
 interface Path {
 	readonly method: "GET" | "POST";
 	readonly path: `/${string}`;
@@ -56,7 +46,6 @@ class Listener extends Context.Service<
 	{ readonly on: (port: number) => Layer.Layer<HttpServer.HttpServer, HttpServerError.ServeError> }
 >()("phi-router/router/client/router-port/server/Listener") {}
 
-/** Where the server in context listens, as `http://127.0.0.1:<port>`. */
 const listensOn = Effect.gen(function* listensOn() {
 	const server = yield* HttpServer.HttpServer;
 
@@ -105,15 +94,7 @@ const callerIsThisUser = Effect.gen(function* callerIsThisUser() {
 	});
 });
 
-/**
- * Serves the path table on the server in context. A request from another user answers 403 before its path is matched
- * or its body read, so every row, and a path the table lacks, refuses it. A path the table lacks answers
- * 404 (ADR 0001), a query string does not change the match, and HEAD takes the GET row with no body. A harness that
- * hangs up interrupts the answer and the relayed stream.
- *
- * @param {readonly Path[]} paths The path table.
- * @returns {Layer.Layer} The served table.
- */
+/** A request from another user answers 403 before its body is read. */
 const serve = (paths: readonly Path[]): Layer.Layer<never, never, HttpServer.HttpServer | Callers> => {
 	const routes = pipe(
 		paths,

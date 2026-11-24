@@ -1,4 +1,4 @@
-import { Context, Effect, FileSystem, Layer, String as Str } from "effect";
+import { Array, Context, Effect, FileSystem, Layer, Schema, String as Str } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, postedIn, routed } from "./mocked-router.ts";
 import { Callers } from "#router/client/router-port/index.ts";
@@ -11,11 +11,15 @@ const holdsCanary = Str.includes(canary);
 
 const status = { forbidden: 403, ok: 200 } as const;
 
+const refusedRequests = 6;
+
 const anotherUser = Callers.of({ isThisUser: () => Effect.succeed(false) });
 
 const lease = HttpClientRequest.bodyText(HttpClientRequest.post("/phi-router/leases"), "{}", "application/json");
 
 const hello = HttpClientRequest.get("/api/hello");
+
+const unrouted = HttpClientRequest.get("/phi-router/no-such-row");
 
 const pinned = HttpClientRequest.bodyText(
 	HttpClientRequest.post("/phi-router/pin"),
@@ -40,6 +44,7 @@ const claudeRefused = Effect.gen(function* claudeRefused() {
 			client.execute(hello),
 			client.execute(pinned),
 			client.execute(asked),
+			client.execute(unrouted),
 		],
 		(answered) => answered.pipe(Effect.flatMap((response) => Effect.as(response.text, response.status))),
 		{ concurrency: 1 },
@@ -53,7 +58,7 @@ const claudeRefused = Effect.gen(function* claudeRefused() {
 		{ received, statuses },
 		{
 			received: [[], [], []],
-			statuses: [status.forbidden, status.forbidden, status.forbidden, status.forbidden, status.forbidden],
+			statuses: Array.replicate(status.forbidden, refusedRequests),
 		},
 	);
 });
@@ -103,12 +108,24 @@ const lsofServed = Effect.gen(function* lsofServed() {
 	assert.deepStrictEqual({ answered: answer.status, open: open.length }, { answered: status.ok, open: 1 });
 });
 
+const Refusal = Schema.fromJsonString(Schema.Struct({ error: Schema.Struct({ message: Schema.String }) }));
+
+const toldWhy = Effect.gen(function* toldWhy() {
+	const { client } = yield* routed({ callers: anotherUser, holdsPhi: holdsCanary });
+	const response = yield* client.execute(hello);
+	const text = yield* response.text;
+	const refusal = yield* Schema.decodeEffect(Refusal)(text);
+
+	assert.strictEqual(refusal.error.message, "phi-router answers only the user who runs it");
+});
+
 it.layer(NodeServices.layer)("a caller of another user", (test) => {
 	test.effect(
-		"gets 403 on the Claude path, the lease path and every other, and no mock or judge receives anything",
+		"gets 403 on the Claude path, the lease path, every other and a path the table lacks, and no mock or judge receives anything",
 		() => claudeRefused,
 	);
 	test.effect("gets 403 on the Codex paths, and no mock or judge receives anything", () => codexRefused);
 	test.effect("is told apart from this user, whose same request reaches the BAA mock", () => thisUserServed);
 	test.effect("is told apart by lsof where there is no /proc/net/tcp, and this user is served", () => lsofServed);
+	test.effect("is told why in error.message, the field Claude Code and Codex print", () => toldWhy);
 });

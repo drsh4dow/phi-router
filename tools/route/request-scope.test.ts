@@ -1,8 +1,9 @@
-import { Array, Effect, Latch, Predicate, Schedule, String as Str, Stream, identity, pipe } from "effect";
+import { Array, Effect, Latch, Option, Predicate, Schedule, String as Str, Stream, identity, pipe } from "effect";
 import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
+import { FetchHttpClient, Headers } from "effect/http";
 import { assert, it, vi } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
-import { FetchHttpClient } from "effect/http";
+import { codexBodyOf, userMessage } from "./harnesses.ts";
 import type { HttpClientError } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import type { Post } from "./mocked-router.ts";
@@ -127,6 +128,33 @@ const hangUp = Effect.gen(function* hangUp() {
 	assert.deepStrictEqual({ lines: lines.length, next: next.status }, { lines: received.length, next: ok });
 });
 
+const tooMany = 429;
+
+const framed = (): Said => ({
+	body: "{}",
+	headers: { "content-encoding": "identity" },
+	kind: "status",
+	status: tooMany,
+});
+
+const bodies = {
+	claude: bodyOf([{ role: "user", text: asked.clean }]),
+	codex: codexBodyOf([userMessage(asked.clean)]),
+} as const;
+
+const unframed = Effect.fnUntraced(function* unframed(harness: keyof typeof bodies) {
+	const { post } = yield* routed({ baa: framed, harness, holdsPhi: () => false, open: framed });
+	const body = yield* bodies[harness];
+	const answer = yield* post({ body, session: "framing-1" });
+
+	const framing = pipe(
+		["content-encoding", "content-length"],
+		Array.filter((name) => Option.isSome(Headers.get(answer.headers, name))),
+	);
+
+	assert.deepStrictEqual(framing, []);
+});
+
 it.layer(NodeServices.layer)("each request the router sends an account", (test) => {
 	test.effect(
 		"leaves no abort held once answered, so 200 more requests hold no more than 20 did",
@@ -134,4 +162,8 @@ it.layer(NodeServices.layer)("each request the router sends an account", (test) 
 		patient,
 	);
 	test.effect("is aborted when the harness hangs up mid-stream, and the next request still answers", () => hangUp);
+	test.effect.each(["claude", "codex"] as const)(
+		"for %s, has its answer relayed without the account's content-length or content-encoding",
+		unframed,
+	);
 });
