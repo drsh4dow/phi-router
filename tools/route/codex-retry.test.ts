@@ -25,17 +25,16 @@ const tooLong = '{"error":{"code":"context_length_exceeded","message":"Too long.
 
 const rejected = (body: string): Said => ({ body, kind: "status", status: status.unreadable });
 
-/** What the open account refuses a body with the blob with, and whether it refuses the one without as well. */
-interface Script {
-	readonly toBlob: string;
-	readonly again: boolean;
+interface OpenRefusal {
+	readonly refusal: string;
+	readonly refusesWithoutReasoning: boolean;
 }
 
 const openScript =
-	(script: Script) =>
+	(refusing: OpenRefusal) =>
 	({ body, last }: Asked): Said => {
-		if (Str.includes(blob)(body) || (script.again && Str.includes("Go on.")(last))) {
-			return rejected(script.toBlob);
+		if (Str.includes(blob)(body) || (refusing.refusesWithoutReasoning && Str.includes("Go on.")(last))) {
+			return rejected(refusing.refusal);
 		}
 
 		if (Str.includes("Think.")(last)) {
@@ -45,11 +44,11 @@ const openScript =
 		return replying([answer]);
 	};
 
-const twoTurns = Effect.fnUntraced(function* twoTurns(script: Script) {
+const twoTurns = Effect.fnUntraced(function* twoTurns(refusing: OpenRefusal) {
 	const { mocks, post, state } = yield* routed({
 		harness: "codex",
 		holdsPhi: Str.includes(canary),
-		open: openScript(script),
+		open: openScript(refusing),
 	});
 
 	yield* postedIn(post, "retry-1", [userMessage("Think.")]);
@@ -79,7 +78,7 @@ const twoTurns = Effect.fnUntraced(function* twoTurns(script: Script) {
 });
 
 const retried = Effect.gen(function* retried() {
-	const seen = yield* twoTurns({ again: false, toBlob: unreadableBlob });
+	const seen = yield* twoTurns({ refusal: unreadableBlob, refusesWithoutReasoning: false });
 
 	assert.deepStrictEqual(
 		{ blobs: seen.blobs, judged: seen.judged, lanes: seen.lanes, status: seen.answer.status },
@@ -96,7 +95,7 @@ const retried = Effect.gen(function* retried() {
 });
 
 const refusedTwice = Effect.gen(function* refusedTwice() {
-	const seen = yield* twoTurns({ again: true, toBlob: unreadableBlob });
+	const seen = yield* twoTurns({ refusal: unreadableBlob, refusesWithoutReasoning: true });
 
 	assert.deepStrictEqual(
 		{ answer: seen.answer, blobs: seen.blobs },
@@ -105,7 +104,7 @@ const refusedTwice = Effect.gen(function* refusedTwice() {
 });
 
 const otherRefusal = Effect.gen(function* otherRefusal() {
-	const seen = yield* twoTurns({ again: false, toBlob: tooLong });
+	const seen = yield* twoTurns({ refusal: tooLong, refusesWithoutReasoning: false });
 
 	assert.deepStrictEqual(
 		{ answer: seen.answer, blobs: seen.blobs },
@@ -117,7 +116,7 @@ const nothingToDrop = Effect.gen(function* nothingToDrop() {
 	const { mocks, post, state } = yield* routed({
 		harness: "codex",
 		holdsPhi: Str.includes(canary),
-		open: openScript({ again: true, toBlob: unreadableBlob }),
+		open: openScript({ refusal: unreadableBlob, refusesWithoutReasoning: true }),
 	});
 
 	const body = yield* codexBodyOf([userMessage("Go on.")]);
@@ -150,13 +149,12 @@ const sealedRefusal = Effect.gen(function* sealedRefusal() {
 	);
 });
 
-/** Whether the open account has refused a body with the reasoning, after which the store reads every part sealed. */
-const refused = { blob: false };
+const openAccount = { refusedReasoning: false };
 
-const refusing = openScript({ again: false, toBlob: unreadableBlob });
+const refusing = openScript({ refusal: unreadableBlob, refusesWithoutReasoning: false });
 
 const marking = (asked: Asked): Said => {
-	refused.blob ||= Str.includes(blob)(asked.body);
+	openAccount.refusedReasoning ||= Str.includes(blob)(asked.body);
 
 	return refusing(asked);
 };
@@ -165,7 +163,7 @@ const sealedOnRefusal = (real: VerdictStore["Service"]): VerdictStore["Service"]
 	Struct.assign(real, {
 		read: (session: string, policy: string) =>
 			Effect.map(real.read(session, policy), (known) => {
-				if (!refused.blob) {
+				if (!openAccount.refusedReasoning) {
 					return known;
 				}
 
@@ -173,10 +171,6 @@ const sealedOnRefusal = (real: VerdictStore["Service"]): VerdictStore["Service"]
 			}),
 	});
 
-/**
- * The session's parts are sealed while the open account refuses the reasoning, so the second send goes sealed to the BAA
- * account, which answers, and the line names it.
- */
 const resentSealed = Effect.gen(function* resentSealed() {
 	const { mocks, post, state } = yield* routed({
 		harness: "codex",
@@ -210,5 +204,8 @@ it.layer(NodeServices.layer)("an open account that cannot read the reasoning", (
 	test.effect("with no reasoning to drop, the refusal passes to the harness with no second send", () => nothingToDrop);
 	test.effect("another 400 passes to the harness as it came, with no second send", () => otherRefusal);
 	test.effect("a BAA account's refusal is never sent again", () => sealedRefusal);
-	test.effect("gets the second send on the BAA account when the session is sealed meanwhile", () => resentSealed);
+	test.effect(
+		"gets the second send on the BAA account when the session is sealed meanwhile, and the line names that account",
+		() => resentSealed,
+	);
 });

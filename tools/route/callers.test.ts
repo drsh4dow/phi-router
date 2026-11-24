@@ -6,7 +6,6 @@ import { ChildProcessSpawner } from "effect/process";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 
-/** One connection to the router, in `/proc/net/tcp` as `0100007F:DD8D` and `0100007F:8286`. */
 const connection: Connection = {
 	caller: "127.0.0.1:33414",
 	router: "127.0.0.1:56717",
@@ -14,10 +13,6 @@ const connection: Connection = {
 
 const heading = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode";
 
-/**
- * Rows in the kernel's layout. The router's ends and the caller's end at uid 4242 are the rows a request from a
- * container run with `--network host --user 4242:4242` left on this machine.
- */
 const rows = {
 	anotherAddress:
 		"   3: 0200007F:8286 0100007F:DD8D 01 00000000:00000000 00:00000000 00000000  1000        0 49675693 1 00000000f548b403 20 4 30 10 -1",
@@ -58,7 +53,6 @@ const exits = { failed: 1, listed: 0 } as const;
 
 const lsofPid = 4321;
 
-/** `lsof -F un` for the same connection, held by one uid: the caller's process, then the router's. */
 const lsofPrinted = "p1\nu1000\nn127.0.0.1:33414->127.0.0.1:56717\np2\nu1000\nn127.0.0.1:56717->127.0.0.1:33414\n";
 
 const lsofPrintedForAnotherUsersCaller =

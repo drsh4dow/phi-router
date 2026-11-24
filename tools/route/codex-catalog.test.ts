@@ -18,7 +18,6 @@ const Entry = Schema.Struct({
 
 const Catalog = Schema.fromJsonString(Schema.Struct({ models: Schema.Array(Entry) }));
 
-/** Codex's catalog request as 0.166.0 sends it, with a query parameter and a header no account may get. */
 const asked = HttpClientRequest.get("/v1/models?client_version=0.166.0&debug=1").pipe(
 	HttpClientRequest.setHeaders({
 		authorization: `Bearer ${fakes.harnessToken}`,
@@ -97,8 +96,7 @@ const relayed = Effect.gen(function* relayed() {
 	);
 });
 
-/** Claude Code 2.1.325's model discovery, as it reached a listener on 2026-11-21: no `originator`. */
-const discovery = HttpClientRequest.get("/v1/models?limit=1000").pipe(
+const claudeCodeDiscovery = HttpClientRequest.get("/v1/models?limit=1000").pipe(
 	HttpClientRequest.setHeaders({
 		accept: "application/json",
 		"anthropic-version": "2023-06-01",
@@ -109,7 +107,7 @@ const discovery = HttpClientRequest.get("/v1/models?limit=1000").pipe(
 
 const notCodex = Effect.gen(function* notCodex() {
 	const { client, mocks } = yield* routed({ harness: "codex", holdsPhi: () => false });
-	const discovered = yield* client.execute(discovery);
+	const discovered = yield* client.execute(claudeCodeDiscovery);
 	const discoveredBody = yield* discovered.text;
 	const accounts = [mocks.open.received, mocks.baa.received, mocks.judge.received];
 	const reached = yield* Effect.all(accounts, { concurrency: 1 });
@@ -128,14 +126,15 @@ const codexHeaders = {
 
 const canary = "8A73DG5RM60";
 
-/** Digits and dots alone, one character over the 32 a version may take. */
-const longVersion = "0.166.0.0.0.0.0.0.0.0.0.0.0.0.0.0";
+const versionAtLimit = "0.166.0.0.0.0.0.0.0.0.0.0.0.0.10";
+
+const versionPastLimit = `${versionAtLimit}0`;
 
 const versioned = Effect.gen(function* versioned() {
 	const { client, mocks } = yield* routed({ harness: "codex", holdsPhi: () => false });
 
 	const statuses = yield* Effect.forEach(
-		[canary, `0.166.0-${canary}`, longVersion, "0.43.0-alpha.4", "0.166.0"],
+		[canary, `0.166.0-${canary}`, versionPastLimit, versionAtLimit, "0.43.0-alpha.4", "0.166.0"],
 		(version) =>
 			client
 				.execute(
@@ -164,16 +163,16 @@ const versioned = Effect.gen(function* versioned() {
 			statuses,
 		},
 		{
-			queries: ["client_version=0.43.0-alpha.4", "client_version=0.166.0"],
+			queries: [`client_version=${versionAtLimit}`, "client_version=0.43.0-alpha.4", "client_version=0.166.0"],
 			sealed: [],
-			statuses: [status.unreadable, status.unreadable, status.unreadable, status.ok, status.ok],
+			statuses: [status.unreadable, status.unreadable, status.unreadable, status.ok, status.ok, status.ok],
 		},
 	);
 });
 
 it.layer(NodeServices.layer)("Codex's model catalog", (test) => {
 	test.effect(
-		"a client_version without the shape of a version gets 400 and reaches no account, and a release or pre-release passes",
+		"a client_version without the shape of a version or longer than 32 characters gets 400 and reaches no account, and a release or pre-release passes",
 		() => versioned,
 	);
 	test.effect(

@@ -12,13 +12,8 @@ const pastAuto = 1;
 
 const JsonOf = Schema.fromJsonString(Schema.Unknown);
 
-/**
- * A clean request reaches the open account under the model it named, byte for byte as its `model` field, and
- * `phi/auto` under the target model. Nothing reaches the BAA account and no credential crosses.
- */
 const keptClean = Effect.fnUntraced(function* keptClean(harness: HarnessName) {
 	const { breaches, mocks, post } = yield* routed({ harness, holdsPhi: holdsCanary });
-
 	const asked = [autoOf[harness], sentModels.claudeHaiku, sentModels.codexReviewer, sentModels.gatewayWithSlash];
 
 	yield* Effect.forEach(
@@ -50,10 +45,6 @@ const keptClean = Effect.fnUntraced(function* keptClean(harness: HarnessName) {
 	);
 });
 
-/**
- * A canary request under each of five model names adds judge calls that hold the canary, runs sealed, and never
- * reaches the open account.
- */
 const judgedUnderEach = Effect.fnUntraced(function* judgedUnderEach(harness: HarnessName) {
 	const { mocks, post } = yield* routed({ harness, holdsPhi: holdsCanary });
 
@@ -107,11 +98,11 @@ const judgedUnderEach = Effect.fnUntraced(function* judgedUnderEach(harness: Har
 
 it.layer(NodeServices.layer)("a request's target model", (test) => {
 	test.effect.each(harnessNames)(
-		"%s: a clean request reaches the open account under the model it named, and phi/auto under the target model",
+		"%s: a clean request reaches the open account under the model it named, byte for byte as its model field, and phi/auto under the target model, with nothing at the BAA account and no credential crossing",
 		keptClean,
 	);
 	test.effect.each(harnessNames)(
-		"%s: a canary request under each of five model names is judged and never reaches the open account",
+		"%s: a canary request under each of five model names adds judge calls that hold the canary, runs sealed, and never reaches the open account",
 		judgedUnderEach,
 	);
 });

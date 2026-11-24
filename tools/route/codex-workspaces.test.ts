@@ -13,14 +13,11 @@ const remote = "https://github.com/example/billing.git";
 
 const id = "00000000-0000-7000-8000-000000000001";
 
-/** Turn metadata as Codex 0.166.0 writes it in a git folder with a commit and an `origin` remote. */
-const inGit = `{"session_id":"${id}","workspaces":{"${folder}":{"associated_remote_urls":{"origin":"${remote}"},"latest_git_commit_hash":"999fe40","has_changes":false}},"sandbox_mode":"read-only"}`;
+const turnMetadataInGit = `{"session_id":"${id}","workspaces":{"${folder}":{"associated_remote_urls":{"origin":"${remote}"},"latest_git_commit_hash":"999fe40","has_changes":false}},"sandbox_mode":"read-only"}`;
 
-/** The same turn metadata as Codex writes it outside git. */
-const outsideGit = `{"session_id":"${id}","sandbox_mode":"read-only"}`;
+const turnMetadataOutsideGit = `{"session_id":"${id}","sandbox_mode":"read-only"}`;
 
-/** How Codex opens a body. The sealed lane changes only that and adds the bridge after it. */
-const codexHead = '{"model":"phi/auto"';
+const codexBodyOpening = '{"model":"phi/auto"';
 
 const ClientMetadata = Schema.fromJsonString(Schema.Struct({ "x-codex-turn-metadata": Schema.String }));
 
@@ -30,7 +27,7 @@ const SentMetadata = Schema.fromJsonString(
 
 const bodyInGit = Effect.fnUntraced(function* bodyInGit(text: string) {
 	const body = yield* codexBodyOf([userMessage(text)]);
-	const metadata = yield* Schema.encodeEffect(ClientMetadata)({ "x-codex-turn-metadata": inGit });
+	const metadata = yield* Schema.encodeEffect(ClientMetadata)({ "x-codex-turn-metadata": turnMetadataInGit });
 
 	return Str.replace('"include":', `"client_metadata":${metadata},"include":`)(body);
 });
@@ -73,12 +70,12 @@ const workspaces = Effect.gen(function* workspaces() {
 			open: opened,
 			sealedBytes: pipe(
 				baa,
-				Array.map((sent) => Str.includes(Str.slice(codexHead.length)(sealed))(sent.body)),
+				Array.map((sent) => Str.includes(Str.slice(codexBodyOpening.length)(sealed))(sent.body)),
 			),
 		},
 		{
-			baa: [{ named: true, turn: inGit }],
-			open: [{ named: false, turn: outsideGit }],
+			baa: [{ named: true, turn: turnMetadataInGit }],
+			open: [{ named: false, turn: turnMetadataOutsideGit }],
 			sealedBytes: [true],
 		},
 	);

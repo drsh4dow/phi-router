@@ -22,12 +22,6 @@ const answered = (probability: number, choice: string): Reply => ({
 
 const score = { clears: 0, seals: 1 } as const;
 
-/**
- * A system part seals only when the kind question names a kind, so the judge names one for the canary.
- *
- * @param {string} piece The piece the judge was asked about.
- * @returns {Reply} The judge's answer.
- */
 const namesKind = (piece: string): Reply => {
 	if (Str.includes(canary)(piece)) {
 		return answered(score.seals, identifierKind.patientName);
@@ -58,8 +52,7 @@ const postedWithTools = Effect.fnUntraced(function* postedWithTools(
 	yield* response.text;
 });
 
-/** A clean message whose `cache_control` holds a key the codec does not know, so its clean body cannot be written. */
-const strayCacheControl = {
+const unknownCacheControlKey = {
 	max_tokens: 1024,
 	messages: [
 		{ content: [{ cache_control: { note: "x", type: "ephemeral" }, text: "Go on.", type: "text" }], role: "user" },
@@ -68,18 +61,13 @@ const strayCacheControl = {
 	stream: true,
 };
 
-/**
- * The first request seals the tool list as new content. The follow-up has no sealed new content, so its lane is clean,
- * but a tool list cannot be stubbed: the router sends it sealed and logs a router failure. So does a clean request
- * whose clean body the codec refuses.
- */
 const toolsSealed = Effect.gen(function* toolsSealed() {
 	const { post, state } = yield* routed({ holdsPhi: Str.includes(canary), judge: namesKind });
 
 	yield* postedWithTools(post, [turns.asked]);
 	yield* postedWithTools(post, [turns.asked, turns.reply, turns.followUp]);
 
-	const stray = yield* post({ body: yield* jsonText(strayCacheControl), session: "cache-1" });
+	const stray = yield* post({ body: yield* jsonText(unknownCacheControlKey), session: "cache-1" });
 
 	yield* stray.text;
 
@@ -98,7 +86,6 @@ const toolsSealed = Effect.gen(function* toolsSealed() {
 	);
 });
 
-/** A lane log that cannot take its line, here a folder in its place, fails the request before any account sees it. */
 const unwritable = Effect.gen(function* unwritable() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -148,7 +135,7 @@ it.layer(NodeServices.layer)("a lane log the router cannot write", (test) => {
 
 it.layer(NodeServices.layer)("a clean body the router cannot build", (test) => {
 	test.effect(
-		"runs sealed, for a sealed tool list or a block the codec refuses, and its line says router failure",
+		"runs sealed and its line says router failure, for a clean follow-up whose sealed tool list cannot be stubbed or a block with a cache_control key the codec does not know",
 		() => toolsSealed,
 	);
 });

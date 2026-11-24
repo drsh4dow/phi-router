@@ -3,9 +3,9 @@ import type { LaneLogLine, Post, Turn } from "./mocked-router.ts";
 import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { beta, bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
+import { headersNamed, jsonText } from "./harnesses.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
-import { headersNamed } from "./harnesses.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
@@ -31,8 +31,7 @@ const conversation: readonly (readonly Turn[])[] = [
 	[turns.clean, turns.cleared, turns.phi, turns.sealedReply, turns.followUp],
 ];
 
-/** Where the canary's message sits in the follow-up. */
-const phiAt = 2;
+const canaryMessageIndex = 2;
 
 const Block = Schema.Struct({ text: Schema.String });
 
@@ -46,7 +45,7 @@ const viewOf = Effect.fnUntraced(function* viewOf(sent: Sent) {
 	const { messages, model } = yield* Schema.decodeEffect(Body)(sent.body);
 
 	const atPhi = pipe(
-		Array.get(messages, phiAt),
+		Array.get(messages, canaryMessageIndex),
 		Option.flatMap(({ content }) => Array.head(content)),
 		Option.map(({ text }) => text),
 	);
@@ -156,7 +155,6 @@ const failingJudge = Effect.gen(function* failingJudge() {
 
 const opaque = "BAA-OPAQUE-3J8W";
 
-/** What a BAA account's reply can hold that no judge reads, each in a reply of its own before the reply's text. */
 const opaqueBlocks = [
 	{ block: { signature: "fake-signature", thinking: opaque, type: "thinking" }, name: "thinking" },
 	{ block: { data: opaque, type: "redacted_thinking" }, name: "redacted thinking" },
@@ -226,16 +224,19 @@ const sealedReplyKeys = Effect.fnUntraced(function* sealedReplyKeys({ block }: O
 	const next = yield* post({ body: echoed, session: "lanes-5" });
 	const opened = yield* mocks.open.received;
 
+	const judged = yield* mocks.judge.received.pipe(Effect.map(Array.map(({ body }) => body)), Effect.flatMap(jsonText));
+
 	assert.deepStrictEqual<unknown>(
 		{
 			kept,
+			opaqueAtJudge: Str.includes(opaque)(judged),
 			opaqueAtOpen: pipe(
 				opened,
 				Array.map((sent) => Str.includes(opaque)(sent.body)),
 			),
 			statuses: [first.status, next.status],
 		},
-		{ kept: [[]], opaqueAtOpen: [false], statuses: [status.ok, status.ok] },
+		{ kept: [[]], opaqueAtJudge: false, opaqueAtOpen: [false], statuses: [status.ok, status.ok] },
 	);
 });
 
@@ -273,7 +274,7 @@ it.layer(NodeServices.layer)("the lanes over HTTP", (test) => {
 	);
 	test.effect("a judge that fails seals the request and shows in the lane log", () => failingJudge);
 	test.effect.each(opaqueBlocks)(
-		"a completed BAA reply adds no reply key, and its $name never reaches the open account",
+		"a completed BAA reply adds no reply key, and its $name reaches neither the judge nor the open account",
 		sealedReplyKeys,
 	);
 	test.effect("the last BAA account's error answer passes to the harness unchanged", () => accountErrors);

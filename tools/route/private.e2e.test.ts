@@ -11,30 +11,30 @@ const canary = "PATIENT-CANARY-7Q4K";
 
 const patient = { timeout: 60_000 };
 
-/** What the router writes on a lease and one sealed request of session `s1`, its id in base64url being `czE`. */
-const written = ["/phi-router", "/phi-router/leases.json", "/phi-router/lanes.jsonl", "/phi-router/sessions/czE.json"];
+const session = "s1";
 
-/**
- * `bun src/router/main.ts` under umask 000, so a file or folder the router makes without its own mode shows as 0666 or
- * 0777 whatever the umask of the machine that runs `check`.
- */
-const withNoUmask = ["/bin/sh", "-c", 'umask 000 && exec bun src/router/main.ts "$@"', "sh"] as const;
+const sessionInBase64Url = "czE";
+
+const writtenOnLeaseAndSealedRequest = [
+	"/phi-router",
+	"/phi-router/leases.json",
+	"/phi-router/lanes.jsonl",
+	`/phi-router/sessions/${sessionInBase64Url}.json`,
+];
+
+const routerUnderNoUmask = ["/bin/sh", "-c", 'umask 000 && exec bun src/router/main.ts "$@"', "sh"] as const;
 
 const sealedThrough = Effect.fnUntraced(function* sealedThrough(url: string) {
 	const client = yield* HttpClient.HttpClient;
 	const body = yield* bodyOf([{ role: "user", text: `Member ${canary} called.` }]);
-	const answer = yield* client.execute(HttpClientRequest.prependUrl(url)(claudeRequest({ body, session: "s1" })));
+	const answer = yield* client.execute(HttpClientRequest.prependUrl(url)(claudeRequest({ body, session })));
 
 	return yield* answer.text;
 });
 
-/**
- * The router as its own process under Bun: `routerProcess` posts a lease, then one request seals. Every folder under the
- * XDG state and config folders is 0700 and every file 0600, and the walk saw each file the router writes.
- */
 const leftPrivate = Effect.gen(function* leftPrivate() {
 	const { env, mocks, roots } = yield* mocked({ holdsPhi: Str.includes(canary) });
-	const router = yield* routerProcess(withNoUmask, env);
+	const router = yield* routerProcess(routerUnderNoUmask, env);
 
 	yield* sealedThrough(router.url);
 
@@ -42,7 +42,7 @@ const leftPrivate = Effect.gen(function* leftPrivate() {
 	const { notPrivate, shown } = yield* privacyUnder(roots);
 
 	const seen = pipe(
-		written,
+		writtenOnLeaseAndSealedRequest,
 		Array.filter((tail) =>
 			pipe(
 				shown,
@@ -51,7 +51,10 @@ const leftPrivate = Effect.gen(function* leftPrivate() {
 		),
 	);
 
-	assert.deepStrictEqual({ notPrivate, sealed: sealed.length, seen }, { notPrivate: [], sealed: 1, seen: written });
+	assert.deepStrictEqual(
+		{ notPrivate, sealed: sealed.length, seen },
+		{ notPrivate: [], sealed: 1, seen: writtenOnLeaseAndSealedRequest },
+	);
 });
 
 const cutBeforeRename = Effect.gen(function* cutBeforeRename() {
@@ -87,7 +90,7 @@ const appendedFirst = Effect.gen(function* appendedFirst() {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the router's files", (test) => {
 	test.effect(
-		"every folder the router makes under the XDG state and config folders is 0700 and every file 0600",
+		"after a lease and one sealed request of the router run under Bun with no umask, are 0700 for each folder and 0600 for each file under the XDG state and config folders",
 		() => leftPrivate,
 		patient,
 	);

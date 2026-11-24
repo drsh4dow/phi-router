@@ -74,11 +74,6 @@ const sealedOnce =
 				}),
 		});
 
-/**
- * Two Codex turns, the second sending reasoning back. On it the open login folder answers 401, then refuses the
- * reasoning once its login is fit again, which seals the session, so the reasoning resend sends sealed to the BAA login folder. Its
- * token expires within 5 minutes, so its login is made fit before its first send, and it answers 401 once.
- */
 const resendsAfterRule7 = Effect.gen(function* resendsAfterRule7() {
 	yield* TestClock.setTime(start);
 
@@ -120,11 +115,6 @@ const resendsAfterRule7 = Effect.gen(function* resendsAfterRule7() {
 	);
 });
 
-/**
- * An open login folder that answers 401 to every token, and a BAA login folder whose token expires within 5 minutes.
- * The open account spends its one resend and the walk moves on, and the BAA account starts unfit, so its vendor CLI
- * runs before its first send.
- */
 const movesOnAfterSecond401 = Effect.gen(function* movesOnAfterSecond401() {
 	yield* TestClock.setTime(start);
 
@@ -160,7 +150,7 @@ const movesOnAfterSecond401 = Effect.gen(function* movesOnAfterSecond401() {
 
 it.layer(NodeServices.layer)("a login-folder account", (test) => {
 	test.effect(
-		"reached by the reasoning resend after an open 401, makes its login fit, and answered 401 resends there once",
+		"reached sealed by the reasoning resend after an open 401, makes its login fit before its first send, and answered 401 resends there once",
 		() => resendsAfterRule7,
 	);
 	test.effect(

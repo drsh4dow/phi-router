@@ -48,13 +48,8 @@ const answers: AccountScript = () => ({ events: Stream.fromIterable(textEvents([
 
 const failing: AccountScript = () => ({ body: "{}", kind: "status", status: 500 });
 
-/** The router writes the line as it lets go of a request the harness hung up on, so the test waits for it. */
-const lineRetry = { schedule: Schedule.spaced("20 millis") } as const;
+const untilLineWrittenOnRelease = { schedule: Schedule.spaced("20 millis") } as const;
 
-/**
- * The open account answers 500, the BAA account takes the request and never answers, and the harness hangs up while
- * it waits. The request still leaves its one line, naming the BAA account it was last sent to.
- */
 const hungUp = Effect.gen(function* hungUp() {
 	const quiet = yield* silent;
 
@@ -72,7 +67,7 @@ const hungUp = Effect.gen(function* hungUp() {
 
 	const lines = yield* laneLines(state).pipe(
 		Effect.filterOrFail(Array.isReadonlyArrayNonEmpty),
-		Effect.retry(lineRetry),
+		Effect.retry(untilLineWrittenOnRelease),
 		TestClock.withLive,
 	);
 
@@ -90,10 +85,6 @@ const hungUp = Effect.gen(function* hungUp() {
 	);
 });
 
-/**
- * The open account and both BAA accounts refuse the connection, so no account answers and the request fails. Its one
- * line names the last BAA account it was sent to.
- */
 const noneAnswered = Effect.gen(function* noneAnswered() {
 	const { post, state } = yield* routed({
 		baas: ["refused", "refused"],
@@ -120,7 +111,6 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 	);
 });
 
-/** A sealed request whose only BAA account's login ended fails, and its one line names that account. */
 const sealedEnded = Effect.gen(function* sealedEnded() {
 	const baaFolder = yield* endedLogin;
 	const { mocks, post, state } = yield* routed({ baaFolder, holdsPhi: () => true });
@@ -138,7 +128,6 @@ const sealedEnded = Effect.gen(function* sealedEnded() {
 	);
 });
 
-/** A clean request whose home account's login ended moves to the next open account, and its line says failover. */
 const homeEnded = Effect.gen(function* homeEnded() {
 	const session = yield* Effect.fromOption(
 		Array.findFirst(
@@ -159,7 +148,6 @@ const homeEnded = Effect.gen(function* homeEnded() {
 	assert.deepStrictEqual(lines, [["open-2", "clean", "failover"]]);
 });
 
-/** A sealed request moves past an open account whose login ended without trying it, so its line names no failover. */
 const sealedPastEnded = Effect.gen(function* sealedPastEnded() {
 	const openFolder = yield* endedLogin;
 	const { mocks, post, state } = yield* routed({ holdsPhi: () => true, openFolder });
@@ -177,13 +165,7 @@ const sealedPastEnded = Effect.gen(function* sealedPastEnded() {
 	);
 });
 
-/**
- * A store whose every read after the arrival's fails, so the walk ends before it reaches an account.
- *
- * @param {VerdictStore["Service"]} real The router's store.
- * @returns {VerdictStore["Service"]} The store that fails.
- */
-const failingAfterArrival = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
+const readsFailingAfterArrival = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
 	const reads = { arrived: false };
 
 	return Struct.assign(real, {
@@ -200,9 +182,8 @@ const failingAfterArrival = (real: VerdictStore["Service"]): VerdictStore["Servi
 	});
 };
 
-/** A request whose store read fails on its walk still leaves its line, as a router failure at its home account. */
 const storeFailed = Effect.gen(function* storeFailed() {
-	const { mocks, post, state } = yield* routed({ holdsPhi: () => false, store: failingAfterArrival });
+	const { mocks, post, state } = yield* routed({ holdsPhi: () => false, store: readsFailingAfterArrival });
 	const body = yield* bodyOf([{ role: "user", text: "Go on." }]);
 	const response = yield* post({ body, session: "store-failed-1" });
 
@@ -223,11 +204,17 @@ it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 		() => hungUp,
 	);
 	test.effect("names the last account tried when no account answers, for failover", () => noneAnswered);
-	test.effect("names a BAA account whose login ended when a sealed request has no other", () => sealedEnded);
+	test.effect(
+		"names the BAA account whose login ended when a sealed request has no other and fails",
+		() => sealedEnded,
+	);
 	test.effect("says failover when the home account's login ended and the next open account answers", () => homeEnded);
 	test.effect(
-		"names no failover when a sealed request moves past an open account whose login ended",
+		"names no failover when a sealed request moves past an open account whose login ended without trying it",
 		() => sealedPastEnded,
 	);
-	test.effect("is written as a router failure when the store cannot be read on the walk", () => storeFailed);
+	test.effect(
+		"is written as a router failure at the home account when the store cannot be read on the walk",
+		() => storeFailed,
+	);
 });

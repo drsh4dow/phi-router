@@ -62,10 +62,6 @@ const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
 
 const atCarrier = [[], [], [sentModels.claudeHaiku]];
 
-/**
- * A pinned request and one of a BAA repo skip a healthy first BAA account that lacks the model for one that carries
- * it.
- */
 const heldCarryingFirst = Effect.gen(function* heldCarryingFirst() {
 	const pinned = yield* walkedOver({
 		leasedInRepo: false,
@@ -96,11 +92,6 @@ const heldCarryingFirst = Effect.gen(function* heldCarryingFirst() {
 	);
 });
 
-/**
- * The sealed walk tries the BAA accounts that carry the target model first, in the file's order, before those that
- * lack it. A canary request skips a healthy first account that lacks the model, and so does `phi/auto` at one that
- * lacks the configured target model. An account that lacks only other models keeps its place.
- */
 const carryingFirst = Effect.gen(function* carryingFirst() {
 	const sealed = yield* walkedOver({
 		leasedInRepo: false,
@@ -143,10 +134,6 @@ const carryingFirst = Effect.gen(function* carryingFirst() {
 	);
 });
 
-/**
- * Once every carrying BAA account fails, the walk reaches a lacking one with the substitute, whether the file lists it
- * first or last, and from a clean request whose open account failed.
- */
 const lackingLast = Effect.gen(function* lackingLast() {
 	const listedFirst = yield* walkedOver({
 		leasedInRepo: false,
@@ -192,15 +179,15 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 	"the sealed walk",
 	(test) => {
 		test.effect(
-			"tries the BAA accounts that carry the target model first, for a canary and a phi/auto request, and status names the model with no substitute",
+			"tries the BAA accounts that carry the target model first in the file's order, for a canary and a phi/auto request, keeps an account that lacks only other models in its place, and status names the model with no substitute",
 			() => carryingFirst,
 		);
 		test.effect(
-			"tries the BAA accounts that carry the target model first for a pinned and a BAA-repo request",
+			"tries the BAA accounts that carry the target model first for a pinned and a BAA-repo request, past a healthy one that lacks it",
 			() => heldCarryingFirst,
 		);
 		test.effect(
-			"reaches a BAA account that lacks the model only once the carrying ones fail, runs the substitute there, and status says so",
+			"reaches a BAA account that lacks the model only once the carrying ones fail, wherever the file lists it and from a failed open account, runs the substitute there, and status says so",
 			() => lackingLast,
 		);
 	},

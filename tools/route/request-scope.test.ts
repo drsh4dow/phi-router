@@ -31,12 +31,6 @@ interface Spied {
 	readonly held: (endpoint: string) => readonly boolean[];
 }
 
-/**
- * The router aborts each call when its request's scope closes, so a call it has not aborted after the answer is an
- * abort, a controller and a finalizer the router still holds.
- *
- * @returns {Spied} The spied fetch, and what it saw.
- */
 const spied = (): Spied => {
 	const fetch = vi.fn<typeof globalThis.fetch>(FetchHttpClient.Fetch.defaultValue());
 
@@ -58,7 +52,6 @@ const answered = (post: Post, body: string, count: number): Effect.Effect<void, 
 	return Effect.all(Array.replicate(once, count), { concurrency: 1, discard: true });
 };
 
-/** After 200 more requests, the router holds no more aborts than 20 left. */
 const flat = Effect.gen(function* flat() {
 	const { fetch, held } = spied();
 	const { mocks, post } = yield* routed({ fetch, holdsPhi: () => false });
@@ -103,11 +96,6 @@ const released = (held: () => readonly boolean[]): Effect.Effect<readonly boolea
 		until: (calls) => Array.isReadonlyArrayNonEmpty(calls) && countHeld(calls) === none,
 	});
 
-/**
- * The harness hangs up after the first event of a reply the open account never finishes. The router aborts the
- * account's request and the open account sees its connection close. The next request still answers 200, and the lane
- * log keeps a line for each request the account received.
- */
 const hangUp = Effect.gen(function* hangUp() {
 	const { fetch, held } = spied();
 	const account = yield* slowAccount;
@@ -159,7 +147,10 @@ it.layer(NodeServices.layer)("each request the router sends an account", (test) 
 		() => flat,
 		patient,
 	);
-	test.effect("is aborted when the harness hangs up mid-stream, and the next request still answers", () => hangUp);
+	test.effect(
+		"is aborted within a second when the harness hangs up mid-stream, the open account sees its connection close, the next request still answers, and the lane log keeps a line for each request the account received",
+		() => hangUp,
+	);
 	test.effect.each(["claude", "codex"] as const)(
 		"for %s, has its answer relayed without the account's content-length or content-encoding",
 		unframed,

@@ -80,7 +80,6 @@ const codexRefused = Effect.gen(function* codexRefused() {
 	);
 });
 
-/** The same request from the user the router runs as, which the real check lets through to the BAA mock. */
 const thisUserServed = Effect.gen(function* thisUserServed() {
 	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary });
 	const body = yield* bodyOf([{ role: "user", text: `Member ${canary} called.` }]);
@@ -93,7 +92,6 @@ const thisUserServed = Effect.gen(function* thisUserServed() {
 	assert.deepStrictEqual({ answered: answer.status, sealed: sealed.length }, { answered: status.ok, sealed: 1 });
 });
 
-/** The check as it runs where there is no `/proc/net/tcp`, which is macOS: `lsof` lists the sockets. */
 const lsofServed = Effect.gen(function* lsofServed() {
 	const noProcTable = FileSystem.layerNoop({ exists: () => Effect.succeed(false) });
 	const built = yield* Layer.build(Callers.layer.pipe(Layer.provide(noProcTable)));
@@ -125,7 +123,13 @@ it.layer(NodeServices.layer)("a caller of another user", (test) => {
 		() => claudeRefused,
 	);
 	test.effect("gets 403 on the Codex paths, and no mock or judge receives anything", () => codexRefused);
-	test.effect("is told apart from this user, whose same request reaches the BAA mock", () => thisUserServed);
-	test.effect("is told apart by lsof where there is no /proc/net/tcp, and this user is served", () => lsofServed);
+	test.effect(
+		"is told apart from this user, whose same request the real caller check lets through to the BAA mock",
+		() => thisUserServed,
+	);
+	test.effect(
+		"is told apart by lsof where there is no /proc/net/tcp, as on macOS, and this user is served",
+		() => lsofServed,
+	);
 	test.effect("is told why in error.message, the field Claude Code and Codex print", () => toldWhy);
 });

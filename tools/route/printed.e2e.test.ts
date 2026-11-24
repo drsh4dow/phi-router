@@ -31,12 +31,7 @@ const credentials = [
 const claudeFile = (token: string, expires: number): string =>
 	`{"claudeAiOauth":{"accessToken":"${token}","expiresAt":${String(expires)},"refreshTokenExpiresAt":${String(expires + tenDays)}}}`;
 
-/**
- * An account that answers its first request 401 and every later one 500, so a request is resent once, then fails over.
- *
- * @returns {AccountScript} The account's script.
- */
-const refusesThenFails = (): AccountScript => {
+const refusesOnceThenFails = (): AccountScript => {
 	const asked: unknown[] = [];
 
 	return (request) => {
@@ -132,17 +127,12 @@ const postedOnce = Effect.fnUntraced(function* postedOnce(env: Readonly<Record<s
 	return answer.status;
 });
 
-/**
- * One request runs the vendor CLI to refresh a token near expiry, gets a 401 and is resent after a second CLI run, gets
- * a 500 and fails over to a keyed BAA account. No fake credential shows in what the router printed, its warning
- * included, or in any file it wrote.
- */
 const printsNoCredential = Effect.gen(function* printsNoCredential() {
 	const login = yield* expiring;
 
 	const { env, mocks, roots } = yield* mocked({
 		holdsPhi: () => false,
-		open: refusesThenFails(),
+		open: refusesOnceThenFails(),
 		openFolder: login.folder,
 		routerEnv: login.env,
 	});
@@ -184,7 +174,7 @@ const listening = Effect.gen(function* listening() {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("what the router prints", (test) => {
 	test.effect(
-		"through a CLI refresh, a 401 resend and a failover to a keyed account, holds no credential, nor does any file it writes",
+		"through a CLI refresh, a 401 resend and a failover to a keyed account, holds no credential, its 401 warning included, nor does any file it writes",
 		() => printsNoCredential,
 		patient,
 	);

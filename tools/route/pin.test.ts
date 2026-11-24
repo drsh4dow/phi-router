@@ -64,8 +64,7 @@ const judgedOf = Effect.fnUntraced(function* judgedOf(
 	);
 });
 
-/** A Claude Code body with no system blocks still has one system part, which clears as empty with no judge call. */
-const systemPart = 1;
+const emptySystemPart = 1;
 
 const session = "pin-1";
 
@@ -135,7 +134,7 @@ const pinnedStretch = Effect.gen(function* pinnedStretch() {
 			["baa", "sealed", "pinned", false],
 			["open", "clean", "clean", true],
 		],
-		status: statusOf({ account: "open", cleared: marked.length + systemPart, pinned: false }),
+		status: statusOf({ account: "open", cleared: marked.length + emptySystemPart, pinned: false }),
 		whilePinned: { judged: none, status: statusOf({ account: "baa", cleared: none, pinned: true }) },
 	});
 });
@@ -190,15 +189,17 @@ const lateUnpin = Effect.gen(function* lateUnpin() {
 	);
 });
 
-/** Looks like an SSN, so the rules seal it unless the configuration lists it. */
-const listed = "Fixture patient, SSN 536-22-8726.";
+const ruleSealedFixture = "Fixture patient, SSN 536-22-8726.";
 
 const fixtures = Effect.gen(function* fixtures() {
-	const { mocks, post, state, url } = yield* routed({ configExtras: { fixtures: [listed] }, holdsPhi: () => false });
+	const { mocks, post, state, url } = yield* routed({
+		configExtras: { fixtures: [ruleSealedFixture] },
+		holdsPhi: () => false,
+	});
 
-	yield* postedIn(post, "fixture-1", [user(listed)]);
-	yield* postedIn(post, "fixture-2", [user(`${listed} `)]);
-	yield* postedIn(post, "fixture-3", [user(Str.uncapitalize(listed))]);
+	yield* postedIn(post, "fixture-1", [user(ruleSealedFixture)]);
+	yield* postedIn(post, "fixture-2", [user(`${ruleSealedFixture} `)]);
+	yield* postedIn(post, "fixture-3", [user(Str.uncapitalize(ruleSealedFixture))]);
 
 	const judged = yield* mocks.judge.received;
 	const lines = yield* laneLines(state);
@@ -220,8 +221,8 @@ const fixtures = Effect.gen(function* fixtures() {
 		},
 		{
 			counts: [
-				{ cleared: systemPart + onePart, sealed: none },
-				{ cleared: systemPart, sealed: onePart },
+				{ cleared: emptySystemPart + onePart, sealed: none },
+				{ cleared: emptySystemPart, sealed: onePart },
 			],
 			judged: 0,
 			lines: [

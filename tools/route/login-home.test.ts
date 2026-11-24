@@ -44,14 +44,7 @@ const inheriting = (folder: string): Effect.Effect<void, never, Scope.Scope> =>
 			}),
 	);
 
-/**
- * Claude Code's layout: its `.claude.json` sits in `CLAUDE_CONFIG_DIR`, else in `HOME` with the login in `.claude`. The
- * stand-in leaves before writing anything when it would write under a `HOME` that is not the test's.
- *
- * @param {string} home The test's home folder.
- * @returns {string} The stand-in's lines that write `.claude.json` and point the renewal at the login.
- */
-const claudeLayout = (home: string): string =>
+const claudeLayoutUnder = (home: string): string =>
 	Array.join(
 		[
 			`[ -n "$CLAUDE_CONFIG_DIR" ] || [ "$HOME" = '${home}' ] || exit 3`,
@@ -77,7 +70,7 @@ const homeWith = Effect.fnUntraced(function* homeWith(spelled: Spelled) {
 
 	yield* fs.writeFileString(path.join(home, ".claude.json"), homeConfig);
 
-	const login = yield* loggedIn("claude", Struct.assign(dayLong, { standInRuns: claudeLayout(home) }), folder);
+	const login = yield* loggedIn("claude", Struct.assign(dayLong, { standInRuns: claudeLayoutUnder(home) }), folder);
 
 	const account = yield* Option.match(Option.fromUndefinedOr(spelled.link), {
 		onNone: () => Effect.succeed(folder),

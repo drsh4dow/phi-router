@@ -16,17 +16,12 @@ const vendorOf: Readonly<Record<HarnessName, keyof typeof fakes.sealedModel>> = 
 	pi: "anthropic",
 };
 
-/** How each harness names `phi/sealed`: the pi package sends the id `sealed` inside its provider `phi`. */
-const sealedOf: Readonly<Record<HarnessName, string>> = { claude: pinnedModel, codex: pinnedModel, pi: "sealed" };
+const pinnedModelOf: Readonly<Record<HarnessName, string>> = { claude: pinnedModel, codex: pinnedModel, pi: "sealed" };
 
 const ok = 200;
 
 const none = 0;
 
-/**
- * A clean request and a canary request, each naming `phi/sealed` as the harness spells it, reach the BAA account under
- * the configured sealed model with no judge call, and nothing reaches the open account.
- */
 const pinnedByName = Effect.fnUntraced(function* pinnedByName(harness: HarnessName) {
 	const { mocks, post, state } = yield* routed({
 		configExtras: { sealedModel: fakes.sealedModel },
@@ -38,7 +33,7 @@ const pinnedByName = Effect.fnUntraced(function* pinnedByName(harness: HarnessNa
 
 	const statuses = yield* Effect.forEach(
 		asked,
-		(turns, at) => posted(post, { harness, model: sealedOf[harness], session: `sealed-${String(at)}` }, turns),
+		(turns, at) => posted(post, { harness, model: pinnedModelOf[harness], session: `sealed-${String(at)}` }, turns),
 		{ concurrency: 1 },
 	);
 
@@ -80,8 +75,7 @@ const claudeBody = (sent: {
 		}),
 	);
 
-/** The pinned subagent's instructions, as Claude Code puts its agent file's body in the subagent's system prompt. */
-const subagentSystem = `${pinnedLine}\nRead your sources again with your tools.`;
+const pinnedSubagentSystemPrompt = `${pinnedLine}\nRead your sources again with your tools.`;
 
 const postBody = Effect.fnUntraced(function* postBody(
 	post: Post,
@@ -92,13 +86,14 @@ const postBody = Effect.fnUntraced(function* postBody(
 	yield* response.text;
 });
 
-/**
- * A subagent request whose system prompt holds the pinned line, under a model its main agent picked, reaches the BAA
- * account under that model with no judge call. The same line in a user message pins nothing.
- */
 const pinnedByLine = Effect.fnUntraced(function* pinnedByLine(harness: "claude" | "pi") {
 	const { mocks, post, state } = yield* routed({ harness, holdsPhi: holdsCanary });
-	const inSystem = yield* claudeBody({ model: sentModels.claudeHaiku, system: subagentSystem, text: clean.text });
+
+	const inSystem = yield* claudeBody({
+		model: sentModels.claudeHaiku,
+		system: pinnedSubagentSystemPrompt,
+		text: clean.text,
+	});
 
 	const inPrompt = yield* claudeBody({
 		model: sentModels.claudeHaiku,
@@ -180,11 +175,6 @@ const handedOff = Effect.fnUntraced(function* handedOff(post: Post) {
 	yield* postBody(post, { body: following, session });
 });
 
-/**
- * The parent asks on the open account, the pinned subagent of the same session runs on the BAA account, and its answer,
- * which holds a canary, comes back as a tool result. That request runs sealed, and the parent's next request reaches
- * the open account with the stub in place of the tool result.
- */
 const answerJudged = Effect.gen(function* answerJudged() {
 	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary });
 
@@ -232,11 +222,11 @@ it.layer(NodeServices.layer)("the pinned subagent", (test) => {
 		pinnedByName,
 	);
 	test.effect.each(["claude", "pi"] as const)(
-		"%s: the pinned line in the system prompt pins a request under any model, and in a user message pins nothing",
+		"%s: the pinned line in the system prompt pins a request to the BAA account under the model its main agent picked, with no judge call, and in a user message pins nothing",
 		pinnedByLine,
 	);
 	test.effect(
-		"the pinned subagent's answer that holds a canary is sealed in the parent session, and the parent's next open request carries the stub in place of it",
+		"the parent asks on the open account and its pinned subagent runs on the BAA account; the subagent's answer that holds a canary, back as a tool result, is sealed in the parent session, and the parent's next open request carries the stub in place of it",
 		() => answerJudged,
 	);
 });

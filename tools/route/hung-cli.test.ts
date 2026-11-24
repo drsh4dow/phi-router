@@ -62,11 +62,6 @@ const paused = TestClock.withLive(Effect.sleep(pause));
 
 const ticking = Effect.forever(Effect.andThen(TestClock.adjust(tick), paused));
 
-/**
- * A token a minute from expiry runs the vendor CLI, and that CLI ignores SIGTERM and never exits. Once the refresh limit
- * passes, the router kills it, finds the token still near expiry, and fails over to the BAA account, so the request
- * ends. The clock moves only once the CLI runs, so it cannot outrun the router's check of the caller before it.
- */
 const boundedByLimit = Effect.gen(function* boundedByLimit() {
 	yield* TestClock.setTime(start);
 
@@ -93,7 +88,6 @@ const boundedByLimit = Effect.gen(function* boundedByLimit() {
 	);
 });
 
-/** The harness hangs up while the home account's vendor CLI runs, and the request's line still names that account. */
 const hungUpInRefresh = Effect.gen(function* hungUpInRefresh() {
 	yield* TestClock.setTime(start);
 
@@ -127,7 +121,7 @@ const hungUpInRefresh = Effect.gen(function* hungUpInRefresh() {
 
 it.layer(NodeServices.layer)("a login-folder account", (test) => {
 	test.effect(
-		"whose vendor CLI ignores SIGTERM and never exits fails over once the refresh limit passes",
+		"whose vendor CLI ignores SIGTERM and never exits has it killed once the refresh limit passes, and the request fails over to the BAA account",
 		() => boundedByLimit,
 		patient,
 	);

@@ -33,13 +33,7 @@ const Body = Schema.fromJsonString(
 	Schema.Struct({ messages: Schema.Array(Message), model: Schema.String, system: Schema.Array(Block) }),
 );
 
-/**
- * A body as pi sends one on `phi/auto`: the model id inside the provider, one text block per turn.
- *
- * @param {readonly Turn[]} sent The conversation.
- * @returns {Effect.Effect<string>} The body.
- */
-const piBodyOf = (sent: readonly Turn[]): Effect.Effect<string> =>
+const piBodyOnAuto = (sent: readonly Turn[]): Effect.Effect<string> =>
 	jsonText({
 		max_tokens: 1024,
 		messages: pipe(
@@ -77,7 +71,7 @@ const piConversation = Effect.gen(function* piConversation() {
 	const statuses = yield* Effect.forEach(
 		conversation,
 		Effect.fnUntraced(function* posted(sent) {
-			const body = yield* piBodyOf(sent);
+			const body = yield* piBodyOnAuto(sent);
 			const response = yield* post({ body, session: "pi-1" });
 
 			yield* response.text;
@@ -119,7 +113,7 @@ const piConversation = Effect.gen(function* piConversation() {
 
 const unmarked = Effect.gen(function* unmarked() {
 	const { mocks, post } = yield* routed({ harness: "pi", holdsPhi: Str.includes(canary) });
-	const body = yield* piBodyOf([turns.clean]);
+	const body = yield* piBodyOnAuto([turns.clean]);
 	const response = yield* post({ body, session: "" });
 
 	yield* response.text;

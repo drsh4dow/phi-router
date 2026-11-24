@@ -16,12 +16,10 @@ const once = 1;
 
 const phiText = `Member ${canary} called.`;
 
-/** The Claude Code bridge, with Codex's subagent `phi-sealed`. */
-const bridge =
+const codexBridge =
 	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.";
 
-/** The Claude Code stub, with Codex's subagent `phi-sealed`. */
-const stub =
+const codexStub =
 	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-sealed subagent.";
 
 const items = {
@@ -49,7 +47,7 @@ const viewsOf = (
 ): Effect.Effect<readonly Effect.Success<ReturnType<typeof viewOf>>[], Schema.SchemaError> =>
 	Effect.forEach(received, (sent) => viewOf(sent), { concurrency: 1 });
 
-const sentAs = { instructions: bridge, model: fakes.targetModel };
+const sentAs = { instructions: codexBridge, model: fakes.targetModel };
 
 const open = { authorization: `Bearer ${fakes.harnessToken}`, "chatgpt-account-id": fakes.accountId };
 
@@ -59,7 +57,7 @@ const conversation = [
 	[items.clean, items.ok, items.phi, items.noted, items.followUp],
 ] as const;
 
-const stubbed = Struct.assign(items.phi, { content: [{ text: stub, type: "input_text" }] });
+const stubbed = Struct.assign(items.phi, { content: [{ text: codexStub, type: "input_text" }] });
 
 const expectedLanes = {
 	breaches: [],
@@ -143,7 +141,7 @@ const toolResult = Effect.gen(function* toolResult() {
 		Array.map(({ input }) => input),
 	);
 
-	const stubbedOutput = Struct.assign(output, { output: stub });
+	const stubbedOutput = Struct.assign(output, { output: codexStub });
 
 	assert.deepStrictEqual<unknown>(
 		{ inputs, sealed: sealed.length, statuses },

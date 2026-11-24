@@ -16,8 +16,7 @@ const holdsCanary = Str.includes(canary);
 
 const status = { notFound: 404, ok: 200, unreadable: 400 } as const;
 
-/** A top-level field no codec names, holding the canary. */
-const field = `"future_field":"${canary}"`;
+const unnamedTopLevelField = `"future_field":"${canary}"`;
 
 interface Unnamed {
 	readonly harness: "claude" | "codex";
@@ -25,21 +24,20 @@ interface Unnamed {
 }
 
 const unnamed: readonly Unnamed[] = [
-	{ harness: "claude", withField: Str.replace("{", `{${field},`)(claudeCapture) },
-	{ harness: "codex", withField: Str.replace('"stream":true', `"stream":true,${field}`)(codexCapture) },
+	{ harness: "claude", withField: Str.replace("{", `{${unnamedTopLevelField},`)(claudeCapture) },
+	{ harness: "codex", withField: Str.replace('"stream":true', `"stream":true,${unnamedTopLevelField}`)(codexCapture) },
 ];
 
-/** A block of a type no codec names, holding the canary. */
-const future = { note: canary, type: "future_block" } as const;
+const unnamedBlock = { note: canary, type: "future_block" } as const;
 
 const withFuture = {
 	claude: jsonText({
 		max_tokens: 1024,
-		messages: [{ content: [future], role: "user" }],
+		messages: [{ content: [unnamedBlock], role: "user" }],
 		model: "phi/auto",
 		stream: true,
 	}),
-	codex: codexBodyOf([future, userMessage("Go on.")]),
+	codex: codexBodyOf([unnamedBlock, userMessage("Go on.")]),
 };
 
 const login = { authorization: `Bearer ${fakes.harnessToken}` };
@@ -137,7 +135,7 @@ const unknownBlock = Effect.fnUntraced(function* unknownBlock({ harness }: Unnam
 	const atOpen = pipe(
 		opened,
 		Array.map((sent) => ({
-			block: Str.includes(future.type)(sent.body),
+			block: Str.includes(unnamedBlock.type)(sent.body),
 			canary: holdsCanary(sent.body),
 			stub: Str.includes(stubs.unknown)(sent.body),
 		})),
@@ -159,8 +157,7 @@ const echoed = (part: Json): Json => ({
 	type: "message",
 });
 
-/** Codex items the codec reads, each holding the canary in a part or a field the codec does not read. */
-const unreadInside: readonly { readonly name: string; readonly input: readonly Json[] }[] = [
+const canaryInUnreadParts: readonly { readonly name: string; readonly input: readonly Json[] }[] = [
 	{
 		input: [{ content: [{ note: canary, text: "Go on.", type: "input_text" }], role: "user", type: "message" }],
 		name: "a user part with one more field",
@@ -221,7 +218,6 @@ const reasoning = {
 
 const untouched = { blob: false, canary: false };
 
-/** Reasoning an open reply wrote, echoed with one more field in its summary, stays off the open account. */
 const summaryField = Effect.gen(function* summaryField() {
 	const { mocks, post } = yield* routed({
 		harness: "codex",
@@ -263,6 +259,9 @@ it.layer(NodeServices.layer)("the router forwards only what it can name (ADR 000
 		"$harness: a block the codec cannot name reaches the open mock as the stub, and never the judge",
 		unknownBlock,
 	);
-	test.effect.each(unreadInside)("codex: $name reaches the open mock without it", ({ input }) => atOpen(input));
-	test.effect("codex: reasoning echoed with one more summary field never reaches the open mock", () => summaryField);
+	test.effect.each(canaryInUnreadParts)("codex: $name reaches the open mock without it", ({ input }) => atOpen(input));
+	test.effect(
+		"codex: reasoning an open reply wrote, echoed with one more summary field, never reaches the open mock",
+		() => summaryField,
+	);
 });

@@ -30,16 +30,14 @@ const jsonText = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown
 const hidesNeverJudged = (message: Message): Effect.Effect<boolean> =>
 	Effect.map(Effect.orDie(jsonText(message)), (text) => !Str.includes(markers.neverJudged)(text));
 
-/**
- * A wrong lane choice two ways at once: it always answers clean, and it never shows the judge a message that holds
- * `markers.neverJudged`, so that message reaches the border with no stored verdict.
- */
-const wrongChoice: typeof LaneChoice.Service = Effect.fnUntraced(function* wrongChoice({ messages, lookup }) {
-	const shown = yield* pipe(messages, Effect.filter(hidesNeverJudged));
-	const choice = yield* decide({ lookup, messages: shown });
+const alwaysCleanHidingNeverJudged: typeof LaneChoice.Service = Effect.fnUntraced(
+	function* alwaysCleanHidingNeverJudged({ messages, lookup }) {
+		const shown = yield* pipe(messages, Effect.filter(hidesNeverJudged));
+		const choice = yield* decide({ lookup, messages: shown });
 
-	return Struct.assign(choice, { laneAt: () => "clean" as const });
-});
+		return Struct.assign(choice, { laneAt: () => "clean" as const });
+	},
+);
 
 const Content = Schema.Array(Schema.Struct({ text: Schema.String }));
 
@@ -59,7 +57,7 @@ const textsOf = Effect.fnUntraced(function* textsOf(body: string) {
 
 const border = Effect.gen(function* border() {
 	const { mocks, post } = yield* routed({
-		choice: wrongChoice,
+		choice: alwaysCleanHidingNeverJudged,
 		harness: "codex",
 		holdsPhi: Str.includes(markers.sealed),
 	});

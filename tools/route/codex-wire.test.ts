@@ -1,11 +1,10 @@
 import { Array, Effect, Layer, Option, Record, Schema, String as Str, pipe } from "effect";
 import { Headers, HttpClient, HttpClientRequest } from "effect/http";
-import type { Json, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { NodeHttpClient, NodeHttpServer, NodeServices } from "@effect/platform-node";
+import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { codexBodyOf, codexCatalog, codexRequest, fakes, headersNamed, userMessage } from "./harnesses.ts";
 import { postedIn, routed } from "./mocked-router.ts";
-import type { Post } from "./mocked-router.ts";
 import { serveOpenAi } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-5T9V";
@@ -22,8 +21,7 @@ const status = {
 	unreadable: 400,
 } as const;
 
-/** Every header Codex sends that a test watches, the ones no account may get among them. */
-const shown = [
+const watchedHeaders = [
 	"authorization",
 	"b3",
 	"chatgpt-account-id",
@@ -38,24 +36,13 @@ const shown = [
 	"x-openai-internal-codex-responses-lite",
 ];
 
-const headersIn = Array.map(({ headers }: Sent) => headersNamed(shown)(headers));
-
-/**
- * Posts `input` as one Codex request of `session` inside a span, so a client that propagates traces would add one.
- *
- * @param {Post} post How the test posts.
- * @param {string} session The session.
- * @param {readonly Json[]} input The input items.
- * @returns {Effect.Effect<number>} The answer's status.
- */
-const postedInSpan = (post: Post, session: string, input: readonly Json[]): ReturnType<typeof postedIn> =>
-	Effect.withSpan(postedIn(post, session, input), "harness");
+const headersIn = Array.map(({ headers }: Sent) => headersNamed(watchedHeaders)(headers));
 
 const namedHeaders = Effect.gen(function* namedHeaders() {
 	const { mocks, post } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
 
-	yield* postedInSpan(post, "wire-1", [userMessage("List the build steps.")]);
-	yield* postedInSpan(post, "wire-1", [userMessage(`Member ${canary} called.`)]);
+	yield* postedIn(post, "wire-1", [userMessage("List the build steps.")]);
+	yield* postedIn(post, "wire-1", [userMessage(`Member ${canary} called.`)]);
 
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
@@ -84,7 +71,7 @@ const isTrace = (name: string): boolean =>
 const judgeUntraced = Effect.gen(function* judgeUntraced() {
 	const { mocks, post } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
 
-	yield* postedInSpan(post, "wire-7", [userMessage(`Member ${canary} called.`)]);
+	yield* postedIn(post, "wire-7", [userMessage(`Member ${canary} called.`)]);
 
 	const judged = yield* mocks.judge.received;
 
@@ -112,8 +99,8 @@ const unfollowed = Effect.gen(function* unfollowed() {
 		open: redirectTo(`${elsewhere.endpoint}/responses`),
 	});
 
-	const sent = yield* postedInSpan(post, "wire-2", [userMessage("List the build steps.")]);
-	const catalog = yield* Effect.withSpan(client.execute(codexCatalog), "harness");
+	const sent = yield* postedIn(post, "wire-2", [userMessage("List the build steps.")]);
+	const catalog = yield* client.execute(codexCatalog);
 	const opened = yield* mocks.open.received;
 	const reached = yield* elsewhere.received;
 
@@ -174,7 +161,6 @@ const claudeOnly = Effect.gen(function* claudeOnly() {
 	assert.deepStrictEqual([posted.status, listed.status], [status.notFound, status.notFound]);
 });
 
-/** What an OpenAI account answers beside its body: the three headers Codex reads, and three no harness may get. */
 const answeredHeaders = {
 	"openai-organization": "org-not-carried",
 	"retry-after": "3",

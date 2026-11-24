@@ -43,11 +43,6 @@ const modelsOf = {
 	openai: { carried: sentModels.codexMemories, lacked: sentModels.codexReviewer },
 } as const;
 
-/**
- * A canary request keeps a model its BAA account carries and gets the substitute for one it lacks, which its lane log
- * line names, `phi/auto` too when the account lacks the target model. The next request of that session, clean, runs
- * the model it named on the open account.
- */
 const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessName) {
 	const vendor = vendorOf[harness];
 	const { carried, lacked } = modelsOf[vendor];
@@ -97,7 +92,6 @@ const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessNa
 	);
 });
 
-/** With no `sealedModel` for the vendor, the substitute is its target model. */
 const targetAsSubstitute = Effect.gen(function* targetAsSubstitute() {
 	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary, lacks: [[sentModels.claudeHaiku]] });
 
@@ -158,11 +152,6 @@ const unsentAs = (line: readonly (string | boolean)[]): Unsent => ({
 	status: failed,
 });
 
-/**
- * The line of a request whose store read fails on its walk, so no account receives it: the model and substitute flag
- * of the account the walk starts at. A clean request starts at the open account, one whose open account an earlier
- * request stamped at the BAA account, and a pinned one at the BAA account, which lacks the model.
- */
 const unsent = Effect.gen(function* unsent() {
 	const lineOf = Effect.fnUntraced(function* lineOf(of: {
 		readonly open: AccountScript;
@@ -214,7 +203,7 @@ const unsent = Effect.gen(function* unsent() {
 
 it.layer(NodeServices.layer)("the substitute", (test) => {
 	test.effect.each(harnessNames)(
-		"%s: a canary request keeps a model the BAA account carries, gets the substitute for one it lacks, which its line names, and the next clean request runs the model it named",
+		"%s: a canary request keeps a model the BAA account carries and gets the substitute, which its line names, for one it lacks and for phi/auto when the account lacks the target model, and the next clean request of its session runs the model it named on the open account",
 		sealedModels,
 	);
 	test.effect(
@@ -222,7 +211,7 @@ it.layer(NodeServices.layer)("the substitute", (test) => {
 		() => targetAsSubstitute,
 	);
 	test.effect(
-		"is named on the line of a request no account received exactly when the account its walk starts at lacks the model",
+		"is named on the line of a request whose store read fails on its walk, so no account received it, exactly when its walk starts at the BAA account, which lacks the model: once its open account is stamped or when it is pinned, and not when it starts at the open account",
 		() => unsent,
 	);
 });

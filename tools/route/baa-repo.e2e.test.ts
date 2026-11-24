@@ -4,15 +4,24 @@ import { LeaseRequests, SessionRequests } from "#router/client/router-port/index
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, fakes, laneLines, mocked } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
+import type { Scope } from "effect";
 import { routerProcess } from "./router-process.ts";
 
-/**
- * Under a fresh real folder: `clinic/app` and `Clinic/app`, `clinic-link` to `clinic`, `ward/app/src`, `ward-other/app`,
- * `ward/escape` to `ward-other/app`, `ward-other/inlet` to `ward/app/src`, `ledger/books`, `annex/ledger-link` to
- * `ledger/books`, and `buried` to `ward-other/inlet/..`, which is really `ward/app`. Returns the repositories to list, and by session the folder to lease and the account its request must
- * reach. Each folder differs from a listed repository's real path in one way: its case, a trailing slash, a `.` or `..`
- * segment, a symlink, or a shared prefix.
- */
+const workingIn = (folder: string): Effect.Effect<string, never, Scope.Scope> =>
+	Effect.acquireRelease(
+		Effect.sync(() => {
+			const before = process.cwd();
+
+			process.chdir(folder);
+
+			return before;
+		}),
+		(before) =>
+			Effect.sync(() => {
+				process.chdir(before);
+			}),
+	);
+
 const repositories = Effect.gen(function* repositories() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -37,9 +46,11 @@ const repositories = Effect.gen(function* repositories() {
 		{ concurrency: 1 },
 	);
 
+	yield* workingIn(root);
+
 	const folders: readonly { readonly session: string; readonly folder: string; readonly reaches: "baa" | "open" }[] = [
 		{ folder: under("clinic/app"), reaches: "baa", session: "real" },
-		{ folder: path.relative(path.resolve("."), under("clinic/app")), reaches: "baa", session: "relative" },
+		{ folder: "clinic/app", reaches: "baa", session: "relative" },
 		{ folder: under("Clinic/app"), reaches: "open", session: "other-case" },
 		{ folder: path.join(under("clinic-link"), "app"), reaches: "baa", session: "symlink" },
 		{ folder: `${under("ward")}/app/`, reaches: "baa", session: "trailing-slash" },
@@ -73,14 +84,6 @@ const leasedAndAsked = Effect.fnUntraced(function* leasedAndAsked(url: string, s
 	yield* response.text;
 });
 
-/**
- * The configuration lists `clinic` through its symlink, `ward/` with a trailing slash, and `annex/ledger-link/..`,
- * which is really `ledger`. Each session leases one folder of `repositories` and sends one request. A folder is held
- * when its real path is a listed repository's real path or below it: `Clinic` is another folder, `ward/escape/.` and
- * `ward/escape/..` are really under `ward-other` though spelled under `ward/`, and `ward-other/inlet/..` is really
- * `ward/app`. The router runs as its own process, so a relative folder it received would resolve against the router's
- * folder, not the session's.
- */
 const spellings = Effect.gen(function* spellings() {
 	const requests = yield* SessionRequests;
 	const { folders, listed } = yield* repositories;
@@ -123,7 +126,7 @@ const spellings = Effect.gen(function* spellings() {
 
 it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, SessionRequests.layer))("a BAA repo", (test) => {
 	test.effect(
-		"holds a session whose lease folder's real path is inside a listed repository, whatever its case, slash, dot or link, and no other",
+		"holds a session whose lease folder's real path from its own working folder is inside a listed repository, whatever its case, slash, dot or link, and no other",
 		() => spellings,
 		{ timeout: 60_000 },
 	);
