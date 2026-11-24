@@ -1,7 +1,8 @@
-import { Array, Config, Effect, FileSystem, Formatter, Option, Schema, Stream, Struct, pipe } from "effect";
+import { Array, Config, Effect, Formatter, Option, Schema, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { sessionStartHooksRan } from "#tools/route/harnesses.ts";
 
 const runtimeAndScript = 2;
 
@@ -13,12 +14,6 @@ const session = "stand-in-session";
 
 /** The `--settings` JSON `doctor claude` passes: its `env` entries, the model address among them. */
 const Settings = Schema.fromJsonString(Schema.Struct({ env: Schema.Record(Schema.String, Schema.String) }));
-
-const Command = Schema.Struct({ command: Schema.String });
-
-const SessionStart = Schema.Array(Schema.Struct({ hooks: Schema.Array(Command) }));
-
-const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Schema.Struct({ SessionStart }) }));
 
 const Text = Schema.Struct({ text: Schema.String, type: Schema.Literal("text") });
 
@@ -49,37 +44,15 @@ const valueOf = (flag: string): Effect.Effect<string, string> =>
 
 const settings = valueOf("--settings").pipe(Effect.flatMap(Schema.decodeEffect(Settings)));
 
-/**
- * Runs each SessionStart hook of the plugin in `--plugin-dir` as Claude Code does: through `sh -c`, after each other,
- * with the plugin's folder in `CLAUDE_PLUGIN_ROOT`, the settings' `env` in the environment, and the session's JSON on
- * stdin. A hook that fails stops nothing.
- */
 const sessionStarted = Effect.fnUntraced(function* sessionStarted() {
-	const fs = yield* FileSystem.FileSystem;
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const plugin = yield* valueOf("--plugin-dir");
-	const text = yield* fs.readFileString(`${plugin}/hooks/hooks.json`);
-	const { hooks } = yield* Schema.decodeEffect(Hooks)(text);
-	const input = Formatter.formatJson({ cwd: process.cwd(), hook_event_name: "SessionStart", session_id: session });
 
-	const commands = pipe(
-		hooks.SessionStart,
-		Array.flatMap((matcher) => matcher.hooks),
-		Array.map(({ command }) => command),
-	);
-
-	const hooked = (command: string): ChildProcess.Command =>
-		ChildProcess.make("sh", ["-c", command], {
-			env: { CLAUDE_PLUGIN_ROOT: plugin },
-			extendEnv: true,
-			stdin: Stream.encodeText(Stream.make(input)),
-		});
-
-	yield* Effect.forEach(commands, (command) => Effect.flatMap(spawner.spawn(hooked(command)), (run) => run.exitCode), {
-		concurrency: 1,
-		discard: true,
+	yield* sessionStartHooksRan({
+		env: { CLAUDE_PLUGIN_ROOT: plugin },
+		file: `${plugin}/hooks/hooks.json`,
+		input: Formatter.formatJson({ cwd: process.cwd(), hook_event_name: "SessionStart", session_id: session }),
 	});
-}, Effect.scoped);
+});
 
 /** The Messages request Claude Code sends for a one-line `-p` prompt, to the model address of its `--settings`. */
 const request = Effect.fnUntraced(function* request(env: Readonly<Record<string, string>>) {

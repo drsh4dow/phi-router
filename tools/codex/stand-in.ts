@@ -1,20 +1,7 @@
-import {
-	Array,
-	Config,
-	Effect,
-	FileSystem,
-	Formatter,
-	Option,
-	Path,
-	Schema,
-	String as Str,
-	Stream,
-	pipe,
-} from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { Array, Config, Effect, FileSystem, Formatter, Option, Path, Schema, String as Str, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { codexBodyOf, userMessage } from "#tools/route/harnesses.ts";
+import { codexBodyOf, sessionStartHooksRan, userMessage } from "#tools/route/harnesses.ts";
 
 const ok = 200;
 
@@ -24,12 +11,6 @@ const session = "01a20000-0000-7000-8000-000000000022";
 const trustTable = '[hooks.state."phi-router@phi-router:hooks/codex.json:session_start:0:0"]';
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ hooks: Schema.String }));
-
-const Command = Schema.Struct({ command: Schema.String });
-
-const SessionStart = Schema.Array(Schema.Struct({ hooks: Schema.Array(Command) }));
-
-const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Schema.Struct({ SessionStart }) }));
 
 const valueIn = (config: string, key: string): Effect.Effect<string, string> => {
 	const found = new RegExp(`^${key} = "(?<value>[^"]*)"$`, "mu").exec(config);
@@ -63,42 +44,25 @@ const pluginFolders = Effect.fnUntraced(function* pluginFolders(codexHome: strin
 	);
 });
 
-/** Runs each SessionStart hook of the plugin in `folder` through `sh -c`, as Codex does, with the session on stdin. */
 const hooksRan = Effect.fnUntraced(function* hooksRan(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const manifest = yield* fs.readFileString(path.join(folder, ".codex-plugin", "plugin.json"));
 	const { hooks: file } = yield* Schema.decodeEffect(Manifest)(manifest);
-	const { hooks } = yield* fs.readFileString(path.join(folder, file)).pipe(Effect.flatMap(Schema.decodeEffect(Hooks)));
 
-	const input = Formatter.formatJson({
-		cwd: process.cwd(),
-		hook_event_name: "SessionStart",
-		model: "phi/auto",
-		permission_mode: "default",
-		session_id: session,
-		source: "startup",
+	yield* sessionStartHooksRan({
+		env: { PLUGIN_ROOT: folder },
+		file: path.join(folder, file),
+		input: Formatter.formatJson({
+			cwd: process.cwd(),
+			hook_event_name: "SessionStart",
+			model: "phi/auto",
+			permission_mode: "default",
+			session_id: session,
+			source: "startup",
+		}),
 	});
-
-	const commands = pipe(
-		hooks.SessionStart,
-		Array.flatMap((matcher) => matcher.hooks),
-		Array.map(({ command }) => command),
-	);
-
-	const hooked = (command: string): ChildProcess.Command =>
-		ChildProcess.make("sh", ["-c", command], {
-			env: { PLUGIN_ROOT: folder },
-			extendEnv: true,
-			stdin: Stream.encodeText(Stream.make(input)),
-		});
-
-	yield* Effect.forEach(commands, (command) => Effect.flatMap(spawner.spawn(hooked(command)), (run) => run.exitCode), {
-		concurrency: 1,
-		discard: true,
-	});
-}, Effect.scoped);
+});
 
 /**
  * A stand-in for `codex exec` in `check`, which has no real binary. It reads `$CODEX_HOME/config.toml`, runs the

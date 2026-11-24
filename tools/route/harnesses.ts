@@ -1,5 +1,6 @@
 import type { AccountMock, Asked, Json, Reply, Said } from "#router/client/mock-upstreams/index.ts";
-import { Array, Effect, Option, Record, Schema, String as Str, Stream, Struct, pipe } from "effect";
+import { Array, Effect, FileSystem, Option, Record, Schema, String as Str, Stream, Struct, pipe } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
 	judgingOn,
 	responseEvents,
@@ -142,6 +143,34 @@ const codexBodyOf = (input: readonly Json[]): Effect.Effect<string> =>
 		Str.replace(/^\{/u, '{"model":"phi/auto",'),
 	);
 
+const HookCommand = Schema.Struct({ command: Schema.String });
+
+const SessionStart = Schema.Array(Schema.Struct({ hooks: Schema.Array(HookCommand) }));
+
+const SessionStartHooks = Schema.fromJsonString(Schema.Struct({ hooks: Schema.Struct({ SessionStart }) }));
+
+const sessionStartHooksRan = Effect.fnUntraced(function* sessionStartHooksRan(run: {
+	readonly file: string;
+	readonly env: Readonly<Record<string, string>>;
+	readonly input: string;
+}) {
+	const fs = yield* FileSystem.FileSystem;
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const { hooks } = yield* fs.readFileString(run.file).pipe(Effect.flatMap(Schema.decodeEffect(SessionStartHooks)));
+	const stdin = Stream.encodeText(Stream.make(run.input));
+
+	const commands = pipe(
+		hooks.SessionStart,
+		Array.flatMap((matcher) => matcher.hooks),
+		Array.map(({ command }) => ChildProcess.make("sh", ["-c", command], { env: run.env, extendEnv: true, stdin })),
+	);
+
+	yield* Effect.forEach(commands, (command) => Effect.flatMap(spawner.spawn(command), (hook) => hook.exitCode), {
+		concurrency: 1,
+		discard: true,
+	});
+}, Effect.scoped);
+
 interface Harness {
 	readonly vendor: "anthropic" | "openai";
 	readonly answersOk: Readonly<Record<"open" | "baa", () => Said>>;
@@ -212,6 +241,7 @@ export {
 	lacksOf,
 	replyMessage,
 	replying,
+	sessionStartHooksRan,
 	userMessage,
 };
 
