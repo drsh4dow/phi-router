@@ -3,11 +3,6 @@
 	"tools/cli/accounts.test.ts": 1,
 	"tools/gates/captures.test.ts": 1,
 	"tools/gates/live-off-ci.test.ts": 1,
-	"tools/judge/claude-judge.test.ts": 1,
-	"tools/judge/judge.test.ts": 1,
-	"tools/judge/live.ts": 1,
-	"tools/judge/probe.ts": 1,
-	"tools/judge/sealing.test.ts": 1,
 	"tools/pi/doctor.test.ts": 2,
 	"tools/pi/proof.test.ts": 1
 }

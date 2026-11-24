@@ -2,17 +2,16 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, Layer } from "effect";
 import { identifierQuestion, judgeLimits, thresholds } from "#router/features/policy/index.ts";
 import { Judge } from "#router/client/judge/index.ts";
-import { liveJudge } from "./live.ts";
+import { judgeFromConfiguration } from "./live.ts";
 
-/** A canary SSN in a labelled sentence. Area 923 was never issued, so it names no one. */
-const sentence = "The patient's Social Security number is 923-41-0187.";
+const canarySsnSentence = "The patient's Social Security number is 923-41-0187.";
 
 const costDigits = 3;
 
 const probe = Effect.gen(function* probe() {
 	const judge = yield* Judge;
 	const { sealAtOrAbove } = thresholds[judge.name];
-	const asked = judge.identifier({ context: [], images: [], piece: sentence }, identifierQuestion);
+	const asked = judge.identifier({ context: [], images: [], piece: canarySsnSentence }, identifierQuestion);
 	const { score, usage } = yield* Effect.timeout(asked, judgeLimits.timeoutMs);
 
 	yield* Console.log(`${judge.name} judge on ${judge.model}`);
@@ -29,4 +28,4 @@ const probe = Effect.gen(function* probe() {
 	),
 );
 
-BunRuntime.runMain(Effect.provide(probe, Layer.provide(liveJudge, BunServices.layer)));
+BunRuntime.runMain(Effect.provide(probe, Layer.provide(judgeFromConfiguration, BunServices.layer)));

@@ -163,7 +163,6 @@ const toolUse = (name: string, answer: string, stop = "tool_use"): Said =>
 		`{"content":[{"id":"toolu_1","input":${answer},"name":"${name}","type":"tool_use"}],"stop_reason":"${stop}","usage":{"input_tokens":1000,"output_tokens":2}}`,
 	);
 
-/** What 1000 input and 2 output tokens cost on the Claude judge's model. */
 const billed = { calls: 1, cost: 0.000101, inputTokens: 1000 };
 
 const scoredAt = (inputTokens: number): Said =>

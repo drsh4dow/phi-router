@@ -138,7 +138,6 @@ const unlabelled = Effect.gen(function* unlabelled() {
 	]);
 });
 
-/** In the band, so the kind call decides, and a kind answer with no `probabilities` or `confidence`, which Decisions never sends. */
 const bareKind: Reply = {
 	body: {
 		answers: [

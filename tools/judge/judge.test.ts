@@ -36,7 +36,6 @@ const nowhere = "http://127.0.0.1:9/v1";
 
 const sent = { bearer: "env-key", method: "POST", path: "/v1/decisions" } as const;
 
-/** A well-formed answer to each question, beside two entries the judge must skip. */
 const wellFormed = [
 	{ name: "identifier", probability: 0.75, type: "predicate" },
 	{
