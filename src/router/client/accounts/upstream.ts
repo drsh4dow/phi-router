@@ -1,12 +1,12 @@
-import type { Account, Accounts, Answered, Headers, OpenAiAccounts, Unanswered } from "./upstream-accounts.ts";
+import type { Account, Accounts, Answered, Headers, OpenAiAccounts, Unanswered } from "./account.ts";
 import { Array, Effect, Option, Record, Redacted, String as Str, Stream, Struct, pipe } from "effect";
-import type { Credential, NamedAccount, Vendor, VendorLanes } from "./configuration/index.ts";
+import type { Credential, NamedAccount, Vendor, VendorLanes } from "#router/client/configuration/index.ts";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { folderLogin, readKey } from "./credentials.ts";
-import { Refused } from "./upstream-refused.ts";
-import { Rejected } from "./upstream-rejected.ts";
+import { Refused } from "./refused.ts";
+import { Rejected } from "./rejected.ts";
 import type { Scope } from "effect";
-import { laneConfiguration } from "./configuration/index.ts";
+import { laneConfiguration } from "#router/client/configuration/index.ts";
 
 const wires = {
 	anthropic: {

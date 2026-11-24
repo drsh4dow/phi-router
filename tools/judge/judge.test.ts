@@ -3,7 +3,7 @@ import type { ChoiceQuestion, JudgeInput, ScoreQuestion } from "#router/client/j
 import { assert, it } from "@effect/vitest";
 import { configuredJudge, mockedJudge } from "./configured.ts";
 import type { JudgeFailed } from "#router/client/judge-failed.ts";
-import { KeyUnreadable } from "#router/client/credentials.ts";
+import { KeyUnreadable } from "#router/client/accounts/index.ts";
 import type { Named } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams.ts";

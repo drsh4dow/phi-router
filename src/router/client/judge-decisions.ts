@@ -4,7 +4,7 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import type { ChosenJudge } from "./judge-choice.ts";
 import { JudgeFailed } from "./judge-failed.ts";
 import type { Usage } from "./judge-failed.ts";
-import { readKey } from "./credentials.ts";
+import { readKey } from "./accounts/index.ts";
 
 const names = { identifier: "identifier", kind: "kind" } as const;
 

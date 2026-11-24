@@ -1,10 +1,9 @@
+import type { Accounts, Served } from "#router/client/accounts/index.ts";
 import { Array, Effect, Option, Schema, pipe } from "effect";
 import type { Outgoing, Path } from "#router/client/server.ts";
 import { PinRequestJson, sessionPaths } from "#router/client/session-request.ts";
 import { SessionId, StatusJson } from "#shared/cli.ts";
-import type { Accounts } from "#router/client/upstream-accounts.ts";
 import type { Routing } from "./routing.ts";
-import type { Served } from "#router/client/upstream.ts";
 import type { Status } from "#shared/cli.ts";
 
 /** The name and vendor of each account on one lane. */

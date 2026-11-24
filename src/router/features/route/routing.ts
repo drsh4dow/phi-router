@@ -4,7 +4,7 @@ import { Configuration } from "#router/client/configuration/index.ts";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge.ts";
 import { LaneLog } from "#router/client/lane-log.ts";
-import { Upstream } from "#router/client/upstream-served.ts";
+import { Upstream } from "#router/client/accounts/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
 

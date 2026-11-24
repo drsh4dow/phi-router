@@ -5,7 +5,7 @@ import type { ChosenJudge } from "./judge-choice.ts";
 import { UserDirectories } from "effect/persistence";
 import { claude } from "./judge-claude.ts";
 import { decisions } from "./judge-decisions.ts";
-import { upstreamHttp } from "./upstream-http.ts";
+import { upstreamHttp } from "./accounts/index.ts";
 
 /** What the judge reads: the piece's text, cleared context beside it, and the piece's images. */
 interface JudgeInput {

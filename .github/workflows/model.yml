@@ -7,11 +7,11 @@ on:
          - "**/*.cfg"
          - tools/formal/**
          - .github/workflows/model.yml
-         - src/router/client/account-state.ts
+         - src/router/client/accounts/account-state.ts
          - src/router/client/leases.ts
          - src/router/client/processes.ts
          - src/router/client/server.ts
-         - src/router/client/upstream.ts
+         - src/router/client/accounts/upstream.ts
          - src/router/client/verdict-store.ts
          - src/router/features/accounts/walk.ts
          - src/router/features/border/guard.ts

@@ -14,7 +14,7 @@ import {
 	Stream,
 	Struct,
 } from "effect";
-import type { KeySource, Vendor } from "./configuration/index.ts";
+import type { KeySource, Vendor } from "#router/client/configuration/index.ts";
 import { LoginEnded, loginFolders } from "./login-folders.ts";
 import type { Login } from "./login-folders.ts";
 

@@ -1,10 +1,9 @@
 import { Array, Console, DateTime, Effect, Option, Predicate, Redacted, Schema, String as Str, pipe } from "effect";
 import type { Lane, Vendor } from "#router/client/configuration/index.ts";
-import { loginFolders, loginIn } from "#router/client/login-folders.ts";
+import { loginFolders, loginIn, readKey } from "#router/client/accounts/index.ts";
 import { CliError } from "effect/cli";
 import type { NewAccount } from "#router/client/config-writer.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
-import { readKey } from "#router/client/credentials.ts";
 import { realFolder } from "#router/client/processes.ts";
 
 /** What `accounts add` was asked: a login folder or a command that prints a token, and whether the lane is sealed. */

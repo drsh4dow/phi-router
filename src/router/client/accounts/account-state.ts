@@ -1,7 +1,7 @@
 import { Array, Context, DateTime, Effect, FileSystem, Layer, Path, Record, Schema, Semaphore, pipe } from "effect";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
-import { writePrivately } from "./private-file.ts";
+import { writePrivately } from "#router/client/private-file.ts";
 
 /**
  * `phi-router/accounts.json` under the XDG state folder: each rate-limited account by name, with the time it is back.
@@ -29,7 +29,7 @@ class AccountState extends Context.Service<
 		/** Stamps an account until 30 minutes from now, and drops the stamps that ran out. */
 		readonly stamp: (account: string) => Effect.Effect<void, StoreFailed>;
 	}
->()("phi-router/router/client/account-state/AccountState") {
+>()("phi-router/router/client/accounts/account-state/AccountState") {
 	public static readonly layer = Layer.effect(
 		AccountState,
 		Effect.gen(function* make() {

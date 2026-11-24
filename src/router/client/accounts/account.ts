@@ -1,7 +1,7 @@
 import type { Array, Effect, Scope, Stream } from "effect";
 import type { LoginEnded } from "./login-folders.ts";
-import type { Refused } from "./upstream-refused.ts";
-import type { Rejected } from "./upstream-rejected.ts";
+import type { Refused } from "./refused.ts";
+import type { Rejected } from "./rejected.ts";
 
 type Headers = Readonly<Record<string, string | undefined>>;
 

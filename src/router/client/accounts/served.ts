@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, SynchronizedRef } from "effect";
 import type { Served } from "./upstream.ts";
 import { UserDirectories } from "effect/persistence";
-import { configText } from "./configuration/index.ts";
+import { configText } from "#router/client/configuration/index.ts";
 import { servedBy } from "./upstream.ts";
-import { upstreamHttp } from "./upstream-http.ts";
+import { upstreamHttp } from "./http.ts";
 
 /** What the router serves, and the `config.json` text it built that from. */
 interface Held {
@@ -22,7 +22,7 @@ const kept = (error: { readonly message: string }): Effect.Effect<void> =>
  * read or serve (ADR 0008).
  */
 class Upstream extends Context.Service<Upstream, { readonly served: Effect.Effect<Served> }>()(
-	"phi-router/router/client/upstream-served/Upstream",
+	"phi-router/router/client/accounts/served/Upstream",
 ) {
 	public static readonly layer = Layer.effect(
 		Upstream,

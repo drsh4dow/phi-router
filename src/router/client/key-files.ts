@@ -1,7 +1,7 @@
 import { Effect, Option, Path, Redacted } from "effect";
 import { UserDirectories } from "effect/persistence";
 import type { Vendor } from "./configuration/index.ts";
-import { readKey } from "./credentials.ts";
+import { readKey } from "./accounts/index.ts";
 import { writePrivately } from "./private-file.ts";
 
 /** `phi-router/keys/<vendor>` under the XDG config folder, the file `setup` saves a pasted key in. */

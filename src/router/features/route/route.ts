@@ -6,7 +6,7 @@ import type { Incoming, Outgoing, Path } from "#router/client/server.ts";
 import { catalogQuery, catalogWith, fromCodex } from "#router/features/codex/index.ts";
 import type { Judging } from "./routing.ts";
 import type { Lookup } from "#router/features/verdicts/index.ts";
-import type { OpenAiAccounts } from "#router/client/upstream-accounts.ts";
+import type { OpenAiAccounts } from "#router/client/accounts/index.ts";
 import type { Scope } from "effect";
 import { SessionId } from "#shared/cli.ts";
 import { auto } from "./send.ts";

@@ -5,7 +5,7 @@ import type { Spend, Stop } from "./walked.ts";
 import { chosen, keepingReplyKeys, targetOf } from "./send.ts";
 import { current, onward, walkOf } from "#router/features/accounts/index.ts";
 import { lineOf, stopped, unwalked } from "./walked.ts";
-import type { Account } from "#router/client/upstream-accounts.ts";
+import type { Account } from "#router/client/accounts/index.ts";
 import type { Digest } from "effect/crypto";
 import type { Outgoing } from "#router/client/server.ts";
 import type { Walk } from "#router/features/accounts/index.ts";

@@ -1,4 +1,4 @@
-import type { Account, Accounts } from "#router/client/upstream-accounts.ts";
+import type { Account, Accounts } from "#router/client/accounts/index.ts";
 import { Array, Hash, Option, Order, pipe } from "effect";
 
 /**
