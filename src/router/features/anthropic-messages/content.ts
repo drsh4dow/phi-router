@@ -218,12 +218,6 @@ const userRuns = Effect.fnUntraced(function* userRuns({
 	});
 });
 
-/**
- * A harness note: its text blocks joined, as the engine's system message reads them.
- *
- * @param {Located<string | readonly ContentBlock[]>} content The note's wire content, and where it sits.
- * @returns {Run} The run.
- */
 const noteRun = (content: Located<string | readonly ContentBlock[]>): Run => {
 	const reading = readingOf(content.wire);
 

@@ -1,4 +1,4 @@
-import { Array, Effect, String as Str, pipe } from "effect";
+import { Array, Effect, Option, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import type { Part } from "#router/features/parts/index.ts";
@@ -105,4 +105,19 @@ it.layer(Digest.layerWebCrypto)("content keys of a captured request", (test) => 
 	);
 
 	test.effect("a changed or removed thinking block leaves every key equal", () => thinkingFree);
+});
+
+const twoLineNote = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"Go on."},{"role":"system","content":[{"type":"text","text":"First line."},{"type":"text","text":"Second line."}]}],"max_tokens":1000}`;
+
+const joinedNote = Effect.gen(function* joinedNote() {
+	const { request } = yield* partsIn(twoLineNote);
+
+	assert.deepStrictEqual(
+		Array.last(request.messages),
+		Option.some({ content: "First line.\nSecond line.", role: "system", sections: [], tools: [] } as const),
+	);
+});
+
+it.layer(Digest.layerWebCrypto)("content keys of a captured request", (test) => {
+	test.effect("a harness note's text blocks read as one system message, a line each", () => joinedNote);
 });
