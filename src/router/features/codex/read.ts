@@ -7,15 +7,14 @@ import type { Digest } from "effect/crypto";
 import { ReadPart } from "./wire.ts";
 import { cleanLaneItemKey } from "./clean-lane.ts";
 
-/** A message the engine reads, and whether a content part behind it was one the codec does not read. */
 interface Read {
 	readonly message: Message;
-	readonly unread: boolean;
+	readonly holdsUnreadPart: boolean;
 }
 
 interface Texts {
 	readonly texts: readonly string[];
-	readonly unread: boolean;
+	readonly holdsUnreadPart: boolean;
 }
 
 type SystemMessage = Extract<Message, { readonly role: "system" }>;
@@ -46,7 +45,7 @@ const textOf = (part: typeof ReadPart.Type): string => {
 
 const readContent = (content: readonly unknown[] | string): Texts => {
 	if (Predicate.isString(content)) {
-		return { texts: [content], unread: false };
+		return { holdsUnreadPart: false, texts: [content] };
 	}
 
 	const parts = pipe(
@@ -55,8 +54,8 @@ const readContent = (content: readonly unknown[] | string): Texts => {
 	);
 
 	return {
+		holdsUnreadPart: pipe(parts, Array.some(Option.isNone)),
 		texts: pipe(parts, Array.getSomes, Array.map(textOf)),
-		unread: pipe(parts, Array.some(Option.isNone)),
 	};
 };
 
@@ -76,21 +75,24 @@ const loneMessage = (item: LoneItem): Read => {
 	switch (item.type) {
 		case "function_call_output":
 		case "custom_tool_call_output": {
-			const { texts, unread } = readContent(item.output);
+			const { holdsUnreadPart, texts } = readContent(item.output);
 			const content = textBlocks(texts);
 
-			return { message: { content, isError: false, role: "toolResult", toolCallId: item.call_id }, unread };
+			return { holdsUnreadPart, message: { content, isError: false, role: "toolResult", toolCallId: item.call_id } };
 		}
 
 		case "message":
 		case "agent_message": {
-			const { texts, unread } = readContent(item.content);
+			const { holdsUnreadPart, texts } = readContent(item.content);
 
 			if (item.type === "message" && item.role === "developer") {
-				return { message: { content: Array.join(texts, "\n"), role: "system", sections: [], tools: [] }, unread };
+				return {
+					holdsUnreadPart,
+					message: { content: Array.join(texts, "\n"), role: "system", sections: [], tools: [] },
+				};
 			}
 
-			return { message: { content: textBlocks(texts), role: "user" }, unread };
+			return { holdsUnreadPart, message: { content: textBlocks(texts), role: "user" } };
 		}
 
 		default: {
@@ -129,7 +131,7 @@ const replyContent = (item: ReplyItem): Effect.Effect<AssistantMessage["content"
 	}
 };
 
-const unreadIn = (item: ReplyItem): boolean => item.type === "message" && readContent(item.content).unread;
+const unreadIn = (item: ReplyItem): boolean => item.type === "message" && readContent(item.content).holdsUnreadPart;
 
 const writerOf = (written: boolean): AssistantMessage["writtenBy"] => {
 	if (written) {
@@ -172,8 +174,8 @@ const replyMessage =
 			const written = Option.match(Option.all(keys), { onNone: () => false, onSome: Array.every(wrote) });
 
 			return {
+				holdsUnreadPart: pipe(items, Array.some(unreadIn)),
 				message: { content: Array.flatten(contents), role: "assistant", writtenBy: writerOf(written) },
-				unread: pipe(items, Array.some(unreadIn)),
 			};
 		});
 

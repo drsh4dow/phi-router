@@ -31,28 +31,26 @@ interface CodexRequest {
 	 */
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	readonly withoutReasoning: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
-	/** Whether its turn metadata says `"thread_source":"thread_title"`: the TUI's request for the thread's title. */
 	readonly title: boolean;
 }
 
 const decodeRaw = Schema.decodeUnknownEffect(Schema.fromJsonString(Raw));
 
-/** The top-level fields Codex sends, read no further than the model. */
-const TopLevel = Schema.Struct(
+const TopLevelKeys = Schema.Struct(
 	pipe(
 		Body.fields,
 		Record.map(() => Schema.optionalKey(Schema.Unknown)),
 	),
 );
 
-const decodeTopLevel = Schema.decodeUnknownEffect(TopLevel);
+const decodeTopLevelKeys = Schema.decodeUnknownEffect(TopLevelKeys);
 
 const decodeModel = Schema.decodeUnknownEffect(Schema.Struct({ model: Schema.String }));
 
 const decodeTop = Effect.fnUntraced(function* decodeTop(text: string) {
 	const raw = yield* decodeRaw(text);
 
-	yield* decodeTopLevel(raw, { onExcessProperty: "error" });
+	yield* decodeTopLevelKeys(raw, { onExcessProperty: "error" });
 
 	const { model } = yield* decodeModel(raw);
 
@@ -74,10 +72,9 @@ const modelOnce = (afterModel: string): Effect.Effect<boolean> =>
 		onSuccess: (raw) => raw["model"] === notAString,
 	});
 
-/** What a request is written back from. `bodyRead` when its fields are all ones the clean lane may get. */
 interface Encoding {
 	readonly afterModel: string;
-	readonly bodyRead: boolean;
+	readonly everyFieldRead: boolean;
 	readonly raw: typeof Raw.Type;
 	readonly wireParts: readonly WirePart[];
 }
@@ -92,11 +89,11 @@ const isReasoning = (item: typeof Raw.Type): boolean => item["type"] === "reason
  * @returns {Effect.Effect<readonly Raw[], CleanLaneRefused>} The items.
  */
 const cleanInput = (
-	{ bodyRead, wireParts }: Encoding,
+	{ everyFieldRead, wireParts }: Encoding,
 	messages: readonly Message[],
 ): Effect.Effect<readonly (typeof Raw.Type)[], CleanLaneRefused> =>
 	Effect.gen(function* cleanParts() {
-		if (!bodyRead) {
+		if (!everyFieldRead) {
 			return yield* CleanLaneRefused.make({});
 		}
 
@@ -133,7 +130,7 @@ const withoutWorkspaces = (raw: typeof Raw.Type): Effect.Effect<typeof Raw.Type>
 			),
 	});
 
-const isTitle = (raw: typeof Raw.Type): boolean =>
+const isTitleRequest = (raw: typeof Raw.Type): boolean =>
 	Option.exists(turnOf(raw), ({ turn }) => turn["thread_source"] === "thread_title");
 
 const cleanBody =
@@ -210,13 +207,13 @@ const decodeRequest = Effect.fnUntraced(function* decodeRequest(
 	const body = readBody(raw, { onExcessProperty: "error" });
 	const wireParts = yield* wirePartsOf(cleanLaneWrote)({ body: Option.getOrUndefined(body), raw });
 
-	return Struct.assign(encoderOf({ afterModel, bodyRead: Option.isSome(body), raw, wireParts }), {
+	return Struct.assign(encoderOf({ afterModel, everyFieldRead: Option.isSome(body), raw, wireParts }), {
 		messages: pipe(
 			wireParts,
 			Array.map(({ message }) => message),
 		),
 		model,
-		title: isTitle(raw),
+		title: isTitleRequest(raw),
 	});
 });
 

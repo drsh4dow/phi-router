@@ -6,14 +6,13 @@ const readCatalog = Schema.decodeUnknownOption(Schema.fromJsonString(Raw));
 
 const readModels = Schema.decodeUnknownOption(Schema.Array(Raw));
 
-/** The catalog's `upgrade`, JSON `null` for a model that names no newer one. */
-const encodeUpgrade = Schema.encodeEffect(Schema.OptionFromNullOr(Schema.String));
+const encodeNewerModel = Schema.encodeEffect(Schema.OptionFromNullOr(Schema.String));
 
 const catalogWith =
 	(entry: { readonly slug: string; readonly copyOf: string }) =>
 	(catalog: string): Effect.Effect<Option.Option<string>> =>
 		Effect.gen(function* appendTo() {
-			const noUpgrade = yield* Effect.orDie(encodeUpgrade(Option.none()));
+			const noNewerModel = yield* Effect.orDie(encodeNewerModel(Option.none()));
 
 			const appended = Option.gen(function* append() {
 				const raw = yield* readCatalog(catalog);
@@ -24,7 +23,7 @@ const catalogWith =
 					copied,
 					Record.set("slug", entry.slug),
 					Record.set("display_name", "PHI auto"),
-					Record.set("upgrade", noUpgrade),
+					Record.set("upgrade", noNewerModel),
 					Record.set("visibility", "list"),
 				);
 

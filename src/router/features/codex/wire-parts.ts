@@ -135,7 +135,7 @@ const toolListPart = (
 
 const contentPart =
 	(wrote: CleanLaneWrote, entries: readonly ContentEntry[]) =>
-	({ message, unread }: Read): Effect.Effect<WirePart, never, Digest.Digest> =>
+	({ holdsUnreadPart: unread, message }: Read): Effect.Effect<WirePart, never, Digest.Digest> =>
 		Effect.gen(function* readContent() {
 			const parts = yield* partsOf(message);
 			const unwrittenBlob = yield* unwrittenBlobIn(message, wrote);
