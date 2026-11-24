@@ -170,7 +170,6 @@
 	"tools/setup/setup-pi-key.test.ts": 10,
 	"tools/setup/setup-refused.test.ts": 3,
 	"tools/setup/world.ts": 13,
-	"tools/wire/account-checks.ts": 4,
 	"tools/wire/account-turns.ts": 3,
 	"tools/wire/accounts.ts": 3,
 	"tools/wire/claude.ts": 7,

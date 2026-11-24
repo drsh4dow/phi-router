@@ -5,7 +5,6 @@ import { costOf } from "./spent.ts";
 import { succeeded } from "./checks.ts";
 import { voidedSsn } from "./cases.ts";
 
-/** What one session left: its turns, the lane log's lines, and the text of every file in the state folder. */
 interface Ran {
 	readonly turns: readonly Turn[];
 	readonly lines: readonly LaneLogLine[];
@@ -18,13 +17,6 @@ const canaryAt = 1;
 
 const turnCount = 2;
 
-/**
- * The checks of one session: each turn exits 0, the lane log holds a line per turn, the clean prompt's on the clean
- * lane and the canary prompt's on the sealed lane for its new content, and no stored file holds the canary.
- *
- * @param {Ran} ran What the session left.
- * @returns {readonly object[]} Each check's name and whether it holds.
- */
 const checksOf = (ran: Ran): readonly { readonly name: string; readonly ok: boolean }[] => [
 	{
 		name: "every turn exits 0",
@@ -53,12 +45,6 @@ const checksOf = (ran: Ran): readonly { readonly name: string; readonly ok: bool
 
 const free = 0;
 
-/**
- * What one request cost on its BAA account: its turn's tokens at its model's price, and nothing on an open account.
- *
- * @param {readonly [LaneLogLine, Turn]} request The request's lane log line and its turn.
- * @returns {Option.Option<number>} The cost in US dollars, or none when no price is known for the model.
- */
 const billed = ([line, turn]: readonly [LaneLogLine, Turn]): Option.Option<number> => {
 	if (line.lane === "clean") {
 		return Option.some(free);
@@ -84,12 +70,6 @@ const verdictOf = ({ name, ok }: { readonly name: string; readonly ok: boolean }
 	return `FAIL ${name}`;
 };
 
-/**
- * What the run prints: the lane log's lines, the checks, the judge's cost and the BAA accounts' token cost.
- *
- * @param {object} report The harness, what its session left, the checks and the BAA accounts' cost.
- * @returns {string} The report.
- */
 const reportOf = (report: {
 	readonly harness: string;
 	readonly ran: Ran;
