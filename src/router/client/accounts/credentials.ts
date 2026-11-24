@@ -96,7 +96,6 @@ interface LoginFolder {
 	readonly folder: string;
 }
 
-/** An `env` value that removes the variable from what a child process inherits. */
 const unset = Option.getOrUndefined(Option.none<string>());
 
 const homeOf = Effect.fnUntraced(function* homeOf(folder: string, name: string) {
@@ -109,10 +108,6 @@ const homeOf = Effect.fnUntraced(function* homeOf(folder: string, name: string) 
 	return yield* Effect.fromOption(Option.liftPredicate(home, () => own === given));
 });
 
-/**
- * What a login folder's vendor CLI runs with beside the router's environment: `PATH` from `Config`, and the variable
- * that points the CLI at the folder. In the CLI's own folder under `HOME`, `HOME` and the variable unset instead.
- */
 const cliEnv = Effect.fnUntraced(function* cliEnv(account: LoginFolder) {
 	const vendor = loginFolders[account.vendor];
 	const searched = yield* Config.option(Config.String("PATH"));

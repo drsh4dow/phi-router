@@ -1,8 +1,9 @@
 import { Array, Effect, FileSystem, Option, Path, Struct } from "effect";
 import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
-import { assert, it } from "@effect/vitest";
+import { assert, it, vi } from "@effect/vitest";
 import { dayLong, loggedIn, start } from "./login-fixture.ts";
 import { NodeServices } from "@effect/platform-node";
+import type { Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { harnesses } from "./harnesses.ts";
 import { routed } from "./mocked-router.ts";
@@ -31,6 +32,17 @@ const refusesFirst = (): (() => Said) => {
 };
 
 const bearersOf = Array.map(({ headers }: Sent) => headers["authorization"]);
+
+const inheriting = (folder: string): Effect.Effect<void, never, Scope.Scope> =>
+	Effect.acquireRelease(
+		Effect.sync(() => {
+			vi.stubEnv("CLAUDE_CONFIG_DIR", folder);
+		}),
+		() =>
+			Effect.sync(() => {
+				vi.unstubAllEnvs();
+			}),
+	);
 
 /**
  * Claude Code's layout: its `.claude.json` sits in `CLAUDE_CONFIG_DIR`, else in `HOME` with the login in `.claude`. The
@@ -88,6 +100,9 @@ const inHome = Effect.fnUntraced(function* inHome(spelled: Spelled) {
 	const path = yield* Path.Path;
 
 	const { account, before, folder, home, login } = yield* homeWith(spelled);
+	const elsewhere = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-elsewhere-" });
+
+	yield* inheriting(elsewhere);
 
 	const { mocks, post } = yield* routed({
 		baa: refusesFirst(),
@@ -140,7 +155,7 @@ const folderBeside = Effect.gen(function* folderBeside() {
 
 it.layer(NodeServices.layer)("a Claude login folder under the home folder", (test) => {
 	test.effect.each([{ folder: ".claude" }, { folder: ".claude", link: "login" }])(
-		"that is .claude, named %o, refreshes with CLAUDE_CONFIG_DIR unset and adds nothing to it",
+		"that is .claude, named %o, refreshes with CLAUDE_CONFIG_DIR unset even when the router inherits it, and adds nothing to it",
 		ownFolder,
 	);
 	test.effect("beside .claude refreshes with CLAUDE_CONFIG_DIR pointing at it", () => folderBeside);
