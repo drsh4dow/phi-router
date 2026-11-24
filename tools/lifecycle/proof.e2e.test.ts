@@ -4,8 +4,7 @@ import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { Proofs, hmacOf, proofOf } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
 import { bundled, freePort, instance, ran, routersOn, world } from "./launched.ts";
-import { flooder, secretKept, squatter } from "./squatter.ts";
-import { Digest } from "effect/crypto";
+import { flooder, macs, secretKept, squatter } from "./squatter.ts";
 import { mocked } from "#tools/route/mocked-router.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
@@ -218,30 +217,27 @@ const asked = Effect.fnUntraced(function* asked() {
 	);
 }, Effect.scoped);
 
-it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, Digest.layerWebCrypto))(
-	"the port's proof",
-	(test) => {
-		test.effect("is HMAC-SHA-256 of the nonce and the port under the secret's 64 hex digits", () => hmac);
-		test.effect.each(rfc4231)("computes HMAC-SHA-256 as RFC 4231 test case $case gives it", rfcCase);
-		test.effect(
-			"start refuses another user's listener that answers under its own secret, having sent it the nonce alone",
-			() => squatted(),
-			patient,
-		);
-		test.effect("start refuses a listener whose answer never ends", () => flooded(), patient);
-		test.effect(
-			"ask sends a fresh nonce of 64 hex digits each time, waits on a router that answers 503 as one starting up does, and finds nothing on a free port",
-			() => asked(),
-		);
-		test.effect(
-			"start still proves the developer's router once another of their routers wrote a fresh secret",
-			() => rewritten(),
-			patient,
-		);
-		test.effect.each(["removed", "unreadable"] as const)(
-			"start fails closed once the developer's secret is %s, though their router still runs",
-			lost,
-			patient,
-		);
-	},
-);
+it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, macs))("the port's proof", (test) => {
+	test.effect("is HMAC-SHA-256 of the nonce and the port under the secret's 64 hex digits", () => hmac);
+	test.effect.each(rfc4231)("computes HMAC-SHA-256 as RFC 4231 test case $case gives it", rfcCase);
+	test.effect(
+		"start refuses another user's listener that answers under its own secret, having sent it the nonce alone",
+		() => squatted(),
+		patient,
+	);
+	test.effect("start refuses a listener whose answer never ends", () => flooded(), patient);
+	test.effect(
+		"ask sends a fresh nonce of 64 hex digits each time, waits on a router that answers 503 as one starting up does, and finds nothing on a free port",
+		() => asked(),
+	);
+	test.effect(
+		"start still proves the developer's router once another of their routers wrote a fresh secret",
+		() => rewritten(),
+		patient,
+	);
+	test.effect.each(["removed", "unreadable"] as const)(
+		"start fails closed once the developer's secret is %s, though their router still runs",
+		lost,
+		patient,
+	);
+});

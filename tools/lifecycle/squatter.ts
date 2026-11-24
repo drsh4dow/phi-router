@@ -1,6 +1,6 @@
 import { Array, Context, Effect, Layer, Ref, Schema, String as Str, Stream, pipe } from "effect";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
-import { Digest } from "effect/crypto";
+import { Mac, SecureRandom } from "effect/crypto";
 import { NodeHttpServer } from "@effect/platform-node";
 import { proofOf } from "#router/client/router-port/index.ts";
 import { writePrivately } from "#router/client/private-file.ts";
@@ -15,14 +15,16 @@ const ProofJson = Schema.fromJsonString(Schema.Struct({ proof: Schema.String }))
 
 const ok = 200;
 
+const macs = Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto));
+
 const chunkBytes = 65_536;
 
 const squatter = Effect.gen(function* squatter() {
 	const built = yield* Layer.build(NodeHttpServer.layerTest);
 	const server = Context.get(built, HttpServer.HttpServer);
 	const received = yield* Ref.make<readonly string[]>([]);
-	const digests = yield* Layer.build(Digest.layerWebCrypto);
-	const digest = Context.get(digests, Digest.Digest);
+	const signers = yield* Layer.build(macs);
+	const mac = Context.get(signers, Mac.Mac);
 	const port = yield* pipe(HttpServer.formatAddress(server.address), Str.split(":"), Array.last, Effect.fromOption);
 
 	const answer = Effect.gen(function* answer() {
@@ -33,7 +35,7 @@ const squatter = Effect.gen(function* squatter() {
 		yield* request.text;
 		yield* Ref.update(received, Array.append(`${request.method} ${path}`));
 
-		const proof = yield* Effect.provideService(proofOf(othersSecret, nonce, Number(port)), Digest.Digest, digest);
+		const proof = yield* Effect.provideService(proofOf(othersSecret, nonce, Number(port)), Mac.Mac, mac);
 		const body = yield* Schema.encodeEffect(ProofJson)({ proof });
 
 		return HttpServerResponse.text(body, { contentType: "application/json", status: ok });
@@ -60,4 +62,4 @@ const flooder = Effect.gen(function* flooder() {
 	);
 });
 
-export { flooder, secretKept, squatter };
+export { flooder, macs, secretKept, squatter };

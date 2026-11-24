@@ -40,7 +40,10 @@
 					"effect/testing",
 					"@effect/platform-bun",
 					"@effect/platform-node",
-					"@effect/vitest"
+					"@effect/vitest",
+					// approved by the owner: the port proof's HMAC-SHA-256, and the random source its layer needs
+					"effect/crypto/Mac",
+					"effect/crypto/SecureRandom"
 				]
 			}
 		]

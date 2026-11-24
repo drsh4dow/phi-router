@@ -1,7 +1,7 @@
 import { Array, Context, Effect, FileSystem, Layer, Option, Path, Schema, Stream, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import { Mac, SecureRandom } from "effect/crypto";
 import type { Outgoing, Path as Row } from "./server.ts";
-import { Digest } from "effect/crypto";
 import { Hex } from "effect/encoding";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
@@ -22,46 +22,18 @@ const answerLimit = 1024;
 
 const statuses = { badRequest: 400, ok: 200, unavailable: 503 } as const;
 
-const hmac = { block: 64, inner: 54, outer: 92 } as const;
-
-const bitsPerByte = 8;
-
-const binary = 2;
-
-const zero = 0;
-
 const encoder = new TextEncoder();
-
-const xor = (first: number, second: number): number =>
-	Array.reduce(
-		Array.makeBy(bitsPerByte, (bit) => binary ** bit),
-		zero,
-		(sum, place) =>
-			sum + place * Math.abs((Math.floor(first / place) % binary) - (Math.floor(second / place) % binary)),
-	);
-
-const keyed = (key: readonly number[], pad: number, text: readonly number[]): Uint8Array<ArrayBuffer> =>
-	Uint8Array.from([...Array.makeBy(hmac.block, (index) => xor(key[index] ?? zero, pad)), ...text]);
 
 const bytesOf = (text: string): readonly number[] => Array.fromIterable(encoder.encode(text));
 
-const blockKey = Effect.fnUntraced(function* blockKey(key: readonly number[]) {
-	if (key.length <= hmac.block) {
-		return key;
-	}
-
-	const digest = yield* Digest.Digest;
-	const hashed = yield* digest.digest(Digest.sha256, Uint8Array.from(key));
-
-	return Array.fromIterable(hashed);
-});
+const macs = Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto));
 
 const hmacOf = Effect.fnUntraced(function* hmacOf(key: readonly number[], message: readonly number[]) {
-	const digest = yield* Digest.Digest;
-	const padded = yield* blockKey(key);
-	const inner = yield* digest.digest(Digest.sha256, keyed(padded, hmac.inner, message));
+	const mac = yield* Mac.Mac;
+	const secret = yield* Mac.key(Mac.hmacSha256, Uint8Array.from(key));
+	const tag = yield* mac.sign(secret, Uint8Array.from(message));
 
-	return yield* digest.digestHex(Digest.sha256, keyed(padded, hmac.outer, Array.fromIterable(inner)));
+	return Hex.encode(tag);
 });
 
 const proofOf = Effect.fnUntraced(function* proofOf(secret: string, nonce: string, port: number) {
@@ -85,7 +57,7 @@ const storedIn = Effect.fnUntraced(function* storedIn(file: string) {
 const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number) {
 	yield* storedIn(file).pipe(Effect.catch(() => fresh.pipe(Effect.flatMap((secret) => writePrivately(file, secret)))));
 
-	const services = yield* Effect.context<FileSystem.FileSystem | Digest.Digest>();
+	const services = yield* Effect.context<FileSystem.FileSystem | Mac.Mac>();
 
 	const answer: Row["answer"] = ({ query }) =>
 		pipe(
@@ -139,7 +111,7 @@ class Proofs extends Context.Service<
 			const client = yield* HttpClient.HttpClient;
 			const directories = yield* UserDirectories.UserDirectories;
 			const path = yield* Path.Path;
-			const services = yield* Effect.context<FileSystem.FileSystem | Path.Path | Digest.Digest>();
+			const services = yield* Effect.context<FileSystem.FileSystem | Path.Path | Mac.Mac>();
 			const state = yield* directories.state("phi-router");
 			const file = path.join(state, "secret");
 
@@ -175,7 +147,7 @@ class Proofs extends Context.Service<
 
 			return Proofs.of({ ask, row: (port) => Effect.provideContext(rowOf(file, port), services) });
 		}),
-	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, UserDirectories.layer, Digest.layerWebCrypto)));
+	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, UserDirectories.layer, macs)));
 }
 
 export { Proofs, hmacOf, proofOf };
