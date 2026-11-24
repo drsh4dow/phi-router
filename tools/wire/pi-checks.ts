@@ -148,12 +148,10 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 
 const PromptLine = Schema.fromJsonString(Schema.Struct({ message: Schema.String, type: Schema.Literal("prompt") }));
 
-/** What pi's RPC mode prints once a prompt's run has ended, after every extension's turn-end handler. */
 const runEnded = `"type":"agent_end"`;
 
 const choosingSealed = '{"type":"set_model","provider":"phi","modelId":"sealed"}';
 
-/** The tools pi itself gives a model of the provider `phi`, which pi names as Claude Code does. */
 const piTools = ["Read", "Bash", "Edit", "Write"];
 
 const Tool = Schema.Struct({ name: Schema.String });
