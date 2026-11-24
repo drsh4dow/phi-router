@@ -19,8 +19,7 @@ interface Shown {
 	readonly pinOff: boolean;
 	readonly statusBlock: boolean;
 	readonly seal: boolean;
-	/** A pi status line that names the BAA account and a model as the last request's. */
-	readonly baaLine: boolean;
+	readonly piStatusNamesBaa: boolean;
 	/** The RPC mode of pi answered the prompt as handled by an extension command, so it started no run. */
 	readonly handled: boolean;
 }
@@ -45,8 +44,8 @@ const shownIn = (printed: string): Shown => {
 	const has = (text: string): boolean => Str.includes(text)(printed);
 
 	return {
-		baaLine: has("phi · baa, model "),
 		handled: has(`"disposition":"handled"`),
+		piStatusNamesBaa: has("phi · baa, model "),
 		pinOff: has("Pin: off"),
 		pinOn: has("Pin: on"),
 		seal: has(sealWords),

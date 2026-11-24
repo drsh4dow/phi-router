@@ -240,7 +240,7 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 		},
 		{
 			name: "after the turn that seals, pi's status line names the BAA account and its model",
-			ok: sealing.shown.baaLine,
+			ok: sealing.shown.piStatusNamesBaa,
 		},
 		...sealedModelChecksOf(chosen),
 	];
