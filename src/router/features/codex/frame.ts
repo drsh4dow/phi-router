@@ -50,16 +50,6 @@ const agentOf = (metadata: NonNullable<(typeof Body.Type)["client_metadata"]>): 
 		Option.toArray,
 	);
 
-/**
- * What the clean lane gets unchanged however each part is judged, so it is judged whole and refuses the clean lane
- * when not cleared: the top-level tools, the reply's output schema, and every name the request gives a tool, a
- * namespace or an agent. A stub keeps names, since a call must keep its name to keep its pairing.
- *
- * @param {object} request The decoded request.
- * @param {Body} request.body Its fields.
- * @param {readonly InputEntry[]} request.entries The input items.
- * @returns {Lists} The top-level tool list, and the other lists each judged as one tool list.
- */
 const frameOf = ({
 	body: { client_metadata: metadata = {}, text: { format } = { verbosity: "" }, tools = [] },
 	entries,

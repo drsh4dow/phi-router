@@ -30,7 +30,6 @@ interface CodexRequest {
 	 * item and its ids kept, or `CleanLaneRefused`. Dies when the messages do not line up with `messages`.
 	 */
 	readonly encode: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
-	/** `encode` with every reasoning item dropped from the clean body, for an account that could not read one. */
 	readonly withoutReasoning: (target: Target) => Effect.Effect<string, CleanLaneRefused>;
 	/** Whether its turn metadata says `"thread_source":"thread_title"`: the TUI's request for the thread's title. */
 	readonly title: boolean;
@@ -64,24 +63,11 @@ const readBody = Schema.decodeUnknownOption(Body);
 
 const quote = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 
-/**
- * How Codex opens every body, so the sealed lane can swap the model without writing the rest again.
- *
- * @param {string} model The model slug.
- * @returns {Effect.Effect<string>} The body's opening up to the end of the model's value.
- */
 const modelField = (model: string): Effect.Effect<string> =>
 	Effect.map(Effect.orDie(quote(model)), (quoted) => `{"model":${quoted}`);
 
 const notAString = 0;
 
-/**
- * Whether the body names `model` once, so the model the sealed lane swaps in is the one the upstream reads. A parser
- * keeps the last of two equal keys, and the body's last `model` is a string, so a number survives only when alone.
- *
- * @param {string} afterModel The body after its first model's value.
- * @returns {Effect.Effect<boolean>} Whether no later `model` follows.
- */
 const modelOnce = (afterModel: string): Effect.Effect<boolean> =>
 	Effect.match(decodeRaw(`{"model":${notAString}${afterModel}`), {
 		onFailure: () => false,
@@ -138,13 +124,6 @@ const turnOf = (raw: typeof Raw.Type): Option.Option<Readonly<Record<"metadata" 
 		Option.map(readObjectText(metadata[turnKey]), (turn) => ({ metadata, turn })),
 	);
 
-/**
- * Codex's fields with `workspaces` dropped from its turn metadata, since their folder paths and remote URLs are text no
- * judge saw (ADR 0001). The rest of that JSON keeps Codex's compact form and key order, which the decode held it to.
- *
- * @param {Raw} raw The body as sent.
- * @returns {Effect.Effect<Raw>} The fields an open account may get.
- */
 const withoutWorkspaces = (raw: typeof Raw.Type): Effect.Effect<typeof Raw.Type> =>
 	Option.match(turnOf(raw), {
 		onNone: () => Effect.succeed(raw),
@@ -154,23 +133,9 @@ const withoutWorkspaces = (raw: typeof Raw.Type): Effect.Effect<typeof Raw.Type>
 			),
 	});
 
-/**
- * Whether the turn metadata names the thread-title request, read from the body as sent, so a field the codec does not
- * read elsewhere in the body cannot hide it.
- *
- * @param {Raw} raw The body as sent.
- * @returns {boolean} Whether it is the title request.
- */
 const isTitle = (raw: typeof Raw.Type): boolean =>
 	Option.exists(turnOf(raw), ({ turn }) => turn["thread_source"] === "thread_title");
 
-/**
- * The clean body: `model`, the bridge, then Codex's fields in its order with `input` replaced and no workspaces.
- *
- * @param {Raw} raw The body as sent.
- * @param {string} model The model slug.
- * @returns {(input: readonly Raw[]) => Effect.Effect<string>} The body for the clean lane's items.
- */
 const cleanBody =
 	(raw: typeof Raw.Type, model: string) =>
 	(input: readonly (typeof Raw.Type)[]): Effect.Effect<string> =>

@@ -9,15 +9,6 @@ const readModels = Schema.decodeUnknownOption(Schema.Array(Raw));
 /** The catalog's `upgrade`, JSON `null` for a model that names no newer one. */
 const encodeUpgrade = Schema.encodeEffect(Schema.OptionFromNullOr(Schema.String));
 
-/**
- * An account's model catalog, `{"models":[...]}`, with one entry appended: a copy of the entry whose `slug` is
- * `copyOf`, with `slug`, `display_name`, no `upgrade` and `visibility: "list"`. Every other entry
- * and field passes as sent.
- *
- * @param {object} entry The new entry's slug, and the slug it copies.
- * @returns {(catalog: string) => Effect.Effect<Option.Option<string>>} The catalog's JSON text with the entry, or none
- *   when the text is not a catalog or lists no `copyOf`.
- */
 const catalogWith =
 	(entry: { readonly slug: string; readonly copyOf: string }) =>
 	(catalog: string): Effect.Effect<Option.Option<string>> =>
@@ -54,7 +45,6 @@ const catalogWith =
 const fromCodex = (headers: Readonly<Record<string, string | undefined>>): boolean =>
 	Str.startsWith("codex_")(headers["originator"] ?? "");
 
-/** A Codex version as 0.166.0 sends it in `client_version`, or a pre-release such as `0.43.0-alpha.4` (npm, 2026-11-21). */
 const codexVersion = /^\d+(?:\.\d+)*(?:-(?:alpha|beta|rc)(?:\.\d+)*)?$/u;
 
 const versionLimit = 32;

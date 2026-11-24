@@ -19,13 +19,6 @@ const allCleared: Lookup = () => "cleared";
 
 const nothingWritten = (): boolean => false;
 
-/**
- * The clean lane's body as the route builds it: the border's messages under `lookup`, then the codec.
- *
- * @param {CodexRequest} request The request.
- * @param {Lookup} lookup What the border knows of each key.
- * @returns {Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest>} The body.
- */
 const cleanOf = (
 	request: Pick<CodexRequest, "encode" | "messages">,
 	lookup: Lookup,

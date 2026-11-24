@@ -41,7 +41,6 @@ const reasoningItem = /\{"type":"reasoning","id":"[^"]+","summary":\[\],"encrypt
 
 const withRealModel = Str.replace('{"model":"phi/auto",', `{"model":"${realModel}",`);
 
-/** A capture with the bridge right after its model, which is all the sealed lane adds when not pinned. */
 const withBridge = Str.replace(/^(?<head>\{"model":"[^"]*")/u, `$<head>,"instructions":"${bridgesFor.codex}"`);
 
 const decoded = (text: string): Effect.Effect<CodexRequest, CodexRequestRejected, Digest.Digest> =>
@@ -55,13 +54,6 @@ const decodedAfter = (text: string, reply: string): Effect.Effect<CodexRequest, 
 		return yield* decodeRequest(text, (key) => written.has(key));
 	});
 
-/**
- * The clean lane's body as the route builds it: the border's messages under `lookup`, then the codec.
- *
- * @param {CodexRequest} request The request.
- * @param {Lookup} lookup What the border knows of each key.
- * @returns {Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest>} The body.
- */
 const cleanOf = (
 	request: Pick<CodexRequest, "encode" | "messages">,
 	lookup: Lookup,

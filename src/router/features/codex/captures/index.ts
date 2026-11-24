@@ -11,7 +11,6 @@ import { subagentParent } from "./subagent-parent.request.ts";
 /** Request bodies Codex 0.166.0 sent through the #4 proxy, by what each shows. */
 const requests = { compaction, customToolCall, firstTurn, functionCall, resumed, subagent, subagentParent } as const;
 
-/** Streamed replies to two of `requests`, as server-sent events. */
 const replies = { customToolCallReply, spawnReply } as const;
 
 export { replies, requests };
