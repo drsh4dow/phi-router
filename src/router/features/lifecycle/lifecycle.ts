@@ -1,6 +1,6 @@
 import { Array, Effect, Option, Schema, Struct, SynchronizedRef, pipe } from "effect";
 import { Lease, LeaseRegistry } from "#router/client/leases.ts";
-import type { LeaseRequest, Outgoing, Path, Reply } from "#router/client/router-port/index.ts";
+import type { LeaseReply, LeaseRequest, Outgoing, Path } from "#router/client/router-port/index.ts";
 import { LeaseRequestJson, leasePath, statusOf } from "#router/client/router-port/index.ts";
 import type { LiveProcess } from "#router/client/processes.ts";
 import { Processes } from "#router/client/processes.ts";
@@ -14,7 +14,7 @@ type Leases = readonly (typeof Lease.Type)[];
 /** A closing router holds no leases, so nothing can be added to them. */
 type Leasing = { readonly kind: "accepting"; readonly leases: Leases } | { readonly kind: "closing" };
 
-type Registered = readonly [Reply, Leasing];
+type Registered = readonly [LeaseReply, Leasing];
 
 const sameLease = Schema.toEquivalence(Lease);
 

@@ -8,29 +8,29 @@ const PinRequest = Schema.Struct({ pinned: Schema.Boolean, session: Schema.NonEm
 
 const PinRequestJson = Schema.fromJsonString(PinRequest);
 
-/** The pin row and the status row of the router's path table. `status` names its session in the query. */
 const sessionPaths = { pin: "/phi-router/pin", status: "/phi-router/status" } as const;
 
 const ok = 200;
 
-/** Why the router on a port gave no usable answer: nothing answered, or what it answered. */
+const patience = "5 seconds";
+
 interface Unanswered {
-	readonly reason: string;
+	readonly reason:
+		| "no router answers there"
+		| `it answered ${number}`
+		| `it took a request and gave no answer within ${typeof patience}`
+		| "its status is not the contract's";
 }
 
-const unanswered = (reason: string): Unanswered => ({ reason });
+const unanswered = (reason: Unanswered["reason"]): Unanswered => ({ reason });
 
 const noRouter = unanswered("no router answers there");
 
-/** How long a command waits for the router's answer, inside the 10 seconds Claude Code and Codex give a hook. */
-const patience = "5 seconds";
-
-const stalled = unanswered("it took a request and gave no answer within 5 seconds");
+const stalled = unanswered(`it took a request and gave no answer within ${patience}`);
 
 class SessionRequests extends Context.Service<
 	SessionRequests,
 	{
-		/** Returns once the router stored the pin. */
 		readonly pin: (port: number, request: typeof PinRequest.Type) => Effect.Effect<void, Unanswered>;
 		readonly status: (port: number, session: string) => Effect.Effect<typeof Status.Type, Unanswered>;
 	}
@@ -48,7 +48,7 @@ class SessionRequests extends Context.Service<
 					Effect.mapError(() => noRouter),
 					Effect.filterOrFail(
 						(response) => response.status === ok,
-						(response) => unanswered(`it answered ${String(response.status)}`),
+						(response) => unanswered(`it answered ${response.status}`),
 					),
 					Effect.flatMap((response) => Effect.mapError(response.text, () => noRouter)),
 					Effect.scoped,

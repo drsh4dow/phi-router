@@ -1,10 +1,11 @@
-import { Array, Effect, FileSystem, Layer, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Fiber, FileSystem, Layer, Schema, String as Str, pipe } from "effect";
 import type { Harness, World } from "./hooked.ts";
 import { assert, it } from "@effect/vitest";
 import { hook, session, setUp } from "./hooked.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { SessionRequests } from "#router/client/router-port/index.ts";
+import { TestClock } from "effect/testing";
 import { freePort } from "#tools/lifecycle/launched.ts";
 import { pluginCopy } from "./copied.ts";
 import { silent } from "#tools/route/resetting.ts";
@@ -200,6 +201,20 @@ const down = Effect.gen(function* down() {
 	);
 }).pipe(Effect.scoped);
 
+const stalledAfterPatience = Effect.gen(function* stalledAfterPatience() {
+	const requests = yield* SessionRequests;
+	const quiet = yield* silent;
+	const port = Number(new URL(quiet.endpoint).port);
+	const asking = yield* Effect.forkChild(Effect.flip(requests.status(port, session)));
+
+	yield* quiet.arrived.await;
+	yield* TestClock.adjust("5 seconds");
+
+	const failed = yield* Fiber.join(asking);
+
+	assert.deepStrictEqual(failed, { reason: "it took a request and gave no answer within 5 seconds" });
+}).pipe(Effect.scoped);
+
 const Blocking = Schema.Struct({ onFailure: Schema.Literal("block") });
 
 const BlockingHook = Schema.Struct({ hooks: Schema.NonEmptyArray(Blocking) });
@@ -240,6 +255,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, SessionReques
 			"blocks /phi with RouterUnanswered's line when no router answers or one never answers, and says so when the address names none",
 			() => down,
 			patient,
+		);
+		test.effect(
+			"gives up on a router that took the request and never answers after 5 seconds, inside the 10 a hook gets",
+			() => stalledAfterPatience,
 		);
 		test.effect(
 			"in Claude Code, blocks the prompt when the hook fails, and keeps /phi out of the model's skills",

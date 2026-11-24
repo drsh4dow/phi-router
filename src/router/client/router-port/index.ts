@@ -8,7 +8,7 @@ export { Listener, listensOn, loopback, serve } from "./server.ts";
 
 export { PinRequestJson, SessionRequests, sessionPaths } from "./session-request.ts";
 
-export type { Answered, LeaseRequest, Reply } from "./lease-request.ts";
+export type { Answered, LeaseReply, LeaseRequest } from "./lease-request.ts";
 
 export type { Connection } from "./callers.ts";
 

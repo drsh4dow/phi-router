@@ -5,22 +5,16 @@ import { Pid } from "#shared/cli.ts";
 import { loopback } from "./server.ts";
 import { realFolder } from "#router/client/processes.ts";
 
-/** What `start` sends the router. The router adds the start time. */
 const LeaseRequest = Schema.Struct({ folder: Schema.String, pid: Pid, session: Schema.NonEmptyString });
 
 const LeaseRequestJson = Schema.fromJsonString(LeaseRequest);
 
 const leasePath = "/phi-router/leases";
 
-/** What the router says to a lease request it could read. */
-type Reply = "accepted" | "ended" | "closing" | "unread";
+type LeaseReply = "accepted" | "ended" | "closing" | "unread";
 
-const statusOf = { accepted: 200, closing: 503, ended: 409, unread: 503 } as const satisfies Record<Reply, number>;
+const statusOf = { accepted: 200, closing: 503, ended: 409, unread: 503 } as const satisfies Record<LeaseReply, number>;
 
-/**
- * What `start` learns. `unanswered`: no connection, so no router listens. `waiting`: a router that is starting up,
- * closing or could not read the processes, or any other answer.
- */
 type Answered = "accepted" | "ended" | "unanswered" | "waiting";
 
 const answeredTo = (status: number): Answered => {
@@ -35,10 +29,6 @@ const answeredTo = (status: number): Answered => {
 	return "waiting";
 };
 
-/**
- * Asks the router on a loopback port to take a lease. The folder goes as its real absolute path, so the router's BAA
- * repo check reads one spelling whatever folder the router runs in.
- */
 class LeaseRequests extends Context.Service<
 	LeaseRequests,
 	{ readonly post: (port: number, request: typeof LeaseRequest.Type) => Effect.Effect<Answered> }
@@ -76,4 +66,4 @@ class LeaseRequests extends Context.Service<
 
 export { LeaseRequest, LeaseRequestJson, LeaseRequests, leasePath, statusOf };
 
-export type { Answered, Reply };
+export type { Answered, LeaseReply };
