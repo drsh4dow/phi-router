@@ -1,10 +1,10 @@
 import { Effect, Option, Path } from "effect";
-import { codexHome, installedPlugin as codexPlugin } from "#router/client/codex.ts";
+import { codexHome, codexPlugin } from "#router/client/codex.ts";
 import { claudeCanary } from "./doctor.ts";
+import { claudePlugin } from "#router/client/claude-code.ts";
 import { codexCanary } from "./doctor-codex.ts";
 import { codexSwitchedOn } from "./codex.ts";
 import { installedPackage } from "#router/client/pi.ts";
-import { installedPlugin } from "#router/client/claude-code.ts";
 import { piCanary } from "./doctor-pi.ts";
 import { plugin } from "./claude-settings.ts";
 import { switchedOn } from "./on.ts";
@@ -47,7 +47,7 @@ const harnesses = {
 		install: (source: Source): readonly Argv[] => [
 			["claude", "plugin", "install", "phi-router", "--marketplace", source.claude, "--scope", "user"],
 		],
-		installed: installedPlugin("", plugin),
+		installed: claudePlugin("", plugin),
 		start: ["claude"] satisfies Argv,
 		subscription: "Claude",
 		switched: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),

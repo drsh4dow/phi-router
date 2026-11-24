@@ -82,7 +82,7 @@ const removed = Effect.fnUntraced(function* removed(file: string) {
  * The folder Codex installed a plugin's version into, from its install cache `cache`, if it installed one: the first
  * version folder that holds `.codex-plugin/plugin.json`.
  */
-const installedPlugin = Effect.fnUntraced(function* installedPlugin(cache: string) {
+const codexPlugin = Effect.fnUntraced(function* codexPlugin(cache: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const exists = yield* fs.exists(cache);
@@ -148,4 +148,4 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 /** Runs the installed `codex exec` once in a fresh home and Codex home, and ends the turn after 2 minutes. */
 const codexTurn = harnessTurn(commandOf);
 
-export { codexHome, codexTurn, firstLine, installedPlugin, removed, textOf };
+export { codexHome, codexTurn, firstLine, codexPlugin, removed, textOf };

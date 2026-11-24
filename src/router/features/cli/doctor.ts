@@ -25,7 +25,7 @@ import {
 	routerAddress,
 	shellLists,
 } from "./claude-settings.ts";
-import { claudeTurn, installedPlugin, userSettings } from "#router/client/claude-code.ts";
+import { claudePlugin, claudeTurn, userSettings } from "#router/client/claude-code.ts";
 import type { Own } from "./claude-settings.ts";
 import type { Turn } from "#router/client/harness-turn.ts";
 import type { UserSettings } from "#router/client/claude-code.ts";
@@ -235,7 +235,7 @@ const claudeCanary = Effect.fnUntraced(function* claudeCanary(folder: string) {
  */
 const doctor = Effect.fn("doctor claude")(function* doctor(configDir: string) {
 	const settings = yield* userSettings(configDir);
-	const installed = yield* installedPlugin(configDir, plugin);
+	const installed = yield* claudePlugin(configDir, plugin);
 	const shell = yield* shellLists;
 
 	yield* reported(

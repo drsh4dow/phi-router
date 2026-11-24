@@ -13,7 +13,7 @@ import {
 	sealedRole,
 } from "./codex-settings.ts";
 import { canaryRun, reported } from "./doctor.ts";
-import { codexHome, codexTurn, installedPlugin, textOf } from "#router/client/codex.ts";
+import { codexHome, codexPlugin, codexTurn, textOf } from "#router/client/codex.ts";
 import { holds, hookTrust, pluginEnabled } from "./codex-holds.ts";
 import type { Check } from "./doctor.ts";
 
@@ -121,7 +121,7 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 	const config = yield* textOf(path.join(home, "config.toml"));
 	const dotenv = yield* textOf(path.join(home, dotenvFile));
 	const role = yield* textOf(path.join(home, ...roleFile));
-	const installed = yield* installedPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
+	const installed = yield* codexPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
 
 	yield* reported(
 		"codex",

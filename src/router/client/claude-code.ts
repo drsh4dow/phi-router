@@ -113,7 +113,7 @@ const userSettings = Effect.fnUntraced(function* userSettings(named: string) {
 });
 
 /** The folder Claude Code installed the plugin `id` into, from `plugins/installed_plugins.json`, if it installed it. */
-const installedPlugin = Effect.fnUntraced(function* installedPlugin(named: string, id: string) {
+const claudePlugin = Effect.fnUntraced(function* claudePlugin(named: string, id: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* fileOf(named, "plugins/installed_plugins.json");
 	const exists = yield* fs.exists(file);
@@ -212,6 +212,6 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 /** Runs the installed `claude -p` once in a fresh home and config folder, and ends the turn after 2 minutes. */
 const claudeTurn = harnessTurn(commandOf);
 
-export { claudeTurn, installedPlugin, rewriteEnv, userSettings };
+export { claudeTurn, claudePlugin, rewriteEnv, userSettings };
 
 export type { UserSettings };
