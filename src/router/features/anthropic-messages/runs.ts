@@ -63,13 +63,14 @@ type Run =
 	  };
 
 /** A wire message: the runs read from it, and the text the clean lane replaces when one of them changes. */
-interface Turn {
-	readonly span: Span;
-	/** `content` replaces the message's content. A role rewrites the whole message under it, since the codec cannot read it. */
-	readonly rewrite: "content" | "assistant" | "system" | "user";
-	readonly runs: readonly Run[];
-	/** A whole-message rewrite's forwarded members, such as a system note's `output_config`. */
-	readonly kept: readonly string[];
-}
+type Turn =
+	| { readonly replaces: "content"; readonly span: Span; readonly runs: readonly Run[] }
+	| {
+			readonly replaces: "message";
+			readonly role: "assistant" | "system" | "user";
+			readonly span: Span;
+			readonly runs: readonly Run[];
+			readonly kept: readonly string[];
+	  };
 
 export type { Run, Spelling, Turn, WireCall };

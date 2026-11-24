@@ -18,10 +18,9 @@ class UnreadableReply extends Schema.TaggedError<UnreadableReply, { readonly bra
 	{ reason: Schema.String },
 ) {}
 
-/** One block of a streamed reply as its deltas build it, and the tool input JSON text so far. */
 interface Building {
 	readonly block: WireAssistantBlock;
-	readonly json: string;
+	readonly partialInputJson: string;
 }
 
 /**
@@ -31,21 +30,27 @@ interface Building {
  * @param {WireDelta} delta The next delta at its index.
  * @returns {Option.Option<Building>} The block, or none when the delta fits no block of its type.
  */
-const applied = ({ block, json }: Building, delta: WireDelta): Option.Option<Building> => {
+const applied = ({ block, partialInputJson }: Building, delta: WireDelta): Option.Option<Building> => {
 	if (delta.type === "text_delta" && block.type === "text") {
-		return Option.some({ block: Struct.assign(block, { text: block.text + delta.text }), json });
+		return Option.some({ block: Struct.assign(block, { text: block.text + delta.text }), partialInputJson });
 	}
 
 	if (delta.type === "thinking_delta" && block.type === "thinking") {
-		return Option.some({ block: Struct.assign(block, { thinking: block.thinking + delta.thinking }), json });
+		return Option.some({
+			block: Struct.assign(block, { thinking: block.thinking + delta.thinking }),
+			partialInputJson,
+		});
 	}
 
 	if (delta.type === "signature_delta" && block.type === "thinking") {
-		return Option.some({ block: Struct.assign(block, { signature: block.signature + delta.signature }), json });
+		return Option.some({
+			block: Struct.assign(block, { signature: block.signature + delta.signature }),
+			partialInputJson,
+		});
 	}
 
 	if (delta.type === "input_json_delta" && block.type === "tool_use") {
-		return Option.some({ block, json: json + delta.partial_json });
+		return Option.some({ block, partialInputJson: partialInputJson + delta.partial_json });
 	}
 
 	return Option.none();
@@ -59,20 +64,20 @@ const unreadable = (reason: string): UnreadableReply => UnreadableReply.make({ r
  * @param {Building} building The block and its input text.
  * @returns {Effect.Effect<ReplyBlock, UnreadableReply>} The finished block.
  */
-const finished = ({ block, json }: Building): Effect.Effect<ReplyBlock, UnreadableReply> => {
+const finished = ({ block, partialInputJson }: Building): Effect.Effect<ReplyBlock, UnreadableReply> => {
 	if (block.type !== "tool_use") {
-		return Effect.succeed({ block, input: "" });
+		return Effect.succeed(block);
 	}
 
-	if (Str.isEmpty(json)) {
-		return Effect.map(Effect.orDie(jsonText(block.input)), (input) => ({ block, input }));
+	if (Str.isEmpty(partialInputJson)) {
+		return Effect.map(Effect.orDie(jsonText(block.input)), (inputJson) => Struct.assign(block, { inputJson }));
 	}
 
-	return Schema.decodeEffect(JsonText)(json).pipe(
+	return Schema.decodeEffect(JsonText)(partialInputJson).pipe(
 		Effect.flatMap((parsed) => jsonText(parsed)),
 		Effect.mapBoth({
 			onFailure: (failure) => unreadable(`tool input ${failure.message}`),
-			onSuccess: (input) => ({ block, input }),
+			onSuccess: (inputJson) => Struct.assign(block, { inputJson }),
 		}),
 	);
 };
@@ -90,7 +95,7 @@ const deltasAt = (events: readonly WireEvent[], index: number): readonly WireDel
 	);
 
 const builtAt = (events: readonly WireEvent[], start: BlockStart): Option.Option<Building> => {
-	let building = Option.some<Building>({ block: start.content_block, json: "" });
+	let building = Option.some<Building>({ block: start.content_block, partialInputJson: "" });
 
 	for (const delta of deltasAt(events, start.index)) {
 		building = pipe(

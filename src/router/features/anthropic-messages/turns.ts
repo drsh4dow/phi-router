@@ -1,6 +1,6 @@
-import { Array, Effect, Option, Schema, pipe } from "effect";
+import { Array, Effect, Option, Schema, Struct, pipe } from "effect";
+import type { HoldsReplyKey, ReplyBlock } from "./reply.ts";
 import type { Located, Span } from "./spans.ts";
-import type { OpenWrote, ReplyBlock } from "./reply.ts";
 import type { Run, Turn, WireCall } from "./runs.ts";
 import type { WireAssistantBlock, WireBody, WireTurn, WireUnreadable } from "./wire.ts";
 import { itemsOf, kept, locate, required, textOf } from "./spans.ts";
@@ -72,10 +72,10 @@ const callOf = ({ span, wire }: Located<WireAssistantBlock>): readonly WireCall[
 
 const replyBlockOf = ({ span, wire }: Located<WireAssistantBlock>): Effect.Effect<ReplyBlock> => {
 	if (wire.type !== "tool_use") {
-		return Effect.succeed({ block: wire, input: "" });
+		return Effect.succeed(wire);
 	}
 
-	return Effect.map(required(span, "input"), (input) => ({ block: wire, input: textOf(input) }));
+	return Effect.map(required(span, "input"), (input) => Struct.assign(wire, { inputJson: textOf(input) }));
 };
 
 const isThinking = ({ wire }: Located<WireAssistantBlock>): boolean =>
@@ -84,7 +84,7 @@ const isThinking = ({ wire }: Located<WireAssistantBlock>): boolean =>
 /** A reply run. Tool calls come from the wire, readable or not, so a rewrite cannot add, drop or rename one. */
 const replyRun = Effect.fnUntraced(function* replyRun(
 	{ span, wire }: Located<readonly WireAssistantBlock[]>,
-	openWrote: OpenWrote,
+	openWrote: HoldsReplyKey,
 ): Effect.fn.Return<Run, never, Digest.Digest> {
 	const blocks = pipe(wire, locate(span.items));
 	const read = yield* Effect.forEach(blocks, replyBlockOf, { concurrency: 1 });
@@ -98,7 +98,7 @@ const replyRun = Effect.fnUntraced(function* replyRun(
 
 	const thinking = pipe(
 		blocks,
-		Array.zip(reply.streamed),
+		Array.zip(reply.streamedOpenPerBlock),
 		Array.filter(([block]) => isThinking(block)),
 		Array.map(([block, streamed]) => ({ source: textOf(block.span), streamed })),
 	);
@@ -182,11 +182,11 @@ const unreadableTurn = (message: Located<Raw>): Turn => {
 	const { span } = message;
 
 	if (message.wire["role"] === "assistant") {
-		return { kept: kept(span), rewrite: "assistant", runs: [withheldReply(blocks)], span };
+		return { kept: kept(span), replaces: "message", role: "assistant", runs: [withheldReply(blocks)], span };
 	}
 
 	if (message.wire["role"] === "system") {
-		return { kept: kept(span), rewrite: "system", runs: [unreadableNote], span };
+		return { kept: kept(span), replaces: "message", role: "system", runs: [unreadableNote], span };
 	}
 
 	const results = pipe(
@@ -194,7 +194,7 @@ const unreadableTurn = (message: Located<Raw>): Turn => {
 		Array.flatMap((block) => Option.toArray(unreadableResult(block))),
 	);
 
-	return { kept: kept(span), rewrite: "user", runs: [...results, unreadablePrompt], span };
+	return { kept: kept(span), replaces: "message", role: "user", runs: [...results, unreadablePrompt], span };
 };
 
 type ReadableTurn = Exclude<WireTurn, WireUnreadable>;
@@ -202,7 +202,7 @@ type ReadableTurn = Exclude<WireTurn, WireUnreadable>;
 const runsOf = (
 	content: Span,
 	wire: ReadableTurn,
-	openWrote: OpenWrote,
+	openWrote: HoldsReplyKey,
 ): Effect.Effect<readonly Run[], never, Digest.Digest> => {
 	switch (wire.role) {
 		case "assistant": {
@@ -227,7 +227,7 @@ const runsOf = (
 
 const turnOf = Effect.fnUntraced(function* turnOf(
 	{ span, wire }: Located<WireTurn>,
-	openWrote: OpenWrote,
+	openWrote: HoldsReplyKey,
 ): Effect.fn.Return<Turn, never, Digest.Digest> {
 	if ("unreadable" in wire) {
 		return unreadableTurn({ span, wire: wire.unreadable });
@@ -236,13 +236,13 @@ const turnOf = Effect.fnUntraced(function* turnOf(
 	const content = yield* required(span, "content");
 	const runs = yield* runsOf(content, wire, openWrote);
 
-	return { kept: [], rewrite: "content", runs, span: content };
+	return { replaces: "content", runs, span: content };
 });
 
 const decodedOf = Effect.fnUntraced(function* decodedOf(
 	wire: WireBody,
 	body: Span,
-	openWrote: OpenWrote,
+	openWrote: HoldsReplyKey,
 ): Effect.fn.Return<Decoded, never, Digest.Digest> {
 	const system = yield* systemOf(wire, body);
 	const model = yield* required(body, "model");
@@ -252,7 +252,7 @@ const decodedOf = Effect.fnUntraced(function* decodedOf(
 		concurrency: 1,
 	});
 
-	return { model, source: body.source, system, turns };
+	return { model, source: body.body, system, turns };
 });
 
 export { decodedOf };

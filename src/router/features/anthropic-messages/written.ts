@@ -252,7 +252,7 @@ const turnText = Effect.fnUntraced(function* turnText(
 	turn: Turn,
 	pairs: readonly (readonly [Run, Message])[],
 ): Effect.fn.Return<string> {
-	if (turn.rewrite === "content") {
+	if (turn.replaces === "content") {
 		const whole = yield* wholeContent(pairs);
 
 		if (Option.isSome(whole)) {
@@ -263,11 +263,11 @@ const turnText = Effect.fnUntraced(function* turnText(
 	const blocks = yield* Effect.forEach(pairs, ([run, guarded]) => blocksOf(run, guarded), { concurrency: 1 });
 	const content = `[${pipe(blocks, Array.flatten, Array.join(","))}]`;
 
-	if (turn.rewrite === "content") {
+	if (turn.replaces === "content") {
 		return content;
 	}
 
-	const role = yield* quoted(turn.rewrite);
+	const role = yield* quoted(turn.role);
 
 	return `{"role":${role},"content":${content}${after(turn.kept)}}`;
 });

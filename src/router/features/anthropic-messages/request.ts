@@ -6,8 +6,8 @@ import { BodyJson } from "./wire.ts";
 import type { Decoded } from "./turns.ts";
 import type { Digest } from "effect/crypto";
 import type { Edit } from "./spans.ts";
+import type { HoldsReplyKey } from "./reply.ts";
 import type { Message } from "#router/features/parts/index.ts";
-import type { OpenWrote } from "./reply.ts";
 import { bridgesFor } from "#router/features/border/index.ts";
 import { decodedOf } from "./turns.ts";
 import { spanOf } from "./spans.ts";
@@ -156,7 +156,7 @@ const encoded = Effect.fnUntraced(function* encoded(
 
 const decodeRequest = Effect.fn("decodeRequest")(function* decodeRequest(
 	body: string,
-	openWrote: OpenWrote,
+	openWrote: HoldsReplyKey,
 	harness: MessagesHarness,
 ): Effect.fn.Return<MessagesRequest, UnreadableRequest, Digest.Digest> {
 	const wire = yield* Effect.mapError(Schema.decodeEffect(BodyJson)(body, { onExcessProperty: "error" }), (failure) =>

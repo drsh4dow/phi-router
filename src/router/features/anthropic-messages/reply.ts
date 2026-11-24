@@ -13,26 +13,22 @@ type ToolCall = Extract<ReplyContent[number], { readonly type: "toolCall" }>;
 
 type Key = typeof ContentKey.Type;
 
-/** Whether the router's record of completed open-account streams holds a key `replyKeys` gave. */
-type OpenWrote = (key: Key) => boolean;
+type HoldsReplyKey = (key: Key) => boolean;
 
 const isLooseCall = Schema.is(LooseCall);
 
 /** What the engine reads in place of a run holding a block the codec cannot name, so the run stays unjudged. */
 const withheld = { text: stubs.unknown, type: "text" } as const;
 
-/** A reply's wire block, and for a tool_use its input as JSON text: as a request spelled it, or compact from a stream. */
-interface ReplyBlock {
-	readonly block: WireAssistantBlock;
-	readonly input: string;
-}
+type WireToolUse = Extract<WireAssistantBlock, { readonly type: "tool_use" }>;
 
-/** An assistant turn as the engine reads it, and for each of its blocks whether the open account streamed it. */
+type ReplyBlock = Exclude<WireAssistantBlock, WireToolUse> | (WireToolUse & { readonly inputJson: string });
+
 interface Reply {
 	readonly content: ReplyContent;
 	readonly readable: boolean;
 	readonly writtenBy: AssistantMessage["writtenBy"];
-	readonly streamed: readonly boolean[];
+	readonly streamedOpenPerBlock: readonly boolean[];
 }
 
 /**
@@ -50,14 +46,14 @@ const namedCall = (block: WireAssistantBlock): readonly ToolCall[] => {
 	return [{ arguments: "{}", id: block.unreadable.id, name: block.unreadable.name, type: "toolCall" }];
 };
 
-const visibleOf = ({ block, input }: ReplyBlock): ReplyContent => {
+const visibleOf = (block: ReplyBlock): ReplyContent => {
 	switch (block.type) {
 		case "text": {
 			return [{ text: block.text, type: "text" }];
 		}
 
 		case "tool_use": {
-			return [{ arguments: input, id: block.id, name: block.name, type: "toolCall" }];
+			return [{ arguments: block.inputJson, id: block.id, name: block.name, type: "toolCall" }];
 		}
 
 		case "unreadable": {
@@ -107,7 +103,7 @@ const blank = /^\s*$/u;
  * @param {ReplyBlock} block A block of the reply and its input text.
  * @returns {readonly string[]} Its fields in the key.
  */
-const contentFieldsOf = ({ block, input }: ReplyBlock): readonly string[] => {
+const contentFieldsOf = (block: ReplyBlock): readonly string[] => {
 	switch (block.type) {
 		case "text": {
 			if (blank.test(block.text)) {
@@ -118,7 +114,7 @@ const contentFieldsOf = ({ block, input }: ReplyBlock): readonly string[] => {
 		}
 
 		case "tool_use": {
-			return ["call", block.id, block.name, input];
+			return ["call", block.id, block.name, block.inputJson];
 		}
 
 		case "unreadable": {
@@ -173,7 +169,7 @@ const replyKeysOf = Effect.fnUntraced(function* replyKeysOf(
 	const thinking = yield* Effect.all(
 		pipe(
 			blocks,
-			Array.flatMap(({ block }) => Option.toArray(thinkingKeyOf(block))),
+			Array.flatMap((block) => Option.toArray(thinkingKeyOf(block))),
 		),
 		{ concurrency: 1 },
 	);
@@ -185,10 +181,13 @@ const replyKeysOf = Effect.fnUntraced(function* replyKeysOf(
  * Whether the open account streamed this block: a thinking block whose own key `openWrote` holds.
  *
  * @param {WireAssistantBlock} block A block of the reply.
- * @param {OpenWrote} openWrote The router's record of what open accounts streamed.
+ * @param {HoldsReplyKey} openWrote The router's record of what open accounts streamed.
  * @returns {Effect.Effect<boolean, never, Digest.Digest>} Whether the block may go back to an open account.
  */
-const streamedOpen = (block: WireAssistantBlock, openWrote: OpenWrote): Effect.Effect<boolean, never, Digest.Digest> =>
+const streamedOpen = (
+	block: WireAssistantBlock,
+	openWrote: HoldsReplyKey,
+): Effect.Effect<boolean, never, Digest.Digest> =>
 	Option.match(thinkingKeyOf(block), {
 		onNone: () => Effect.succeed(false),
 		onSome: (key) => pipe(key, Effect.map(openWrote)),
@@ -209,31 +208,35 @@ const writerOf = (open: boolean): AssistantMessage["writtenBy"] => {
  */
 const replyOf = Effect.fnUntraced(function* replyOf(
 	blocks: readonly ReplyBlock[],
-	openWrote: OpenWrote,
+	openWrote: HoldsReplyKey,
 ): Effect.fn.Return<Reply, never, Digest.Digest> {
 	const content = yield* contentKeyOf(blocks);
 	const writtenBy = writerOf(openWrote(content));
-	const streamed = yield* Effect.forEach(blocks, ({ block }) => streamedOpen(block, openWrote), { concurrency: 1 });
+
+	const streamedOpenPerBlock = yield* Effect.forEach(blocks, (block) => streamedOpen(block, openWrote), {
+		concurrency: 1,
+	});
+
 	const visible = pipe(blocks, Array.flatMap(visibleOf));
 
 	const unknown = pipe(
 		blocks,
-		Array.some(({ block }) => block.type === "unreadable"),
+		Array.some((block) => block.type === "unreadable"),
 	);
 
 	const foreignRedacted = pipe(
 		blocks,
-		Array.zip(streamed),
-		Array.some(([{ block }, open]) => block.type === "redacted_thinking" && !open),
+		Array.zip(streamedOpenPerBlock),
+		Array.some(([block, open]) => block.type === "redacted_thinking" && !open),
 	);
 
 	if (unknown || foreignRedacted) {
-		return { content: withheldOf(visible), readable: false, streamed, writtenBy };
+		return { content: withheldOf(visible), readable: false, streamedOpenPerBlock, writtenBy };
 	}
 
-	return { content: visible, readable: true, streamed, writtenBy };
+	return { content: visible, readable: true, streamedOpenPerBlock, writtenBy };
 });
 
 export { replyKeysOf, replyOf, withheld, withheldOf };
 
-export type { OpenWrote, ReplyBlock };
+export type { HoldsReplyKey, ReplyBlock };
