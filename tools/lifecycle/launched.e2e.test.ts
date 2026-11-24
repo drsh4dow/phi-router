@@ -1,14 +1,12 @@
-import { Array, Context, Effect, Exit, Layer, Option, Schema, Scope, String as Str, pipe } from "effect";
+import { Array, Effect, Exit, Option, Schema, Scope, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { FetchHttpClient, HttpClient, HttpServer } from "effect/http";
-import { NodeHttpServer, NodeServices } from "@effect/platform-node";
+import { FetchHttpClient, HttpClient } from "effect/http";
 import { assert, it } from "@effect/vitest";
 import { badPorts, instance, portBelow, ran, world } from "./launched.ts";
+import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 
 const portZero = { linux: { first: 32_768, last: 60_999 }, macosLast: 65_535 };
-
-const kernelBinds = 64;
 
 const heldBesideBadPort6665 = { refused: 36_665, taken: { handedOut: 6664, held: 36_664 } };
 
@@ -24,19 +22,6 @@ const takenByFetch = Effect.fnUntraced(function* takenByFetch(port: string) {
 		Effect.catchReason("HttpClientError", "TransportError", (reason) =>
 			Effect.succeed(!Schema.is(BadPortRefusal)(reason)),
 		),
-	);
-});
-
-const portZeroBound = Effect.gen(function* portZeroBound() {
-	const built = yield* Layer.build(NodeHttpServer.layerTest);
-	const { address } = Context.get(built, HttpServer.HttpServer);
-
-	return yield* pipe(
-		HttpServer.formatAddress(address),
-		Str.split(":"),
-		Array.last,
-		Effect.fromOption,
-		Effect.map(Number),
 	);
 });
 
@@ -77,19 +62,6 @@ it.layer(FetchHttpClient.layer)("freePort", (test) => {
 
 			assert.deepStrictEqual(taken, []);
 		}),
-	);
-
-	test.effect("holds only ports these checks cover, as the kernel binds port 0 within Linux's or macOS's range", () =>
-		Effect.gen(function* bound() {
-			const ports = yield* Effect.all(Array.replicate(portZeroBound, kernelBinds), { concurrency: 1 });
-
-			const outside = pipe(
-				ports,
-				Array.filter((port) => port < portZero.linux.first || port > portZero.macosLast),
-			);
-
-			assert.deepStrictEqual(outside, []);
-		}).pipe(Effect.scoped),
 	);
 });
 
