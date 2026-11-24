@@ -153,7 +153,10 @@ const commonChecksOf =
 			name: `no open body holds a complete canary of ${played.phiCase}`,
 			ok: !someHold(played.canaries, sentIn(played.turns, "open")),
 		},
-		{ name: "no file under the state folder holds corpus text", ok: none(played.corpusTokens, played.stored.files) },
+		{
+			name: "no file under the state folder holds corpus text",
+			ok: none(played.corpusTokens, played.stored.fileTexts),
+		},
 		{
 			name: "every folder under the XDG state and config folders is 0700 and every file 0600",
 			ok: Array.isReadonlyArrayEmpty(played.stored.notPrivate),

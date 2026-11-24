@@ -141,7 +141,7 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 			!pipe(
 				played.turns,
 				Array.some((turn) => turn.showedLogin),
-			) && !pipe(played.stored.files, Array.some(Str.includes(fakes.harnessToken))),
+			) && !pipe(played.stored.fileTexts, Array.some(Str.includes(fakes.harnessToken))),
 	},
 	...commonChecksOf("pi")(played),
 ];

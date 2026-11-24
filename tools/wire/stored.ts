@@ -6,8 +6,8 @@ import { privacyUnder } from "#tools/route/private.ts";
 
 /** What a run left: every file in the router's state folder, the lane log's text and lines, and what is not private. */
 interface Stored {
-	readonly files: readonly string[];
-	readonly log: string;
+	readonly fileTexts: readonly string[];
+	readonly laneLogText: string;
 	readonly lines: readonly LaneLogLine[];
 	/** Each folder under the XDG state and config folders that is not 0700, and each file that is not 0600. */
 	readonly notPrivate: readonly string[];
@@ -35,12 +35,12 @@ const storedIn = Effect.fnUntraced(function* storedIn(folder: string, roots: rea
 	const read = (name: string): Effect.Effect<string> =>
 		fs.readFileString(path.join(folder, name)).pipe(Effect.orElseSucceed(() => ""));
 
-	const files = yield* Effect.forEach(names, read, { concurrency: 1 });
+	const fileTexts = yield* Effect.forEach(names, read, { concurrency: 1 });
 	const lines = yield* laneLines(folder);
-	const log = yield* read("lanes.jsonl");
+	const laneLogText = yield* read("lanes.jsonl");
 	const { notPrivate } = yield* privacyUnder(roots);
 
-	return { files, lines, log, notPrivate } satisfies Stored;
+	return { fileTexts, laneLogText, lines, notPrivate } satisfies Stored;
 });
 
 /**
@@ -60,7 +60,7 @@ const laneLogHolds = (run: {
 		Array.filter(isModelPost),
 	);
 
-	return run.stored.lines.length === posts.length && !contentKeyLike.test(run.stored.log);
+	return run.stored.lines.length === posts.length && !contentKeyLike.test(run.stored.laneLogText);
 };
 
 export { isModelPost, laneLogHolds, storedIn, windowsOf };
