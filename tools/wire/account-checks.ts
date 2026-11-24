@@ -1,8 +1,9 @@
 import { Array, Number as Num, Option, String as Str, pipe } from "effect";
+import { succeeded, verdictOf } from "./checks.ts";
+import type { Check } from "./checks.ts";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import type { Turn } from "./account-turns.ts";
 import { costOf } from "./spent.ts";
-import { succeeded } from "./checks.ts";
 import { voidedSsn } from "./cases.ts";
 
 interface Ran {
@@ -17,7 +18,7 @@ const canaryAt = 1;
 
 const turnCount = 2;
 
-const checksOf = (ran: Ran): readonly { readonly name: string; readonly ok: boolean }[] => [
+const checksOf = (ran: Ran): readonly Check[] => [
 	{
 		name: "every turn exits 0",
 		ok: pipe(
@@ -62,18 +63,10 @@ const counting = 1;
 const lineOf = (line: LaneLogLine, index: number): string =>
 	`request ${String(index + counting)}: ${line.lane} lane, account ${line.account}, model ${line.model}, reason ${line.reason}`;
 
-const verdictOf = ({ name, ok }: { readonly name: string; readonly ok: boolean }): string => {
-	if (ok) {
-		return `pass ${name}`;
-	}
-
-	return `FAIL ${name}`;
-};
-
 const reportOf = (report: {
 	readonly harness: string;
 	readonly ran: Ran;
-	readonly checks: readonly { readonly name: string; readonly ok: boolean }[];
+	readonly checks: readonly Check[];
 	readonly baa: string;
 }): string => {
 	const judge = Num.sumAll(

@@ -255,6 +255,14 @@ const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 	];
 };
 
-export { checksOf, codexChecksOf, commonChecksOf, everyOf, isAsSent, isBaaOnly, leftOf, succeeded };
+const verdictOf = ({ name, ok }: Check): string => {
+	if (ok) {
+		return `pass ${name}`;
+	}
+
+	return `FAIL ${name}`;
+};
+
+export { checksOf, codexChecksOf, commonChecksOf, everyOf, isAsSent, isBaaOnly, leftOf, succeeded, verdictOf };
 
 export type { Check, CodexTurned, Listing, Outcome, Played, Run, Turned };

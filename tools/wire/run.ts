@@ -6,6 +6,7 @@ import { Digest } from "effect/crypto";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import { casesOfRun } from "./cases.ts";
 import { plays } from "./plays.ts";
+import { verdictOf } from "./checks.ts";
 
 const runtimeAndScript = 2;
 
@@ -50,14 +51,6 @@ const playing = Effect.fnUntraced(function* playing(harness: Played) {
 		),
 	} satisfies Report;
 });
-
-const verdictOf = (check: Check): string => {
-	if (check.ok) {
-		return `pass ${check.name}`;
-	}
-
-	return `FAIL ${check.name}`;
-};
 
 const summaryOf = (report: Report, reportPath: string): string => {
 	const perTurn = pipe(
