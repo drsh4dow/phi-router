@@ -218,6 +218,16 @@ const nothingToJudge = Effect.gen(function* nothingToJudge() {
 	);
 });
 
+const fixtureDropped = Effect.gen(function* fixtureDropped() {
+	const chart = "Patient Canary Fakesmith, SSN 078-05-1120";
+	const question = yield* pieceOf("why does this fail?");
+	const around = Struct.assign(question, { texts: ["why does this fail?", chart, "and where is it read?"] });
+	const judged = judgeAll({ pieces: [around], script: { score: () => clears } });
+	const { asked } = yield* Effect.provideService(judged, Fixtures, [chart]);
+
+	assert.deepStrictEqual(judgedPieces(asked), ["why does this fail?\nand where is it read?"]);
+});
+
 it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 	test.effect.each(userCases)("a user message: %s", ([, script, verdicts, questions]) =>
 		Effect.gen(function* userMessage() {
@@ -258,6 +268,7 @@ it.layer(Digest.layerWebCrypto)("verdictsFor before the judge", (test) => {
 		"a piece of blank text clears with nothing to judge and no judge call, but blank text with an image is judged",
 		() => nothingToJudge,
 	);
+	test.effect("the texts a fixture leaves reach the judge in their order", () => fixtureDropped);
 });
 
 const { decisions } = thresholds;
