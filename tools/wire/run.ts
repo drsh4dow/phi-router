@@ -9,7 +9,6 @@ import { plays } from "./plays.ts";
 
 const runtimeAndScript = 2;
 
-/** Turns count from 1 in the report. */
 const firstTurnNumber = 1;
 
 const Harness = Schema.Literals(["claude", "codex", "pi"]);
@@ -30,7 +29,6 @@ interface Report {
 	}[];
 }
 
-/** The corpus cases of the run, the play of `harness`, and its report. */
 const playing = Effect.fnUntraced(function* playing(harness: Played) {
 	const run = yield* casesOfRun;
 	const { checks, stored, turns } = yield* plays[harness](run);
@@ -82,7 +80,6 @@ const summaryOf = (report: Report, reportPath: string): string => {
 
 const reportJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/** The path the caller gave, or a file in a fresh temp folder. */
 const reportPathOf = Effect.fnUntraced(function* reportPathOf(given: string) {
 	if (Str.isNonEmpty(given)) {
 		return given;
