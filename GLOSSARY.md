@@ -64,6 +64,9 @@ Where the router reads a key: an environment variable, a command that prints the
 **BAA account**:
 An account under a business associate agreement, whose models may read PHI.
 
+**Key check**:
+What a vendor answered when setup asked whether it takes a pasted API key: **accepted**, a 2xx; **refused**, a 401 or 403; or **unanswered**, any other status, a timeout or a transport error.
+
 **Open account**:
 An account outside any BAA.
 _Avoid_: personal account, personal provider

@@ -2,13 +2,11 @@ import { Config, Context, Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { Vendor } from "#router/client/configuration/index.ts";
 
-/** What a vendor said of a key: it took it, it refused it, or it gave no answer setup can read. */
 type KeyCheck = "accepted" | "refused" | "unanswered";
 
 const apis = { anthropic: "https://api.anthropic.com", openai: "https://api.openai.com" } as const;
 
-/** The headers that carry `key` to each vendor. */
-const signed = {
+const keyHeaders = {
 	anthropic: (key: string) => HttpClientRequest.setHeaders({ "anthropic-version": "2023-06-01", "x-api-key": key }),
 	openai: (key: string) => HttpClientRequest.bearerToken(key),
 } as const;
@@ -56,7 +54,7 @@ class KeyChecks extends Context.Service<
 						Effect.orElseSucceed(() => apis[vendor]),
 					);
 
-					const request = HttpClientRequest.get(`${api}/v1/models`).pipe(signed[vendor](Redacted.value(key)));
+					const request = HttpClientRequest.get(`${api}/v1/models`).pipe(keyHeaders[vendor](Redacted.value(key)));
 
 					return yield* client.execute(request).pipe(
 						Effect.timeout(patience),
