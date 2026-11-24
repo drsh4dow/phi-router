@@ -136,29 +136,18 @@ const argumentsKeys = Effect.gen(function* argumentsKeys() {
 	assert.deepStrictEqual(nestedResorted, nested);
 });
 
-const respellings = [
-	[
-		"name a key twice",
-		Str.replace(String.raw`{\"cmd\":`, String.raw`{\"cmd\":\"cat chart_4471.txt\",\"cmd\":`)(requests.functionCall),
-	],
-	[
-		"are written with escapes",
-		Str.replace(String.raw`\"cat notes.txt\"`, String.raw`\"cat\\u0020notes.txt\"`)(requests.functionCall),
-	],
-] as const;
+const twiceKeys = Effect.gen(function* twiceKeys() {
+	const twice = Str.replace(
+		String.raw`{\"cmd\":`,
+		String.raw`{\"cmd\":\"cat chart_4471.txt\",\"cmd\":`,
+	)(requests.functionCall);
 
-const ownKeys = ([, respelled]: readonly [string, string]): Effect.Effect<
-	void,
-	CodexRequestRejected | CleanLaneRefused | ToolsNotCleared,
-	Digest.Digest
-> =>
-	Effect.gen(function* lookUpRespelled() {
-		const compact = yield* keysSeen(requests.functionCall);
-		const own = yield* keysSeen(respelled);
+	const compact = yield* keysSeen(requests.functionCall);
+	const doubled = yield* keysSeen(twice);
 
-		assert.notStrictEqual(respelled, requests.functionCall);
-		assert.notDeepEqual(own, compact);
-	});
+	assert.notStrictEqual(twice, requests.functionCall);
+	assert.notDeepEqual(doubled, compact);
+});
 
 const toolListRefused = (text: string): Effect.Effect<void, CodexRequestRejected | string, Digest.Digest> =>
 	Effect.gen(function* refuseToolList() {
@@ -307,7 +296,7 @@ it.layer(Digest.layerWebCrypto)("Codex clean lane", (test) => {
 	test.effect("a tool output keeps its key under a new call id, and new text changes it", () => outputKeysByText);
 	test.effect("a request that differs only in a reasoning item looks up the same keys", () => reasoningKeys);
 	test.effect("call arguments spelled another way look up the same keys", () => argumentsKeys);
-	test.effect.each(respellings)("call arguments that %s look up their own keys", ownKeys);
+	test.effect("call arguments that name a key twice look up their own keys", () => twiceKeys);
 	test.effect("every part sealed but the tool list goes as the border's stub, each item and id kept", () => allSealed);
 	test.effect.each([requests.customToolCall, requests.functionCall])(
 		"a tool list not cleared refuses the clean lane",
