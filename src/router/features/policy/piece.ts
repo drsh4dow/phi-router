@@ -4,11 +4,6 @@ interface Image {
 	readonly data: string;
 }
 
-/**
- * How the policy treats a piece. `system` seals only on a rule, a failure, or a high score with a named kind.
- * `reply-open` is an assistant message an open account wrote, so rules alone decide it. `reply-other` came from
- * a BAA account and is judged.
- */
 type PieceKind = "system" | "user" | "tool-result" | "reply-open" | "reply-other";
 
 /**
@@ -17,7 +12,6 @@ type PieceKind = "system" | "user" | "tool-result" | "reply-open" | "reply-other
  */
 type Seam = string;
 
-/** A part as the policy reads it. `key` names the part's verdict; the policy only carries it. */
 interface Piece<Key> {
 	readonly key: Key;
 	readonly kind: PieceKind;

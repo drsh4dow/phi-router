@@ -19,12 +19,10 @@ const coding = (code: string): string => `{"coding": [{"system": "${v20203}", "c
 
 const extension = '[{"url": "https://example.org/verified", "valueBoolean": true}]';
 
-/** Farther from the Patient marker than the 3,000 characters `fhir-patient` reads past it. */
 const pastPatientReach = 3100;
 
 const farFromPatient = Str.repeat(pastPatientReach)("A");
 
-/** Farther from a listed code than the 500 characters `fhir-coded-id` looks for a filled value. */
 const pastCodeReach = 600;
 
 const farFromCode = Str.repeat(pastCodeReach)("A");

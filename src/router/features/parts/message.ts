@@ -14,7 +14,6 @@ interface ToolCall {
 	readonly type: "toolCall";
 	readonly id: string;
 	readonly name: string;
-	/** The JSON text the codec decoded and encoded again, so a key and a piece read it as is. */
 	readonly arguments: string;
 }
 
@@ -51,10 +50,6 @@ interface ToolResultMessage {
 	readonly isError: boolean;
 }
 
-/**
- * A message as the engine reads it, which each harness codec builds. It has no timestamp, thinking, provider, model or
- * usage: no content key reads them, and no wire carries a timestamp.
- */
 type Message = SystemMessage | UserMessage | AssistantMessage | ToolResultMessage;
 
 export type { AssistantMessage, ImageBlock, Message, SystemMessage, TextBlock, ToolCall, ToolResultMessage };

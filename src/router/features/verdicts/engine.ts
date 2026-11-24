@@ -57,7 +57,6 @@ const askingOf = (system: boolean, spend: Spend, { clearBelow, sealAtOrAbove }: 
 
 const clearedByJudge = Verdicts.Cleared({ by: "judge" });
 
-/** The identifier question's score, whether the piece is a system part, and the judge's seal threshold. */
 interface Scored {
 	readonly score: number;
 	readonly system: boolean;

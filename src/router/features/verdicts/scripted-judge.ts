@@ -11,7 +11,6 @@ type Answer<Value> = Value | "error" | "refused";
 
 type Question = "identifier" | "kind";
 
-/** What the scripted judge answers to each question, from what it is shown. */
 interface Script {
 	readonly score: (input: JudgeInput) => Answer<number>;
 	readonly kind?: (input: JudgeInput) => Answer<IdentifierKind | "none">;
@@ -22,16 +21,13 @@ interface Asked {
 	readonly input: JudgeInput;
 }
 
-/** A judge that answers from a script, and every question it was asked, in order. */
 interface Scripted {
 	readonly judge: Judge["Service"];
 	readonly asked: readonly Asked[];
 }
 
-/** What the rules find in a sample SSN, so a test names that rule and its kind without spelling either. */
 const ssnHit = Option.getOrThrow(firstHit("Patient SSN 078-05-1120 on file"));
 
-/** The first kind the policy lists, for a test that needs any named kind. */
 const namedKind = Option.getOrThrow(Array.head(identifierKindNames));
 
 const usage = { calls: 1, cost: 0.001, inputTokens: 10, ms: 5 };
@@ -90,7 +86,6 @@ const scripted = ({ score, kind = (): Answer<IdentifierKind | "none"> => "none" 
 	return { asked, judge };
 };
 
-/** A user message holding `text` alone, keyed by its content. */
 const pieceOf = Effect.fnUntraced(function* pieceOf(text: string) {
 	const piece: Piece<typeof ContentKey.Type> = {
 		context: [],

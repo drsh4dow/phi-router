@@ -65,12 +65,6 @@ const percentEncoded = (bytes: Readonly<Uint8Array<Readonly<ArrayBufferLike>>>):
 		Array.join(""),
 	);
 
-/**
- * Seals only on the plain note, so a piece seals exactly when the judge was shown a correct reading.
- *
- * @param {string} plain The note as written.
- * @returns {Script} The script.
- */
 const seesNote = (plain: string): Script => ({
 	kind: () => namedKind,
 	score: ({ piece }) => {

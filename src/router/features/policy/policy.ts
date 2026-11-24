@@ -46,7 +46,6 @@ const defaults = [
 	"Clinical dates other than a date of birth count only next to a direct identifier of the same person.",
 ] as const;
 
-/** Content the judge must clear. Short, because the list rides on every judge call. */
 const counterExamples = [
 	{ text: "patient_id 4471, asthma, sync failed at step 3", why: "a health fact tied only to an internal id" },
 	{ text: "SELECT patient_id, dx_code FROM encounters WHERE client_code = 'C-102'", why: "schema and SQL" },
@@ -57,7 +56,6 @@ const counterExamples = [
 	{ text: "412 members had a claim denied in March", why: "a count" },
 ] as const;
 
-/** Exact test identities, from the human. Settings add to them. Nothing is exempt for merely looking like a placeholder. */
 interface SyntheticIdentities {
 	readonly exact: readonly string[];
 	/** A token that starts with one of these is a test identity, such as a staging client code. */
@@ -140,13 +138,11 @@ const thresholds = {
 	decisions: { clearBelow: 0.2, sealAtOrAbove: 0.5 },
 } as const;
 
-/** The judges the policy holds thresholds for: OpenAI Decisions, and Claude. */
 type JudgeName = keyof typeof thresholds;
 
 /** The shortest line, trimmed, that counts as a BAA account's reply repeating sealed content. */
 const quoteMinChars = 16;
 
-/** How much of the previous message of the same role a piece that goes on from it mid-word is judged with. */
 const seamChars = 200;
 
 /**
@@ -158,10 +154,6 @@ const window = 0;
 /** Decisions' limits: characters per call, images per call, and how long one call may take. */
 const judgeLimits = { maxChars: 2_000_000, maxImages: 128, timeoutMs: 20_000 } as const;
 
-/**
- * The PHI policy: the one written source for what seals a message. `policyVersion` hashes all of it with the rules and
- * the judge model, so an edit here retires every stored verdict without a hand-bumped number.
- */
 export {
 	counterExamples,
 	defaults,

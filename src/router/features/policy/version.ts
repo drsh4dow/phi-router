@@ -27,7 +27,6 @@ interface VersionedJudge {
 	readonly model: string;
 }
 
-/** What a version hashes beside the policy's text: the judge and the rules. */
 interface Versioned {
 	readonly judge: VersionedJudge;
 	readonly rules: readonly Rule[];
@@ -36,7 +35,6 @@ interface Versioned {
 /** Plain data, so encoding cannot fail. */
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-/** Key order is data, since the version hashes it. Entries keep the original's order, where `sort-keys` would sort a literal. */
 const identifierQuestionJson = Record.fromEntries([
 	["type", identifierQuestion.type],
 	["instructions", identifierQuestion.instructions],
@@ -82,7 +80,6 @@ const manifestOf = ({ judge, rules: versionedRules }: Versioned): Record<string,
 		["rules", pipe(versionedRules, Array.map(ruleJson))],
 	]);
 
-/** Everything above, hashed. A stored verdict from another version is ignored and judged again. */
 const versionOf = Effect.fnUntraced(function* versionOf(versioned: Versioned) {
 	const digest = yield* Digest.Digest;
 	const json = yield* Effect.orDie(jsonOf(manifestOf(versioned)));
@@ -91,7 +88,6 @@ const versionOf = Effect.fnUntraced(function* versionOf(versioned: Versioned) {
 	return PolicyVersion.make(hex);
 });
 
-/** The version of this policy, with its own rules, judged by `judge`. */
 const policyVersion = Effect.fnUntraced(function* policyVersion(judge: VersionedJudge) {
 	return yield* versionOf({ judge, rules });
 });

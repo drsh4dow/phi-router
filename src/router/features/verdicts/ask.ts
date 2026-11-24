@@ -6,7 +6,6 @@ import { judgeLimits } from "#router/features/policy/index.ts";
 /** Adds what one judge call cost to the verdicts' running total. */
 type Spend = (usage: typeof Usage.Type) => Effect.Effect<void>;
 
-/** Where a piece's judge calls' cost goes, and how often a failed one is asked again. */
 interface Call {
 	readonly spend: Spend;
 	readonly retries: number;

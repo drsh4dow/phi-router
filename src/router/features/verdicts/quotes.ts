@@ -73,9 +73,4 @@ const quotingReplies = <Key extends string>({
 	return quoting;
 };
 
-/**
- * A BAA account's reply is written from the sealed content before it, so it can repeat an identifier without the label that
- * made it one, such as a record's row without its header. The judge reads it alone and clears it. A reply that repeats a
- * line of sealed content therefore seals without a judge call.
- */
 export { quotingReplies };

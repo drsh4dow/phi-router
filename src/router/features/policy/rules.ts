@@ -23,7 +23,6 @@ const ssn = /(?<![\w-])(?!000|666|9\d\d)\d{3}-(?!00)\d\d-(?!0000)\d{4}(?![\w-])/
 const mbi =
 	/(?<![\w-])[1-9][AC-HJKMNP-RT-Y][AC-HJKMNP-RT-Y\d]\d-?[AC-HJKMNP-RT-Y][AC-HJKMNP-RT-Y\d]\d-?[AC-HJKMNP-RT-Y]{2}\d\d(?![\w-])/u;
 
-/** A PID segment whose PID-5 (name) or PID-7 (birth date) is filled. PID-3 alone is often an internal handle. */
 const hl7Pid = new RegExp(
 	String.raw`MSH\|\^~\\&\|[\s\S]{0,4000}?(?:[^\p{L}\p{N}]|\\[rn])PID\|(?:${hl7Field}\|){4}(?:${hl7Filled}|${hl7Field}\|${hl7Field}\|${hl7Filled})`,
 	"u",
@@ -73,7 +72,6 @@ const rules = [
 
 type RuleId = (typeof rules)[number]["id"];
 
-/** One of the policy's own rules. */
 type PolicyRule = Rule & { readonly id: RuleId };
 
 /** The rules the engine applies. Unprovided, every rule of the policy; a test provides fewer to see what one catches. */

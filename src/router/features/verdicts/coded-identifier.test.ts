@@ -5,7 +5,6 @@ import { judgedOne, pieceOf } from "./scripted-judge.ts";
 import { Digest } from "effect/crypto";
 import { identifierKind } from "#router/features/policy/index.ts";
 
-/** Request 3 of corpus case h-0042, typos included, which the live judge cleared at 0.01. Synthetic values. */
 const h0042 = `The conversation history before this point was compacted into the following summary:
 
 <summary>

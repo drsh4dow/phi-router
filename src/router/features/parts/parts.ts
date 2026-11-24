@@ -15,7 +15,6 @@ const SystemTools = Schema.TaggedStruct("SystemTools", {});
 
 const Slot = Schema.Union([MessageSlot, SystemContent, SystemSection, SystemTools]);
 
-/** One unit of a request the border can replace on its own: a message, a system section or the tool list. */
 interface Part {
 	readonly key: typeof ContentKey.Type;
 	readonly slot: typeof Slot.Type;

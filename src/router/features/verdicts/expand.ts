@@ -3,7 +3,6 @@ import { Base64Url, Hex } from "effect/encoding";
 
 type Unexpandable = "binary" | "undecodable";
 
-/** Bytes a function only reads. */
 type Bytes = Readonly<Uint8Array<Readonly<ArrayBufferLike>>>;
 
 type Chunk = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
@@ -12,17 +11,14 @@ type Read = () => PromiseLike<Chunk>;
 
 const maxDepth = 3;
 
-/** 4 MiB. */
 const maxDecodedBytes = 4_194_304;
 
 const shortBytes = 64;
 
-/** The level of a text as sent, before any decoding. */
 const sentLevel = 0;
 
 const hexRadix = 16;
 
-/** The gzip magic, `1f 8b`. */
 const gzipMagic = { first: 31, second: 139 } as const;
 
 /** Byte values of the C0 controls text holds, the first byte past them, and DEL. */
