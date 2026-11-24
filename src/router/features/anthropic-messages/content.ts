@@ -15,7 +15,6 @@ type ContentBlock = WireText | WireImage | WireToolReference | WireUnreadable;
 
 type PromptBlock = Exclude<WireUserBlock, WireToolResult>;
 
-/** A content as the engine reads it: its blocks, or the unknown stub when one block is unreadable. */
 interface Reading {
 	readonly content: readonly EngineBlock[];
 	readonly readable: boolean;
@@ -44,12 +43,6 @@ const spellingOf = ({ span, wire }: Located<string | readonly ContentBlock[]>): 
 	return blocksSpelled(span.items);
 };
 
-/**
- * A readable block as the engine reads it. A tool reference reads as text naming its tool, so the judge sees the name.
- *
- * @param {ContentBlock} block The wire block.
- * @returns {EngineBlock} The engine block.
- */
 const engineOf = (block: Exclude<ContentBlock, WireUnreadable>): EngineBlock => {
 	switch (block.type) {
 		case "text": {
@@ -199,12 +192,6 @@ const promptOf = (block: UserBlock): readonly Located<PromptBlock>[] => {
 	return [];
 };
 
-/**
- * A stretch of prompt blocks between tool results is one run.
- *
- * @param {Array.NonEmptyReadonlyArray<UserBlock>} group One tool result, or a stretch of prompt blocks.
- * @returns {Run} Its run.
- */
 const groupRun = (group: Array.NonEmptyReadonlyArray<UserBlock>): Run => {
 	const first = Array.headNonEmpty(group);
 
@@ -215,7 +202,6 @@ const groupRun = (group: Array.NonEmptyReadonlyArray<UserBlock>): Run => {
 	return promptRun(pipe(group, Array.flatMap(promptOf)));
 };
 
-/** The runs of a user message: one per tool result, and one per stretch of other blocks. */
 const userRuns = Effect.fnUntraced(function* userRuns({
 	span,
 	wire,

@@ -15,7 +15,6 @@ interface Member {
 	readonly value: Span;
 }
 
-/** One replacement in the body text. The edits of one lane never overlap. */
 interface Edit {
 	readonly start: number;
 	readonly end: number;
@@ -200,12 +199,6 @@ const spanOf = Effect.fnUntraced(function* spanOf(parsedJson: string): Effect.fn
 
 const textOf = (span: Span): string => Str.slice(span.start, span.end)(span.body);
 
-/**
- * Each parsed value beside its span. The parse and the scan read one text, so both lists have one entry per value.
- *
- * @param {readonly Span[]} spans The values' spans.
- * @returns {Function} Pairs each parsed value with its span.
- */
 const locate =
 	(spans: readonly Span[]) =>
 	<Wire>(values: readonly Wire[]): readonly Located<Wire>[] =>
@@ -227,24 +220,11 @@ const valueOf =
 			Option.map((member) => member.value),
 		);
 
-/**
- * The items under `key`, or none when the object has no such member.
- *
- * @param {string} key The member's key.
- * @returns {Function} The items' spans in an object.
- */
 const itemsOf =
 	(key: string) =>
 	(object: Span): readonly Span[] =>
 		pipe(valueOf(key)(object), Option.match({ onNone: () => [], onSome: (value) => value.items }));
 
-/**
- * The members of `object` that a rewrite carries onto the block or message it writes in its place, as text, such as
- * `"cache_control":{"type":"ephemeral"}`: only those `forwarded` names, whose shapes the decode checked.
- *
- * @param {Span} object The block or message.
- * @returns {readonly string[]} Its forwarded members' text.
- */
 const kept = (object: Span): readonly string[] =>
 	pipe(
 		object.members,
@@ -252,7 +232,6 @@ const kept = (object: Span): readonly string[] =>
 		Array.map((member) => Str.slice(member.keyStart, member.value.end)(object.body)),
 	);
 
-/** A value the strict parse proved present. Its absence means the scan and the parse read different texts. */
 const required = Effect.fnUntraced(function* required(object: Span, key: string): Effect.fn.Return<Span> {
 	return yield* Option.match(valueOf(key)(object), {
 		onNone: () => Effect.die(`the scan of the body has no ${key} where the parse had one`),

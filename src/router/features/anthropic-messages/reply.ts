@@ -17,7 +17,6 @@ type HoldsReplyKey = (key: Key) => boolean;
 
 const isLooseCall = Schema.is(LooseCall);
 
-/** What the engine reads in place of a run holding a block the codec cannot name, so the run stays unjudged. */
 const withheld = { text: stubs.unknown, type: "text" } as const;
 
 type WireToolUse = Extract<WireAssistantBlock, { readonly type: "tool_use" }>;
@@ -31,13 +30,6 @@ interface Reply {
 	readonly streamedOpenPerBlock: readonly boolean[];
 }
 
-/**
- * A tool call an unreadable block still names, with no arguments, so a withheld reply keeps every call beside its
- * result.
- *
- * @param {WireAssistantBlock} block An unreadable block.
- * @returns {readonly ToolCall[]} The call, when the block is a tool_use with an id and a name.
- */
 const namedCall = (block: WireAssistantBlock): readonly ToolCall[] => {
 	if (block.type !== "unreadable" || !isLooseCall(block.unreadable)) {
 		return [];
@@ -73,12 +65,6 @@ const visibleOf = (block: ReplyBlock): ReplyContent => {
 	}
 };
 
-/**
- * The unknown stub and each tool call with no arguments, which the engine reads for a reply it cannot judge.
- *
- * @param {ReplyContent} visible The reply's visible content.
- * @returns {ReplyContent} The withheld content.
- */
 const withheldOf = (visible: ReplyContent): ReplyContent => {
 	const calls = pipe(
 		visible,
@@ -155,12 +141,6 @@ const thinkingKeyOf = (block: WireAssistantBlock): Option.Option<Effect.Effect<K
 const contentKeyOf = (blocks: readonly ReplyBlock[]): Effect.Effect<Key, never, Digest.Digest> =>
 	contentKey(["reply", ...pipe(blocks, Array.flatMap(contentFieldsOf))]);
 
-/**
- * Every key a streamed reply leaves: its content key, then one per thinking block.
- *
- * @param {readonly ReplyBlock[]} blocks The reply's blocks.
- * @returns {Effect.Effect<readonly Key[], never, Digest.Digest>} The keys.
- */
 const replyKeysOf = Effect.fnUntraced(function* replyKeysOf(
 	blocks: readonly ReplyBlock[],
 ): Effect.fn.Return<readonly Key[], never, Digest.Digest> {
@@ -177,13 +157,6 @@ const replyKeysOf = Effect.fnUntraced(function* replyKeysOf(
 	return [content, ...thinking];
 });
 
-/**
- * Whether the open account streamed this block: a thinking block whose own key `openWrote` holds.
- *
- * @param {WireAssistantBlock} block A block of the reply.
- * @param {HoldsReplyKey} openWrote The router's record of what open accounts streamed.
- * @returns {Effect.Effect<boolean, never, Digest.Digest>} Whether the block may go back to an open account.
- */
 const streamedOpen = (
 	block: WireAssistantBlock,
 	openWrote: HoldsReplyKey,
@@ -201,11 +174,6 @@ const writerOf = (open: boolean): AssistantMessage["writtenBy"] => {
 	return "other";
 };
 
-/**
- * An assistant turn as the engine reads it. It is `open-account` only when its text and calls are what an open
- * account streamed. Redacted thinking hides what the reply was written from, so a reply holding redacted thinking the
- * open account did not stream is unreadable.
- */
 const replyOf = Effect.fnUntraced(function* replyOf(
 	blocks: readonly ReplyBlock[],
 	openWrote: HoldsReplyKey,

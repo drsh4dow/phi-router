@@ -8,7 +8,6 @@ type UserMessage = Extract<Message, { readonly role: "user" }>;
 /** How the wire spelled a content: a plain string, or blocks whose last one's `cache_control` member a rewrite keeps. */
 type Spelling = { readonly kind: "string" } | { readonly kind: "blocks"; readonly kept: readonly string[] };
 
-/** A tool call of the wire, which a rewritten reply writes back under the same id and name. */
 interface WireCall {
 	readonly id: string;
 	readonly name: string;
@@ -16,7 +15,6 @@ interface WireCall {
 	readonly kept: readonly string[];
 }
 
-/** A thinking block's source text, and whether the open account streamed it, so it may go back to an open account. */
 interface Thinking {
 	readonly source: string;
 	readonly streamed: boolean;
@@ -58,7 +56,6 @@ type Run =
 			readonly blocks: readonly string[];
 			readonly thinking: readonly Thinking[];
 			readonly calls: readonly WireCall[];
-			/** The `cache_control` member of the last text block, which the last rewritten text keeps. */
 			readonly kept: readonly string[];
 	  };
 

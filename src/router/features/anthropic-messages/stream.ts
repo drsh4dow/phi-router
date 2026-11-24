@@ -58,12 +58,6 @@ const applied = ({ block, partialInputJson }: Building, delta: WireDelta): Optio
 
 const unreadable = (reason: string): UnreadableReply => UnreadableReply.make({ reason });
 
-/**
- * A streamed tool input, written back compactly, the way Claude Code echoes an input it did not change.
- *
- * @param {Building} building The block and its input text.
- * @returns {Effect.Effect<ReplyBlock, UnreadableReply>} The finished block.
- */
 const finished = ({ block, partialInputJson }: Building): Effect.Effect<ReplyBlock, UnreadableReply> => {
 	if (block.type !== "tool_use") {
 		return Effect.succeed(block);
@@ -151,11 +145,6 @@ const eventsOf = (sse: string): Effect.Effect<readonly WireEvent[], UnreadableRe
 	);
 };
 
-/**
- * The keys a completed open-account stream leaves for the caller to store: one for the reply's content, which says the
- * open account wrote an echo with the same text and calls, and one for each thinking block, which says that block may
- * go back to an open account. Reads the whole SSE text after the route has streamed it through.
- */
 const replyKeys = Effect.fn("replyKeys")(function* replyKeys(
 	sse: string,
 ): Effect.fn.Return<readonly Key[], UnreadableReply, Digest.Digest> {
