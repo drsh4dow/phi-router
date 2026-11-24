@@ -353,6 +353,13 @@
 			},
 		},
 		{
+			"files": ["tools/corpus/manifest.ts"],
+			"rules": {
+				// lifted for the corpus manifest: a case schema's field order is the manifest's line format, Schema.Struct encodes its fields in the order its literal declares them, and Effect has no other way to declare that order
+				"eslint/sort-keys": "off",
+			},
+		},
+		{
 			"files": ["src/router/client/**"],
 			"rules": {
 				// lifted for src/router/client/, the owner approved of FileSystem

@@ -60,11 +60,11 @@ const Negative = Schema.Literals([
 
 const Role = Schema.Literals(["system", "user", "assistant", "tool"]);
 
-const Image = pipe(Schema.Struct({ mimeType: Schema.String }), Schema.fieldsAssign({ data: Schema.String }));
+const Image = Schema.Struct({ mimeType: Schema.String, data: Schema.String });
 
 const TextMessage = Schema.Struct({ role: Role, text: Schema.String });
 
-const ImageMessage = pipe(Schema.Struct({ role: Role }), Schema.fieldsAssign({ image: Image }));
+const ImageMessage = Schema.Struct({ role: Role, image: Image });
 
 const Messages = Schema.NonEmptyArray(Schema.Union([TextMessage, ImageMessage]));
 
@@ -80,33 +80,28 @@ const Fragment = Schema.String.check(Schema.isMinLength(minFragmentLength));
 
 const CanaryParts = Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String));
 
-const PhiCaseStrata = pipe(
-	Schema.Struct({ identifier: Identifier }),
-	Schema.fieldsAssign({ carrier: Carrier }),
-	Schema.fieldsAssign({ transform: Transform }),
-	Schema.fieldsAssign({ entry: Entry }),
-);
+const PhiCaseStrata = Schema.Struct({ identifier: Identifier, carrier: Carrier, transform: Transform, entry: Entry });
 
-const PhiCase = pipe(
-	Schema.Struct({ id: Schema.String }),
-	Schema.fieldsAssign({ expect: Schema.Literal("phi") }),
-	Schema.fieldsAssign({ strata: PhiCaseStrata }),
-	Schema.fieldsAssign({ canaries: Schema.NonEmptyArray(Canary) }),
-	Schema.fieldsAssign({ canaryParts: Schema.optionalKey(CanaryParts) }),
-	Schema.fieldsAssign({ fragments: Schema.Array(Fragment) }),
-	Schema.fieldsAssign({ messages: Messages }),
-);
+const PhiCase = Schema.Struct({
+	id: Schema.String,
+	expect: Schema.Literal("phi"),
+	strata: PhiCaseStrata,
+	canaries: Schema.NonEmptyArray(Canary),
+	canaryParts: Schema.optionalKey(CanaryParts),
+	fragments: Schema.Array(Fragment),
+	messages: Messages,
+});
 
 type PhiStrata = (typeof PhiCase.Type)["strata"];
 
-const CleanCase = pipe(
-	Schema.Struct({ id: Schema.String }),
-	Schema.fieldsAssign({ expect: Schema.Literal("clean") }),
-	Schema.fieldsAssign({ strata: Schema.Struct({ negative: Negative }) }),
-	Schema.fieldsAssign({ canaries: Schema.Tuple([]) }),
-	Schema.fieldsAssign({ fragments: Schema.Array(Fragment) }),
-	Schema.fieldsAssign({ messages: Messages }),
-);
+const CleanCase = Schema.Struct({
+	id: Schema.String,
+	expect: Schema.Literal("clean"),
+	strata: Schema.Struct({ negative: Negative }),
+	canaries: Schema.Tuple([]),
+	fragments: Schema.Array(Fragment),
+	messages: Messages,
+});
 
 const PhiOrCleanCase = Schema.Union([PhiCase, CleanCase]);
 
