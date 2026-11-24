@@ -26,8 +26,7 @@ interface PiPlayed extends Played {
 	readonly leftInTmp: readonly string[];
 	readonly routerBefore: boolean;
 	readonly routerStopped: boolean;
-	/** The file names in the state folder's `sessions`. */
-	readonly stores: readonly string[];
+	readonly verdictStoreFiles: readonly string[];
 	readonly turns: readonly [
 		clean: PiTurned,
 		canary: PiTurned,
@@ -49,9 +48,9 @@ const holdsAny =
 		);
 
 const isStoredIn =
-	(stores: readonly string[]) =>
+	(verdictStoreFiles: readonly string[]) =>
 	(session: string): boolean =>
-		Array.contains(stores, `${Base64Url.encode(session)}.json`);
+		Array.contains(verdictStoreFiles, `${Base64Url.encode(session)}.json`);
 
 const firstSessionTurns = 4;
 
@@ -126,8 +125,8 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 	{
 		name: "after two pi sessions the state folder holds one verdict store per session id",
 		ok:
-			played.stores.length === played.sessions.length &&
-			pipe(played.sessions, Array.every(isStoredIn(played.stores))),
+			played.verdictStoreFiles.length === played.sessions.length &&
+			pipe(played.sessions, Array.every(isStoredIn(played.verdictStoreFiles))),
 	},
 	{
 		name: "each pi's own pid holds a lease once it exits",

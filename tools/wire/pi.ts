@@ -101,7 +101,7 @@ const piPlay = Effect.fnUntraced(function* piPlay(run: Run) {
 
 	const phi = yield* piPhiPlay((asked) => turn(asked, second), run);
 	const stoppedWithin = yield* stopped;
-	const [stored, stores] = yield* Effect.all([storedIn(state, roots), storesIn(state)], { concurrency: 1 });
+	const [stored, verdictStoreFiles] = yield* Effect.all([storedIn(state, roots), storesIn(state)], { concurrency: 1 });
 
 	const left = leftOf({
 		prompts: [run.clean.text, run.phi.text, followUp],
@@ -114,7 +114,7 @@ const piPlay = Effect.fnUntraced(function* piPlay(run: Run) {
 	const played = Struct.assign(Struct.assign(left, install), {
 		routerBefore,
 		routerStopped: Option.isSome(stoppedWithin),
-		stores,
+		verdictStoreFiles,
 	});
 
 	const checks = yield* withCredentialRule([...piChecksOf(played), ...phi.checks], () => breaches);
