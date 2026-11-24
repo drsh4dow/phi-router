@@ -18,7 +18,6 @@ import type { KeySource, Vendor } from "#router/client/configuration/index.ts";
 import { LoginEnded, loginFolders } from "./login-folders.ts";
 import type { Login } from "./login-folders.ts";
 
-/** A key source gave no key. It names the variable or the command, and never holds what either printed. */
 class KeyUnreadable extends Schema.TaggedError<KeyUnreadable, { readonly brand: unique symbol }>()("KeyUnreadable", {
 	cause: Schema.Defect(),
 	source: Schema.String,
@@ -85,10 +84,8 @@ const readKey = Effect.fn("readKey")(function* readKey(
 	);
 });
 
-/** A token this close to its expiry is refreshed before it is sent. */
 const refreshAhead = { minutes: 5 };
 
-/** How long one vendor CLI run may take before the router reads the folder again anyway. */
 const refreshLimit = "30 seconds";
 
 const onePermit = 1;
@@ -102,7 +99,6 @@ interface LoginFolder {
 /** An `env` value that removes the variable from what a child process inherits. */
 const unset = Option.getOrUndefined(Option.none<string>());
 
-/** `HOME` from `Config` when `folder` is `name` under it by real path. */
 const homeOf = Effect.fnUntraced(function* homeOf(folder: string, name: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -167,7 +163,6 @@ const folderOf = Effect.fnUntraced(function* folderOf(account: LoginFolder) {
 
 interface LoginToSend {
 	readonly login: Login;
-	/** The next `ready` refreshes unless the folder holds another token by then. */
 	readonly markRejected: Effect.Effect<void>;
 }
 
@@ -180,7 +175,6 @@ interface FolderLogin {
 	 * a time. A CLI that fails or is missing is no error by itself: the read after it decides.
 	 */
 	readonly ready: Effect.Effect<void, LoginEnded>;
-	/** The login to send with now, read from the folder on every call and never cached. It runs no vendor CLI. */
 	readonly current: Effect.Effect<LoginToSend, LoginEnded>;
 }
 

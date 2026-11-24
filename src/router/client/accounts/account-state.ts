@@ -17,9 +17,6 @@ const stampFor = { minutes: 30 };
 
 const oneWriter = 1;
 
-/**
- * The 429 stamps, the one writer of `accounts.json`. Another process, such as `phi-router accounts`, reads the same file.
- */
 class AccountState extends Context.Service<
 	AccountState,
 	{

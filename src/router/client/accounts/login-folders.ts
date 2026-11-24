@@ -16,7 +16,6 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 interface Login {
 	readonly token: Redacted.Redacted;
 	readonly expires: DateTime.Utc;
-	/** A Claude login's end, `refreshTokenExpiresAt`. No refresh moves it. */
 	readonly ends: Option.Option<DateTime.Utc>;
 	readonly chatgptAccountId: Option.Option<string>;
 }
@@ -96,7 +95,6 @@ const claudeEnds = (text: string): Effect.Effect<Option.Option<DateTime.Utc>, Sc
 const codexEnds = (text: string): Effect.Effect<Option.Option<DateTime.Utc>, Schema.SchemaError> =>
 	Effect.as(Schema.decodeEffect(CodexSeen)(text), Option.none());
 
-/** The `codex app-server` lines that ask for the account with a refreshed token. Its answer to id 2 says it is done. */
 const accountRead = [
 	'{"id":1,"method":"initialize","params":{"clientInfo":{"name":"phi-router","version":"0.0.0"}}}\n',
 	'{"method":"initialized"}\n',
@@ -105,7 +103,6 @@ const accountRead = [
 
 const accountReadAnswer = '"id":2';
 
-/** A vendor CLI stopped for taking too long gets SIGKILL this long after SIGTERM, so one that ignores SIGTERM ends too. */
 const forceKillAfter = "1 second";
 
 /** `claude auth status --json`, which refreshes a Claude config folder's token in place. */
@@ -146,12 +143,6 @@ const codexRefresh = Effect.fnUntraced(function* codexRefresh(env: Readonly<Reco
 	);
 });
 
-/**
- * Each vendor's login folder: its credential file, how it reads whole and for the login's end alone, the variable that
- * points the vendor's CLI at the folder, the CLI run that refreshes the token in place, and the command that logs in
- * again. `atHome` names Claude Code's own folder under `HOME`: its CLI runs there with the variable unset, since the
- * variable moves `.claude.json` from `HOME` into the folder.
- */
 const loginFolders = {
 	anthropic: {
 		atHome: Option.some(".claude"),

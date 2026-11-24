@@ -61,12 +61,6 @@ const picked = (headers: Headers, names: readonly string[]): Record<string, stri
 		),
 	);
 
-/**
- * The copied headers with `anthropic-beta` stripped of the subscription login's flag, which an API key does not take.
- *
- * @param {Headers} headers The harness's headers.
- * @returns {Record<string, string>} The headers to send.
- */
 const withoutOauth = (headers: Headers): Record<string, string> => {
 	const kept = pipe(
 		Option.fromNullishOr(headers["anthropic-beta"]),
@@ -107,10 +101,6 @@ const headersFor = Effect.fnUntraced(function* headersFor(
 
 type To = (endpoint: string) => HttpClientRequest.HttpClientRequest;
 
-/**
- * The one way out to an account: the request `to` builds on its endpoint, with `headers`, no redirect followed and no
- * trace header.
- */
 type Caller = (call: { readonly headers: Headers; readonly to: To }) => Effect.Effect<Answered, NoAnswer, Scope.Scope>;
 
 const callerOf = Effect.fnUntraced(function* callerOf(named: NamedAccount) {
@@ -141,7 +131,6 @@ const callerOf = Effect.fnUntraced(function* callerOf(named: NamedAccount) {
 
 const unauthorized = 401;
 
-/** One request to one account with the harness's `headers`, its credential added. */
 type Ask = (harness: Headers, to: To) => Effect.Effect<Answered, Unanswered, Scope.Scope>;
 
 interface Asking {
@@ -209,7 +198,6 @@ const accountOf = (named: NamedAccount, { ask, ready }: Asking): Account => ({
 		),
 });
 
-/** A lane's accounts in the file's order, and how its first account is asked. */
 const laneOf = Effect.fnUntraced(function* laneOf([first, ...rest]: Array.NonEmptyReadonlyArray<NamedAccount>) {
 	const firstAsking = yield* askingOf(first);
 
@@ -238,10 +226,6 @@ const accountsOf = Effect.fnUntraced(function* accountsOf({ clean, sealed, seale
 	return { catalog, clean: open.accounts, sealed: baa.accounts, sealedModel, targetModel };
 });
 
-/**
- * The accounts behind the two lanes, per vendor the configuration names, each lane a list in the file's order. Only
- * OpenAI's carry a model catalog, the one Codex reads.
- */
 interface Served {
 	readonly anthropic: Option.Option<Accounts>;
 	readonly openai: Option.Option<OpenAiAccounts>;
