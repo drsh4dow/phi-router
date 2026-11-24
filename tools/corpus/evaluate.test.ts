@@ -7,7 +7,6 @@ import { evaluate, play } from "./evaluate.ts";
 import { Digest } from "effect/crypto";
 import { missRateUpperBound } from "./report.ts";
 
-/** Half a unit in the fourth decimal place, the tolerance of a bound given to four decimals. */
 const fourDecimals = 0.00005;
 
 const certain = 1;
@@ -107,7 +106,6 @@ const splitAcross = (id: string, messages: Case["messages"]): Case => ({
 	strata: { carrier: strata.carrier, entry: "user", identifier: strata.identifier, transform: "split" },
 });
 
-/** A valid number the judge clears, so only a rule can seal it. */
 const ssn = "078-05-1120";
 
 const ruleOnly: Case = {

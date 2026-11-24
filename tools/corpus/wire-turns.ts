@@ -50,7 +50,6 @@ const playedOf = (subject: Case): Played => {
 
 const isSteering = (subject: Case): boolean => subject.expect === "phi" && subject.strata.entry === "steering";
 
-/** How the corpus wire scenario walks a manifest case's turns. */
 export { isSteering, isText, playedOf, walk };
 
 export type { At, Played };

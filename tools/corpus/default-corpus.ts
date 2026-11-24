@@ -15,7 +15,6 @@ const defaultCorpus = Effect.gen(function* defaultCorpus() {
 	return { cases: generate({ images, seed: defaultSeed }), images, synthetic };
 });
 
-/** The corpus `generate.ts` writes by default, generated once for the tests that read it. */
 class DefaultCorpus extends Context.Service<
 	DefaultCorpus,
 	{

@@ -12,7 +12,6 @@ import { syntheticListed } from "./synthetic.ts";
 /** A negative stratum whose cases are text. Clean screenshots come from the image set instead. */
 type TextNegative = Exclude<typeof Negative.Type, "clean-screenshot">;
 
-/** The samplers each text negative draws its cases from, every one typed like `counts`. */
 const samplers = {
 	count: counts,
 	fragment: fragmentSamples,

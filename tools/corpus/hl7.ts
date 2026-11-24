@@ -21,10 +21,6 @@ const states: Array.NonEmptyReadonlyArray<string> = ["OR", "WA", "TX", "FL", "AZ
 
 type PidPlace = (value: string, state: string) => Readonly<Record<number, string>>;
 
-/**
- * Where PID carries each identifier. PID-3 holds the internal patient id unless an outside identifier takes it. The
- * member number goes in IN1, not PID.
- */
 const pidFields: Readonly<Record<TextIdentifier, PidPlace>> = {
 	[identifierKind.birthDate]: (value) => ({ 7: value }),
 	[identifierKind.driverLicense]: (value, state) => ({ 20: `${value}^${state}` }),

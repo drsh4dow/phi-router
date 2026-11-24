@@ -15,10 +15,8 @@ const record = `{"patient":"Synthetic Person","mrn":"${mrn}","diagnosis":"E11.9"
 
 const pixel = { data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ", mimeType: "image/png" };
 
-/** The one message that held the canary, seen as one distinctive piece. */
 const oneMessage = 1;
 
-/** One part of a split canary. */
 const onePart = 1;
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
@@ -146,12 +144,6 @@ const resultOf = (content: string): ToolResult => ({ content, tool_use_id: "t", 
 
 const turnOf = (content: readonly ToolResult[]): Turn => ({ messages: [{ content, role: "user" }] });
 
-/**
- * One request body that carries each text as its own message.
- *
- * @param {readonly string[]} texts The texts, one per message.
- * @returns {Effect.Effect} The body.
- */
 const bodyOf = (texts: readonly string[]): Effect.Effect<string, Schema.SchemaError> =>
 	encodeJson({
 		messages: pipe(

@@ -20,7 +20,6 @@ const unrealisticCarriers: readonly Rule[] = [
 	{ carrier: "ticket", transform: "buried" },
 ];
 
-/** A summary never stops in the middle of an identifier. */
 const unrealisticSummaries: readonly Rule[] = [
 	{ entry: "compaction-summary", transform: "buried" },
 	{ entry: "compaction-summary", transform: "gzip-hex" },

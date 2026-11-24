@@ -4,7 +4,6 @@ import { compactJson, gzip, prettyJson } from "./encodings.ts";
 import type { Random } from "./random.ts";
 import { uuid } from "./record.ts";
 
-/** A typo touches two neighbouring letters from the second letter on, and never the last two. */
 const typo = { first: 1, lastLettersKept: 3 } as const;
 
 /** How often a word of five letters or more gets a typo. */

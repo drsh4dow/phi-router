@@ -16,7 +16,6 @@ const idDigits = 4;
 
 const firstCaseNumber = 1;
 
-/** The images a corpus embeds, which generating only reads. */
 type ReadImages = { readonly [Name in keyof Images]: Readonly<Uint8Array<Readonly<ArrayBufferLike>>> };
 
 const caseId = (index: number): string => `h-${Str.padStart(idDigits, "0")(String(index + firstCaseNumber))}`;

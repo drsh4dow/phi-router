@@ -51,7 +51,6 @@ const noSynthetic = '{"exact":[],"prefixes":[]}';
 
 const clean = 0;
 
-/** A folder holding a one-case manifest, its `synthetic.json`, and the judge's answers recorded for that case. */
 const corpusOf = Effect.fn("corpusOf")(function* corpusOf(subject: typeof apart | typeof whole) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -74,7 +73,6 @@ const corpusOf = Effect.fn("corpusOf")(function* corpusOf(subject: typeof apart 
 	return folder;
 });
 
-/** Runs the replay command on the corpus in `folder`, with its own recordings. */
 const replayOf = Effect.fn("replayOf")(function* replayOf(folder: string) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const path = yield* Path.Path;

@@ -11,13 +11,11 @@ import { reportOf } from "./report.ts";
 import { requestMessagesOf } from "./messages.ts";
 import { tokensOf } from "./canary-tokens.ts";
 
-/** The verdicts of one case's session, kept in memory and never written. */
 interface Book {
 	readonly lookup: Lookup;
 	readonly record: (standings: readonly (readonly [string, Standing])[]) => void;
 }
 
-/** How many cases play at once. Each case keeps its own book, so they share nothing. */
 const casesAtOnce = 8;
 
 const encodeView = Schema.encodeUnknownOption(Schema.fromJsonString(Schema.Unknown));

@@ -21,7 +21,6 @@ interface Used {
 	readonly add: (value: string) => void;
 }
 
-/** Mulberry32's constants: the Weyl step, the three mixing shifts, and the masks each multiply ors in. */
 const mulberry = {
 	masks: { first: 1, second: 61 },
 	shifts: { first: 15, second: 7, third: 14 },
@@ -30,12 +29,6 @@ const mulberry = {
 
 const wordValues = 4_294_967_296;
 
-/**
- * Mulberry32's output for one state, in arithmetic instead of bitwise operators.
- *
- * @param {number} state The generator's state after its Weyl step.
- * @returns {number} An unsigned 32-bit integer.
- */
 const mix = (state: number): number => {
 	const spread = xor(state, shiftRight(state, mulberry.shifts.first));
 	const mixed = unsigned32(Math.imul(spread, or(state, mulberry.masks.first)));
@@ -56,12 +49,6 @@ const mulberry32 = (seed: number): (() => number) => {
 	};
 };
 
-/**
- * A seeded mulberry32 draw source.
- *
- * @param {number} seed Any integer.
- * @returns {Random} The draw source.
- */
 const seeded = (seed: number): Random => {
 	const float = mulberry32(seed);
 

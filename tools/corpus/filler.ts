@@ -48,7 +48,6 @@ const millisecondDigits = 3;
 /** Where a log's clock starts, in milliseconds after midnight, and how far it moves between two lines. */
 const logClock = { start: { max: 20_000_000, min: 0 }, step: { max: 900, min: 1 } } as const;
 
-/** Hex digits of a request, span or parent id. */
 const traceIdHexDigits = 16;
 
 const cacheKeyHexDigits = 8;
@@ -90,7 +89,6 @@ const fallbackLine = 100;
 
 const archiveBatchDigits = 4;
 
-/** Where a diff's hunk starts, and which line of the function it changes. */
 const hunk = { changed: { max: 5, min: 1 }, start: { max: 400, min: 1 } } as const;
 
 /** A buried payload sits after 35% to 64% of the filler. */

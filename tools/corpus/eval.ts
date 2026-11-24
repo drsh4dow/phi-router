@@ -17,7 +17,6 @@ class GateFailed extends Schema.TaggedError<GateFailed, { readonly brand: unique
 const usage =
 	"usage: bun tools/corpus/eval.ts [--judge recorded|live] [--claude] [--record] [--corpus <manifest.jsonl>] [--recordings <recordings.jsonl>]";
 
-/** `process.argv` holds the runtime and the script before the arguments. */
 const runtimeAndScript = 2;
 
 const noUnrecordedCalls = 0;

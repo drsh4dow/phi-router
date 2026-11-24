@@ -17,19 +17,16 @@ import { Digest } from "effect/crypto";
 import { decodeJsonLines } from "./jsonl.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
 
-/** The recordings kept beside this file, one file per judge. */
 const recordingsPaths = {
 	claude: `${import.meta.dirname}/recordings-claude.jsonl`,
 	decisions: `${import.meta.dirname}/recordings.jsonl`,
 } as const satisfies Record<JudgeName, string>;
 
-/** The judge a recording answers for: its name and the model it runs, which the policy version hashes. */
 type Recorded = Pick<Judge["Service"], "model" | "name">;
 
 /** A recording names the policy version and each digest it holds by the digest's first 32 hex digits. */
 const digestChars = 32;
 
-/** How many calls a judge has made before its first. */
 const noCalls = 0;
 
 const Question = Schema.Literals(["identifier", "kind"]);
@@ -53,7 +50,6 @@ const Recording = Schema.Struct({
 
 type Asked = Omit<typeof Recording.Type, "answer" | "inputTokens" | "cost">;
 
-/** A recorded call's answer, other than a failure, and what it cost. */
 type Replayed = Effect.Effect<
 	{ readonly answer: Exclude<typeof Answer.Type, { readonly failed: string }>; readonly usage: typeof Usage.Type },
 	JudgeFailed

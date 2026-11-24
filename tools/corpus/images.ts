@@ -8,7 +8,6 @@ import { converse } from "./conversation.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 import { unique } from "./random.ts";
 
-/** Bytes a function only reads. */
 type Bytes = Readonly<Uint8Array<Readonly<ArrayBufferLike>>>;
 
 interface Images {
@@ -40,7 +39,6 @@ const stampLength = 30;
 /** The bytes of the JPEG start-of-image marker, which the comment segment follows. */
 const startOfImageBytes = 2;
 
-/** The JPEG COM marker, FF FE. */
 const commentMarker = { first: 255, second: 254 } as const;
 
 /** A segment's length field: two bytes, big-endian, counting themselves. */
@@ -159,14 +157,6 @@ const imageCases = ({ images, rng, used }: ImageRequest): readonly Omit<typeof P
 	);
 };
 
-/**
- * Cases that attach a screenshot of the claims UI with no identifier on it.
- *
- * @param {object} root0 The images and the draw source.
- * @param {Images} root0.images The images.
- * @param {Random} root0.rng The draw source.
- * @returns {readonly Omit<typeof CleanCase.Type, "id">[]} The cases.
- */
 const cleanImageCases = ({ images, rng }: Omit<ImageRequest, "used">): readonly Omit<typeof CleanCase.Type, "id">[] =>
 	Array.makeBy(perCleanScreenshot, (turn) => ({
 		canaries: [],

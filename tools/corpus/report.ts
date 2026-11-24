@@ -108,7 +108,6 @@ interface Report {
 		readonly leaks: number;
 		readonly leakRateUpper95: number;
 	}[];
-	/** Positive cases that showed a complete canary in one message to open accounts. */
 	readonly leaks: readonly CaseAt[];
 	/** Positive cases that showed open accounts every part of a split canary, only in different messages, and no leak. */
 	readonly splits: readonly CaseAt[];

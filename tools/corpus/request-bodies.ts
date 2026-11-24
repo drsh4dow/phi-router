@@ -1,6 +1,5 @@
 import { Array, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
 
-/** `Schema.Json` spelled so a function that takes it shows it only reads it. */
 type Json = boolean | number | string | null | readonly Json[] | JsonObject;
 
 interface JsonObject {

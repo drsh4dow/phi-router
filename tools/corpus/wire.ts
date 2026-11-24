@@ -22,10 +22,8 @@ interface Planted {
 }
 
 interface Plan {
-	/** The case's system messages, which pi reads from the project's `AGENTS.md`. */
 	readonly agents: Option.Option<string>;
 	readonly files: readonly Planted[];
-	/** What the mock answers each request with, in order, before it answers `done`. */
 	readonly replies: readonly Reply[];
 	readonly steps: Step[];
 }
@@ -145,13 +143,6 @@ const pagedCalls = (subject: Case, path: string, text: string): readonly Call[] 
 	);
 };
 
-/**
- * A steering case's tool call runs for a few seconds, so the steering message arrives while it runs.
- *
- * @param {Case} subject The case.
- * @param {readonly Message[]} after The turn after the tool call, if any.
- * @returns {boolean} Whether the tool call waits for the steering message.
- */
 const awaitsSteering = (subject: Case, after: readonly Message[]): boolean =>
 	isSteering(subject) &&
 	pipe(
@@ -280,10 +271,6 @@ const planOf = (subject: Case): Plan => {
 	};
 };
 
-/**
- * How the corpus wire scenario plays one manifest case through a real pi, and which strings in a request body show
- * that the case's PHI reached it. Pure, so the plan and the tokens are tested without pi.
- */
 export { planOf, Replies, sentTextsOf };
 
 export type { Reply };

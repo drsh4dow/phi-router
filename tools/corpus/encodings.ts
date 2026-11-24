@@ -12,7 +12,6 @@ const wordValues = binary ** bitsPerWord;
 
 const wordBytes = bitsPerWord / bitsPerByte;
 
-/** How many arguments the data-first form of a dual function takes. */
 const dataFirstArity = 2;
 
 const digitAt = (value: number, place: number, base: number): number => Math.floor(value / place) % base;
@@ -176,7 +175,6 @@ const deflateFixed = (bytes: readonly number[]): number[] => {
 	);
 };
 
-/** RFC 1952's member header: the magic, deflate, no flags, a zero mtime, no extra flags, and Unix. */
 const gzipHeader = { deflate: 8, extraFlags: 0, flags: 0, id1: 31, id2: 139, mtime: 0, unix: 3 } as const;
 
 /**

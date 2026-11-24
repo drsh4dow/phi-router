@@ -9,7 +9,6 @@ import type { Report } from "./report.ts";
 import { defaultCorpus } from "./default-corpus.ts";
 import { evaluate } from "./evaluate.ts";
 
-/** The default corpus played once with a judge's recordings: its leaks and the judge calls the recordings lack. */
 class DefaultCorpusPlay extends Context.Service<
 	DefaultCorpusPlay,
 	{ readonly leaks: Report["leaks"]; readonly unrecorded: number }

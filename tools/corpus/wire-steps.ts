@@ -83,11 +83,6 @@ const withImage = (sent: Sent, image: Image): Sent => {
 /** Only a prompt makes pi ask the mock, so a case whose first message is a tool result or a reply opens with this. */
 const neutralOpening = opened("Go on with the task.");
 
-/**
- * A reply that opens a case was written before the case began, on a BAA account for an `ent-reply` case. An open
- * account's reply skips the judge, so the mock plays it on the BAA account, as the answer to the neutral opening in a
- * pinned session.
- */
 const pinnedReply = [opened("/phi pin"), neutralOpening, opened("/phi unpin")];
 
 /**
@@ -177,7 +172,6 @@ const stepsOf = (subject: Case): Step[] => {
 	return steps;
 };
 
-/** The steps the corpus wire scenario's driver sends a real pi for one manifest case. */
 export { fillerMark, narrativeCap, stepsOf, Steps, summaryOf };
 
 export type { Sent, Step };

@@ -5,7 +5,6 @@ import type { Reply, Sent } from "./wire.ts";
 import { Base64 } from "effect/encoding";
 import type { Cause } from "effect";
 
-/** Bytes this file only reads. */
 type Bytes = Readonly<Uint8Array<Readonly<ArrayBufferLike>>>;
 
 /** What the case's mock serves: the files its pi reads, and the scripted reply at each index, `done` past the last. */

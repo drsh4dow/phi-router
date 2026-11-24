@@ -61,15 +61,12 @@ interface Seen {
 	readonly unsealed: readonly string[];
 	/** Fragments, and parts of a split canary that did not all arrive, in an open account's body. Reported, never a leak. */
 	readonly fragments: readonly string[];
-	/** Tokens no BAA account's body carried, except split parts an open account's body carried as fragments, and untracked canaries. */
 	readonly missing: readonly string[];
 }
 
 interface Bodies {
 	readonly tracked: Tracked;
-	/** The bodies open accounts received. */
 	readonly open: readonly string[];
-	/** The bodies BAA accounts received. */
 	readonly baa: readonly string[];
 }
 

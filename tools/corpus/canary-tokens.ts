@@ -19,7 +19,6 @@ interface Tracked {
 	readonly untracked: readonly string[];
 }
 
-/** Bytes a function only reads. */
 type Bytes = Readonly<Uint8Array<Readonly<ArrayBufferLike>>>;
 
 interface Window {
@@ -27,7 +26,6 @@ interface Window {
 	readonly window: string;
 }
 
-/** Where a text starts, the lowest index a token or a window can take. */
 const textStart = 0;
 
 /** Characters kept on each side of a split canary's part, so the token that holds it is distinctive. */
@@ -35,7 +33,6 @@ const context = 40;
 
 const sealedWidth = 40;
 
-/** The gzip magic, `1f 8b`. */
 const gzipMagic = { first: 31, second: 139 } as const;
 
 const base64Run = /[A-Za-z0-9+/]{24,}={0,2}/gu;

@@ -26,7 +26,6 @@ const tokensPerCall = 1000;
 /** $0.10 per million input tokens, the default judge's price. */
 const costPerCall = 0.0001;
 
-/** Each call clears its piece. */
 const clears: Reply = {
 	body: {
 		answers: [{ name: "identifier", probability: 0, type: "predicate" }],
@@ -41,7 +40,6 @@ const leakLine = "in-policy positive cases 1: leaked 1";
 
 const clean = 0;
 
-/** A one-case manifest with its `synthetic.json` beside it. */
 const manifestOf = Effect.fn("manifestOf")(function* manifestOf(subject: typeof whole) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -55,7 +53,6 @@ const manifestOf = Effect.fn("manifestOf")(function* manifestOf(subject: typeof 
 	return manifest;
 });
 
-/** Runs `eval.ts` with `args`, as `bun run eval:live` and `eval:recorded` do, with `env` added to this process's. */
 const evalOf = Effect.fn("evalOf")(function* evalOf(args: readonly string[], env: Readonly<Record<string, string>>) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const path = yield* Path.Path;
@@ -70,12 +67,6 @@ const evalOf = Effect.fn("evalOf")(function* evalOf(args: readonly string[], env
 	return { exitCode, stdout };
 });
 
-/**
- * The judge summary line the command prints.
- *
- * @param {number} calls The calls the mock received, each billing `tokensPerCall`.
- * @returns {string} The line.
- */
 const judgedLine = (calls: number): string => {
 	const cost = (calls * costPerCall).toFixed(costDecimals);
 
@@ -104,7 +95,6 @@ const liveRun = Effect.gen(function* liveRun() {
 	assert.notStrictEqual(exitCode, clean, stdout);
 }).pipe(Effect.scoped);
 
-/** Plays `whole` against a judge mock with `--record` into a temporary file, then replays it from that file alone. */
 const recordThenReplay = Effect.gen(function* recordThenReplay() {
 	const path = yield* Path.Path;
 	const mock = yield* mockOn(() => clears);
