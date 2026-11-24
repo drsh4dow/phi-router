@@ -10,8 +10,8 @@ import type { OpenAiAccounts } from "#router/client/accounts/index.ts";
 import type { Scope } from "effect";
 import { SessionId } from "#shared/cli.ts";
 import { auto } from "./send.ts";
-import { codex } from "./harness.ts";
 import { dispatched } from "./failover.ts";
+import { wires } from "./harness.ts";
 
 const statuses = { failed: 500, notFound: 404, ok: 200, refused: 502, unreadable: 400 } as const;
 
@@ -159,7 +159,7 @@ const listedWith = Effect.fnUntraced(function* listedWith(
 	const listed = yield* catalogWith({ copyOf: accounts.targetModel, slug: auto })(text);
 
 	return yield* Option.match(listed, {
-		onNone: () => refusal(codex, statuses.refused, `the catalog lists no ${accounts.targetModel}`),
+		onNone: () => refusal(wires.codex, statuses.refused, `the catalog lists no ${accounts.targetModel}`),
 		onSome: (body) => Effect.succeed({ body, kind: "whole", status: statuses.ok } satisfies Outgoing),
 	});
 });
@@ -182,8 +182,9 @@ const models =
 		}
 
 		return Option.match(catalogQuery(incoming.query), {
-			onNone: () => refusal(codex, statuses.unreadable, "phi-router forwards client_version only as a version"),
-			onSome: (query) => listedWith(accounts, incoming, query).pipe(Effect.catchTags(accountFailures(codex))),
+			onNone: () =>
+				refusal(wires.codex, statuses.unreadable, "phi-router forwards client_version only as a version"),
+			onSome: (query) => listedWith(accounts, incoming, query).pipe(Effect.catchTags(accountFailures(wires.codex))),
 		});
 	};
 

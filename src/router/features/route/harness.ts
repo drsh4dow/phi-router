@@ -77,43 +77,16 @@ const AnthropicError = Schema.fromJsonString(
 	}),
 );
 
-/** Claude Code: `x-claude-code-session-id`, the Messages codec, and the Anthropic error shape it shows. */
-const claude: HarnessWire = {
-	decode: (body, openWrote) =>
-		Effect.mapError(decodeRequest(body, openWrote, "claude"), ({ reason }) => Unreadable.make({ reason })),
-	errorBody: (status, message) =>
-		Effect.orDie(
-			Schema.encodeEffect(AnthropicError)({
-				error: { message, type: errorType(status, "api_error") },
-				type: "error",
-			}),
-		),
-	harness: "claude",
-	replyKeys,
-	sessionHeader: "x-claude-code-session-id",
-};
+const anthropicErrorBody = (status: number, message: string): Effect.Effect<string> =>
+	Effect.orDie(
+		Schema.encodeEffect(AnthropicError)({
+			error: { message, type: errorType(status, "api_error") },
+			type: "error",
+		}),
+	);
 
 /** The model ids the pi package sends inside its provider `phi`, with the model name each stands for. */
 const piNames: Readonly<Record<string, string>> = piWire.models;
-
-/**
- * The pi package: `x-phi-session`, which it adds, the Messages codec with pi's bridge, and the Anthropic error shape.
- * A model id other than one of phi's own names is its own target model, as pi sent it.
- */
-const pi: HarnessWire = {
-	decode: (body, openWrote) =>
-		Effect.mapBoth(decodeRequest(body, openWrote, "pi"), {
-			onFailure: ({ reason }) => Unreadable.make({ reason }),
-			onSuccess: (decoded) =>
-				Struct.assign(decoded, {
-					model: Option.getOrElse(Record.get(piNames, decoded.model), () => decoded.model),
-				}),
-		}),
-	errorBody: claude.errorBody,
-	harness: "pi",
-	replyKeys,
-	sessionHeader: piWire.sessionHeader,
-};
 
 /** The path the pi package's requests take. */
 const piMessages = `${piWire.base}/v1/messages` as const;
@@ -122,17 +95,50 @@ const OpenAiError = Schema.fromJsonString(
 	Schema.Struct({ error: Schema.Struct({ message: Schema.String, type: Schema.String }) }),
 );
 
-/** Codex: `session-id`, the Codex codec, the keys of clean-lane replies that completed, and the OpenAI error shape. */
-const codex: HarnessWire = {
-	decode: (body, openWrote) =>
-		Effect.mapError(decodeResponsesRequest(body, openWrote), ({ reason }) => Unreadable.make({ reason })),
-	errorBody: (status, message) =>
-		Effect.orDie(Schema.encodeEffect(OpenAiError)({ error: { message, type: errorType(status, "server_error") } })),
-	harness: "codex",
-	replyKeys: cleanLaneKeys,
-	sessionHeader: "session-id",
+type Wires = { readonly [Name in Harness]: HarnessWire & { readonly harness: Name } };
+
+const wires: Wires = {
+	/** Claude Code: `x-claude-code-session-id`, the Messages codec, and the Anthropic error shape it shows. */
+	claude: {
+		decode: (body, openWrote) =>
+			Effect.mapError(decodeRequest(body, openWrote, "claude"), ({ reason }) => Unreadable.make({ reason })),
+		errorBody: anthropicErrorBody,
+		harness: "claude",
+		replyKeys,
+		sessionHeader: "x-claude-code-session-id",
+	},
+	/** Codex: `session-id`, the Codex codec, the keys of clean-lane replies that completed, and the OpenAI error shape. */
+	codex: {
+		decode: (body, openWrote) =>
+			Effect.mapError(decodeResponsesRequest(body, openWrote), ({ reason }) => Unreadable.make({ reason })),
+		errorBody: (status, message) =>
+			Effect.orDie(
+				Schema.encodeEffect(OpenAiError)({ error: { message, type: errorType(status, "server_error") } }),
+			),
+		harness: "codex",
+		replyKeys: cleanLaneKeys,
+		sessionHeader: "session-id",
+	},
+	/**
+	 * The pi package: `x-phi-session`, which it adds, the Messages codec with pi's bridge, and the Anthropic error shape.
+	 * A model id other than one of phi's own names is its own target model, as pi sent it.
+	 */
+	pi: {
+		decode: (body, openWrote) =>
+			Effect.mapBoth(decodeRequest(body, openWrote, "pi"), {
+				onFailure: ({ reason }) => Unreadable.make({ reason }),
+				onSuccess: (decoded) =>
+					Struct.assign(decoded, {
+						model: Option.getOrElse(Record.get(piNames, decoded.model), () => decoded.model),
+					}),
+			}),
+		errorBody: anthropicErrorBody,
+		harness: "pi",
+		replyKeys,
+		sessionHeader: piWire.sessionHeader,
+	},
 };
 
-export { claude, codex, pi, piMessages };
+export { piMessages, wires };
 
 export type { Decoded, HarnessWire, Serving };

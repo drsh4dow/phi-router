@@ -2,8 +2,8 @@ import { AccountState, Upstream } from "#router/client/accounts/index.ts";
 import { Effect, Layer, Option, Struct, flow } from "effect";
 import type { HarnessWire, Serving } from "./harness.ts";
 import { answering, models, notFound, statuses } from "./route.ts";
-import { claude, codex, pi, piMessages } from "./harness.ts";
 import { judgingOf, routing, services } from "./routing.ts";
+import { piMessages, wires } from "./harness.ts";
 import { LeaseRegistry } from "#router/client/leases.ts";
 import type { OpenAiAccounts } from "#router/client/accounts/index.ts";
 import type { Path } from "#router/client/router-port/index.ts";
@@ -62,10 +62,10 @@ const Router = flow(
 				);
 
 		return serve([
-			{ answer: anthropic(claude), method: "POST", path: "/v1/messages" },
-			{ answer: anthropic(pi), method: "POST", path: piMessages },
+			{ answer: anthropic(wires.claude), method: "POST", path: "/v1/messages" },
+			{ answer: anthropic(wires.pi), method: "POST", path: piMessages },
 			{
-				answer: openai((accounts) => answer(Struct.assign(shared, { accounts, wire: codex }))),
+				answer: openai((accounts) => answer(Struct.assign(shared, { accounts, wire: wires.codex }))),
 				method: "POST",
 				path: "/v1/responses",
 			},
