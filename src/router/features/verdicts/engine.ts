@@ -140,7 +140,6 @@ const clearIfNothingLeft = (
 	return Effect.fail(Verdicts.Cleared({ by: "nothing-to-judge" }));
 };
 
-/** Settles a piece before the judge. Failing with a verdict ends the piece there. */
 const textOf = Effect.fn("textOf")(function* textOf(piece: Piece<string>, blank: (text: string) => string) {
 	const texts = yield* unlisted(piece.texts);
 
@@ -159,12 +158,6 @@ const textOf = Effect.fn("textOf")(function* textOf(piece: Piece<string>, blank:
 	return text;
 });
 
-/**
- * The image sets a piece's text is judged with: none, or the images `judgeLimits.maxImages` at a time.
- *
- * @param {JudgeInput["images"]} images The piece's images.
- * @returns {JudgeInput["images"][]} One set per judge call.
- */
 const imageSetsOf = (images: JudgeInput["images"]): (readonly JudgeInput["images"][number][])[] => {
 	if (Array.isReadonlyArrayNonEmpty(images)) {
 		return Array.chunksOf(images, judgeLimits.maxImages);
@@ -173,7 +166,6 @@ const imageSetsOf = (images: JudgeInput["images"]): (readonly JudgeInput["images
 	return [images];
 };
 
-/** The judge's verdict on a piece's text. Images beyond one call's limit go in further calls with the same text. */
 const judgedPiece = Effect.fn("judgedPiece")(function* judgedPiece({
 	kind,
 	input,

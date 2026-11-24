@@ -17,8 +17,6 @@
 	"src/router/features/route/session.ts": 3,
 	"src/router/features/route/stopped.ts": 2,
 	"src/router/features/route/walked.ts": 8,
-	"src/router/features/verdicts/engine.ts": 3,
-	"src/router/features/verdicts/scripted-judge.ts": 1,
 	"tools/claude/configured.ts": 9,
 	"tools/claude/doctor.test.ts": 5,
 	"tools/claude/exemption.test.ts": 3,

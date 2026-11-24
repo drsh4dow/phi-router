@@ -44,14 +44,6 @@ const answered = <Value>(answer: Answer<Value>): Effect.Effect<Value, JudgeFaile
 	return Effect.succeed(answer);
 };
 
-/**
- * The question's own choice for a scripted kind, so the answer carries the question's choice type. A kind the question
- * does not list fails as `judge-error`, as an adapter's would.
- *
- * @param {ChoiceQuestion} question The kind question the engine asked.
- * @param {string} kind The scripted answer.
- * @returns {Effect.Effect} The answer as the question's choice.
- */
 const choiceOf = <Choice extends string>(
 	question: ChoiceQuestion<Choice>,
 	kind: string,
