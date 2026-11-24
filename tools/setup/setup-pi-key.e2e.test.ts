@@ -72,7 +72,7 @@ const assertTaken = Effect.fnUntraced(function* assertTaken(of: World, run: Type
 const takenOnYes = Effect.gen(function* takenOnYes() {
 	const of = yield* world;
 
-	yield* piHolds(of, piApiKey(keys.anthropic));
+	yield* piHolds(of, piApiKey(`!printf %s ${keys.anthropic}`));
 
 	const run = yield* setUp(of, "claude", [answered("y"), enter]);
 
@@ -183,7 +183,11 @@ const shellKeyUnoffered = Effect.gen(function* shellKeyUnoffered() {
 }).pipe(Effect.scoped);
 
 it.layer(layer)("setup offers the Anthropic API key pi holds", (test) => {
-	test.effect("setup claude takes pi's key on y, checks it and saves it in the key file", () => takenOnYes, patient);
+	test.effect(
+		"setup claude takes on y the key a `!` command in pi's auth.json prints, checks it and saves it in the key file",
+		() => takenOnYes,
+		patient,
+	);
 	test.effect("setup pi asks for a paste on n", () => pastedOnNo, patient);
 	test.effect("setup pi asks for a paste on Enter", () => pastedOnEnter, patient);
 	test.effect("a key Anthropic refuses goes to the paste question with the refusal", () => refusedThenPasted, patient);
