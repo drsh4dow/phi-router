@@ -91,42 +91,33 @@ const heldCarryingFirst = Effect.gen(function* heldCarryingFirst() {
 });
 
 const carryingFirst = Effect.gen(function* carryingFirst() {
-	const sealed = yield* walkedOver({
-		leasedInRepo: false,
-		scripts: { baas: [answering, answering], lacks: lacksFirst },
-		turn: phi,
-	});
-
 	const auto = yield* walkedOver({
 		leasedInRepo: false,
 		model: "phi/auto",
+		pinnedByLine: true,
 		scripts: { baas: [answering, answering], lacks: [[fakes.targetModel], []] },
 		turn: phi,
 	});
 
 	const lacksAnother = yield* walkedOver({
 		leasedInRepo: false,
+		pinnedByLine: true,
 		scripts: { baas: [answering, answering], lacks: [[sentModels.claudeSonnet], []] },
 		turn: phi,
 	});
 
 	assert.deepStrictEqual<unknown>(
-		{ auto, lacksAnother, sealed },
+		{ auto, lacksAnother },
 		{
 			auto: {
 				last: { account: "baa-2", model: fakes.targetModel, substitute: false },
-				lines: [["baa-2", "sealed", fakes.targetModel, false, "sealed new content"]],
+				lines: [["baa-2", "sealed", fakes.targetModel, false, "pinned"]],
 				models: [[], [], [fakes.targetModel]],
 			},
 			lacksAnother: {
 				last: { account: "baa", model: sentModels.claudeHaiku, substitute: false },
-				lines: [["baa", "sealed", sentModels.claudeHaiku, false, "sealed new content"]],
+				lines: [["baa", "sealed", sentModels.claudeHaiku, false, "pinned"]],
 				models: [[], [sentModels.claudeHaiku], []],
-			},
-			sealed: {
-				last: { account: "baa-2", model: sentModels.claudeHaiku, substitute: false },
-				lines: [["baa-2", "sealed", sentModels.claudeHaiku, false, "sealed new content"]],
-				models: atCarrier,
 			},
 		},
 	);
@@ -135,12 +126,14 @@ const carryingFirst = Effect.gen(function* carryingFirst() {
 const lackingLast = Effect.gen(function* lackingLast() {
 	const listedFirst = yield* walkedOver({
 		leasedInRepo: false,
+		pinnedByLine: true,
 		scripts: { baas: [answering, failing], lacks: lacksFirst },
 		turn: phi,
 	});
 
 	const listedLast = yield* walkedOver({
 		leasedInRepo: false,
+		pinnedByLine: true,
 		scripts: { baas: [failing, answering], lacks: [[], [sentModels.claudeHaiku]] },
 		turn: phi,
 	});
@@ -177,7 +170,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 	"the sealed walk",
 	(test) => {
 		test.effect(
-			"tries the BAA accounts that carry the target model first in the file's order, for a canary and a phi/auto request, keeps an account that lacks only other models in its place, and status names the model with no substitute",
+			"tries the BAA accounts that carry the target model first in the file's order, for a pinned phi/auto request, keeps an account that lacks only other models in its place, and status names the model with no substitute",
 			() => carryingFirst,
 		);
 		test.effect(
@@ -185,7 +178,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 			() => heldCarryingFirst,
 		);
 		test.effect(
-			"reaches a BAA account that lacks the model only once the carrying ones fail, wherever the file lists it and from a failed open account, runs the substitute there, and status says so",
+			"reaches a BAA account that lacks the model only once the carrying ones fail, wherever the file lists it for a pinned request and from a failed open account, runs the substitute there, and status says so",
 			() => lackingLast,
 		);
 	},

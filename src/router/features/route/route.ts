@@ -1,5 +1,5 @@
 import { Array, Effect, Option, Schema, Stream, Struct, pipe } from "effect";
-import type { Arrived, Choice } from "./send.ts";
+import type { Arrived } from "./send.ts";
 import type { Decoded, HarnessWire, Serving } from "./harness.ts";
 import { Findings, Fixtures, Verdicts, standingOf } from "#router/features/verdicts/index.ts";
 import type { Incoming, Outgoing, Path } from "#router/client/router-port/index.ts";
@@ -34,7 +34,7 @@ const judgedOn = Effect.fnUntraced(function* judgedOn(
 	session: string,
 	{ lookup, messages }: { readonly lookup: Lookup; readonly messages: Decoded["messages"] },
 ) {
-	const { found, laneAt, usage } = yield* Effect.provideService(
+	const { found, usage } = yield* Effect.provideService(
 		serving.choose({ lookup, messages }),
 		Fixtures,
 		serving.fixtures,
@@ -50,9 +50,8 @@ const judgedOn = Effect.fnUntraced(function* judgedOn(
 	);
 
 	const failures = Array.countBy(found, ([, verdict]) => isJudgeFailure(verdict));
-	const choice: Choice = { kind: "judged", laneAt };
 
-	return { choice, judged: { cost: usage.cost, failures } };
+	return { cost: usage.cost, failures };
 });
 
 const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: string, incoming: Incoming) {
@@ -61,17 +60,15 @@ const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: s
 	const pinned = yield* serving.pinnedBy({ asked: request, session });
 
 	if (Option.isSome(pinned)) {
-		const choice: Choice = { by: pinned.value, kind: "pinned" };
-
-		return { choice, incoming, judged: unjudged, request, serving, session } satisfies Arrived;
+		return { incoming, judged: unjudged, pinned, request, serving, session } satisfies Arrived;
 	}
 
-	const { choice, judged } = yield* judgedOn(serving, session, {
+	const judged = yield* judgedOn(serving, session, {
 		lookup: arrival.standing,
 		messages: request.messages,
 	});
 
-	return { choice, incoming, judged, request, serving, session } satisfies Arrived;
+	return { incoming, judged, pinned, request, serving, session } satisfies Arrived;
 });
 
 const accountFailures = (wire: HarnessWire) =>

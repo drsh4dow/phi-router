@@ -129,11 +129,6 @@ const contextReader = (window: number): ContextReader => {
 	return { contextOf, remember, seamOf };
 };
 
-interface PieceAt {
-	readonly piece: Piece<typeof ContentKey.Type>;
-	readonly own: boolean;
-}
-
 const piecesOf = Effect.fnUntraced(function* piecesOf({
 	messages,
 	window = policyWindow,
@@ -142,27 +137,21 @@ const piecesOf = Effect.fnUntraced(function* piecesOf({
 	readonly messages: readonly Message[];
 	readonly window?: number;
 	readonly sealed?: (key: typeof ContentKey.Type) => boolean;
-}): Effect.fn.Return<readonly PieceAt[], never, Digest.Digest> {
-	const lastReply = pipe(
-		messages,
-		Array.findLastIndex(({ role }) => role === "assistant"),
-	);
-
+}): Effect.fn.Return<readonly Piece<typeof ContentKey.Type>[], never, Digest.Digest> {
 	const reader = contextReader(window);
-	const pieces: PieceAt[] = [];
+	const pieces: Piece<typeof ContentKey.Type>[] = [];
 
-	for (const [index, message] of messages.entries()) {
+	for (const message of messages) {
 		const at = {
 			context: reader.contextOf(message),
 			kind: kindOf(message),
-			own: Option.match(lastReply, { onNone: () => true, onSome: (from) => index >= from }),
 			seam: reader.seamOf(message),
 		};
 
 		const units = yield* unitsOf(message);
 
 		for (const { key, texts, images } of units) {
-			pieces.push({ own: at.own, piece: { context: at.context, images, key, kind: at.kind, seam: at.seam, texts } });
+			pieces.push({ context: at.context, images, key, kind: at.kind, seam: at.seam, texts });
 		}
 
 		reader.remember({

@@ -4,6 +4,7 @@ import { bodyOf, postedIn, routed } from "./mocked-router.ts";
 import { Callers } from "#router/client/router-port/index.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
+import { bodyFor } from "./target-models.ts";
 
 const canary = "PATIENT-CANARY-7Q4K";
 
@@ -75,7 +76,11 @@ const codexRefused = Effect.gen(function* codexRefused() {
 
 const thisUserServed = Effect.gen(function* thisUserServed() {
 	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary });
-	const body = yield* bodyOf([{ role: "user", text: `Member ${canary} called.` }]);
+
+	const body = yield* bodyFor({ harness: "claude", model: "phi/auto", pinnedByLine: true }, [
+		{ role: "user", text: `Member ${canary} called.` },
+	]);
+
 	const answer = yield* post({ body, session: "other-3" });
 
 	yield* answer.text;
@@ -117,7 +122,7 @@ it.layer(NodeServices.layer)("a caller of another user", (test) => {
 	);
 	test.effect("gets 403 on the Codex paths, and no mock or judge receives anything", () => codexRefused);
 	test.effect(
-		"is told apart from this user, whose same request the real caller check lets through to the BAA mock",
+		"is told apart from this user, whose pinned request the real caller check lets through to the BAA mock",
 		() => thisUserServed,
 	);
 	test.effect(

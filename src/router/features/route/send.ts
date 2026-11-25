@@ -1,4 +1,4 @@
-import { Array, Effect, Exit, Ref, Stream, Struct, flow } from "effect";
+import { Array, Effect, Exit, Option, Ref, Stream, Struct, flow } from "effect";
 import type { Decoded, Serving } from "./harness.ts";
 import type { Lane, PinnedBy } from "#router/features/lanes/index.ts";
 import type { Digest } from "effect/crypto";
@@ -13,16 +13,12 @@ import { sealedOnly } from "#router/features/accounts/index.ts";
 
 const auto = "phi/auto";
 
-type Choice =
-	| { readonly kind: "pinned"; readonly by: PinnedBy }
-	| { readonly kind: "judged"; readonly laneAt: (now: Lookup) => Lane };
-
 interface Arrived {
 	readonly serving: Serving;
 	readonly session: string;
 	readonly incoming: Incoming;
 	readonly request: Decoded;
-	readonly choice: Choice;
+	readonly pinned: Option.Option<PinnedBy>;
 	readonly judged: { readonly cost: number; readonly failures: number };
 }
 
@@ -38,16 +34,16 @@ interface Sending extends SendModel {
 }
 
 const sendingOf = Effect.fnUntraced(function* sendingOf({
-	choice,
 	harness,
 	lookup,
 	models,
 	openLeft,
+	pinned,
 	request,
 }: {
 	readonly request: Decoded;
 	readonly harness: Harness;
-	readonly choice: Choice;
+	readonly pinned: Option.Option<PinnedBy>;
 	readonly models: Readonly<Record<Lane, SendModel>>;
 	readonly lookup: Lookup;
 	readonly openLeft: boolean;
@@ -55,30 +51,22 @@ const sendingOf = Effect.fnUntraced(function* sendingOf({
 	const sealed = (reason: Reason): Effect.Effect<Sending> =>
 		Effect.map(
 			Effect.orDie(
-				request.encode({ lane: "sealed", pinned: choice.kind === "pinned", upstreamModel: models.sealed.model }),
+				request.encode({ lane: "sealed", pinned: Option.isSome(pinned), upstreamModel: models.sealed.model }),
 			),
 			(body) => Struct.assign(models.sealed, { body, lane: "sealed" as const, reason }),
 		);
 
-	if (choice.kind === "pinned") {
-		return yield* sealed(choice.by);
+	if (Option.isSome(pinned)) {
+		return yield* sealed(pinned.value);
 	}
 
-	if (choice.laneAt(lookup) === "sealed") {
-		return yield* sealed("sealed new content");
-	}
-
-	const clean = (body: string): Effect.Effect<Sending> => {
-		if (!openLeft) {
-			return sealed("overflow");
-		}
-
-		return Effect.succeed(Struct.assign(models.clean, { body, lane: "clean" as const, reason: "clean" as const }));
-	};
+	const clean: Omit<Sending, "body"> = openLeft
+		? Struct.assign(models.clean, { lane: "clean" as const, reason: "clean" as const })
+		: Struct.assign(models.sealed, { lane: "sealed" as const, reason: "overflow" as const });
 
 	return yield* guard({ harness, lookup, messages: request.messages }).pipe(
-		Effect.flatMap((messages) => request.encode({ lane: "clean", messages, upstreamModel: models.clean.model })),
-		Effect.flatMap(clean),
+		Effect.flatMap((messages) => request.encode({ lane: "clean", messages, upstreamModel: clean.model })),
+		Effect.map((body) => Struct.assign(clean, { body })),
 		Effect.catchTags({
 			CleanLaneRefused: () => sealed("router failure"),
 			ToolsNotCleared: () => sealed("router failure"),
@@ -119,15 +107,15 @@ const modelsAt = (at: { readonly arrival: Arrived; readonly walk: Walk }): Reado
 };
 
 const chosen = Effect.fnUntraced(function* chosen(arrival: Arrived, walk: Walk) {
-	const { choice, request, serving, session } = arrival;
+	const { pinned, request, serving, session } = arrival;
 	const known = yield* serving.store.read(session, serving.policy);
 
 	const send = yield* sendingOf({
-		choice,
 		harness: serving.wire.harness,
 		lookup: known.standing,
 		models: modelsAt({ arrival, walk }),
 		openLeft: Array.isReadonlyArrayNonEmpty(walk.open),
+		pinned,
 		request,
 	});
 
@@ -170,4 +158,4 @@ const keepingReplyKeys = Effect.fnUntraced(function* keepingReplyKeys({
 
 export { auto, chosen, keepingReplyKeys, modelsAt, targetOf };
 
-export type { Aim, Arrived, Choice };
+export type { Aim, Arrived };

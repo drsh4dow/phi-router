@@ -20,17 +20,17 @@ const AnthropicError = Schema.fromJsonString(
 );
 
 const turns = {
+	answered: { role: "assistant", text: "ok" },
 	clean: { role: "user", text: "List the build steps." },
 	cleared: { role: "assistant", text: "ok" },
 	followUp: { role: "user", text: "Go on." },
 	phi: { role: "user", text: `Member ${canary} called.` },
-	sealedReply: { role: "assistant", text: "ok" },
 } as const satisfies Record<string, Turn>;
 
 const conversation: readonly (readonly Turn[])[] = [
 	[turns.clean],
 	[turns.clean, turns.cleared, turns.phi],
-	[turns.clean, turns.cleared, turns.phi, turns.sealedReply, turns.followUp],
+	[turns.clean, turns.cleared, turns.phi, turns.answered, turns.followUp],
 ];
 
 const Block = Schema.Struct({ text: Schema.String });
@@ -92,7 +92,7 @@ const piConversation = Effect.gen(function* piConversation() {
 
 	const opened = yield* mocks.open.received;
 	const open = yield* Effect.forEach(opened, viewOf, { concurrency: 1 });
-	const baa = yield* mocks.baa.received;
+	const sealed = yield* mocks.baa.received;
 	const found = yield* breaches;
 
 	assert.deepStrictEqual(statuses, [status.ok, status.ok, status.ok]);
@@ -101,7 +101,8 @@ const piConversation = Effect.gen(function* piConversation() {
 		Array.map(
 			[
 				[turns.clean.text],
-				[turns.clean.text, turns.cleared.text, stubsFor.pi, turns.sealedReply.text, turns.followUp.text],
+				[turns.clean.text, turns.cleared.text, stubsFor.pi],
+				[turns.clean.text, turns.cleared.text, stubsFor.pi, turns.answered.text, turns.followUp.text],
 			],
 			(texts) => ({
 				bridge: Option.some({ text: bridgesFor.pi }),
@@ -110,13 +111,7 @@ const piConversation = Effect.gen(function* piConversation() {
 			}),
 		),
 	);
-	assert.deepStrictEqual(
-		pipe(
-			baa,
-			Array.map((sent) => Str.includes(canary)(sent.body)),
-		),
-		[true],
-	);
+	assert.deepStrictEqual(sealed, []);
 	assert.deepStrictEqual(found, []);
 });
 
@@ -134,7 +129,7 @@ const unmarked = Effect.gen(function* unmarked() {
 
 it.layer(NodeServices.layer)("pi through the router", (test) => {
 	test.effect(
-		"a clean turn goes open with pi's bridge, the canary only to the BAA account, and the follow-up carries pi's stub",
+		"a clean turn goes open with pi's bridge, and a canary and its follow-up go open with pi's stub in its place",
 		() => piConversation,
 	);
 

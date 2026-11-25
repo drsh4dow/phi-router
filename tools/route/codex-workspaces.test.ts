@@ -3,9 +3,8 @@ import { assert, it } from "@effect/vitest";
 import { codexBodyOf, userMessage } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
+import { pinnedModel } from "#router/features/lanes/index.ts";
 import { routed } from "./mocked-router.ts";
-
-const canary = "PATIENT-CANARY-6J3W";
 
 const folder = "/home/someone/work/billing";
 
@@ -18,6 +17,8 @@ const turnMetadataInGit = `{"session_id":"${id}","workspaces":{"${folder}":{"ass
 const turnMetadataOutsideGit = `{"session_id":"${id}","sandbox_mode":"read-only"}`;
 
 const codexBodyOpening = '{"model":"phi/auto"';
+
+const pinnedOpening = `{"model":"${pinnedModel}"`;
 
 const ClientMetadata = Schema.fromJsonString(Schema.Struct({ "x-codex-turn-metadata": Schema.String }));
 
@@ -46,14 +47,15 @@ const carried = (
 	);
 
 const workspaces = Effect.gen(function* workspaces() {
-	const { mocks, post } = yield* routed({ harness: "codex", holdsPhi: Str.includes(canary) });
+	const { mocks, post } = yield* routed({ harness: "codex", holdsPhi: () => false });
 	const clean = yield* bodyInGit("List the build steps.");
-	const sealed = yield* bodyInGit(`Member ${canary} called.`);
+	const asked = yield* bodyInGit("Run the tests.");
+	const pinned = Str.replace(codexBodyOpening, pinnedOpening)(asked);
 
 	yield* Effect.forEach(
 		[
 			{ body: clean, session: "workspaces-1" },
-			{ body: sealed, session: "workspaces-2" },
+			{ body: pinned, session: "workspaces-2" },
 		],
 		(request) => Effect.flatMap(post(request), (response) => response.text),
 		{ concurrency: 1 },
@@ -70,7 +72,7 @@ const workspaces = Effect.gen(function* workspaces() {
 			open: opened,
 			sealedBytes: pipe(
 				baa,
-				Array.map((sent) => Str.includes(Str.slice(codexBodyOpening.length)(sealed))(sent.body)),
+				Array.map((sent) => Str.includes(Str.slice(pinnedOpening.length)(pinned))(sent.body)),
 			),
 		},
 		{
@@ -83,7 +85,7 @@ const workspaces = Effect.gen(function* workspaces() {
 
 it.layer(NodeServices.layer)("a Codex request from a git folder", (test) => {
 	test.effect(
-		"goes open with its workspaces dropped from the turn metadata, and sealed with them as sent",
+		"goes open with its workspaces dropped from the turn metadata, and pinned to the BAA account with them as sent",
 		() => workspaces,
 	);
 });

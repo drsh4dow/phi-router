@@ -4,6 +4,7 @@ import { assert, it } from "@effect/vitest";
 import { codexBodyOf, fakes, headersNamed, jsonText, replyMessage, replying, userMessage } from "./harnesses.ts";
 import { laneLines, postedIn, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
+import { pinnedByModel } from "./target-models.ts";
 import { responseEvents } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-8R2M";
@@ -13,6 +14,8 @@ const holdsCanary = Str.includes(canary);
 const ok = 200;
 
 const once = 1;
+
+const none = 0;
 
 const phiText = `Member ${canary} called.`;
 
@@ -63,33 +66,24 @@ const expectedLanes = {
 	breaches: [],
 	lines: [
 		["open", "clean", "clean"],
-		["baa", "sealed", "sealed new content"],
+		["open", "clean", "clean"],
 		["open", "clean", "clean"],
 	],
 	opened: [
 		Struct.assign(sentAs, { canary: false, headers: open, input: [items.clean] }),
+		Struct.assign(sentAs, { canary: false, headers: open, input: [items.clean, items.ok, stubbed] }),
 		Struct.assign(sentAs, {
 			canary: false,
 			headers: open,
 			input: [items.clean, items.ok, stubbed, items.noted, items.followUp],
 		}),
 	],
-	sealed: [
-		Struct.assign(sentAs, {
-			canary: true,
-			headers: { authorization: `Bearer ${fakes.baaKey}` },
-			input: [items.clean, items.ok, items.phi],
-		}),
-	],
+	sealed: [],
 	statuses: [ok, ok, ok],
 };
 
 const lanes = Effect.gen(function* lanes() {
-	const { breaches, mocks, post, state } = yield* routed({
-		baa: () => replying([items.noted]),
-		harness: "codex",
-		holdsPhi: holdsCanary,
-	});
+	const { breaches, mocks, post, state } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
 
 	const statuses = yield* Effect.forEach(conversation, (input) => postedIn(post, "codex-1", input), {
 		concurrency: 1,
@@ -119,11 +113,7 @@ const call = {
 const output = { call_id: "call_notes", output: phiText, type: "function_call_output" } as const;
 
 const toolResult = Effect.gen(function* toolResult() {
-	const { mocks, post } = yield* routed({
-		baa: () => replying([items.noted]),
-		harness: "codex",
-		holdsPhi: holdsCanary,
-	});
+	const { mocks, post } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
 
 	const asked = [userMessage("Read the notes."), call, output];
 
@@ -146,8 +136,11 @@ const toolResult = Effect.gen(function* toolResult() {
 	assert.deepStrictEqual<unknown>(
 		{ inputs, sealed: sealed.length, statuses },
 		{
-			inputs: [[userMessage("Read the notes."), call, stubbedOutput, items.noted, items.followUp]],
-			sealed: once,
+			inputs: [
+				[userMessage("Read the notes."), call, stubbedOutput],
+				[userMessage("Read the notes."), call, stubbedOutput, items.noted, items.followUp],
+			],
+			sealed: none,
 			statuses: [ok, ok],
 		},
 	);
@@ -192,7 +185,10 @@ const baaReasoning = Effect.gen(function* baaReasoning() {
 		holdsPhi: holdsCanary,
 	});
 
-	yield* postedIn(post, "codex-4", [items.phi]);
+	const pinned = yield* codexBodyOf([items.phi]);
+	const answered = yield* post({ body: pinnedByModel(pinned), session: "codex-4" });
+
+	yield* answered.text;
 	yield* postedIn(post, "codex-4", [items.phi, reasoning, items.noted, items.followUp]);
 
 	const opened = yield* mocks.open.received;
@@ -233,14 +229,11 @@ const namedModel = Effect.gen(function* namedModel() {
 
 it.layer(NodeServices.layer)("Codex over HTTP", (test) => {
 	test.effect(
-		"clean goes open with the bridge, a canary goes to the BAA account, and the follow-up carries the stub",
+		"clean goes open with the bridge, and a canary and its follow-up go open with the stub in its place",
 		() => lanes,
 	);
-	test.effect(
-		"a canary in a tool result goes sealed, and the open account then gets the stub with its call",
-		() => toolResult,
-	);
+	test.effect("a canary in a tool result reaches the open account as the stub with its call", () => toolResult);
 	test.effect("reasoning goes back open only in the session whose open reply completed with it", () => replyKeys);
-	test.effect("reasoning a BAA reply wrote never reaches the open account", () => baaReasoning);
+	test.effect("reasoning a BAA reply to a pinned request wrote never reaches the open account", () => baaReasoning);
 	test.effect("a model other than phi/auto is judged and kept", () => namedModel);
 });

@@ -6,6 +6,7 @@ import { NodeServices } from "@effect/platform-node";
 import type { Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { harnesses } from "./harnesses.ts";
+import { pinnedByModel } from "./target-models.ts";
 import { routed } from "./mocked-router.ts";
 
 const status = { ok: 200, unauthorized: 401 } as const;
@@ -94,11 +95,11 @@ const inHome = Effect.fnUntraced(function* inHome(spelled: Spelled) {
 	const { mocks, post } = yield* routed({
 		baa: refusesFirst(),
 		baaFolder: account,
-		holdsPhi: () => true,
+		holdsPhi: () => false,
 		routerEnv: { HOME: home, PATH: `${login.bin}:/usr/bin:/bin` },
 	});
 
-	const response = yield* post({ body: claudeBody, session: "login-home" });
+	const response = yield* post({ body: pinnedByModel(claudeBody), session: "login-home" });
 
 	yield* response.text;
 

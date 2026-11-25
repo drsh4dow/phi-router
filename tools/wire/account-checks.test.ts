@@ -30,7 +30,7 @@ const sealedLine: LaneLogLine = {
 	judgeFailures: 0,
 	lane: "sealed",
 	model: "claude-haiku-5-5",
-	reason: "sealed new content",
+	reason: "overflow",
 	session: "29292929-2929-4929-8929-292929292929",
 	substitute: false,
 	time: "2026-01-01T00:00:01.000Z",
@@ -40,7 +40,7 @@ const pinnedLine: LaneLogLine = Struct.assign(sealedLine, { reason: "pinned" as 
 
 const failedTurn: Turn = Struct.assign(turn, { exitCode: failedExit });
 
-const session: Ran = { lines: [cleanLine, sealedLine], stateFileTexts: ["{}"], turns: [turn, turn] };
+const session: Ran = { lines: [cleanLine, cleanLine], stateFileTexts: ["{}"], turns: [turn, turn] };
 
 const holds = (ran: Ran): boolean => Array.every(checksOf(ran), ({ ok }) => ok);
 
@@ -50,9 +50,9 @@ const checked = Effect.sync(() => {
 			[
 				session,
 				Struct.assign(session, { turns: [turn, failedTurn] }),
-				Struct.assign(session, { lines: [cleanLine, sealedLine, sealedLine] }),
-				Struct.assign(session, { lines: [sealedLine, sealedLine] }),
-				Struct.assign(session, { lines: [cleanLine, cleanLine] }),
+				Struct.assign(session, { lines: [cleanLine, cleanLine, cleanLine] }),
+				Struct.assign(session, { lines: [sealedLine, cleanLine] }),
+				Struct.assign(session, { lines: [cleanLine, sealedLine] }),
 				Struct.assign(session, { lines: [cleanLine, pinnedLine] }),
 				Struct.assign(session, { stateFileTexts: ["{}", `{"note":"SSN ${voidedSsn}"}`] }),
 			],
@@ -88,12 +88,17 @@ const printed = Effect.sync(() => {
 	];
 
 	assert.strictEqual(
-		reportOf({ baa: "$0.1000", checks, harness: "claude", ran: session }),
+		reportOf({
+			baa: "$0.1000",
+			checks,
+			harness: "claude",
+			ran: Struct.assign(session, { lines: [cleanLine, sealedLine] }),
+		}),
 		Array.join(
 			[
 				"accounts claude: 2 lane log lines",
 				"request 1: clean lane, account claude-setup-token, model claude-haiku-5-5, reason clean",
-				"request 2: sealed lane, account anthropic-baa, model claude-haiku-5-5, reason sealed new content",
+				"request 2: sealed lane, account anthropic-baa, model claude-haiku-5-5, reason overflow",
 				"pass every turn exits 0",
 				"FAIL the lane log holds two lines",
 				"cost: judge $0.0003, BAA tokens $0.1000",
@@ -105,7 +110,7 @@ const printed = Effect.sync(() => {
 
 describe("an accounts run's session", () => {
 	it.effect(
-		"fails when a turn exits non-zero, the lane log holds other than two lines, the clean prompt ran on a BAA account, the canary prompt ran other than sealed for its new content, or a state file holds the canary",
+		"fails when a turn exits non-zero, the lane log holds other than two lines, or either prompt ran on a BAA account, or a state file holds the canary",
 		() => checked,
 	);
 	it.effect(

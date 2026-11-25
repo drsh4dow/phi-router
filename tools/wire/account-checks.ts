@@ -33,11 +33,8 @@ const checksOf = (ran: Ran): readonly Check[] => [
 		ok: Option.exists(Array.get(ran.lines, cleanAt), ({ lane }) => lane === "clean"),
 	},
 	{
-		name: "the canary prompt ran on a BAA account for its sealed new content",
-		ok: Option.exists(
-			Array.get(ran.lines, canaryAt),
-			({ lane, reason }) => lane === "sealed" && reason === "sealed new content",
-		),
+		name: "the canary prompt stayed on an open account",
+		ok: Option.exists(Array.get(ran.lines, canaryAt), ({ lane, reason }) => lane === "clean" && reason === "clean"),
 	},
 	{
 		name: "no file under the state folder holds the canary",

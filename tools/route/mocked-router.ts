@@ -254,3 +254,5 @@ export { laneLines } from "./lane-lines.ts";
 export type { Post, Turn };
 
 export type { LaneLogLine } from "./lane-lines.ts";
+
+export type { Said, Sent as Received } from "#router/client/mock-upstreams/index.ts";

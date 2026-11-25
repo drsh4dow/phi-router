@@ -55,10 +55,10 @@ const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessNa
 	});
 
 	const statuses = [
-		yield* posted(post, { harness, model: carried, session: "carried-1" }, [phi]),
-		yield* posted(post, { harness, model: lacked, session: "lacked-1" }, [phi]),
+		yield* posted(post, { harness, model: carried, pinnedByLine: true, session: "carried-1" }, [phi]),
+		yield* posted(post, { harness, model: lacked, pinnedByLine: true, session: "lacked-1" }, [phi]),
 		yield* posted(post, { harness, model: lacked, session: "lacked-1" }, [phi, answered, clean]),
-		yield* posted(post, { harness, model: autoOf[harness], session: "auto-1" }, [phi]),
+		yield* posted(post, { harness, model: autoOf[harness], pinnedByLine: true, session: "auto-1" }, [phi]),
 	];
 
 	const sealed = yield* mocks.baa.received.pipe(Effect.flatMap(modelsIn));
@@ -79,10 +79,10 @@ const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessNa
 		},
 		{
 			lines: [
-				["baa", "sealed", carried, false, "sealed new content"],
-				["baa", "sealed", substitute, true, "sealed new content"],
+				["baa", "sealed", carried, false, "pinned"],
+				["baa", "sealed", substitute, true, "pinned"],
 				["open", "clean", lacked, false, "clean"],
-				["baa", "sealed", substitute, true, "sealed new content"],
+				["baa", "sealed", substitute, true, "pinned"],
 			],
 			opened: [lacked],
 			openedCanary: false,
@@ -95,14 +95,16 @@ const sealedModels = Effect.fnUntraced(function* sealedModels(harness: HarnessNa
 const targetAsSubstitute = Effect.gen(function* targetAsSubstitute() {
 	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary, lacks: [[sentModels.claudeHaiku]] });
 
-	yield* posted(post, { harness: "claude", model: sentModels.claudeHaiku, session: "default-1" }, [phi]);
+	yield* posted(post, { harness: "claude", model: sentModels.claudeHaiku, pinnedByLine: true, session: "default-1" }, [
+		phi,
+	]);
 
 	const sealed = yield* mocks.baa.received.pipe(Effect.flatMap(modelsIn));
 	const lines = yield* linesIn(state);
 
 	assert.deepStrictEqual<unknown>(
 		{ lines, sealed },
-		{ lines: [["baa", "sealed", fakes.targetModel, true, "sealed new content"]], sealed: [fakes.targetModel] },
+		{ lines: [["baa", "sealed", fakes.targetModel, true, "pinned"]], sealed: [fakes.targetModel] },
 	);
 });
 
@@ -196,11 +198,11 @@ const unsent = Effect.gen(function* unsent() {
 
 it.layer(NodeServices.layer)("the substitute", (test) => {
 	test.effect.each(harnessNames)(
-		"%s: a canary request keeps a model the BAA account carries and gets the substitute, which its line names, for one it lacks and for phi/auto when the account lacks the target model, and the next clean request of its session runs the model it named on the open account",
+		"%s: a request the pinned line pins keeps a model the BAA account carries and gets the substitute, which its line names, for one it lacks and for phi/auto when the account lacks the target model, and the next clean request of its session runs the model it named on the open account",
 		sealedModels,
 	);
 	test.effect(
-		"is the target model when a BAA account lacks the model and no sealedModel is set",
+		"is the target model when a BAA account lacks the model of a pinned request and no sealedModel is set",
 		() => targetAsSubstitute,
 	);
 	test.effect(

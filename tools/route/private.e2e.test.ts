@@ -15,7 +15,7 @@ const session = "s1";
 
 const sessionInBase64Url = "czE";
 
-const writtenOnLeaseAndSealedRequest = [
+const writtenOnLeaseAndCanaryRequest = [
 	"/phi-router",
 	"/phi-router/leases.json",
 	"/phi-router/lanes.jsonl",
@@ -24,7 +24,7 @@ const writtenOnLeaseAndSealedRequest = [
 
 const routerUnderNoUmask = ["/bin/sh", "-c", 'umask 000 && exec bun src/router/main.ts "$@"', "sh"] as const;
 
-const sealedThrough = Effect.fnUntraced(function* sealedThrough(url: string) {
+const canaryThrough = Effect.fnUntraced(function* canaryThrough(url: string) {
 	const client = yield* HttpClient.HttpClient;
 	const body = yield* bodyOf([{ role: "user", text: `Member ${canary} called.` }]);
 	const answer = yield* client.execute(HttpClientRequest.prependUrl(url)(claudeRequest({ body, session })));
@@ -36,13 +36,13 @@ const leftPrivate = Effect.gen(function* leftPrivate() {
 	const { env, mocks, roots } = yield* mocked({ holdsPhi: Str.includes(canary) });
 	const router = yield* routerProcess(routerUnderNoUmask, env);
 
-	yield* sealedThrough(router.url);
+	yield* canaryThrough(router.url);
 
-	const sealed = yield* mocks.baa.received;
+	const opened = yield* mocks.open.received;
 	const { notPrivate, shown } = yield* privacyUnder(roots);
 
 	const seen = pipe(
-		writtenOnLeaseAndSealedRequest,
+		writtenOnLeaseAndCanaryRequest,
 		Array.filter((tail) =>
 			pipe(
 				shown,
@@ -52,8 +52,8 @@ const leftPrivate = Effect.gen(function* leftPrivate() {
 	);
 
 	assert.deepStrictEqual(
-		{ notPrivate, sealed: sealed.length, seen },
-		{ notPrivate: [], sealed: 1, seen: writtenOnLeaseAndSealedRequest },
+		{ notPrivate, opened: opened.length, seen },
+		{ notPrivate: [], opened: 1, seen: writtenOnLeaseAndCanaryRequest },
 	);
 });
 
@@ -90,7 +90,7 @@ const appendedFirst = Effect.gen(function* appendedFirst() {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the router's files", (test) => {
 	test.effect(
-		"after a lease and one sealed request of the router run under Bun with no umask, are 0700 for each folder and 0600 for each file under the XDG state and config folders",
+		"after a lease and one canary request of the router run under Bun with no umask, are 0700 for each folder and 0600 for each file under the XDG state and config folders",
 		() => leftPrivate,
 		patient,
 	);

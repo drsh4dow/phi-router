@@ -1,14 +1,11 @@
-import { Effect, Schema, String as Str } from "effect";
+import { Effect, Schema } from "effect";
 import { assert, it } from "@effect/vitest";
-import { bodyOf, routed } from "./mocked-router.ts";
-import { codexBodyOf, harnesses, userMessage } from "./harnesses.ts";
+import { bodyFor, clean, pinnedModelOf } from "./target-models.ts";
 import type { AccountScript } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
+import { harnesses } from "./harnesses.ts";
+import { routed } from "./mocked-router.ts";
 import { stopped } from "./stopped.ts";
-
-const canary = "PATIENT-CANARY-7Q4K";
-
-const prompt = `Member ${canary} called.`;
 
 const status = { unauthorized: 401, unreadable: 400 } as const;
 
@@ -20,22 +17,14 @@ const ErrorMessage = Schema.fromJsonString(Schema.Struct({ error: Schema.Struct(
 
 type Harness = "claude" | "codex" | "pi";
 
-const canaryBody = (harness: Harness): Effect.Effect<string> => {
-	if (harness === "codex") {
-		return codexBodyOf([userMessage(prompt)]);
-	}
-
-	return bodyOf([{ role: "user", text: prompt }]);
-};
-
 const keyRefused = Effect.fnUntraced(function* keyRefused(harness: Harness) {
 	const { mocks, post } = yield* routed({
 		baas: [refusesKey, harnesses[harness].answersOk.baa],
 		harness,
-		holdsPhi: Str.includes(canary),
+		holdsPhi: () => false,
 	});
 
-	const body = yield* canaryBody(harness);
+	const body = yield* bodyFor({ harness, model: pinnedModelOf[harness] }, [clean]);
 	const response = yield* post({ body, session: "key-refused" });
 	const { error } = yield* response.text.pipe(Effect.flatMap(Schema.decodeEffect(ErrorMessage)));
 	const [open = [], baa = [], nextBaa = []] = yield* mocks.accounts;
@@ -49,7 +38,7 @@ const keyRefused = Effect.fnUntraced(function* keyRefused(harness: Harness) {
 
 it.layer(NodeServices.layer)("a BAA account that refuses its key", (test) => {
 	test.effect.each(["claude", "codex", "pi"] as const)(
-		"for %s, a BAA account's 401 stops the message with the line that names its setup command",
+		"for %s, a BAA account's 401 to a pinned request stops the message with the line that names its setup command",
 		keyRefused,
 	);
 });

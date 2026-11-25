@@ -3,8 +3,8 @@ import type { Json, Scripts } from "./harnesses.ts";
 import type { Post, Turn } from "./mocked-router.ts";
 import { bodyOf, laneLines } from "./mocked-router.ts";
 import { codexBodyOf, jsonText, replyMessage, userMessage } from "./harnesses.ts";
+import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
-import { pinnedLine } from "#router/features/lanes/index.ts";
 
 const canary = "PATIENT-CANARY-25K7";
 
@@ -24,6 +24,10 @@ const harnessNames: readonly HarnessName[] = ["claude", "codex", "pi"];
 
 const autoOf: Readonly<Record<HarnessName, string>> = { claude: "phi/auto", codex: "phi/auto", pi: "auto" };
 
+const pinnedModelOf: Readonly<Record<HarnessName, string>> = { claude: pinnedModel, codex: pinnedModel, pi: "sealed" };
+
+const pinnedByModel = (body: string): string => Str.replace('"model":"phi/auto"', `"model":"${pinnedModel}"`)(body);
+
 const phi: Turn = { role: "user", text: `Member ${canary} called.` };
 
 const clean: Turn = { role: "user", text: "List the build steps." };
@@ -36,29 +40,50 @@ const codexItemOf = ({ role, text }: Turn): Json => {
 	return replyMessage({ id: "msg_baa_ok", text });
 };
 
+const pinnedInstructions: Json = {
+	content: [{ text: pinnedLine, type: "input_text" }],
+	role: "developer",
+	type: "message",
+};
+
+const codexBodyFor = (turns: readonly Turn[], pinnedByLine: boolean): Effect.Effect<string> => {
+	const items = pipe(turns, Array.map(codexItemOf));
+
+	if (!pinnedByLine) {
+		return codexBodyOf(items);
+	}
+
+	return codexBodyOf(Array.prepend(items, pinnedInstructions));
+};
+
+const messagesBodyFor = Effect.fnUntraced(function* messagesBodyFor(turns: readonly Turn[], pinnedByLine: boolean) {
+	const body = yield* bodyOf(turns);
+
+	if (!pinnedByLine) {
+		return body;
+	}
+
+	const system = yield* jsonText([{ text: pinnedLine, type: "text" }]);
+
+	return Str.replace('"stream":true', `"stream":true,"system":${system}`)(body);
+});
+
 const bodyFor = Effect.fnUntraced(function* bodyFor(
 	sent: { readonly harness: HarnessName; readonly model: string; readonly pinnedByLine?: boolean },
 	turns: readonly Turn[],
 ) {
 	const field = yield* jsonText(sent.model);
+	const pinnedByLine = sent.pinnedByLine === true;
 
 	const body = yield* Effect.suspend(() => {
 		if (sent.harness === "codex") {
-			return codexBodyOf(pipe(turns, Array.map(codexItemOf)));
+			return codexBodyFor(turns, pinnedByLine);
 		}
 
-		return bodyOf(turns);
+		return messagesBodyFor(turns, pinnedByLine);
 	});
 
-	const named = Str.replace('"model":"phi/auto"', `"model":${field}`)(body);
-
-	if (sent.pinnedByLine !== true) {
-		return named;
-	}
-
-	const system = yield* jsonText([{ text: pinnedLine, type: "text" }]);
-
-	return Str.replace('"stream":true', `"stream":true,"system":${system}`)(named);
+	return Str.replace('"model":"phi/auto"', `"model":${field}`)(body);
 });
 
 const posted = Effect.fnUntraced(function* posted(
@@ -116,6 +141,7 @@ const unreadableLeases = Effect.fnUntraced(function* unreadableLeases(state: str
 
 export {
 	autoOf,
+	bodyFor,
 	clean,
 	harnessNames,
 	holdsCanary,
@@ -123,6 +149,8 @@ export {
 	linesIn,
 	modelsIn,
 	phi,
+	pinnedByModel,
+	pinnedModelOf,
 	posted,
 	sentModels,
 	unreadableLeases,
