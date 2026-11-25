@@ -139,12 +139,8 @@ const agentTurn = (body: Json): Block[] => {
 	return [text("ok")];
 };
 
-const textIn = (item: Json): string =>
-	(typeof item.content === "string" ? [{ text: item.content }] : (item.content ?? []))
-		.map((c: Json) => c.text ?? "")
-		.join("\n");
-const codexOutputOf = (item: Json): string =>
-	typeof item.output === "string" ? item.output : (item.output ?? []).map((c: Json) => c.text ?? "").join("\n");
+const textOf = (content: Json): string =>
+	typeof content === "string" ? content : (content ?? []).map((c: Json) => c.text ?? "").join("\n");
 const said = (words: string): Json => ({
 	content: [{ annotations: [], text: words, type: "output_text" }],
 	id: `msg_setup_${String(++uses)}`,
@@ -186,7 +182,7 @@ const printedSince = (items: Json[], call: Json): string =>
 	items
 		.slice(items.indexOf(call))
 		.filter((i) => i.type === "custom_tool_call_output" || i.type === "function_call_output")
-		.map(codexOutputOf)
+		.map((i) => textOf(i.output))
 		.join("\n");
 const askedOf = (items: Json[]): Json =>
 	codexSetupCalls(items)
@@ -199,7 +195,7 @@ const codexTurn = (body: Json): Json[] => {
 	const items: Json[] = body.input ?? [];
 	const last = items.findLast((i) => (i.type === "message" && i.role === "user") || i.type.endsWith("_output"));
 	if (last?.type === "custom_tool_call_output" || last?.type === "function_call_output") {
-		const running = /Script running with cell ID (\S+)/.exec(codexOutputOf(last));
+		const running = /Script running with cell ID (\S+)/.exec(textOf(last.output));
 		if (running !== null)
 			return [
 				{
@@ -230,7 +226,7 @@ const codexTurn = (body: Json): Json[] => {
 	}
 	const typed = items
 		.filter((i) => i.type === "message" && i.role === "user")
-		.map(textIn)
+		.map((i) => textOf(i.content))
 		.filter((t) => !t.trimStart().startsWith("<"))
 		.at(-1)
 		?.trim();
