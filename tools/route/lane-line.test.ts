@@ -85,7 +85,7 @@ const hungUp = Effect.gen(function* hungUp() {
 			),
 			opened: opened.length,
 		},
-		{ lines: [["baa", "sealed", "failover"]], opened: 1 },
+		{ lines: [["baa", "sealed", "overflow"]], opened: 1 },
 	);
 });
 
@@ -111,7 +111,7 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 			),
 			status: response.status,
 		},
-		{ lines: [["baa-2", "sealed", "failover"]], status: badGateway },
+		{ lines: [["baa-2", "sealed", "overflow"]], status: badGateway },
 	);
 });
 
@@ -185,8 +185,8 @@ const everyOpenStamped = Effect.gen(function* everyOpenStamped() {
 	const lines = yield* linesIn(state);
 
 	assert.deepStrictEqual(lines, [
-		["baa", "sealed", "failover"],
-		["baa", "sealed", "failover"],
+		["baa", "sealed", "overflow"],
+		["baa", "sealed", "overflow"],
 	]);
 });
 
@@ -228,7 +228,7 @@ it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 		"is still written when the harness hangs up while a failed-over request waits on the BAA account, naming that account",
 		() => hungUp,
 	);
-	test.effect("names the last account tried when no account answers, for failover", () => noneAnswered);
+	test.effect("names the last account tried when no account answers, for overflow", () => noneAnswered);
 	test.effect(
 		"names the BAA account whose login ended when a sealed request has no other and fails, and the 502 answer gives its login command",
 		() => sealedEnded,
@@ -239,7 +239,7 @@ it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 		() => sealedPastEnded,
 	);
 	test.effect(
-		"says failover at the BAA account for a clean request whose every open account is stamped",
+		"says overflow at the BAA account for a clean request whose every open account is stamped",
 		() => everyOpenStamped,
 	);
 	test.effect(

@@ -112,6 +112,7 @@ const statusOf = (seen: { readonly cleared: number; readonly account: string }):
 	accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 	cleared: seen.cleared,
 	last: { account: seen.account, model: fakes.targetModel, substitute: false },
+	overflowed: 0,
 	sealed: none,
 	session,
 });

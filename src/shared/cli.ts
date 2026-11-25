@@ -11,15 +11,24 @@ const SessionId = Schema.NonEmptyString.pipe(Schema.brand("SessionId"));
 
 const Pid = Schema.Int.check(Schema.isGreaterThan(none));
 
-const PartCount = Schema.Int.check(Schema.isGreaterThanOrEqualTo(none));
+const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(none));
 
-const ConfiguredAccount = Schema.Struct({ name: Schema.String, vendor: Schema.Literals(["anthropic", "openai"]) });
+const AccountVendor = Schema.Literals(["anthropic", "openai"]);
+
+const ConfiguredAccount = Schema.Struct({ name: Schema.String, vendor: AccountVendor });
+
+const OpenAccount = Schema.Struct({
+	name: Schema.String,
+	rateLimitedUntil: Schema.optionalKey(Schema.String),
+	vendor: AccountVendor,
+});
 
 const Status = Schema.Struct({
-	accounts: Schema.Struct({ clean: Schema.Array(ConfiguredAccount), sealed: Schema.Array(ConfiguredAccount) }),
-	cleared: PartCount,
+	accounts: Schema.Struct({ clean: Schema.Array(OpenAccount), sealed: Schema.Array(ConfiguredAccount) }),
+	cleared: Count,
 	last: Schema.NullOr(Schema.Struct({ account: Schema.String, model: Schema.String, substitute: Schema.Boolean })),
-	sealed: PartCount,
+	overflowed: Schema.optionalKey(Count),
+	sealed: Count,
 	session: SessionId,
 });
 

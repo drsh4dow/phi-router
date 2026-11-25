@@ -106,6 +106,9 @@ The accounts one request may still try, in order: the open accounts from its hom
 **Failover**:
 A request moving to the next account of its walk on a 429, a 5xx, no answer or an ended login, before the first byte of the answer. It moves from the clean lane to the sealed lane, never back.
 
+**Overflow**:
+A request with no sealed new content that runs on the sealed lane because no open account took it: each was stamped, did not answer, or its login ended. At the end of a turn with an overflow, the harness says why and how to add a subscription, once per stamp, or once per 30 minutes when no stamp explains it.
+
 **Stamp**:
 The mark a 429 leaves on an open account. The clean lane skips the account for 30 minutes.
 
@@ -206,7 +209,7 @@ A repository whose sessions run wholly on the sealed lane.
 Codex's request that names a thread, marked by `thread_source: "thread_title"` in its turn metadata. It runs sealed with the reason `title`, with no judge call and no bridge.
 
 **Lane log**:
-One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, no sealed new content; `sealed new content`; `pinned`, the model `phi/sealed` or the pinned line; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or a clean request had no open account left; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
+One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, no sealed new content; `sealed new content`; `pinned`, the model `phi/sealed` or the pinned line; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first; `overflow`, see Overflow; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
 
 **Bridge**:
 The constant block the router adds to the system prompt of every request that is neither pinned nor a title request, on both lanes.

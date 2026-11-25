@@ -70,7 +70,7 @@ const sendingOf = Effect.fnUntraced(function* sendingOf({
 
 	const clean = (body: string): Effect.Effect<Sending> => {
 		if (!openLeft) {
-			return sealed("failover");
+			return sealed("overflow");
 		}
 
 		return Effect.succeed(Struct.assign(models.clean, { body, lane: "clean" as const, reason: "clean" as const }));
