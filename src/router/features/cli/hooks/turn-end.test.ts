@@ -1,8 +1,8 @@
 import { Effect, Layer, Option } from "effect";
 import { SessionId, productPort } from "#shared/cli.ts";
 import { assert, it } from "@effect/vitest";
-import { SealNotices } from "#router/client/seal-notices.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
+import { TurnNotices } from "#router/client/turn-notices.ts";
 import { sealedSince } from "./turn-end.ts";
 
 const session = SessionId.make("s-turn-end");
@@ -30,7 +30,7 @@ it.effect(
 				[Option.none(), Option.some(sealedAtLastTurnEnd)],
 				(before) =>
 					sealedSince(session, productPort).pipe(
-						Effect.provide([routerAnswering, Layer.mock(SealNotices, { swap: () => Effect.succeed(before) })]),
+						Effect.provide([routerAnswering, Layer.mock(TurnNotices, { swap: () => Effect.succeed(before) })]),
 						Effect.map(({ count }) => count),
 					),
 				{ concurrency: 1 },

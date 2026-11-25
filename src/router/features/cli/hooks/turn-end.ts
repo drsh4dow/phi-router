@@ -1,7 +1,7 @@
 import { Console, Effect, Option, Schema } from "effect";
-import { SealNotices } from "#router/client/seal-notices.ts";
 import { SessionId } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
+import { TurnNotices } from "#router/client/turn-notices.ts";
 import { failedAs } from "#router/features/cli/sessions/index.ts";
 import { portOf } from "./session-start.ts";
 import { sealNotice } from "./phi-text.ts";
@@ -15,7 +15,7 @@ const noneSealed = 0;
 
 const sealedSince = Effect.fnUntraced(function* sealedSince(session: typeof SessionId.Type, port: number) {
 	const requests = yield* SessionRequests;
-	const notices = yield* SealNotices;
+	const notices = yield* TurnNotices;
 	const status = yield* Effect.mapError(requests.status(port, session), failedAs({ command: "status", port }));
 	const before = yield* notices.swap(session, status.sealed);
 
