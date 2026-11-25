@@ -55,7 +55,7 @@ recipes/iso.sh pi-failed-start pi-failed-start.sh
 
 ```
 pi with no config.json exited 0
-phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup pi
+phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Type /phi setup.
 lines holding the login: 0
 ```
 
