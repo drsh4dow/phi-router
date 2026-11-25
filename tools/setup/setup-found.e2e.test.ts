@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Struct } from "effect";
 import type { Typed, World } from "./world.ts";
 import {
 	asDarwin,
@@ -177,10 +177,31 @@ const tokenSubscriber = Effect.gen(function* tokenSubscriber() {
 	assert.deepNestedInclude(config, { "clean[0].forwarded": true });
 }).pipe(Effect.scoped);
 
+const tildeAgent = Effect.gen(function* tildeAgent() {
+	const fs = yield* FileSystem.FileSystem;
+	const made = yield* world;
+	const of = withEnv({ PI_CODING_AGENT_DIR: "~/work-agent" })(made);
+	const agent = `${of.folders.HOME}/work-agent`;
+
+	yield* fs.makeDirectory(agent);
+	yield* piHolds(Struct.assign(of, { folders: Struct.assign(of.folders, { PI_CODING_AGENT_DIR: agent }) }), {
+		anthropic: piLogin,
+	});
+
+	const run = yield* setUp(of, "claude", [{ after: questions.baa, typed: endOfInput }]);
+
+	assert.include(run.shown, "  pi              Claude\n", run.shown);
+}).pipe(Effect.scoped);
+
 it.layer(layer)("setup finds what the machine has", (test) => {
 	test.effect(
 		"a Claude subscription signed in through CLAUDE_CODE_OAUTH_TOKEN is the everyday account Claude Code forwards",
 		() => tokenSubscriber,
+		patient,
+	);
+	test.effect(
+		"a PI_CODING_AGENT_DIR that starts with ~ is read under HOME, as pi reads it",
+		() => tildeAgent,
 		patient,
 	);
 	test.effect(

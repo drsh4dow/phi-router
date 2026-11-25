@@ -28,7 +28,21 @@ interface Asked {
 
 const offline = { PI_OFFLINE: "1" };
 
-const agentFolder = harnessFolder({ fallback: ".pi/agent", variable: "PI_CODING_AGENT_DIR" });
+const namedAgentFolder = harnessFolder({ fallback: ".pi/agent", variable: "PI_CODING_AGENT_DIR" });
+
+const tilde = /^~(?=\/|$)/u;
+
+const agentFolder = Effect.fnUntraced(function* agentFolder(named: string) {
+	const path = yield* Path.Path;
+	const folder = yield* namedAgentFolder(named);
+	const home = yield* Config.String("HOME");
+
+	if (!tilde.test(folder)) {
+		return folder;
+	}
+
+	return path.join(home, Str.replace(tilde, "")(folder));
+});
 
 const listed = Effect.fnUntraced(function* listed(agent: string) {
 	const fs = yield* FileSystem.FileSystem;
