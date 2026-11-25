@@ -24,11 +24,13 @@ Paste this into your coding agent:
 Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md
 ```
 
-Claude Code sets it up in the same window, and you paste any key it needs in the plugin's masked field. Codex and pi give you one command to run in a terminal. Or run it yourself, with `codex` or `pi` in place of `claude`:
+Claude Code sets it up in the same window, and you paste any key it needs in the plugin's masked field. pi sets it up in the same window, and you type any key it needs in a masked field. Codex gives you one command to run in a terminal. Or run it yourself, with `codex` or `pi` in place of `claude`:
 
 ```sh
 npx phi-router setup claude
 ```
+
+By hand in pi, run `pi install npm:phi-router`, then type `/reload` and `/phi setup`.
 
 phi-router checks each message for patient data before it is sent. The check runs on OpenAI Decisions under your BAA. Messages it flags, or cannot clear, go to your BAA account. Everything else goes to your subscription as before. Setup asks which account your BAA covers. For a second subscription, a Claude Enterprise login, or a key in a password manager, see [Accounts](docs/accounts.md).
 

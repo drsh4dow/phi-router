@@ -1,6 +1,6 @@
 # Set up phi-router
 
-You are a coding agent, and the human asked you to install phi-router. Name your harness. In Claude Code, follow [Claude Code](#claude-code). In Codex or pi, follow [Codex and pi](#codex-and-pi). In any other harness, reply that phi-router works only in Claude Code, Codex and pi, and end your turn.
+You are a coding agent, and the human asked you to install phi-router. Name your harness. In Claude Code, follow [Claude Code](#claude-code). In Codex, follow [Codex](#codex). In pi, follow [pi](#pi). In any other harness, reply that phi-router works only in Claude Code, Codex and pi, and end your turn.
 
 ## Claude Code
 
@@ -15,7 +15,7 @@ Setup runs in this window. A key must never enter this chat, because the chat go
 
 If `npx` is not found, type `bunx` instead. If the human pastes a key in this chat, do not repeat it, use it, or write it anywhere. Tell them the key went to their subscription's vendor with this chat, so they must revoke it where they got it and paste a new one in `/plugin configure phi-router`. If they ask for something else, such as a second subscription, a key in a password manager, or another model, point them to its section in [Accounts](https://github.com/drsh4dow/phi-router/blob/main/docs/accounts.md).
 
-## Codex and pi
+## Codex
 
 Setup asks for an API key, and a key must never enter this chat, because the chat goes to the human's subscription. So the human runs setup in their own terminal, and your whole job is one reply. Run no command and ask no question.
 
@@ -33,10 +33,9 @@ Setup asks for an API key, and a key must never enter this chat, because the cha
    >
    > If you use Bun instead of Node, type `bunx` instead of `npx`. {ending}
 
-   | Harness | vendor    | subscription | command | ending                                                                     |
-   | ------- | --------- | ------------ | ------- | -------------------------------------------------------------------------- |
-   | Codex   | OpenAI    | ChatGPT      | `codex` | When setup finishes, close this Codex window and use the one setup starts. |
-   | pi      | Anthropic | Claude       | `pi`    | When setup finishes, close this pi window and use the one setup starts.    |
+   | Harness | vendor | subscription | command | ending                                                                     |
+   | ------- | ------ | ------------ | ------- | -------------------------------------------------------------------------- |
+   | Codex   | OpenAI | ChatGPT      | `codex` | When setup finishes, close this Codex window and use the one setup starts. |
 
 2. End your turn.
 
@@ -45,3 +44,12 @@ Setup asks for an API key, and a key must never enter this chat, because the cha
 - **They paste a key or a token.** Do not repeat it, use it, or write it anywhere. Tell them the key went to their subscription's vendor with this chat, so they must revoke it where they got it and get a new one. Then give them the command from step 1 again, with `--new-key` after it when setup already saved the old key.
 - **They paste a line from setup.** Each failure line says what changed and what to run next. Say it back in plain words, and give them that command to run in their terminal. When the line says setup needs their own terminal, they ran it inside a coding agent: ask them to open a separate terminal window.
 - **They ask for something else**, such as a second subscription, a Claude Enterprise login, a key in a password manager or an environment variable, a new key, or another model. Point them to its section in [Accounts](https://github.com/drsh4dow/phi-router/blob/main/docs/accounts.md). A step there that takes a key or a login is theirs to run in their own terminal.
+
+## pi
+
+Setup runs in this window, and the human types each key in a masked field that never reaches this chat.
+
+1. Run `pi install npm:phi-router`.
+2. Send the message below word for word, and end your turn.
+
+   > phi-router is installed. Type `/reload`, then `/phi setup`. Setup asks which account your BAA covers and takes each key in a masked field, never in this chat. When it ends, this session runs on `phi/auto`.
