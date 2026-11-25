@@ -192,11 +192,13 @@ const chosen = (question: Question, answers: Answers, vendor: Vendor): Filler | 
 		Array.filter(({ id }) => id !== "none"),
 	);
 
-	if (options.length === onlyChoice) {
+	const picked = answered(question, answers);
+
+	if (options.length === onlyChoice && Option.isNone(picked)) {
 		return typed(vendor);
 	}
 
-	return Option.match(answered(question, answers), {
+	return Option.match(picked, {
 		onNone: () => ask(question),
 		onSome: (choice) => keyFiller(vendor, choice),
 	});
@@ -284,15 +286,17 @@ const baaOf = (found: Found, answers: Answers, side: Sides): Filler | Pending =>
 };
 
 const judgeOf = (found: Found, answers: Answers, baa: Filler): Filler | Pending => {
-	if (rekeyed(found.kept.judge)) {
+	const sharesBaaKey = found.vendor === "openai" && baa.kind === "key";
+
+	if (rekeyed(found.kept.judge) && !sharesBaaKey) {
 		return typed("openai");
 	}
 
-	if (Predicate.isNotUndefined(found.kept.judge)) {
+	if (Predicate.isNotUndefined(found.kept.judge) && !rekeyed(found.kept.judge)) {
 		return kept(found.kept.judge);
 	}
 
-	if (found.vendor === "openai" && (baa.kind === "key" || baa.kind === "source")) {
+	if (sharesBaaKey || (found.vendor === "openai" && baa.kind === "source")) {
 		return baa;
 	}
 
