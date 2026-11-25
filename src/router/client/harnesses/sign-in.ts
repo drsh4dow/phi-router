@@ -17,15 +17,15 @@ const succeeded = 0;
 
 const optionalText = Schema.optionalKey(Schema.String);
 
-const SubscriptionType = Schema.NullOr(Schema.String);
+const NullableText = Schema.NullOr(Schema.String);
 
 const ClaudeStatus = Schema.fromJsonString(
 	Schema.Struct({
 		apiProvider: optionalText,
 		authMethod: optionalText,
-		email: optionalText,
+		email: Schema.optionalKey(NullableText),
 		loggedIn: Schema.Boolean,
-		subscriptionType: Schema.optionalKey(SubscriptionType),
+		subscriptionType: Schema.optionalKey(NullableText),
 	}),
 );
 
@@ -37,6 +37,7 @@ const firstParty = "firstParty";
 
 const claudeSignInOf = (status: typeof ClaudeStatus.Type): SignIn => {
 	const { apiProvider = firstParty, authMethod, email, loggedIn, subscriptionType } = status;
+	const account = Option.getOrUndefined(Option.fromNullishOr(email));
 
 	if (apiProvider !== firstParty) {
 		return { kind: "provider", provider: Option.getOrElse(Record.get(providers, apiProvider), () => apiProvider) };
@@ -55,12 +56,12 @@ const claudeSignInOf = (status: typeof ClaudeStatus.Type): SignIn => {
 	}
 
 	if (subscriptionType === "enterprise") {
-		return { account: email, kind: "enterprise" };
+		return { account, kind: "enterprise" };
 	}
 
 	const plan = Option.getOrElse(Record.get(claudePlans, subscriptionType ?? ""), () => "Claude");
 
-	return { account: email, kind: "plan", plan };
+	return { account, kind: "plan", plan };
 };
 
 const printed = Effect.fnUntraced(function* printed(args: readonly string[], env: Readonly<Record<string, string>>) {
