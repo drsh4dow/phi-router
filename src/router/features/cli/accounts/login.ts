@@ -3,8 +3,8 @@ import type { NamedAccount, Vendor } from "#router/client/configuration/index.ts
 import { claudeSignIn, codexFolderSignIn, codexSignIn } from "#router/client/harnesses/index.ts";
 import { fromFolder, refused, summaryOf, tokenKindOf } from "./found.ts";
 import { handedOver, hiddenLine, isTerminal, picked } from "#router/client/terminal.ts";
-import { logIn, loginFolders, readKey } from "#router/client/accounts/index.ts";
 import { loginFolderOf, saveToken, tokenFileIn } from "#router/client/keys/index.ts";
+import { loginFolders, readKey } from "#router/client/accounts/index.ts";
 import type { Found } from "./found.ts";
 import { Platform } from "#router/features/cli/platform.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
@@ -71,11 +71,12 @@ const folderLogin = Effect.fnUntraced(function* folderLogin(vendor: Vendor, fold
 
 	yield* canLogIn({ withBrowser: true });
 
-	const code = yield* logIn(vendor, folder).pipe(Effect.orElseSucceed(() => notRun));
+	const { env, loginArgs } = loginFolders[vendor];
+	const code = yield* handedOver(loginArgs, { [env]: folder }).pipe(Effect.orElseSucceed(() => notRun));
 	const after = yield* folderSignIns[vendor](folder);
 
 	if (code !== succeeded || after.kind === "none") {
-		return yield* unfinished(loginFolders[vendor].loginArgs);
+		return yield* unfinished(loginArgs);
 	}
 
 	if (!isSubscription(after)) {

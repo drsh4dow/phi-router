@@ -1,14 +1,14 @@
 import { Console, Effect, Option } from "effect";
 import { claudeFolder, claudeSignIn } from "#router/client/harnesses/index.ts";
+import { handedOver, isTerminal } from "#router/client/terminal.ts";
 import { opensBrowser, subscriptionLogin } from "#router/features/cli/accounts/index.ts";
 import { shown, signInElsewhere, signInNamed } from "./copy.ts";
 import type { Filler } from "./plan.ts";
 import type { HarnessName } from "./harnesses.ts";
 import type { Named } from "./copy.ts";
 import { harnesses } from "./harnesses.ts";
-import { isTerminal } from "#router/client/terminal.ts";
-import { logIn } from "#router/client/accounts/index.ts";
 import { loginFolderOf } from "#router/client/keys/index.ts";
+import { loginFolders } from "#router/client/accounts/index.ts";
 import { stopped } from "./keys.ts";
 
 interface Folder {
@@ -43,7 +43,7 @@ const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole, harness:
 		return yield* stopped(signInElsewhere({ folder, harness }));
 	}
 
-	const code = yield* logIn("anthropic", folder);
+	const code = yield* handedOver(loginFolders.anthropic.loginArgs, { [loginFolders.anthropic.env]: folder });
 	const after = yield* claudeSignIn(folder);
 
 	if (code !== succeeded || after.kind === "none") {

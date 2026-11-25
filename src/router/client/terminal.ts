@@ -78,13 +78,15 @@ const enterPressed = Effect.gen(function* enterPressed() {
 	return code === succeeded;
 });
 
-const handedOver = Effect.fnUntraced(function* handedOver(argv: readonly [string, ...string[]]) {
+const handedOver = Effect.fnUntraced(function* handedOver(
+	argv: readonly [string, ...string[]],
+	env: Readonly<Record<string, string>> = {},
+) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const [command, ...args] = argv;
+	const options = { env, extendEnv: true, stderr: "inherit", stdin: "inherit", stdout: "inherit" } as const;
 
-	return yield* spawner.exitCode(
-		ChildProcess.make(command, args, { stderr: "inherit", stdin: "inherit", stdout: "inherit" }),
-	);
+	return yield* spawner.exitCode(ChildProcess.make(command, args, options));
 });
 
 export { enterPressed, handedOver, hiddenLine, isTerminal, picked };

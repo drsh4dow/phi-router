@@ -161,22 +161,6 @@ const loginFolders = {
 	},
 } as const;
 
-const logIn = Effect.fnUntraced(function* logIn(vendor: keyof typeof loginFolders, folder: string) {
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const { env, loginArgs } = loginFolders[vendor];
-	const [command, ...args] = loginArgs;
-
-	return yield* spawner.exitCode(
-		ChildProcess.make(command, args, {
-			env: { [env]: folder },
-			extendEnv: true,
-			stderr: "inherit",
-			stdin: "inherit",
-			stdout: "inherit",
-		}),
-	);
-});
-
 const loginIn = Effect.fnUntraced(function* loginIn(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -199,6 +183,6 @@ const loginIn = Effect.fnUntraced(function* loginIn(folder: string) {
 	return yield* seen("openai");
 });
 
-export { LoginEnded, logIn, loginFolders, loginIn };
+export { LoginEnded, loginFolders, loginIn };
 
 export type { Login };
