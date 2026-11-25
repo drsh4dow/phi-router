@@ -124,6 +124,40 @@ router down 1 s after pi exited
 
 The router went down 1 to 4 s after pi exited, in five runs. The script waits up to 10 s for the router while pi runs, and exits 1 with a `FAIL` line when pi shows fewer than two `ok` replies, no router answers while pi runs, the router outlives pi by 15 s, or the canary reaches any mock but the BAA one.
 
+### 4b. `/phi setup` in the pi TUI
+
+The real `pi`, signed in to a Claude login with no key on the machine, types `/phi setup` in tmux. pi's own Anthropic provider points at the open mock, so a model turn would reach it. Setup's key checks go to `recipes/key-check.ts`, which answers 200 and logs whether each check carried the key canary. Setup's own test runs on the mocks `phi-router` starts for it. The script types the Anthropic key and pastes the OpenAI key, both canaries, and captures the pane while each is in the field. Panes land in `$ROOT/captures`.
+
+```sh
+recipes/iso.sh setup-tui setup-tui.sh max
+```
+
+```
+ ✓ Anthropic key works
+ ✓ OpenAI key works
+ ✓ Installed phi-router in pi
+ ✓ Test: a fake patient record went to your BAA account, not Claude
+   Everyday work   Claude
+   Patient data    Anthropic API key
+   PHI check       OpenAI
+ This session now runs on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.
+...
+0.0%/200k (auto)                                                     (phi) auto • medium
+phi · none yet · 0 sealed · 0 cleared
+anthropic-typed: > ******************************************456789
+openai-pasted: > **********************************543210
+mocks: {"received":{"open":0,"baa":0,"judge":0},"canaryAt":{"open":false,"baa":false},"lanes":[]}
+key checks:  1 GET /v1/models anthropic canary=true; 1 GET /v1/models openai canary=true
+files holding the key canary: config/phi-router/keys/anthropic config/phi-router/keys/openai
+```
+
+It exits 1 with a `FAIL` line when pi shows no BAA question or key field, setup does not end on `phi/auto`, the footer does not name `(phi) auto`, a captured pane holds the canary, the open mock gets any request, or any file under the run's folder but phi-router's key files holds the canary. The other worlds:
+
+- `setup-tui.sh enterprise` picks `Claude Enterprise login` with `BROWSER` set and a fake `claude` whose `auth login` writes a login. The last screen starts with `! Check that your BAA covers Claude Code through phi-router. Anthropic doesn't cover a custom base URL by default.`
+- `setup-tui.sh headless` makes the same pick with no `DISPLAY` and no `BROWSER`. Within seconds pi shows `This machine has no browser. In any terminal, run ``CLAUDE_CONFIG_DIR='<login folder>' claude auth login`` and follow the steps. When it says you're signed in, type /phi setup again.` and keeps its model. The script runs that command, types `/phi setup` again, and ends on `phi/auto` with the login as Patient data.
+- `setup-tui.sh apikey` signs pi in with an API key. pi shows `You don't need phi-router. It keeps patient data off a subscription with no BAA, and you're on an API key. Nothing changed.` and keeps its model.
+- `setup-tui.sh terminal` and `terminal-apikey` run `phi-router setup pi` in the same worlds, for the terminal form's question and stop line.
+
 ## 5. The recording proxy
 
 Whether a developer's `HTTP(S)_PROXY` sees router traffic. `recipes/proxy.py` records each request's first line and whether it held the canary, and answers 502.
