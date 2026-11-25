@@ -1,8 +1,8 @@
 import { Array, Duration, Effect, Option, Record, Schema, pipe } from "effect";
 import type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion } from "./index.ts";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import type { ChosenJudge } from "./choice.ts";
 import { JudgeFailed } from "./failed.ts";
+import type { NamedJudge } from "#router/client/configuration/index.ts";
 import type { Usage } from "./failed.ts";
 import { readKey } from "#router/client/accounts/index.ts";
 
@@ -167,7 +167,7 @@ const kindOf =
 			}),
 		);
 
-const decisions = Effect.fnUntraced(function* decisions(judge: ChosenJudge) {
+const decisions = Effect.fnUntraced(function* decisions(judge: NamedJudge) {
 	const key = yield* readKey(judge.key);
 	const http = yield* HttpClient.HttpClient;
 	const endpoint = HttpClientRequest.post(`${judge.endpoint}/decisions`).pipe(HttpClientRequest.bearerToken(key));
