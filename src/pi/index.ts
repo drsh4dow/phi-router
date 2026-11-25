@@ -20,7 +20,6 @@ import {
 	observerOn,
 	phiModels,
 	promptSent,
-	routedProvider,
 	sessionLeased,
 	usage,
 } from "#pi/features/phi/index.ts";
@@ -155,10 +154,10 @@ const registered = Effect.fnUntraced(function* registered(
 	const shows = yield* observerOn(port);
 
 	yield* bypassProxies;
-	pi.registerProvider(routedProvider, provider({ models, port }));
-	pi.on("session_start", blockUploads(routedProvider));
+	pi.registerProvider(piWire.provider, provider({ models, port }));
+	pi.on("session_start", blockUploads(piWire.provider));
 	onRouter(pi, port, shows);
-	pi.on("before_provider_headers", recordUse({ pi, routedProvider }));
+	pi.on("before_provider_headers", recordUse({ pi, routedProvider: piWire.provider }));
 	pi.on("before_provider_headers", headed);
 	pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port, pi) });
 });

@@ -1,4 +1,4 @@
-export { answered, observerOn, routedProvider, usage } from "./phi.ts";
+export { answered, observerOn, usage } from "./phi.ts";
 
 export { compactionSent, promptSent, sessionLeased } from "./proof.ts";
 

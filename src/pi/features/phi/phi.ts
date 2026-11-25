@@ -6,9 +6,7 @@ import { piWire } from "#shared/pi.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
-const routedProvider = piWire.provider;
-
-const unrouted = `phi-router: this session's model is not a ${routedProvider} model, so phi-router does not route it.`;
+const unrouted = `phi-router: this session's model is not a ${piWire.provider} model, so phi-router does not route it.`;
 
 const statusBarEntry = "phi";
 
@@ -139,7 +137,7 @@ const askedBy = (words: string): Option.Option<"status" | "pin" | "unpin"> => {
 const routed = (ctx: Pick<ShownContext, "model">): boolean =>
 	pipe(
 		Option.fromNullishOr(ctx.model),
-		Option.exists(({ provider }) => provider === routedProvider),
+		Option.exists(({ provider }) => provider === piWire.provider),
 	);
 
 const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.Effect<void, never, Router> =
@@ -211,6 +209,6 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 	return { afterTurn: observe(true), atStart: observe(false) };
 });
 
-export { answered, observerOn, printedLine, routed, routedProvider, usage };
+export { answered, observerOn, printedLine, routed, usage };
 
 export type { Observe, ShownContext };
