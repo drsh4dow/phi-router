@@ -35,7 +35,7 @@ const leasing = [
 ];
 
 const exitedLine =
-	'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"pinned":true,"sealed":1,"session":"exits"}';
+	'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"sealed":1,"session":"exits"}';
 
 const replies: readonly { readonly argv: readonly string[]; readonly reply: Reply }[] = [
 	{ argv: leasing, reply: { exitCode: clean, stdout: "" } },
@@ -44,7 +44,7 @@ const replies: readonly { readonly argv: readonly string[]; readonly reply: Repl
 		reply: {
 			exitCode: clean,
 			stdout:
-				'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"pinned":true,"sealed":1,"session":"s1"}',
+				'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"sealed":1,"session":"s1"}',
 		},
 	},
 	{
@@ -63,8 +63,7 @@ const replies: readonly { readonly argv: readonly string[]; readonly reply: Repl
 		argv: ["phi-router", "status", "--session", "fresh", "--port", String(routerPort)],
 		reply: {
 			exitCode: clean,
-			stdout:
-				'{"accounts":{"clean":[],"sealed":[]},"cleared":0,"last":null,"pinned":false,"sealed":0,"session":"fresh"}',
+			stdout: '{"accounts":{"clean":[],"sealed":[]},"cleared":0,"last":null,"sealed":0,"session":"fresh"}',
 		},
 	},
 	{
@@ -131,7 +130,6 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client",
 				},
 				cleared: 2,
 				last: { account: "baa", model: "m", substitute: false },
-				pinned: true,
 				sealed: 1,
 				session: SessionId.make("s1"),
 			});

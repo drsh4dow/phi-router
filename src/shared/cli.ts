@@ -19,7 +19,6 @@ const Status = Schema.Struct({
 	accounts: Schema.Struct({ clean: Schema.Array(ConfiguredAccount), sealed: Schema.Array(ConfiguredAccount) }),
 	cleared: PartCount,
 	last: Schema.NullOr(Schema.Struct({ account: Schema.String, model: Schema.String, substitute: Schema.Boolean })),
-	pinned: Schema.Boolean,
 	sealed: PartCount,
 	session: SessionId,
 });

@@ -104,17 +104,6 @@ const oldFileText = (pinned: boolean): string =>
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
-const releasedVerdict = Schema.Literals(["sealed", "cleared"]);
-
-const ReleasedFile = Schema.fromJsonString(
-	Schema.Struct({
-		openWrote: Schema.Array(Schema.String),
-		pinned: Schema.Boolean,
-		policy: Schema.String,
-		verdicts: Schema.Record(Schema.String, releasedVerdict),
-	}),
-);
-
 const oldFileLoads = Effect.fnUntraced(function* oldFileLoads(pinned: boolean) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -141,11 +130,13 @@ const oldFileLoads = Effect.fnUntraced(function* oldFileLoads(pinned: boolean) {
 	yield* verdicts.wrote(session, "p", ["second-reply"]);
 
 	const rewritten = yield* readOf();
-	const { pinned: writtenPinned } = yield* Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(ReleasedFile));
+	const written = yield* fs.readFileString(file);
+	const keepsPin = Str.includes('"pinned"')(written);
 
 	assert.deepStrictEqual(
-		{ loaded, rewritten, writtenPinned },
+		{ keepsPin, loaded, rewritten },
 		{
+			keepsPin: false,
 			loaded: {
 				openWrote: [true, false],
 				standing: ["sealed", "cleared", "unknown"],
@@ -156,30 +147,7 @@ const oldFileLoads = Effect.fnUntraced(function* oldFileLoads(pinned: boolean) {
 				standing: ["sealed", "cleared", "cleared"],
 				summary: { cleared: 2, sealed: 1 },
 			},
-			writtenPinned: false,
 		},
-	);
-});
-
-const releasedReads = Effect.gen(function* releasedReads() {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-	const state = yield* stateFolder;
-	const verdicts = yield* storeIn(state);
-	const file = yield* sessionFile(path.join(state, "phi-router"), session);
-	const released = Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(ReleasedFile));
-
-	yield* verdicts.record(session, "old", [["first", "cleared"]]);
-
-	const fresh = yield* released;
-
-	yield* verdicts.record(session, "new", [["first", "sealed"]]);
-
-	const underNewPolicy = yield* released;
-
-	assert.deepStrictEqual(
-		{ fresh: fresh.pinned, underNewPolicy: underNewPolicy.pinned },
-		{ fresh: false, underNewPolicy: false },
 	);
 });
 
@@ -323,10 +291,6 @@ it.layer(NodeServices.layer)("the verdict store", (test) => {
 	test.effect.each([true, false])(
 		"a file the old code wrote with pinned %s loads its verdicts and reply keys, counts them, and takes later writes",
 		oldFileLoads,
-	);
-	test.effect(
-		"a file it writes holds pinned false, so a router released before the pin's removal still reads it",
-		() => releasedReads,
 	);
 	test.effect("the reply keys of each completed open stream add to those stored before", () => replyKeysAdd);
 });

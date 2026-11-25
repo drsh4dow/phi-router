@@ -7,7 +7,6 @@ const statusOf = (substitute: boolean): Omit<typeof Status.Type, "session"> & { 
 	accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 	cleared: 2,
 	last: { account: "baa", model: "claude-sealed", substitute },
-	pinned: false,
 	sealed: 1,
 	session: "s-1",
 });

@@ -17,7 +17,6 @@ const routerAnswering = Layer.mock(SessionRequests, {
 			accounts: { clean: [], sealed: [] },
 			cleared: 0,
 			last: { account: "baa", model: "claude-sealed", substitute: false },
-			pinned: false,
 			sealed: sealedNow,
 			session,
 		}),
