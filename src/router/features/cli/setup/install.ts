@@ -58,14 +58,6 @@ const moveOf = ({
 	);
 };
 
-const versionIn = (installed: Installed): Option.Option<string> => {
-	if (installed.kind === "absent") {
-		return Option.none();
-	}
-
-	return Option.some(installed.version);
-};
-
 const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, target: Target) {
 	const { installed, steps, title } = harnesses[name];
 	const before = yield* installed;
@@ -93,11 +85,11 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, t
 
 	const after = yield* installed;
 
-	const version = yield* Effect.mapError(Effect.fromOption(versionIn(after)), () =>
-		stopped(`${title} did not install phi-router. Your key is saved.`),
-	);
+	if (after.kind === "absent") {
+		return yield* stopped(`${title} did not install phi-router. Your key is saved.`);
+	}
 
-	yield* Console.log(`✓ Installed phi-router ${version} in ${title}`);
+	return yield* Console.log(`✓ Installed phi-router ${after.version} in ${title}`);
 });
 
 const targetOf = Effect.fnUntraced(function* targetOf(checkout: string | undefined) {
