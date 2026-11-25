@@ -54,6 +54,9 @@ The router's leases, stored on disk so a router launched after a crash adopts th
 The router's answer that shows the listener on its port is this user's router: the HMAC-SHA-256 of a nonce and the port under the secret. A harness adapter asks for it before each prompt and each compaction, and blocks the prompt when the answer does not match.
 _Avoid_: handshake, health check
 
+**Router version**:
+The release a running router was launched from, read once at launch from the plugin manifest beside its entry and reported in its port proof answer. A router that reports none, such as v0.3.0, counts as older than every release.
+
 **Nonce**:
 The 32 random bytes, in hex, that a harness adapter sends with one request for the port proof, so no earlier answer passes.
 

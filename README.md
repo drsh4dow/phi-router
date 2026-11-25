@@ -32,7 +32,7 @@ npx phi-router setup claude
 
 By hand in pi, run `pi install npm:phi-router`, then type `/reload` and `/phi setup`.
 
-New releases arrive by themselves in Claude Code and Codex, from phi-router's release channel, and load in the next session. pi tells you when one is out, and `pi update --extensions` takes it. To update now in any of them, run `npx phi-router@latest setup claude`, with `codex` or `pi` in place of `claude`. It keeps your accounts and asks nothing it already knows.
+New releases arrive by themselves in Claude Code and Codex, from phi-router's release channel, and load in the next session. The router your open windows share keeps the version it started with until you close them all, and a new window says so when a newer one waits. pi tells you when one is out, and `pi update --extensions` takes it. To update now in any of them, run `npx phi-router@latest setup claude`, with `codex` or `pi` in place of `claude`. It keeps your accounts and asks nothing it already knows.
 
 phi-router checks each message for patient data before it is sent. The check runs on OpenAI Decisions under your BAA. Messages it flags, or cannot clear, go to your BAA account. Everything else goes to your subscription as before. Setup asks which account your BAA covers. For a second subscription, a Claude Enterprise login, or a key in a password manager, see [Accounts](docs/accounts.md).
 
