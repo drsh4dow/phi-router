@@ -217,4 +217,6 @@ const accounts = Command.make("accounts", {}, () => listed).pipe(
 
 export { accounts };
 
+export { opensBrowser } from "./login.ts";
+
 export { tokenKindOf } from "./found.ts";

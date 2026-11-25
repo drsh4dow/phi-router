@@ -54,6 +54,9 @@ const tokenKindOf = (token: string): Option.Option<TokenKind> =>
 
 const refused = (reason: string): AddRefused => AddRefused.make({ reason });
 
+const summaryOf = ({ kind, value }: { readonly kind: TokenKind; readonly value: string }): string =>
+	`${kind.vendorName} ${kind.noun}, ${String(value.length)} characters.${kind.lifetimeNote}`;
+
 const fromFolder = Effect.fnUntraced(function* fromFolder(folder: string) {
 	const seen = yield* loginIn(folder);
 
@@ -103,10 +106,15 @@ const fromCommand = Effect.fnUntraced(function* fromCommand(command: string) {
 		return yield* refused("The command printed a token whose prefix is unknown. Known: sk-ant-oat, sk-ant-api, sk-.");
 	}
 
-	const { lifetimeNote, noun, scheme, vendor, vendorName } = kind.value;
-	const summary = `${vendorName} ${noun}, ${String(value.length)} characters.${lifetimeNote}`;
+	const { scheme, vendor, vendorName } = kind.value;
 
-	return { account: { keyCommand: command, scheme, vendor }, summary, vendorName } satisfies Found;
+	return {
+		account: { keyCommand: command, scheme, vendor },
+		summary: summaryOf({ kind: kind.value, value }),
+		vendorName,
+	} satisfies Found;
 });
 
-export { fromCommand, fromFolder, refused, tokenKindOf };
+export { fromCommand, fromFolder, refused, summaryOf, tokenKindOf };
+
+export type { Found };

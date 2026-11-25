@@ -1,7 +1,6 @@
 import { Array, Effect, FileSystem, Formatter, Layer, Option, Schema, String as Str, Struct, pipe } from "effect";
 import type { Typed, World } from "./world.ts";
-import { claudeStatus, filesUnder, keys, typedRun } from "./world.ts";
-import { Base64Url } from "effect/encoding";
+import { claudeStatus, filesUnder, idToken, keys, typedRun } from "./world.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import manifest from "#package.json" with { type: "json" };
@@ -93,12 +92,6 @@ const piHolds = Effect.fnUntraced(function* piHolds(of: World, entries: Readonly
 
 	yield* fs.writeFileString(piAuthOf(of), Formatter.formatJson(entries), { mode: 0o600 });
 });
-
-const idToken = ({ email, plan }: { readonly email: string; readonly plan: string }): string => {
-	const claims = Formatter.formatJson({ email, "https://api.openai.com/auth": { chatgpt_plan_type: plan } });
-
-	return `phi-test.${Base64Url.encode(claims)}.phi-test`;
-};
 
 const codexSignedIn = Effect.fnUntraced(function* codexSignedIn(of: World) {
 	const fs = yield* FileSystem.FileSystem;

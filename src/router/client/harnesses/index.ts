@@ -13,7 +13,7 @@ export { codexHome, codexPlugin, codexTurn, firstLine, removedIfPresent, rewritt
 
 export { installedPackage, piTurn, storedKey } from "./pi.ts";
 
-export { claudeSignIn, codexSignIn, piSignIn } from "./sign-in.ts";
+export { claudeSignIn, codexFolderSignIn, codexSignIn, piSignIn } from "./sign-in.ts";
 
 export type { SignIn } from "./sign-in.ts";
 
