@@ -47,7 +47,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 		models: Effect.succeed({}),
 		setUp: () => Effect.die("/phi sets nothing up"),
 		setupStep: () => Effect.die("/phi sets nothing up"),
-		start: () => Effect.void,
+		start: () => Effect.succeed(""),
 		status: (_session, port) =>
 			Effect.andThen(ask("status", port), Effect.map(Ref.get(sealed), reported(substitute === true))),
 	});

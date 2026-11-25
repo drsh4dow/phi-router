@@ -5,7 +5,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\" 1>&2"
+						"command": "out=$(\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\") || { code=$?; printf '%s\\n' \"$out\" >&2; exit $code; }; printf '%s' \"$out\""
 					}
 				]
 			}

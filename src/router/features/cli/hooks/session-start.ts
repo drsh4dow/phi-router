@@ -1,4 +1,4 @@
-import { Config, Effect, Option, Record, Redacted, Schema, String as Str, pipe } from "effect";
+import { Config, Console, Effect, Option, Record, Redacted, Schema, String as Str, pipe } from "effect";
 import { modelAddressSetting, providerSwitchOn } from "#router/features/cli/claude/index.ts";
 import type { Pid } from "#shared/cli.ts";
 import { SessionId } from "#shared/cli.ts";
@@ -8,7 +8,11 @@ import { standardInput } from "#router/client/standard-input.ts";
 import { start } from "#router/features/cli/start.ts";
 import { userSettings } from "#router/client/harnesses/index.ts";
 
-const HookInput = Schema.fromJsonString(Schema.Struct({ cwd: Schema.String, session_id: SessionId }));
+const HookInput = Schema.fromJsonString(
+	Schema.Struct({ cwd: Schema.String, hook_event_name: Schema.optionalKey(Schema.String), session_id: SessionId }),
+);
+
+const Notice = Schema.fromJsonString(Schema.Struct({ systemMessage: Schema.String }));
 
 const routerAddress = /^http:\/\/127\.0\.0\.1:(?<port>\d+)\/?$/u;
 
@@ -100,7 +104,13 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 
 	const harness = hookHarness[`${hook.claude}`];
 
-	yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
+	const notice = yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
+
+	if (input.hook_event_name === "SessionStart" && Option.isSome(notice)) {
+		const printed = yield* Schema.encodeEffect(Notice)({ systemMessage: notice.value });
+
+		yield* Console.log(printed);
+	}
 });
 
 export { portOf, sessionStart };

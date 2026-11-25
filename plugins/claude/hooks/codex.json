@@ -5,7 +5,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "\"${PLUGIN_ROOT}/bin/phi-router\" session-start --pid \"$PPID\" --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\" 1>&2"
+						"command": "out=$(\"${PLUGIN_ROOT}/bin/phi-router\" session-start --pid \"$PPID\" --address \"${PHI_ROUTER_ADDRESS:-http://127.0.0.1:47411}\") || { code=$?; printf '%s\\n' \"$out\" >&2; exit $code; }; printf '%s' \"$out\""
 					}
 				]
 			}
