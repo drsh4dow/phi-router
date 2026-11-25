@@ -1,15 +1,20 @@
-import { Array, Config, Effect, Option, Record, String as Str, pipe } from "effect";
+import { Config, Effect, Option, Record, String as Str, pipe } from "effect";
 import { managedEnv, userSettings } from "#router/client/harnesses/index.ts";
-import { routerAddress } from "#router/features/cli/claude/index.ts";
+import { providerSwitchIn, providerSwitchOn, routerAddress } from "#router/features/cli/claude/index.ts";
+import type { ProviderSwitch } from "#router/features/cli/claude/index.ts";
 import { stops } from "./copy.ts";
 
-const switchedOn: ReadonlySet<string> = new Set(["1", "true", "yes", "on"]);
-
-const providerSwitches = {
+const providerNames: Readonly<Record<ProviderSwitch, string>> = {
+	CLAUDE_CODE_USE_ANTHROPIC_AWS: "CLAUDE_CODE_USE_ANTHROPIC_AWS",
+	CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD: "CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD",
 	CLAUDE_CODE_USE_BEDROCK: "Bedrock",
 	CLAUDE_CODE_USE_FOUNDRY: "Foundry",
+	CLAUDE_CODE_USE_GATEWAY: "CLAUDE_CODE_USE_GATEWAY",
+	CLAUDE_CODE_USE_MANTLE: "CLAUDE_CODE_USE_MANTLE",
 	CLAUDE_CODE_USE_VERTEX: "Vertex AI",
-} as const;
+};
+
+const providerStop = (name: ProviderSwitch): string => stops.provider(providerNames[name]);
 
 const baseUrl = "ANTHROPIC_BASE_URL";
 
@@ -31,14 +36,8 @@ const gatewayIn = (env: Readonly<Record<string, string>>, whose: string): Option
 		Option.map((address) => stops.gateway(hostOf(address), whose)),
 	);
 
-const isOn = (value: string): boolean => switchedOn.has(Str.toLowerCase(Str.trim(value)));
-
 const providerIn = (env: Readonly<Record<string, string>>): Option.Option<string> =>
-	pipe(
-		Record.toEntries(providerSwitches),
-		Array.findFirst(([name]) => Option.exists(Record.get(env, name), isOn)),
-		Option.map(([, provider]) => stops.provider(provider)),
-	);
+	pipe(providerSwitchIn(env), Option.map(providerStop));
 
 const claudeBlocked = Effect.fnUntraced(function* claudeBlocked(os: string) {
 	const managed = yield* managedEnv(os);
@@ -49,10 +48,14 @@ const claudeBlocked = Effect.fnUntraced(function* claudeBlocked(os: string) {
 		Config.withDefault({}),
 	);
 
+	const switched = yield* providerSwitchOn;
+
 	return pipe(
 		providerIn(managed),
 		Option.orElse(() => gatewayIn(managed, "company's ")),
+		Option.orElse(() => providerIn(settings.env)),
 		Option.orElse(() => gatewayIn(settings.env, "")),
+		Option.orElse(() => pipe(switched, Option.map(providerStop))),
 		Option.orElse(() => gatewayIn(shell, "")),
 	);
 });
