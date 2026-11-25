@@ -242,6 +242,6 @@ const configuredAccounts = configuredFile.pipe(
 
 const configuredLanes = configuredFile.pipe(Effect.map(Option.map(byVendor)));
 
-export { LaneFile, configuredAccounts, configuredLanes, laneConfiguration };
+export { LaneFile, configuredAccounts, configuredLanes, endpoints, laneConfiguration };
 
 export type { Credential, Lane, NamedAccount, Vendor, VendorLanes };
