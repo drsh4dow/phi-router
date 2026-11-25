@@ -152,7 +152,7 @@ const fellOver = Effect.gen(function* fellOver() {
 			status: answer.status,
 		},
 		{
-			lines: [["baa", "sealed", "failover"]],
+			lines: [["baa", "sealed", "overflow"]],
 			received: [[one], [one], [], [], [one]],
 			status: status.ok,
 		},
@@ -339,7 +339,7 @@ it.layer(NodeServices.layer)("several accounts per lane", (test) => {
 		() => stampsInFile,
 	);
 	test.effect(
-		"every open account answering 429, a 500 whose body never ends, refusing or resetting sends the request to the BAA account, whose one lane log line says failover",
+		"every open account answering 429, a 500 whose body never ends, refusing or resetting sends the request to the BAA account, whose one lane log line says overflow",
 		() => fellOver,
 	);
 	test.effect(

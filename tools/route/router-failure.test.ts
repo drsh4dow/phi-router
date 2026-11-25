@@ -124,7 +124,7 @@ const cutShort = Effect.gen(function* cutShort() {
 		flag: "a",
 	});
 
-	const last = yield* log.last("cut-1");
+	const { last } = yield* log.summary("cut-1");
 
 	assert.deepStrictEqual(last, Option.some({ account: "baa", model: "target", substitute: false }));
 });

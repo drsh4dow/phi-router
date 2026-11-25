@@ -90,7 +90,7 @@ const lineOf = (of: { readonly arrival: Arrived; readonly walked: Walked }): Omi
 		substitute: walked.send.substitute,
 	} as const;
 
-	if (first.account === latest.account) {
+	if (first.account === latest.account || line.reason === "overflow") {
 		return line;
 	}
 

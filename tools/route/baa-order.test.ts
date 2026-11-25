@@ -156,7 +156,7 @@ const lackingLast = Effect.gen(function* lackingLast() {
 		{
 			fell: {
 				last: { account: "baa", model: substitute, substitute: true },
-				lines: [["baa", "sealed", substitute, true, "failover"]],
+				lines: [["baa", "sealed", substitute, true, "overflow"]],
 				models: [[sentModels.claudeHaiku], [substitute]],
 			},
 			listedFirst: {

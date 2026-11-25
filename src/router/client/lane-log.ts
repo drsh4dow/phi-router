@@ -23,6 +23,7 @@ const Reasons = Schema.Literals([
 	"BAA repo",
 	"title",
 	"failover",
+	"overflow",
 	"router failure",
 ]);
 
@@ -46,6 +47,11 @@ type Routed = Omit<typeof Line.Type, "time">;
 
 type Last = Pick<Routed, "account" | "model" | "substitute">;
 
+interface Summary {
+	readonly last: Option.Option<Last>;
+	readonly overflowed: number;
+}
+
 const decodeLine = Schema.decodeUnknownOption(LineJson);
 
 class LaneLog extends Context.Service<
@@ -57,7 +63,7 @@ class LaneLog extends Context.Service<
 			(line: Omit<Routed, "session">) => Effect.Effect<void, PlatformError.PlatformError | Schema.SchemaError>,
 			PlatformError.PlatformError
 		>;
-		readonly last: (session: string) => Effect.Effect<Option.Option<Last>, PlatformError.PlatformError>;
+		readonly summary: (session: string) => Effect.Effect<Summary, PlatformError.PlatformError>;
 	}
 >()("phi-router/router/client/lane-log/LaneLog") {
 	public static readonly layer = Layer.effect(
@@ -89,25 +95,24 @@ class LaneLog extends Context.Service<
 					append(Struct.assign(line, { session }));
 			});
 
-			const last = Effect.fn("LaneLog.last")(function* last(session: string) {
+			const summary = Effect.fn("LaneLog.summary")(function* summary(session: string) {
 				const exists = yield* fs.exists(file);
+				const text = yield* Effect.when(fs.readFileString(file), Effect.succeed(exists));
 
-				if (!exists) {
-					return Option.none();
-				}
-
-				const text = yield* fs.readFileString(file);
-
-				return pipe(
-					Str.split(text, "\n"),
+				const lines = pipe(
+					Option.match(text, { onNone: () => [], onSome: Str.split("\n") }),
 					Array.map((line) => decodeLine(line)),
 					Array.getSomes,
-					Array.findLast((line) => line.session === session),
-					Option.map(Struct.pick(["account", "model", "substitute"])),
+					Array.filter((line) => line.session === session),
 				);
+
+				return {
+					last: Option.map(Array.last(lines), Struct.pick(["account", "model", "substitute"])),
+					overflowed: Array.countBy(lines, (line) => line.reason === "overflow"),
+				} satisfies Summary;
 			});
 
-			return LaneLog.of({ last, opened });
+			return LaneLog.of({ opened, summary });
 		}),
 	).pipe(Layer.provide(UserDirectories.layer));
 }
