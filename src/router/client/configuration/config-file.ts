@@ -10,7 +10,6 @@ type KeySource = { readonly keyEnv: string } | { readonly keyCommand: string } |
 interface NamedJudge {
 	readonly endpoint: string;
 	readonly key: KeySource;
-	readonly model: Option.Option<string>;
 }
 
 interface SettingsBesideLanes {
@@ -21,8 +20,6 @@ interface SettingsBesideLanes {
 
 const absent = Schema.optionalKey(Schema.Never);
 
-const model = Schema.optionalKey(Schema.String);
-
 const AbsolutePath = Schema.String.check(Schema.isPattern(/^\//u));
 
 const KeyedByEnv = Schema.Struct({
@@ -30,7 +27,7 @@ const KeyedByEnv = Schema.Struct({
 	keyCommand: absent,
 	keyEnv: Schema.NonEmptyString,
 	keyFile: absent,
-	model,
+	model: absent,
 });
 
 const KeyedByCommand = Schema.Struct({
@@ -38,7 +35,7 @@ const KeyedByCommand = Schema.Struct({
 	keyCommand: Schema.NonEmptyString,
 	keyEnv: absent,
 	keyFile: absent,
-	model,
+	model: absent,
 });
 
 const KeyedByFile = Schema.Struct({
@@ -46,7 +43,7 @@ const KeyedByFile = Schema.Struct({
 	keyCommand: absent,
 	keyEnv: absent,
 	keyFile: AbsolutePath,
-	model,
+	model: absent,
 });
 
 const Named = Schema.Union([KeyedByEnv, KeyedByCommand, KeyedByFile]);
@@ -108,11 +105,7 @@ class Configuration extends Context.Service<Configuration, SettingsBesideLanes>(
 			return Configuration.of({
 				baaRepos: realRepos,
 				fixtures,
-				judge: Option.map(Option.fromUndefinedOr(judge), (named) => ({
-					endpoint: named.endpoint,
-					key: named,
-					model: Option.fromUndefinedOr(named.model),
-				})),
+				judge: Option.map(Option.fromUndefinedOr(judge), (named) => ({ endpoint: named.endpoint, key: named })),
 			});
 		}),
 	).pipe(Layer.provide(UserDirectories.layer));

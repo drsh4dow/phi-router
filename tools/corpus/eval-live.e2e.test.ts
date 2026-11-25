@@ -73,7 +73,7 @@ const judgedLine = (calls: number): string => {
 
 const liveRun = Effect.gen(function* liveRun() {
 	const mock = yield* mockOn(() => clears);
-	const env = yield* configuredEnv(mock.endpoint, { keyEnv: "PHI_TEST_KEY", model: "judge-under-test" });
+	const env = yield* configuredEnv(mock.endpoint, { keyEnv: "PHI_TEST_KEY" });
 	const manifest = yield* manifestOf(whole);
 	const { exitCode, stdout } = yield* evalOf(["--judge", "live", "--corpus", manifest], env);
 	const received = yield* mock.received;
@@ -88,7 +88,7 @@ const liveRun = Effect.gen(function* liveRun() {
 		["env-key"],
 		stdout,
 	);
-	assert.deepNestedPropertyVal(received, "[0].body.model", "judge-under-test");
+	assert.deepNestedPropertyVal(received, "[0].body.model", "gpt-6-luna");
 	assert.includeMembers(Str.split(stdout, "\n"), [leakLine, judged]);
 	assert.notStrictEqual(exitCode, clean, stdout);
 }).pipe(Effect.scoped);
@@ -96,7 +96,7 @@ const liveRun = Effect.gen(function* liveRun() {
 const recordThenReplay = Effect.gen(function* recordThenReplay() {
 	const path = yield* Path.Path;
 	const mock = yield* mockOn(() => clears);
-	const env = yield* configuredEnv(mock.endpoint, { keyEnv: "PHI_TEST_KEY", model: "judge-under-test" });
+	const env = yield* configuredEnv(mock.endpoint, { keyEnv: "PHI_TEST_KEY" });
 	const manifest = yield* manifestOf(whole);
 	const recordings = path.join(path.dirname(manifest), "recordings.jsonl");
 
@@ -118,7 +118,7 @@ const recordThenReplay = Effect.gen(function* recordThenReplay() {
 const recordedRun = Effect.gen(function* recordedRun() {
 	const { asked, began, ended, live, received, replay } = yield* recordThenReplay;
 	const [first] = Str.split(live.stdout, "\n");
-	const prefix = `live judge decisions, model judge-under-test, started `;
+	const prefix = `live judge decisions, model gpt-6-luna, started `;
 	const started = DateTime.make(Str.slice(prefix.length)(first));
 	const after = yield* received;
 

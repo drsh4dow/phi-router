@@ -2,7 +2,6 @@ import type { AccountMock, Asked, Json, Reply, Said } from "#router/client/mock-
 import { Array, Effect, FileSystem, Option, Record, Schema, String as Str, Stream, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
-	judgingOn,
 	responseEvents,
 	sealingWhen,
 	serveAnthropic,
@@ -11,7 +10,6 @@ import {
 } from "#router/client/mock-upstreams/index.ts";
 import { HttpClientRequest } from "effect/http";
 import type { HttpServer } from "effect/http";
-import type { JudgeName } from "#router/client/judge/index.ts";
 import type { Scope } from "effect";
 import { fakes } from "./fake-credentials.ts";
 
@@ -38,7 +36,6 @@ interface Scripts {
 	readonly baas?: Array.NonEmptyReadonlyArray<LaneAccount>;
 	readonly catalog?: () => Said;
 	readonly judge?: (piece: string) => Reply;
-	readonly judgeName?: JudgeName;
 	readonly configExtras?: Readonly<Record<string, Json>>;
 	readonly routerEnv?: Readonly<Record<string, string>>;
 	readonly openFolder?: string;
@@ -217,18 +214,7 @@ const lacksOf =
 
 const judgeOf = (scripts: Scripts): ((piece: string) => Reply) => scripts.judge ?? sealingWhen(scripts.holdsPhi);
 
-const baaScriptsOf = ({ harness, scripts }: { readonly harness: Harness; readonly scripts: Scripts }): Scripts => {
-	if (scripts.judgeName !== "claude") {
-		return scripts;
-	}
-
-	return Struct.assign(scripts, {
-		baa: judgingOn({ holdsPhi: scripts.holdsPhi, script: scripts.baa ?? harness.answersOk.baa }),
-	});
-};
-
 export {
-	baaScriptsOf,
 	beta,
 	claudeRequest,
 	codexBodyOf,

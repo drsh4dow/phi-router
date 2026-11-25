@@ -5,7 +5,7 @@ import { Judge } from "#router/client/judge/index.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { serveJudge } from "#router/client/mock-upstreams/index.ts";
 
-type Named = Readonly<Partial<Record<"keyCommand" | "keyEnv" | "keyFile" | "model", string>>>;
+type Named = Readonly<Partial<Record<"keyCommand" | "keyEnv" | "keyFile", string>>>;
 
 const jsonOf = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -26,9 +26,9 @@ const configuredEnv = Effect.fnUntraced(function* configuredEnv(endpoint: string
 	return yield* envOf({ judge: Struct.assign({ endpoint }, named) });
 });
 
-const judgeFrom = Effect.fnUntraced(function* judgeFrom(file: Json, layer: "claudeLayer" | "layer" = "layer") {
+const judgeFrom = Effect.fnUntraced(function* judgeFrom(file: Json) {
 	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: yield* envOf(file) }));
-	const configured = Judge[layer].pipe(Layer.provide(Configuration.layer));
+	const configured = Judge.layer.pipe(Layer.provide(Configuration.layer));
 	const built = yield* Layer.build(Layer.provide(configured, env));
 
 	return Context.get(built, Judge);

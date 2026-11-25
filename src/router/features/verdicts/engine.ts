@@ -35,9 +35,9 @@ interface Asking extends Call {
 	readonly sealAtOrAbove: number;
 }
 
-type Thresholds = (typeof thresholds)[keyof typeof thresholds];
+const askingOf = (system: boolean, spend: Spend): Asking => {
+	const { clearBelow, sealAtOrAbove } = thresholds;
 
-const askingOf = (system: boolean, spend: Spend, { clearBelow, sealAtOrAbove }: Thresholds): Asking => {
 	if (system) {
 		return { askKindAtOrAbove: sealAtOrAbove, retries: 1, sealAtOrAbove, spend };
 	}
@@ -175,9 +175,8 @@ const judgedPiece = Effect.fn("judgedPiece")(function* judgedPiece({
 	readonly input: JudgeInput;
 	readonly spend: Spend;
 }) {
-	const judge = yield* Judge;
 	const system = kind === "system";
-	const call = askingOf(system, spend, thresholds[judge.name]);
+	const call = askingOf(system, spend);
 
 	for (const images of imageSetsOf(input.images)) {
 		const verdict = yield* judged({ call, input: { context: input.context, images, piece: input.piece }, system });

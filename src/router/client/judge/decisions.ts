@@ -8,7 +8,7 @@ import { readKey } from "#router/client/accounts/index.ts";
 
 const names = { identifier: "identifier", kind: "kind" } as const;
 
-const defaultDecisionsModel = "gpt-6-luna";
+const decisionsModel = "gpt-6-luna";
 
 const lunaPrice = { perMillion: 0.1, perMillionAboveTier: 0.2, tierTokens: 272_000 } as const;
 
@@ -167,7 +167,7 @@ const kindOf =
 			}),
 		);
 
-const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJudge, { readonly name: "decisions" }>) {
+const decisions = Effect.fnUntraced(function* decisions(judge: ChosenJudge) {
 	const key = yield* readKey(judge.key);
 	const http = yield* HttpClient.HttpClient;
 	const endpoint = HttpClientRequest.post(`${judge.endpoint}/decisions`).pipe(HttpClientRequest.bearerToken(key));
@@ -180,7 +180,7 @@ const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJud
 			Effect.flatMap((sent) =>
 				HttpClientRequest.schemaBodyJson(Request)(endpoint, {
 					input: sent,
-					model: judge.model,
+					model: decisionsModel,
 					questions: [question],
 				}),
 			),
@@ -217,4 +217,4 @@ const decisions = Effect.fnUntraced(function* decisions(judge: Extract<ChosenJud
 	return asking;
 });
 
-export { decisions, defaultDecisionsModel, calibratedText };
+export { decisions, decisionsModel };

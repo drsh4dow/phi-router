@@ -15,7 +15,7 @@ class GateFailed extends Schema.TaggedError<GateFailed, { readonly brand: unique
 }) {}
 
 const usage =
-	"usage: bun tools/corpus/eval.ts [--judge recorded|live] [--claude] [--record] [--corpus <manifest.jsonl>] [--recordings <recordings.jsonl>]";
+	"usage: bun tools/corpus/eval.ts [--judge recorded|live] [--record] [--corpus <manifest.jsonl>] [--recordings <recordings.jsonl>]";
 
 const runtimeAndScript = 2;
 
@@ -28,24 +28,23 @@ interface Args {
 
 const flags = ["--corpus", "--judge", "--recordings"];
 
-const switches = ["--claude", "--record"];
+const switches = ["--record"];
 
 const flagAndValue = 2;
 
 interface JudgeFlags {
 	readonly source: string;
-	readonly claude: boolean;
 	readonly record: boolean;
 	readonly recordings: string | undefined;
 }
 
-const choiceOf = ({ source, claude, record, recordings }: JudgeFlags): Option.Option<JudgeChoice> => {
+const choiceOf = ({ source, record, recordings }: JudgeFlags): Option.Option<JudgeChoice> => {
 	if (source === "live") {
-		return Option.some({ claude, name: source, record, recordings });
+		return Option.some({ name: source, record, recordings });
 	}
 
 	if (source === "recorded" && !record) {
-		return Option.some({ claude, name: source, recordings });
+		return Option.some({ name: source, recordings });
 	}
 
 	return Option.none();
@@ -71,7 +70,6 @@ const argsOf = (argv: readonly string[]): Effect.Effect<Args, Cause.IllegalArgum
 	);
 
 	const judge = choiceOf({
-		claude: Array.contains(argv, "--claude"),
 		record: Array.contains(argv, "--record"),
 		recordings: given.get("--recordings"),
 		source: given.get("--judge") ?? "recorded",

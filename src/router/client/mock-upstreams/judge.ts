@@ -1,5 +1,4 @@
-import type { Said as Answered, Asked } from "./accounts.ts";
-import { Boolean, Effect, Latch, Match, Option, Ref, Schema, String as Str, pipe } from "effect";
+import { Effect, Latch, Match, Option, Ref, Schema, String as Str, pipe } from "effect";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Scope } from "effect";
 
@@ -130,57 +129,6 @@ const sealingWhen =
 		kind: "body",
 	});
 
-const JudgeTool = Schema.Struct({ name: Schema.Literals(["identifier", "kind"]) });
-
-const ClaudeJudgeCall = Schema.fromJsonString(
-	Schema.Struct({ messages: Schema.Tuple([Message]), tool_choice: JudgeTool }),
-);
-
-const decodeClaudeJudgeCall = Schema.decodeOption(ClaudeJudgeCall);
-
-const ok = 200;
-
-const toolInputs = { clearing: '{"probability":0}', kind: '{"kind":"none"}', sealing: '{"probability":1}' } as const;
-
-const toolReply = (name: string, input: string): string =>
-	`{"content":[{"id":"toolu_mock","input":${input},"name":"${name}","type":"tool_use"}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}`;
-
-const isClaudeJudgeCall = ({ body }: { readonly body: string }): boolean => Option.isSome(decodeClaudeJudgeCall(body));
-
-const judgingOn =
-	({
-		holdsPhi,
-		script,
-	}: {
-		readonly holdsPhi: (piece: string) => boolean;
-		readonly script: (asked: Asked) => Answered;
-	}) =>
-	(asked: Asked): Answered =>
-		Option.match(decodeClaudeJudgeCall(asked.body), {
-			onNone: () => script(asked),
-			onSome: ({
-				messages: [
-					{
-						content: [first],
-					},
-				],
-				tool_choice: { name },
-			}) => {
-				const inputs: Record<typeof name, () => string> = {
-					identifier: () =>
-						Boolean.match(holdsPhi(first.text.piece), {
-							onFalse: () => toolInputs.clearing,
-							onTrue: () => toolInputs.sealing,
-						}),
-					kind: () => toolInputs.kind,
-				};
-
-				const input = inputs[name]();
-
-				return { body: toolReply(name, input), kind: "status", status: ok };
-			},
-		});
-
-export { isClaudeJudgeCall, judgingOn, sealingWhen, serveJudge };
+export { sealingWhen, serveJudge };
 
 export type { Reply };
