@@ -104,6 +104,17 @@ const oldFileText = (pinned: boolean): string =>
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
+const releasedVerdict = Schema.Literals(["sealed", "cleared"]);
+
+const ReleasedFile = Schema.fromJsonString(
+	Schema.Struct({
+		openWrote: Schema.Array(Schema.String),
+		pinned: Schema.Boolean,
+		policy: Schema.String,
+		verdicts: Schema.Record(Schema.String, releasedVerdict),
+	}),
+);
+
 const oldFileLoads = Effect.fnUntraced(function* oldFileLoads(pinned: boolean) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -130,9 +141,10 @@ const oldFileLoads = Effect.fnUntraced(function* oldFileLoads(pinned: boolean) {
 	yield* verdicts.wrote(session, "p", ["second-reply"]);
 
 	const rewritten = yield* readOf();
+	const { pinned: writtenPinned } = yield* Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(ReleasedFile));
 
 	assert.deepStrictEqual(
-		{ loaded, rewritten },
+		{ loaded, rewritten, writtenPinned },
 		{
 			loaded: {
 				openWrote: [true, false],
@@ -144,20 +156,10 @@ const oldFileLoads = Effect.fnUntraced(function* oldFileLoads(pinned: boolean) {
 				standing: ["sealed", "cleared", "cleared"],
 				summary: { cleared: 2, sealed: 1 },
 			},
+			writtenPinned: false,
 		},
 	);
 });
-
-const releasedVerdict = Schema.Literals(["sealed", "cleared"]);
-
-const ReleasedFile = Schema.fromJsonString(
-	Schema.Struct({
-		openWrote: Schema.Array(Schema.String),
-		pinned: Schema.Boolean,
-		policy: Schema.String,
-		verdicts: Schema.Record(Schema.String, releasedVerdict),
-	}),
-);
 
 const releasedReads = Effect.gen(function* releasedReads() {
 	const fs = yield* FileSystem.FileSystem;

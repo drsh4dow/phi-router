@@ -92,7 +92,7 @@ const current = (session: string, policy: string): Effect.Effect<StoredFile, Sto
 			onNone: () => ({ openWrote: [], pinned: false, policy, verdicts: {} }),
 			onSome: (old) => {
 				if (old.policy === policy) {
-					return old;
+					return Struct.assign(old, { pinned: false });
 				}
 
 				return { openWrote: [], pinned: false, policy, verdicts: {} };
