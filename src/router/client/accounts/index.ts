@@ -4,7 +4,7 @@ export { KeyUnreadable, readKey } from "./credentials.ts";
 
 export { upstreamHttp } from "./http.ts";
 
-export { logIn, loginFolders, loginIn } from "./login-folders.ts";
+export { loginFolders, loginIn } from "./login-folders.ts";
 
 export { Upstream } from "./served.ts";
 
