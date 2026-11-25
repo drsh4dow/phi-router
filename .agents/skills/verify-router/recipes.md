@@ -140,7 +140,7 @@ recipes/iso.sh setup-tui setup-tui.sh max
    Everyday work   Claude
    Patient data    Anthropic API key
    PHI check       OpenAI
- This session now runs on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.
+ This session now runs on phi/auto. Models outside phi skip phi-router.
 ...
 0.0%/200k (auto)                                                     (phi) auto • medium
 phi · none yet · 0 sealed · 0 cleared

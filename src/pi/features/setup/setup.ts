@@ -37,8 +37,7 @@ const progress = "phi-setup";
 
 const noWidget = Option.getOrUndefined(Option.none<string[]>());
 
-const switchedLine =
-	"This session now runs on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.";
+const switchedLine = "This session now runs on phi/auto. Models outside phi skip phi-router.";
 
 const notSwitched = "Setup finished, but pi did not switch to phi/auto. Pick it in /model.";
 

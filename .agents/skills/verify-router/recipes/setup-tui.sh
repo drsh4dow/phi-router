@@ -116,7 +116,7 @@ else
 	fi
 	sleep 3
 	shot applying
-	wait_for "phi/auto. Only" 180 || fail "setup did not finish on phi/auto"
+	wait_for "This session now runs on phi/auto." 180 || fail "setup did not finish on phi/auto"
 	sleep 1
 	shot done
 	grep -v '^\s*$' "$shots/done.txt" | sed -n '/✓\|^ !/,$p'
