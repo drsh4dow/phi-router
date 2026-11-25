@@ -16,7 +16,7 @@ phi-router is a local router. Your harness sends every model request to it, and 
 
 ## Get started
 
-You need a coding agent (Claude Code, Codex or pi) logged in to your subscription, and Node or Bun. You also need one API key from an account your organization has under a BAA: an Anthropic key for Claude Code and pi, an OpenAI key for Codex.
+You need a coding agent (Claude Code, Codex or pi) logged in to your subscription, and Node or Bun. On an API key alone there is nothing to protect, and setup says so. You also need an OpenAI API key under your organization's BAA for the PHI check, and for Claude Code or pi an Anthropic API key or a Claude Enterprise login under the same BAA. Setup finds what your machine already has and asks only for the rest.
 
 Paste this into your coding agent:
 
@@ -30,7 +30,7 @@ It gives you one command to run in a terminal. Or run it yourself, with `codex` 
 npx phi-router setup claude
 ```
 
-phi-router checks each message for patient data before it is sent. The check runs on your BAA account. Messages it flags, or cannot clear, go to your BAA account, which bills per use like any API key. Everything else goes to your subscription as before. You only set up the BAA account. For a second subscription, a Claude Enterprise login, or a key in a password manager, see [Accounts](docs/accounts.md).
+phi-router checks each message for patient data before it is sent. The check runs on OpenAI Decisions under your BAA. Messages it flags, or cannot clear, go to your BAA account. Everything else goes to your subscription as before. Setup asks which account your BAA covers. For a second subscription, a Claude Enterprise login, or a key in a password manager, see [Accounts](docs/accounts.md).
 
 ## Disclaimer
 
