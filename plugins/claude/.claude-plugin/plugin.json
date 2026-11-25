@@ -1,5 +1,19 @@
 {
 	"name": "phi-router",
 	"version": "0.1.0",
-	"description": "Starts the PHI router with each session. Run `phi-router on claude` for the settings a plugin cannot set."
+	"description": "Starts the PHI router with each session. Run `phi-router on claude` for the settings a plugin cannot set.",
+	"userConfig": {
+		"anthropic_key": {
+			"type": "string",
+			"title": "Anthropic key (BAA)",
+			"description": "An Anthropic API key covered by your BAA. Patient data runs on it.",
+			"sensitive": true
+		},
+		"openai_key": {
+			"type": "string",
+			"title": "OpenAI key (PHI check)",
+			"description": "An OpenAI API key covered by your BAA. The PHI check runs on it.",
+			"sensitive": true
+		}
+	}
 }
