@@ -138,7 +138,9 @@ it.effect("shows the line start printed for a newer plugin once, at the session'
 		const { ctx, shown } = contextOf("phi");
 		const started = sessionLeased(routerPort)(showLeased, ctx);
 
-		yield* Effect.provideService(started, Router, router.service);
+		yield* Effect.provideService(started, Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 		yield* Effect.provideService(promptSent(routerPort)(ctx), Router, router.service);
 
 		assert.deepStrictEqual(shown, [`info: ${waiting}`, "status: leased"]);
