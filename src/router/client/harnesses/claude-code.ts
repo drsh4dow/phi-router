@@ -13,8 +13,8 @@ import {
 	pipe,
 } from "effect";
 import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
+import { rewritePrivately, writePrivately } from "#router/client/private-file.ts";
 import { ChildProcess } from "effect/process";
-import { rewritePrivately } from "#router/client/private-file.ts";
 
 const SettingsFile = Schema.fromJsonString(Schema.JsonObject, { space: 2 });
 
@@ -159,22 +159,14 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 	const fs = yield* FileSystem.FileSystem;
 	const searchPath = yield* Config.String("PATH");
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-home-" });
+	const path = yield* Path.Path;
 	const config = yield* fs.makeTempDirectoryScoped({ prefix: "phi-doctor-claude-" });
-	const settings = Formatter.formatJson({ env: asked.settingsEnv });
 
-	const args = [
-		"-p",
-		asked.prompt,
-		"--model",
-		asked.model,
-		"--settings",
-		settings,
-		"--plugin-dir",
-		asked.pluginFolder,
-	];
+	yield* writePrivately(path.join(config, settingsName), Formatter.formatJson({ env: asked.settingsEnv }));
+
+	const args = ["-p", asked.prompt, "--model", asked.model, "--plugin-dir", asked.pluginFolder];
 
 	return ChildProcess.make("claude", args, {
-		cwd: home,
 		env: pipe(
 			asked.env,
 			Struct.assign(behindDeadProxy),

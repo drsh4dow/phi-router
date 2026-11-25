@@ -39,7 +39,7 @@ const seenBy = (marker: string): string => {
 
 	const apiKey = 'echo "$ANTHROPIC_API_KEY"';
 
-	return `{ stat -c %a ${config}; ${proxy}; ${apiKey}; printf '%s\\n' "$@" | grep -o 'http://127.0.0.1:[0-9]*'; } > '${marker}'`;
+	return `{ stat -c %a ${config}; ${proxy}; ${apiKey}; grep -o '"ANTHROPIC_BASE_URL":"http://127.0.0.1:[0-9]*' "$CLAUDE_CONFIG_DIR/settings.json" | grep -o 'http.*'; } > '${marker}'`;
 };
 
 const searchPath = Effect.fnUntraced(function* searchPath(claude: Claude) {
