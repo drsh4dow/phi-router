@@ -2,7 +2,7 @@
 
 `npx phi-router setup <harness>` fills three roles. Everyday work runs on the open account, your harness's own subscription login. Patient data runs on the BAA account, an API key or a Claude Enterprise login. The PHI check, the judge that decides whether a message holds patient data, runs on OpenAI Decisions with an OpenAI API key under your BAA.
 
-Setup reads what the machine already has: your harness's login, a key in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, a key pi holds, and the key files of an earlier setup. It asks which account your BAA covers and, for each role it could not fill, for a key at a hidden prompt or a login through the vendor's own `claude auth login`. It stops and changes nothing when there is nothing to protect (your harness runs on an API key), when it needs a key you do not have, or when Claude Code runs on Bedrock, Vertex AI, Foundry or a gateway in `ANTHROPIC_BASE_URL`. A second run asks nothing and changes no file. This page covers every other way to set up accounts. Each section starts from a finished setup unless it says otherwise.
+Setup reads what the machine already has: your harness's login, a key in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, a key pi holds, and the key files of an earlier setup. It asks which account your BAA covers and, for each role it could not fill, for a key at a hidden prompt or a login through the vendor's own `claude auth login`. A first run also offers to add another subscription. It stops and changes nothing when there is nothing to protect (your harness runs on an API key), when it needs a key you do not have, or when Claude Code runs on Bedrock, Vertex AI, Foundry or a gateway in `ANTHROPIC_BASE_URL`. A second run asks nothing and changes no file. This page covers every other way to set up accounts. Each section starts from a finished setup unless it says otherwise.
 
 Setup writes the accounts to `phi-router/config.json` in your config folder: `$XDG_CONFIG_HOME`, else `~/.config` on Linux and `~/Library/Application Support` on macOS. After a Claude Code setup with two pasted keys it reads:
 
@@ -25,12 +25,18 @@ Setup writes the accounts to `phi-router/config.json` in your config folder: `$X
 
 ## Add a second subscription
 
-When one subscription hits its rate limit, the router sends the request to the next one.
+When one subscription hits its rate limit, the router sends the request to the next one. When every subscription is rate-limited or does not answer, requests run on your BAA account, and your harness says so at the end of the turn.
+
+A first setup asks `Add another subscription?` after its account questions. On yes, it runs the vendor's own login in a login folder of its own under `phi-router/logins/` in your config folder, and puts that account on the clean lane after your harness's own. A login that does not finish, or that signs in to the account setup already uses, is left out, and the rest of setup goes on.
+
+To add one later, run `npx phi-router accounts add` in a terminal. It runs the same login for the vendor your clean lane holds, and asks which when it holds both, in the next free login folder: `claude-open-2`, `codex-open-2` and so on. It names the account and prints its name and its lane, `clean`. Run it again for each further subscription. A login an interrupted run left in its folder is added without logging in again, and a login to an account the clean lane already holds is refused. `npx phi-router accounts` lists both lanes.
+
+On macOS, Claude Code keeps its login in the Keychain, where the router cannot read it. So for a Claude subscription, `accounts add` runs `claude setup-token`, asks you to paste the token it prints, and keeps the token in a file in the login folder. The token lasts a year and needs no refresh.
+
+To add one by hand:
 
 - For a Claude subscription, log in to it in a new folder with `CLAUDE_CONFIG_DIR=<folder> claude auth login`, then run `npx phi-router accounts add <folder>`. Or run `claude setup-token`, keep the token where a command prints it, and run `npx phi-router accounts add --command '<prints the token>'`.
 - For a ChatGPT subscription, log in to it in a new folder with `CODEX_HOME=<folder> codex login`, then run `npx phi-router accounts add <folder>`.
-
-The command names the account and prints its name and its lane, `clean`. `npx phi-router accounts` lists both lanes.
 
 ## Replace the BAA key
 
@@ -80,7 +86,8 @@ A driver with no terminal, such as an agent or pi's `/phi setup`, runs setup in 
 
 - `npx phi-router setup claude --json --answers '<picks>'` prints, as JSON, what setup found and the next question, a stop line, or the keys it still needs. It changes nothing. `<picks>` maps a question's `id` to a choice's `id`, such as `{"baa":"key"}`.
 - `npx phi-router setup claude --apply --answers '<picks>'` sets up with those picks. It reads each key it needs from `PHI_ROUTER_ANTHROPIC_KEY` or `PHI_ROUTER_OPENAI_KEY`, else from a hidden prompt when standard input is a terminal. For Claude Code it then reads a key saved in `/plugin configure phi-router`: the plugin's hook copies it into `keys/pasted/` under phi-router's config folder at the next prompt. With no key anywhere, it installs the plugin and asks for the key there.
-- A sign-in with no browser and no terminal stops with the one `claude auth login` command to run in a terminal. Run `--apply` again once it says you're signed in.
+- A Claude Enterprise sign-in with no browser and no terminal stops with the one `claude auth login` command to run in a terminal. Run `--apply` again once it says you're signed in.
+- On a first run, `--json` also asks `another`: whether to add another subscription. `--apply` without that pick adds none. With `{"another":"yes"}` and no terminal and no browser, setup sets up the rest and says to run `npx phi-router accounts add` in a terminal.
 
 ## Run from a clone
 
@@ -100,13 +107,13 @@ plugins/claude/bin/phi-router setup claude --source "$PWD"
 
 Each account has a `name` no other account has, a `vendor`, `anthropic` or `openai`, and one credential:
 
-| Credential                                         | Entry                                                          |
-| -------------------------------------------------- | -------------------------------------------------------------- |
-| The login the harness sends                        | `"forwarded": true`                                            |
-| A folder a vendor CLI logged in to                 | `"loginFolder": "<absolute path>"`                             |
-| A file that holds an API key                       | `"scheme": "apiKey", "keyFile": "<absolute path>"`             |
-| A command that prints an API key                   | `"scheme": "apiKey", "keyCommand": "<command>"`                |
-| A command that prints a `claude setup-token` token | `"scheme": "oauth", "keyCommand": "<command>"`, Anthropic only |
-| An environment variable that holds either          | `"keyEnv": "<NAME>"` in place of `keyCommand`                  |
+| Credential                                          | Entry                                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------------- |
+| The login the harness sends                         | `"forwarded": true`                                                             |
+| A folder a vendor CLI logged in to                  | `"loginFolder": "<absolute path>"`                                              |
+| A file that holds an API key                        | `"scheme": "apiKey", "keyFile": "<absolute path>"`                              |
+| A command that prints an API key                    | `"scheme": "apiKey", "keyCommand": "<command>"`                                 |
+| A command that prints a `claude setup-token` token  | `"scheme": "oauth", "keyCommand": "<command>"`, Anthropic only                  |
+| A file or an environment variable that holds either | `"keyFile": "<absolute path>"` or `"keyEnv": "<NAME>"` in place of `keyCommand` |
 
 A vendor needs an account in `clean` and an account in `sealed`, or none in either. The judge runs OpenAI's Decisions API on the first OpenAI API-key account in `sealed` ([ADR 0014](adr/0014-the-judge-runs-only-on-a-system-one-model.md)). A `judge` block runs it on a key of its own instead: `"judge": { "endpoint": "https://api.openai.com/v1", "keyCommand": "<command>" }`. With neither, the router does not start.
