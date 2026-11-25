@@ -196,6 +196,8 @@ The real claude TUI in tmux follows the README line as SETUP.md asks: the agent 
 ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-found setup-claude.sh found-keys
 ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-pasted setup-claude.sh pasted-keys
 ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-headless setup-claude.sh headless
+ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-tool setup-claude.sh found-keys-tool
+ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-delay setup-claude.sh found-keys-delay
 ```
 
 | Run           | Starts with                                                   | The user                                                                                                                           | The agent ends with                         |
@@ -207,9 +209,10 @@ ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-headless setup-claude.sh headless
 ```
 pass apply exited 0
 pass the agent ended with: Done. This window is protected.
-after apply: no router on 47411
-after apply: 0 retry lines
+pass a router answers on 47411 10 s after apply
+pass no connection retry after apply
 pass a router answers on 47411 after the first prompt
+pass no connection retry in the whole run
 pass lane log: clean, then sealed for the canary
 pass the canary reached the BAA account
 pass the canary reached no other account
@@ -219,4 +222,4 @@ pass the keys are only in: claude/.credentials.json config/phi-router/keys/anthr
 
 That is `pasted-keys`. The last check greps every file of the run, the Claude Code folder, HOME and its transcripts included, and allows a key only in phi-router's key files, the Claude Code credentials file that holds plugin options, and pi's `auth.json`. `headless` prints the environment and the command it ran, `DISPLAY='' BROWSER='' WAYLAND_DISPLAY=''` and `the terminal runs setup's command: CLAUDE_CONFIG_DIR='…/logins/claude-baa' claude auth login`. A vendor sign-in cannot finish offline, so in that terminal alone a `claude` shim answers `auth login` by writing the Claude Enterprise login it would leave. The screens are `$ROOT/screen-*.txt`, and `env MOCK_BODIES=<folder> setup-claude.sh RUN` keeps each `/v1/messages` body.
 
-A run is one `case` block: `start` writes the starting state and `drive` types until the last apply, with `say`, `pick LABEL` (arrow keys, then Enter) and `configure ANTHROPIC_KEY OPENAI_KEY`. In six timed runs the agent's reply after apply left 0.05 to 0.55 s after apply rewrote `settings.json` and still reached api.anthropic.com directly. A reply sent after Claude Code applies the new settings would go to 47411 (inferred), where nothing listens until the next prompt's hook starts a router.
+A run is one `case` block: `start` writes the starting state and `drive` types until the last apply, with `say`, `pick LABEL` (arrow keys, then Enter) and `configure ANTHROPIC_KEY OPENAI_KEY`. `found-keys-tool` and `found-keys-delay` start as `found-keys` and test the turn after apply, which reaches the router's address once Claude Code reloads `settings.json`. In `-tool` the agent runs `sleep 3; printf setup-confirmation` after its last line; in `-delay` the `npx` shim returns 3 s after apply ends. Both pass only because apply leases a router to the Claude Code instance before it writes the address: a screen line with `ECONNREFUSED`, `Retrying` or `attempt N/M` fails every run.

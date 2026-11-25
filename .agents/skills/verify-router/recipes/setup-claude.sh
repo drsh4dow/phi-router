@@ -8,6 +8,7 @@ fail() {
 }
 pass() { echo "pass $1"; }
 w=$ROOT/world
+case $run in *-tool) after_apply=tool ;; *-delay) after_apply=delay ;; *) after_apply= ;; esac
 mkdir -p "$w" "$ROOT/bin"
 cd "$w"
 
@@ -31,7 +32,7 @@ enterprise_token=sk-ant-oat01-phirecipeenterprise$(printf '%080d' 9)
 MOCK_LOG=$ROOT/mock.jsonl
 export MOCK_LOG
 FAKE_OPEN_TOKEN=$open_token FAKE_ENTERPRISE_TOKEN=$enterprise_token FAKE_BAA_KEY=$baa_key FAKE_OPENAI_KEY=$openai_key MOCK_CERT=$w/tls.pem MOCK_CERT_KEY=$w/tls.key \
-	MOCK_BODIES=${MOCK_BODIES:-} bun "$RECIPES/setup-claude-mock.ts" >mock.out 2>&1 &
+	MOCK_AFTER_APPLY=$after_apply MOCK_BODIES=${MOCK_BODIES:-} bun "$RECIPES/setup-claude-mock.ts" >mock.out 2>&1 &
 mock=$!
 until grep -qs listening mock.out || ! kill -0 "$mock" 2>/dev/null; do sleep 0.2; done
 
@@ -51,6 +52,7 @@ case "\$*" in setup*--apply*) out=$ROOT/apply.out ;; *) out=/dev/null ;; esac
 	echo \$? >"$ROOT/npx.code"
 } 2>&1 | tee "\$out"
 code=\$(cat "$ROOT/npx.code")
+[ "$after_apply" = delay ] && [ "\$code" = 0 ] && case "\$*" in setup*--apply*) sleep 3 ;; esac
 echo "exit \$code: \$*" >>"$ROOT/npx.log"
 exit "\$code"
 EOF
@@ -129,7 +131,7 @@ router() { curl -s -o /dev/null -m 1 http://127.0.0.1:47411/; }
 readme='Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md'
 
 case $run in
-found-keys)
+found-keys | found-keys-tool | found-keys-delay)
 	applies=1 ending='Done. Type `/reload-plugins` to turn it on.'
 	start() {
 		printf '{"anthropic":{"type":"api_key","key":"%s"}}' "$baa_key" >"$PI_CODING_AGENT_DIR/auth.json"
@@ -216,10 +218,10 @@ fi
 
 waits "● $(printf %s "$ending" | tr -d '`')" 60 && pass "the agent ended with: $ending" || fail "the agent did not end with: $ending"
 sleep 10
-router && echo "after apply: a router answers on 47411" || echo "after apply: no router on 47411"
-echo "after apply: $(screen | grep -cE 'ECONNREFUSED|retrying') retry lines"
+router && pass "a router answers on 47411 10 s after apply" || fail "no router on 47411 10 s after apply"
+retried() { screen | grep -cE 'ECONNREFUSED|[Rr]etrying|attempt [0-9]+/[0-9]+'; }
+[ "$(retried)" -eq 0 ] && pass "no connection retry after apply" || fail "claude retried a connection after apply: $(retried) lines"
 shot after-apply
-screen | grep -qE 'retrying|Retrying' && tm send-keys -t claude Escape && sleep 1
 
 case $ending in *reload-plugins*)
 	say /reload-plugins
@@ -240,6 +242,7 @@ before=$(lines)
 say "Member $CANARY called about her claim. Reply ok."
 grows "$before"
 shot end
+[ "$(retried)" -eq 0 ] && pass "no connection retry in the whole run" || fail "claude retried a connection: $(retried) lines"
 
 [ "$before" -gt 0 ] && head -n "$before" "$lanes" | jq -e -s 'all(.lane == "clean")' >/dev/null &&
 	tail -n +"$((before + 1))" "$lanes" | jq -e -s 'any(.lane == "sealed")' >/dev/null &&
