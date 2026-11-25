@@ -34,11 +34,10 @@ const managed = Effect.fnUntraced(function* managed(of: World, env: Readonly<Rec
 	yield* fs.writeFileString(`${of.root}/managed-settings.json`, Formatter.formatJson({ env }));
 });
 
-const userGateway = Effect.fnUntraced(function* userGateway(of: World) {
+const userEnv = Effect.fnUntraced(function* userEnv(of: World, env: Readonly<Record<string, string>>) {
 	const fs = yield* FileSystem.FileSystem;
-	const settings = Formatter.formatJson({ env: { ANTHROPIC_BASE_URL: "https://llm-gateway.example.com" } });
 
-	yield* fs.writeFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`, settings);
+	yield* fs.writeFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`, Formatter.formatJson({ env }));
 });
 
 const signedOut = Effect.fnUntraced(function* signedOut(of: World) {
@@ -69,7 +68,7 @@ const stops: readonly Stop[] = [
 		line: "phi-router doesn't support Foundry yet. Nothing changed.",
 	},
 	{
-		given: userGateway,
+		given: (of) => userEnv(of, { ANTHROPIC_BASE_URL: "https://llm-gateway.example.com" }),
 		kind: "Claude Code's settings.json sends it to another gateway",
 		line: "phi-router doesn't work with your gateway (llm-gateway.example.com) yet. Nothing changed.",
 	},
@@ -94,6 +93,27 @@ const stops: readonly Stop[] = [
 		given: (of) => managed(of, { CLAUDE_CODE_USE_VERTEX: "1" }),
 		kind: "managed settings switch Claude Code to Vertex AI",
 		line: "phi-router doesn't support Vertex AI yet. Nothing changed.",
+	},
+	{
+		given: (of) => managed(of, { CLAUDE_CODE_USE_ANTHROPIC_AWS: "1" }),
+		kind: "managed settings switch Claude Code to CLAUDE_CODE_USE_ANTHROPIC_AWS",
+		line: "phi-router doesn't support CLAUDE_CODE_USE_ANTHROPIC_AWS yet. Nothing changed.",
+	},
+	{
+		given: (of) => userEnv(of, { CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD: "true" }),
+		kind: "Claude Code's settings.json switches it to CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD",
+		line: "phi-router doesn't support CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD yet. Nothing changed.",
+	},
+	{
+		env: { CLAUDE_CODE_USE_MANTLE: "1" },
+		given: () => Effect.void,
+		kind: "the shell that runs setup switches Claude Code to CLAUDE_CODE_USE_MANTLE",
+		line: "phi-router doesn't support CLAUDE_CODE_USE_MANTLE yet. Nothing changed.",
+	},
+	{
+		given: (of) => userEnv(of, { CLAUDE_CODE_USE_GATEWAY: "1" }),
+		kind: "Claude Code's settings.json switches it to CLAUDE_CODE_USE_GATEWAY",
+		line: "phi-router doesn't support CLAUDE_CODE_USE_GATEWAY yet. Nothing changed.",
 	},
 	{
 		given: (of) =>
