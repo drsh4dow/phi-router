@@ -78,7 +78,7 @@ const asked = Effect.fnUntraced(function* asked(name: HarnessName, found: Found,
 	const ready = yield* Effect.flatMap(answered(found, {}), readyOf);
 	const typed = yield* Effect.forEach(ready.typed, (vendor) => typedKey(vendor, ready.roles), { concurrency: 1 });
 
-	yield* apply(name, { roles: ready.roles, typed: Record.fromEntries(typed) }, target);
+	yield* apply(name, { another: ready.another, roles: ready.roles, typed: Record.fromEntries(typed) }, target);
 	yield* Console.log(Array.join(["", ...closingLines(target)], "\n"));
 	yield* Effect.when(Effect.asVoid(handedOver(start)), enterPressed);
 });

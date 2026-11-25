@@ -1,4 +1,4 @@
-import { Array, Config, Effect, Option, Path, Redacted, String as Str, Struct, pipe } from "effect";
+import { Array, Config, DateTime, Effect, Option, Path, Redacted, String as Str, Struct, pipe } from "effect";
 import type { NamedAccount, Vendor } from "#router/client/configuration/index.ts";
 import { claudeSignIn, codexFolderSignIn, codexSignIn } from "#router/client/harnesses/index.ts";
 import { fromFolder, refused, summaryOf, tokenKindOf } from "./found.ts";
@@ -31,9 +31,7 @@ const canLogIn = Effect.fnUntraced(function* canLogIn({ withBrowser }: { readonl
 	const browser = yield* opensBrowser;
 
 	if (!terminal && !(withBrowser && browser)) {
-		return yield* refused(
-			`Logging in to another subscription needs a terminal or a browser. Run \`npx phi-router accounts add\` in a terminal.`,
-		);
+		return yield* refused("Logging in to another subscription needs a terminal or a browser, and here is neither.");
 	}
 
 	return terminal;
@@ -194,6 +192,7 @@ const subscriptionLogin = Effect.fnUntraced(
 
 		return Struct.assign(found, { signIn }) satisfies Subscription;
 	},
+	DateTime.withCurrentZoneLocal,
 	Effect.catchTags({
 		PlatformError: (error) => Effect.fail(refused(`phi-router could not read or write its files. ${error.message}`)),
 		SchemaError: (error) => Effect.fail(refused(`phi-router could not read config.json. ${error.message}`)),
@@ -296,4 +295,4 @@ const fromLogin = Effect.fnUntraced(function* fromLogin() {
 	return yield* subscriptionLogin(vendor, Array.flatten(taken));
 });
 
-export { fromLogin, opensBrowser };
+export { fromLogin, opensBrowser, subscriptionLogin };

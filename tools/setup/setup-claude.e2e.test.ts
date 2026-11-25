@@ -13,6 +13,7 @@ import {
 	lastLine,
 	layer,
 	maxAnswers,
+	noAnother,
 	ok,
 	patient,
 	permissionBitsOf,
@@ -157,7 +158,13 @@ const echoedThenEnded = Effect.gen(function* echoedThenEnded() {
 
 	yield* writeOwnSettings(of);
 
-	const run = yield* setUp(of, "claude", [keyPicked, baaKey, judgeKey, { after: lastQuestion, typed: "go" }]);
+	const run = yield* setUp(of, "claude", [
+		keyPicked,
+		noAnother,
+		baaKey,
+		judgeKey,
+		{ after: lastQuestion, typed: "go" },
+	]);
 
 	yield* setUp(of, "claude", [{ after: lastQuestion, typed: endOfInput }]);
 
@@ -183,7 +190,7 @@ const emptyOpenAiKey = Effect.gen(function* emptyOpenAiKey() {
 	const { after, before, run } = yield* tracked(
 		of,
 		["setup", "claude"],
-		[keyPicked, baaKey, { after: "OpenAI key (PHI check)", typed: "" }],
+		[keyPicked, noAnother, baaKey, { after: "OpenAI key (PHI check)", typed: "" }],
 	);
 
 	const checked = yield* of.checkedKeys();

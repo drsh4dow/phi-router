@@ -12,6 +12,7 @@ import {
 	lastLine,
 	layer,
 	maxAnswers,
+	noAnother,
 	ok,
 	ownSettings,
 	patient,
@@ -56,7 +57,7 @@ const badKey = Effect.fnUntraced(function* badKey({ copy, pasted }: BadKey) {
 	const { after, before, run } = yield* tracked(
 		of,
 		["setup", "claude"],
-		[keyPicked, { after: anthropicKeyQuestion, typed: pasted }, judgeKey],
+		[keyPicked, noAnother, { after: anthropicKeyQuestion, typed: pasted }, judgeKey],
 	);
 
 	const calls = yield* callsOf(of, "claude");
@@ -74,7 +75,7 @@ interface EndedAt {
 
 const endedAt: readonly EndedAt[] = [
 	{ answers: [{ after: questions.baa, typed: endOfInput }], kind: "a pick" },
-	{ answers: [keyPicked, { after: anthropicKeyQuestion, typed: endOfInput }], kind: "a key" },
+	{ answers: [keyPicked, noAnother, { after: anthropicKeyQuestion, typed: endOfInput }], kind: "a key" },
 ];
 
 const ended = Effect.fnUntraced(function* ended({ answers }: EndedAt) {

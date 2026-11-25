@@ -55,6 +55,7 @@ interface Ready {
 	readonly kind: "ready";
 	readonly roles: Roles;
 	readonly typed: readonly Vendor[];
+	readonly another: boolean;
 }
 
 type Step = Pending | Ready;
@@ -98,11 +99,13 @@ const stopOf = (found: Found): Option.Option<string> => {
 	return Option.none();
 };
 
+const yesOrNo: Question["choices"] = [
+	{ id: "yes", label: "Yes" },
+	{ id: "no", label: "No" },
+];
+
 const enterpriseQuestion = (account: string | undefined): Question => ({
-	choices: [
-		{ id: "yes", label: "Yes" },
-		{ id: "no", label: "No" },
-	],
+	choices: yesOrNo,
 	id: "enterprise",
 	text: pipe(
 		Option.fromUndefinedOr(account),
@@ -303,6 +306,23 @@ const judgeOf = (found: Found, answers: Answers, baa: Filler): Filler | Pending 
 	return keptSource(shared) ?? chosen(openaiQuestion(found, "judge"), answers, "openai");
 };
 
+const anotherQuestion = (open: Named): Question => ({
+	choices: yesOrNo,
+	id: "another",
+	text: `Add another subscription? It takes over when ${shown(open)} hits its rate limit.`,
+});
+
+const anotherOf = (answers: Answers, open: Filler): boolean | Pending => {
+	if (open.kind !== "forwarded") {
+		return false;
+	}
+
+	return Option.match(answered(anotherQuestion(open.label), answers), {
+		onNone: () => ask(anotherQuestion(open.label)),
+		onSome: (choice) => choice === "yes",
+	});
+};
+
 const typedVendors = (roles: Roles): readonly Vendor[] =>
 	pipe(
 		[roles.open, roles.baa, roles.judge],
@@ -341,9 +361,15 @@ const plan = ({ answers, found }: { readonly found: Found; readonly answers: Ans
 		return judge;
 	}
 
+	const another = anotherOf(answers, side.open);
+
+	if (!Predicate.isBoolean(another)) {
+		return another;
+	}
+
 	const roles = { baa, judge, open: side.open };
 
-	return { kind: "ready", roles, typed: typedVendors(roles) };
+	return { another, kind: "ready", roles, typed: typedVendors(roles) };
 };
 
 const needed = (found: Found, vendor: Vendor, missing: string): string => {

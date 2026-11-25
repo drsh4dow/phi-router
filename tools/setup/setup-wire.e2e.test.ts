@@ -20,7 +20,7 @@ const answeredKey = ["--answers", '{"baa":"key"}'];
 const reported = Effect.gen(function* reported() {
 	const base = yield* world;
 	const of = withEnv({ ANTHROPIC_API_KEY: keys.anthropic })(base);
-	const run = yield* phiRouter(of.env, ["setup", "claude", "--json", ...answeredKey]);
+	const run = yield* phiRouter(of.env, ["setup", "claude", "--json", "--answers", '{"another":"no","baa":"key"}']);
 	const step = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(Str.trim(run.stdout));
 
 	assert.strictEqual(run.exitCode, ok, run.stderr);

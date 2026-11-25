@@ -1,7 +1,7 @@
 import { Array, Effect, String as Str, pipe } from "effect";
 import type { FileSystem, PlatformError } from "effect";
 import type { Typed, World } from "./world.ts";
-import { argsOf, codexSignedIn, enter, layer, maxAnswers, ok, patient, piHolds, piLogin } from "./set-up.ts";
+import { argsOf, codexSignedIn, enter, layer, maxAnswers, noAnother, ok, patient, piHolds, piLogin } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, typedRun, world } from "./world.ts";
 
@@ -20,7 +20,7 @@ const checkoutInstalls: readonly CheckoutInstall[] = [
 		installs: (checkout) => [`plugin install phi-router --marketplace ${checkout} --scope user`],
 	},
 	{
-		answers: [{ after: "OpenAI key (BAA)", typed: keys.openai }, enter],
+		answers: [noAnother, { after: "OpenAI key (BAA)", typed: keys.openai }, enter],
 		given: codexSignedIn,
 		harness: "codex",
 		installs: (checkout) => [`plugin marketplace add ${checkout}`, "plugin add phi-router@phi-router"],

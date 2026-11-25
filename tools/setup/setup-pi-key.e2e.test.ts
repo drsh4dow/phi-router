@@ -10,6 +10,7 @@ import {
 	keysOutsideKeyFiles,
 	lastLine,
 	layer,
+	noAnother,
 	ok,
 	patient,
 	piHolds,
@@ -37,7 +38,7 @@ const taken = Effect.gen(function* taken() {
 
 	yield* piKeyOnly(of, `!printf %s ${keys.anthropic}`);
 
-	const run = yield* setUp(of, "claude", [piChoice, judgeKey, enter]);
+	const run = yield* setUp(of, "claude", [piChoice, noAnother, judgeKey, enter]);
 	const config = yield* writtenConfigOf(of);
 	const { anthropic } = keyFiles(of);
 	const saved = yield* fs.readFileString(anthropic);
@@ -65,7 +66,7 @@ const refused = Effect.gen(function* refused() {
 	yield* piKeyOnly(of, keys.refused);
 
 	const before = yield* filesUnder(of.xdg.XDG_CONFIG_HOME);
-	const run = yield* setUp(of, "claude", [piChoice, judgeKey]);
+	const run = yield* setUp(of, "claude", [piChoice, noAnother, judgeKey]);
 	const after = yield* filesUnder(of.xdg.XDG_CONFIG_HOME);
 	const outside = yield* keysOutsideKeyFiles(of, [run.shown]);
 

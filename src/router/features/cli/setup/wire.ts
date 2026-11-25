@@ -1,5 +1,5 @@
 import type { Answers, Found, Step } from "./plan.ts";
-import { Array, Console, Effect, Predicate, Schema, pipe } from "effect";
+import { Array, Console, Effect, Predicate, Schema, Struct, pipe } from "effect";
 import type { HarnessName, Target } from "./harnesses.ts";
 import { codexDone, windowDone } from "./copy.ts";
 import { foundScreen, keyPrompt, plan } from "./plan.ts";
@@ -39,11 +39,11 @@ const applied = Effect.fnUntraced(function* applied(
 	found: Found,
 	given: { readonly answers: Answers; readonly answersJson: string | undefined; readonly target: Target },
 ) {
-	const ready = yield* readyOf(plan({ answers: given.answers, found }));
+	const ready = yield* readyOf(plan({ answers: Struct.assign({ another: "no" } as const, given.answers), found }));
 	const typed = yield* givenKeys(name, ready, given);
 	const before = yield* harnesses[name].installed;
 
-	yield* apply(name, { roles: ready.roles, typed }, given.target);
+	yield* apply(name, { another: ready.another, roles: ready.roles, typed }, given.target);
 	yield* Effect.when(
 		Console.log(windowDone[`${Predicate.isNotUndefined(before.version)}`]),
 		Effect.succeed(name === "claude"),
