@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Option, Predicate, Schema, Struct, pipe } from "effect";
 import type { KeySource, Lane, Vendor } from "./configuration/index.ts";
-import { LaneFile, configFile } from "./configuration/index.ts";
+import { LaneFile, configFile, endpoints } from "./configuration/index.ts";
 import { UserDirectories } from "effect/persistence";
 import { realFolder } from "./processes.ts";
 import { writePrivately } from "./private-file.ts";
@@ -21,8 +21,6 @@ interface Additions<Accounts extends readonly Wanted[]> {
 	readonly accounts: Accounts;
 	readonly judge?: KeySource;
 }
-
-const judgeEndpoint = "https://api.openai.com/v1";
 
 interface Placed {
 	readonly name: string;
@@ -217,7 +215,7 @@ const addAccounts = Effect.fn("addAccounts")(function* addAccounts<const Account
 	const judge = pipe(
 		Option.fromUndefinedOr(additions.judge),
 		Option.filter(() => Predicate.isUndefined(read["judge"])),
-		Option.map((key) => ({ judge: Struct.assign({ endpoint: judgeEndpoint }, key) })),
+		Option.map((key) => ({ judge: Struct.assign({ endpoint: endpoints.openai.key }, key) })),
 	);
 
 	if (anyAdded || Option.isSome(judge)) {

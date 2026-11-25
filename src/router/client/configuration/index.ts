@@ -1,6 +1,6 @@
 export { Configuration, configFile, configText, configuredJudge } from "./config-file.ts";
 
-export { LaneFile, configuredAccounts, configuredLanes, laneConfiguration } from "./lanes.ts";
+export { LaneFile, configuredAccounts, configuredLanes, endpoints, laneConfiguration } from "./lanes.ts";
 
 export type { KeySource } from "./config-file.ts";
 
