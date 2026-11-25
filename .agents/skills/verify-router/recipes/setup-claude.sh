@@ -11,16 +11,6 @@ printf '{"hasCompletedOnboarding":true,"hasSeenAutoDefaultNotice":true,"oauthAcc
 	00000000-0000-4000-8000-00000000000 00000000-0000-4000-8000-00000000000 "$ROOT/work" >"$CLAUDE_CONFIG_DIR/.claude.json"
 
 typed() { screen | grep -A1 '^─' | grep -qF -- "❯ $(printf %.30s "$1")"; }
-say() {
-	tm send-keys -t claude -l "$1"
-	sleep 1
-	for _ in 1 2 3 4 5; do
-		tm send-keys -t claude Enter
-		sleep 3
-		typed "$1" || return 0
-	done
-	fail "claude kept $1 in its input box"
-}
 pick() {
 	waits "Enter to select" 120 || {
 		fail "no picker offered $1"
