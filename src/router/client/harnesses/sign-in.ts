@@ -111,20 +111,6 @@ const claudeSignIn = Effect.fnUntraced(function* claudeSignIn(folder: string) {
 	});
 });
 
-const claudeLogin = Effect.fnUntraced(function* claudeLogin(folder: string) {
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-
-	return yield* spawner.exitCode(
-		ChildProcess.make("claude", ["auth", "login"], {
-			env: { CLAUDE_CONFIG_DIR: folder },
-			extendEnv: true,
-			stderr: "inherit",
-			stdin: "inherit",
-			stdout: "inherit",
-		}),
-	);
-});
-
 const IdToken = Schema.fromJsonString(Schema.Struct({ tokens: Schema.Struct({ id_token: Schema.String }) }));
 
 const chatgptAuth = "https://api.openai.com/auth";
@@ -197,6 +183,6 @@ const piSignIn = Effect.gen(function* piSignIn() {
 	});
 });
 
-export { claudeLogin, claudeSignIn, codexSignIn, piSignIn };
+export { claudeSignIn, codexSignIn, piSignIn };
 
 export type { SignIn };

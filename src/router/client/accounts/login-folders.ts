@@ -145,6 +145,7 @@ const loginFolders = {
 		env: "CLAUDE_CONFIG_DIR",
 		file: ".credentials.json",
 		login: claudeLogin,
+		loginArgs: ["claude", "auth", "login"],
 		loginCommand: (folder: string) => `CLAUDE_CONFIG_DIR=${folder} claude auth login`,
 		refresh: claudeRefresh,
 	},
@@ -154,10 +155,27 @@ const loginFolders = {
 		env: "CODEX_HOME",
 		file: "auth.json",
 		login: codexLogin,
+		loginArgs: ["codex", "login"],
 		loginCommand: (folder: string) => `CODEX_HOME=${folder} codex login`,
 		refresh: codexRefresh,
 	},
 } as const;
+
+const logIn = Effect.fnUntraced(function* logIn(vendor: keyof typeof loginFolders, folder: string) {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const { env, loginArgs } = loginFolders[vendor];
+	const [command, ...args] = loginArgs;
+
+	return yield* spawner.exitCode(
+		ChildProcess.make(command, args, {
+			env: { [env]: folder },
+			extendEnv: true,
+			stderr: "inherit",
+			stdin: "inherit",
+			stdout: "inherit",
+		}),
+	);
+});
 
 const loginIn = Effect.fnUntraced(function* loginIn(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
@@ -181,6 +199,6 @@ const loginIn = Effect.fnUntraced(function* loginIn(folder: string) {
 	return yield* seen("openai");
 });
 
-export { LoginEnded, loginFolders, loginIn };
+export { LoginEnded, logIn, loginFolders, loginIn };
 
 export type { Login };
