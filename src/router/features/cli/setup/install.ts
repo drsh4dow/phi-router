@@ -1,10 +1,11 @@
-import { Array, Console, Effect, Option, Order, Predicate, String as Str, pipe } from "effect";
+import { Array, Console, Effect, Option, Predicate, pipe } from "effect";
 import type { HarnessName, Installed, Move, Target } from "./harnesses.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
 import { Platform } from "#router/features/cli/platform.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { harnesses } from "./harnesses.ts";
 import { installRun } from "#router/client/harnesses/index.ts";
+import { isOlder } from "#router/primitives/release.ts";
 import { stopped } from "./keys.ts";
 
 const succeeded = 0;
@@ -25,13 +26,6 @@ const installFailure = ({ name, turn }: { readonly name: HarnessName; readonly t
 
 	return Option.liftPredicate(`The install in ${title} failed:\n${turn.printed}`, () => turn.exitCode !== succeeded);
 };
-
-const releaseOrder = Order.combine(
-	Order.mapInput(Array.makeOrder(Order.Number), (version: string) =>
-		pipe(Str.split(version, "-"), Array.headNonEmpty, Str.split("."), Array.map(Number)),
-	),
-	Order.mapInput(Order.Boolean, (version: string) => !Str.includes("-")(version)),
-);
 
 const moveOf = ({
 	installed,
@@ -54,7 +48,7 @@ const moveOf = ({
 		);
 	}
 
-	const newer = Predicate.isNotUndefined(version) && Order.isGreaterThan(releaseOrder)(version, target.version);
+	const newer = Predicate.isNotUndefined(version) && isOlder(target.version, version);
 
 	if (source === "elsewhere" || newer) {
 		return Option.none();
@@ -70,7 +64,7 @@ const moveOf = ({
 
 	return pipe(
 		Option.some<Move>("update"),
-		Option.filter(() => Order.isLessThan(releaseOrder)(version, target.version)),
+		Option.filter(() => isOlder(version, target.version)),
 	);
 };
 
