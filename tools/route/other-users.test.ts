@@ -11,7 +11,7 @@ const holdsCanary = Str.includes(canary);
 
 const status = { forbidden: 403, ok: 200 } as const;
 
-const refusedRequests = 6;
+const refusedRequests = 5;
 
 const anotherUser = Callers.of({ isThisUser: () => Effect.succeed(false) });
 
@@ -20,12 +20,6 @@ const lease = HttpClientRequest.bodyText(HttpClientRequest.post("/phi-router/lea
 const hello = HttpClientRequest.get("/api/hello");
 
 const unrouted = HttpClientRequest.get("/phi-router/no-such-row");
-
-const pinned = HttpClientRequest.bodyText(
-	HttpClientRequest.post("/phi-router/pin"),
-	'{"session":"other-1","pinned":true}',
-	"application/json",
-);
 
 const asked = HttpClientRequest.get("/phi-router/status?session=other-1");
 
@@ -42,7 +36,6 @@ const claudeRefused = Effect.gen(function* claudeRefused() {
 			post({ body, session: "other-1" }),
 			client.execute(lease),
 			client.execute(hello),
-			client.execute(pinned),
 			client.execute(asked),
 			client.execute(unrouted),
 		],

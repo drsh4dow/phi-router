@@ -1,21 +1,22 @@
 import { Array, Effect, String as Str, pipe } from "effect";
 import type { Check, Turned } from "./checks.ts";
-import { isModelPost, windowsOf } from "./stored.ts";
+import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { everyOf } from "./checks.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
-import { pinnedLine } from "#router/features/lanes/index.ts";
+import { isModelPost } from "./stored.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 import { voidedSsn } from "./cases.ts";
 
-const typed = { pin: "/phi pin", status: "/phi", unpin: "/phi unpin" } as const;
+const typed = { status: "/phi", usage: "/phi pin" } as const;
 
 const sealWords = "held patient identifiers and ran only on the BAA account";
 
 interface Shown {
-	readonly pinOn: boolean;
-	readonly pinOff: boolean;
 	readonly statusBlock: boolean;
+	readonly pinLine: boolean;
+	readonly namesSubagent: boolean;
+	readonly namesSealedModel: boolean;
 	readonly seal: boolean;
 	readonly piStatusNamesBaa: boolean;
 	readonly handled: boolean;
@@ -28,10 +29,7 @@ interface PhiTurned extends Turned {
 
 interface PhiTurns<Turn extends PhiTurned = PhiTurned> {
 	readonly status: Turn;
-	readonly pin: Turn;
-	readonly pinned: Turn;
-	readonly unpin: Turn;
-	readonly unpinned: Turn;
+	readonly usage: Turn;
 	readonly inOrder: readonly Turn[];
 }
 
@@ -40,9 +38,10 @@ const shownIn = (printed: string): Shown => {
 
 	return {
 		handled: has(`"disposition":"handled"`),
+		namesSealedModel: has(`switch the model to ${pinnedModel}`),
+		namesSubagent: has("hand it to the phi-sealed subagent"),
 		piStatusNamesBaa: has("phi · baa, model "),
-		pinOff: has("Pin: off"),
-		pinOn: has("Pin: on"),
+		pinLine: has("Pin: "),
 		seal: has(sealWords),
 		statusBlock: has("Clean lane: open") && has("Sealed lane: baa") && has(" sealed, ") && has("Last request: "),
 	};
@@ -53,46 +52,39 @@ const none = 0;
 const sentNothing = (turn: PhiTurned): boolean =>
 	turn.piecesJudged === none && !pipe([...turn.open, ...turn.baa], Array.some(isModelPost));
 
-const holdsClean =
-	(cleanText: string) =>
-	(sent: PhiTurned["open"]): boolean =>
-		pipe(
-			sent,
-			Array.some(({ body }) =>
-				pipe(
-					windowsOf(cleanText),
-					Array.some((window) => Str.includes(window)(body)),
-				),
-			),
-		);
+const phiChecksOf = (turns: PhiTurns): readonly Check[] => [
+	{
+		name: "neither /phi nor /phi pin sends a model request or a judge call",
+		ok: pipe(turns.inOrder, Array.every(sentNothing)),
+	},
+];
 
-const phiChecksOf = (played: { readonly turns: PhiTurns; readonly cleanText: string }): readonly Check[] => {
-	const { cleanText, turns } = played;
-	const clean = holdsClean(cleanText);
+const usageCheckOf = (harness: "claude" | "pi", { shown }: PhiTurned): Check => {
+	if (harness === "pi") {
+		return {
+			name: "/phi pin shows the usage, which names the model phi/sealed, and no status",
+			ok: shown.namesSealedModel && !shown.statusBlock,
+		};
+	}
 
-	return [
-		{
-			name: "no /phi, /phi pin or /phi unpin sends a model request or a judge call",
-			ok: pipe([turns.status, turns.pin, turns.unpin], Array.every(sentNothing)),
-		},
-		{
-			name: "after /phi pin, the next clean prompt reaches the BAA mock alone, with no judge call",
-			ok: clean(turns.pinned.baa) && !clean(turns.pinned.open) && turns.pinned.piecesJudged === none,
-		},
-		{
-			name: "after /phi unpin, the next clean prompt reaches the open mock",
-			ok: clean(turns.unpinned.open) && !clean(turns.unpinned.baa),
-		},
-	];
+	return {
+		name: "/phi pin shows the usage, which names the phi-sealed subagent and the model phi/sealed, and no status",
+		ok: shown.namesSubagent && shown.namesSealedModel && !shown.statusBlock,
+	};
 };
 
-const shownChecksOf = (turns: PhiTurns): readonly Check[] => [
+const shownChecksOf = ({
+	harness,
+	turns,
+}: {
+	readonly harness: "claude" | "pi";
+	readonly turns: PhiTurns;
+}): readonly Check[] => [
 	{
-		name: "/phi shows the pin off, the accounts of both lanes, the last request and the counts",
-		ok: turns.status.shown.pinOff && turns.status.shown.statusBlock,
+		name: "/phi shows the accounts of both lanes, the last request and the counts, and no Pin line",
+		ok: turns.status.shown.statusBlock && !turns.status.shown.pinLine,
 	},
-	{ name: "/phi pin shows the pin on", ok: turns.pin.shown.pinOn && turns.pin.shown.statusBlock },
-	{ name: "/phi unpin shows the pin off", ok: turns.unpin.shown.pinOff && turns.unpin.shown.statusBlock },
+	usageCheckOf(harness, turns.usage),
 ];
 
 const sealCheckOf = ([sealing, ...others]: readonly [PhiTurned, ...PhiTurned[]]): Check => ({
@@ -105,29 +97,13 @@ const sealCheckOf = ([sealing, ...others]: readonly [PhiTurned, ...PhiTurned[]])
 		),
 });
 
-interface PhiRun<Turn extends PhiTurned, Failure, Needs> {
-	readonly command: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
-	readonly prompt: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
-	readonly clean: string;
-}
-
 const phiTurns = Effect.fnUntraced(function* phiTurns<Turn extends PhiTurned, Failure, Needs>(
-	play: PhiRun<Turn, Failure, Needs>,
+	command: (prompt: string) => Effect.Effect<Turn, Failure, Needs>,
 ) {
-	const inOrder = yield* Effect.all(
-		[
-			play.command(typed.status),
-			play.command(typed.pin),
-			play.prompt(play.clean),
-			play.command(typed.unpin),
-			play.prompt(play.clean),
-		],
-		{ concurrency: 1 },
-	);
+	const inOrder = yield* Effect.all([command(typed.status), command(typed.usage)], { concurrency: 1 });
+	const [status, usage] = inOrder;
 
-	const [status, pin, pinned, unpin, unpinned] = inOrder;
-
-	return { inOrder, pin, pinned, status, unpin, unpinned } satisfies PhiTurns<Turn>;
+	return { inOrder, status, usage } satisfies PhiTurns<Turn>;
 });
 
 const handOff = "Hand the member lookup to the pinned subagent.";

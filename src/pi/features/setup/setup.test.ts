@@ -110,7 +110,6 @@ const ranIn = Effect.fnUntraced(function* ranIn(world: World) {
 
 	const router = Router.of({
 		models: Effect.succeed({}),
-		pin: () => Effect.void,
 		setUp: ({ answers, keys, shown }) =>
 			Effect.sync(() => {
 				applied.push({
@@ -136,7 +135,6 @@ const ranIn = Effect.fnUntraced(function* ranIn(world: World) {
 				started.push(`${session} ${folder} ${String(port)}`);
 			}),
 		status: () => Effect.die("setup asks no status"),
-		unpin: () => Effect.void,
 	});
 
 	const picked = pipe(

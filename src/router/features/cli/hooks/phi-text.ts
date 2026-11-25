@@ -1,12 +1,13 @@
 import { Array, Option, String as Str, pipe } from "effect";
 import type { Status } from "#shared/cli.ts";
 import { phiCommand } from "#shared/cli.ts";
+import { pinnedModel } from "#router/features/lanes/index.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
 const oneMessage = 1;
 
-const usage = `/${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
+const usage = `/${phiCommand.name} shows this session's routing. To run work on the BAA account, hand it to the phi-sealed subagent or switch the model to ${pinnedModel}.`;
 
 type Shows = (status: Reported) => string;
 
@@ -32,19 +33,10 @@ const namesOf = (accounts: Reported["accounts"]["clean"]): string =>
 		Option.getOrElse(() => "none"),
 	);
 
-const pinOf: Shows = (status) => {
-	if (status.pinned) {
-		return "on, every request runs on the sealed lane";
-	}
-
-	return "off";
-};
-
 const statusText: Shows = (status) =>
 	Array.join(
 		[
 			`phi-router, session ${status.session}`,
-			`Pin: ${pinOf(status)}`,
 			`Last request: ${lastOf(status)}`,
 			`Messages: ${String(status.sealed)} sealed, ${String(status.cleared)} cleared`,
 			`Clean lane: ${namesOf(status.accounts.clean)}`,

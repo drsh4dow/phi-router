@@ -1,4 +1,4 @@
-import { Array, Effect, Ref, String as Str, pipe } from "effect";
+import { Array, Effect, Ref, pipe } from "effect";
 import { CommandFailed, SessionId } from "#shared/cli.ts";
 import { answered, observerOn } from "#pi/features/phi/phi.ts";
 import { assert, it } from "@effect/vitest";
@@ -14,11 +14,11 @@ const cleared = 2;
 
 const reported =
 	(substitute: boolean) =>
-	(pinned: boolean, sealed: number): typeof Status.Type => ({
+	(sealed: number): typeof Status.Type => ({
 		accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 		cleared,
 		last: { account: "baa", model: "claude-baa", substitute },
-		pinned,
+		pinned: false,
 		sealed,
 		session: SessionId.make(session),
 	});
@@ -32,7 +32,6 @@ const one = 1;
 
 const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?: boolean) {
 	const asked = yield* Ref.make<readonly string[]>([]);
-	const pinned = yield* Ref.make(false);
 	const sealed = yield* Ref.make(none);
 
 	const ask = (command: string, port: number): Effect.Effect<void, CommandFailed> => {
@@ -47,16 +46,11 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 
 	const service = Router.of({
 		models: Effect.succeed({}),
-		pin: (_session, port) => Effect.andThen(ask("pin", port), Ref.set(pinned, true)),
 		setUp: () => Effect.die("/phi sets nothing up"),
 		setupStep: () => Effect.die("/phi sets nothing up"),
 		start: () => Effect.void,
 		status: (_session, port) =>
-			Effect.andThen(
-				ask("status", port),
-				Effect.zipWith(Ref.get(pinned), Ref.get(sealed), reported(substitute === true)),
-			),
-		unpin: (_session, port) => Effect.andThen(ask("unpin", port), Ref.set(pinned, false)),
+			Effect.andThen(ask("status", port), Effect.map(Ref.get(sealed), reported(substitute === true))),
 	});
 
 	return { asked, sealed, service };
@@ -97,7 +91,7 @@ const noticesIn = (shown: Shown): Shown =>
 		Array.filter(([kind]) => kind !== "status"),
 	);
 
-it.effect("/phi shows the session's pin, last request, counts and accounts, and asks the router on pi's port", () =>
+it.effect("/phi shows the session's last request, counts and accounts, and asks the router on pi's port", () =>
 	Effect.gen(function* shownStatus() {
 		const router = yield* routerOf(false);
 		const { ctx, shown } = contextOf(true);
@@ -111,7 +105,7 @@ it.effect("/phi shows the session's pin, last request, counts and accounts, and 
 			["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared"],
 			[
 				"info",
-				"phi-router, session pi-session-1\nPin: off\nLast request: baa, model claude-baa\nMessages: 0 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
+				"phi-router, session pi-session-1\nLast request: baa, model claude-baa\nMessages: 0 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
 			],
 		]);
 	}),
@@ -128,40 +122,9 @@ it.effect("/phi and the status bar say the last request's model was a substitute
 			["status", "phi · baa, model claude-baa, a substitute for the requested model · 0 sealed · 2 cleared"],
 			[
 				"info",
-				"phi-router, session pi-session-1\nPin: off\nLast request: baa, model claude-baa, a substitute for the requested model\nMessages: 0 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
+				"phi-router, session pi-session-1\nLast request: baa, model claude-baa, a substitute for the requested model\nMessages: 0 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
 			],
 		]);
-	}),
-);
-
-it.effect("/phi pin pins the session before it shows the status, and /phi unpin clears it", () =>
-	Effect.gen(function* pinned() {
-		const router = yield* routerOf(false);
-		const { ctx, shown } = contextOf(true);
-		const phi = answered(routerPort);
-
-		yield* Effect.provideService(Effect.andThen(phi(" pin ", ctx), phi("unpin", ctx)), Router, router.service);
-
-		const asked = yield* Ref.get(router.asked);
-
-		assert.deepStrictEqual(asked, ["pin 47498", "status 47498", "unpin 47498", "status 47498"]);
-		assert.deepStrictEqual(
-			pipe(
-				shown,
-				Array.filter(([kind]) => kind === "status"),
-			),
-			[
-				["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared · pinned"],
-				["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared"],
-			],
-		);
-		assert.deepStrictEqual(
-			pipe(
-				noticesIn(shown),
-				Array.map(([, text]) => Str.split(text, "\n")[one]),
-			),
-			["Pin: on, every request runs on the sealed lane", "Pin: off"],
-		);
 	}),
 );
 
@@ -171,43 +134,42 @@ it.effect("/phi with no router answering shows why as an error, from the CLI's R
 		const { ctx, shown } = contextOf(true);
 		const phi = answered(routerPort);
 
-		yield* Effect.provideService(Effect.andThen(phi("", ctx), phi("pin", ctx)), Router, router.service);
+		yield* Effect.provideService(phi("", ctx), Router, router.service);
 
-		assert.deepStrictEqual(shown, [
-			["error", `phi-router status failed: ${unanswered}`],
-			["error", `phi-router pin failed: ${unanswered}`],
-		]);
+		assert.deepStrictEqual(shown, [["error", `phi-router status failed: ${unanswered}`]]);
 	}),
 );
 
-it.effect("/phi with a word it does not know shows its usage and asks the router nothing", () =>
-	Effect.gen(function* unknown() {
-		const router = yield* routerOf(false);
-		const { ctx, shown } = contextOf(true);
+it.effect(
+	"/phi pin, like any word /phi does not know, shows the usage, which names phi/sealed, and asks the router nothing",
+	() =>
+		Effect.gen(function* unknown() {
+			const router = yield* routerOf(false);
+			const { ctx, shown } = contextOf(true);
 
-		yield* Effect.provideService(answered(routerPort)("pinned", ctx), Router, router.service);
+			yield* Effect.provideService(answered(routerPort)(" pin ", ctx), Router, router.service);
 
-		const asked = yield* Ref.get(router.asked);
+			const asked = yield* Ref.get(router.asked);
 
-		assert.deepStrictEqual(
-			{ asked, shown },
-			{
-				asked: [],
-				shown: [
-					[
-						"warning",
-						"/phi setup sets up phi-router, /phi shows this session's routing, /phi pin pins it to the sealed lane, /phi unpin clears the pin.",
+			assert.deepStrictEqual(
+				{ asked, shown },
+				{
+					asked: [],
+					shown: [
+						[
+							"warning",
+							"/phi setup sets up phi-router, /phi shows this session's routing. To run the session on the BAA account, switch the model to phi/sealed.",
+						],
 					],
-				],
-			},
-		);
-	}),
+				},
+			);
+		}),
 );
 
 const refused = "phi-router: this session's model is not a phi model, so phi-router does not route it.";
 
 it.effect(
-	"on another provider's model /phi pins nothing and says why, the status bar shows no phi line, and the router is asked nothing",
+	"on another provider's model /phi says phi-router does not route it, the status bar shows no phi line, and the router is asked nothing",
 	() =>
 		Effect.gen(function* unrouted() {
 			const router = yield* routerOf(false);

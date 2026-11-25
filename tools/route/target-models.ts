@@ -4,6 +4,7 @@ import type { Post, Turn } from "./mocked-router.ts";
 import { bodyOf, laneLines } from "./mocked-router.ts";
 import { codexBodyOf, jsonText, replyMessage, userMessage } from "./harnesses.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
+import { pinnedLine } from "#router/features/lanes/index.ts";
 
 const canary = "PATIENT-CANARY-25K7";
 
@@ -65,6 +66,26 @@ const posted = Effect.fnUntraced(function* posted(
 	return response.status;
 });
 
+const postedPinnedByLine = Effect.fnUntraced(function* postedPinnedByLine(
+	post: Post,
+	sent: { readonly session: string; readonly model: string },
+	turn: Turn,
+) {
+	const body = yield* jsonText({
+		max_tokens: 1024,
+		messages: [{ content: [{ text: turn.text, type: "text" }], role: turn.role }],
+		model: sent.model,
+		stream: true,
+		system: [{ text: pinnedLine, type: "text" }],
+	});
+
+	const response = yield* post({ body, session: sent.session });
+
+	yield* response.text;
+
+	return response.status;
+});
+
 const ModelOf = Schema.fromJsonString(Schema.Struct({ model: Schema.String }));
 
 const modelsIn = (received: readonly Sent[]): Effect.Effect<readonly string[], Schema.SchemaError> =>
@@ -110,6 +131,7 @@ export {
 	modelsIn,
 	phi,
 	posted,
+	postedPinnedByLine,
 	sentModels,
 	unreadableLeases,
 };

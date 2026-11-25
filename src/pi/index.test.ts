@@ -106,12 +106,10 @@ const routerOf = (printed: { readonly models?: typeof ModelsJson.Type }): Router
 		models: Effect.mapError(Effect.fromNullishOr(printed.models), () =>
 			CommandFailed.make({ cause: "refused", command: "models" }),
 		),
-		pin: () => Effect.void,
 		setUp: () => Effect.die("registering sets nothing up"),
 		setupStep: () => Effect.die("registering sets nothing up"),
 		start: () => Effect.void,
 		status: () => Effect.die("registering asks no status"),
-		unpin: () => Effect.void,
 	});
 
 const answers = routerOf({ models: routed });

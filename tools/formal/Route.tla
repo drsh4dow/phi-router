@@ -140,9 +140,8 @@ Send(s, i, q, lane, account) ==
 
 \* A request arrives, and the router judges every part of it that has no
 \* stored verdict. The answers stay in memory. The pin is read here, once: the
-\* session's pin, the model phi/sealed, the pinned subagent's line in the
-\* system prompt, a BAA repo, or Codex's thread-title request. A pinned
-\* request judges nothing.
+\* model phi/sealed, the pinned subagent's line in the system prompt, a BAA
+\* repo, or Codex's thread-title request. A pinned request judges nothing.
 Arrive(s, i, c, pinned) ==
     LET todo == IF pinned THEN {} ELSE ToJudge(c, store)
     IN  /\ \E sealed \in SUBSET todo :
@@ -162,7 +161,7 @@ Prompt(s, i, c, pinned) ==
 
 \* The harness rewrote its transcript, as a compaction does: the history holds
 \* a part the router never judged, such as the summary. It gets no special path.
-\* The first request after an unpin or a lost verdict looks the same.
+\* The first request after a pinned stretch or a lost verdict looks the same.
 Compaction(s, i, c, pinned) ==
     /\ request[s][i] = Free
     /\ \E k \in c.history : store[k] = "none"
@@ -289,9 +288,9 @@ FailoverOnlyToSealedLane == \A q \in AtOpenAccount : ~q.wasSealed
 \* (c) A verdict never changes from sealed to cleared inside one policy version.
 VerdictNeverUnseals == \A k \in sealedOnce : store[k] = "sealed"
 
-\* (e) A pinned request never reaches an open account, whatever pinned it: the
-\* session's pin, phi/sealed, the pinned subagent's line, a BAA repo or Codex's
-\* thread-title request.
+\* (e) A pinned request never reaches an open account, whatever pinned it:
+\* phi/sealed, the pinned subagent's line, a BAA repo or Codex's thread-title
+\* request.
 PinnedRequestRunsSealed == \A q \in AtOpenAccount : ~q.pinned
 
 \* Each account a request is sent to has its own 401 resend, whichever step

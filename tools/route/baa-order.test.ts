@@ -1,12 +1,21 @@
 import type { AccountScript, Scripts } from "./harnesses.ts";
 import { Effect, FileSystem, Layer, Stream, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
-import { clean, holdsCanary, leased, linesIn, modelsIn, phi, posted, sentModels } from "./target-models.ts";
+import {
+	clean,
+	holdsCanary,
+	leased,
+	linesIn,
+	modelsIn,
+	phi,
+	posted,
+	postedPinnedByLine,
+	sentModels,
+} from "./target-models.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { SessionRequests } from "#router/client/router-port/index.ts";
 import type { Turn } from "./mocked-router.ts";
-import type { VerdictStore } from "#router/client/verdict-store.ts";
 import { fakes } from "./harnesses.ts";
 import { routed } from "./mocked-router.ts";
 import { textEvents } from "#router/client/mock-upstreams/index.ts";
@@ -21,12 +30,6 @@ const session = "order-1";
 
 const lacksFirst = [[sentModels.claudeHaiku], []];
 
-const pinnedStore = (real: VerdictStore["Service"]): VerdictStore["Service"] =>
-	Struct.assign(real, {
-		read: (pinned: string, policy: string) =>
-			Effect.andThen(real.pin(pinned, policy, true), real.read(pinned, policy)),
-	});
-
 const statusOn = Effect.fnUntraced(function* statusOn(url: string) {
 	const requests = yield* SessionRequests;
 
@@ -34,12 +37,11 @@ const statusOn = Effect.fnUntraced(function* statusOn(url: string) {
 });
 
 const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
-	readonly scripts: Omit<Scripts, "holdsPhi" | "configExtras"> & {
-		readonly store?: (real: VerdictStore["Service"]) => VerdictStore["Service"];
-	};
+	readonly scripts: Omit<Scripts, "holdsPhi" | "configExtras">;
 	readonly turn: Turn;
 	readonly leasedInRepo: boolean;
 	readonly model?: string;
+	readonly pinnedByLine?: true;
 }) {
 	const fs = yield* FileSystem.FileSystem;
 	const repo = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: "phi-router-repo-" }), fs.realPath);
@@ -48,7 +50,16 @@ const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
 	const run = yield* routed(Struct.assign(of.scripts, { configExtras, holdsPhi: holdsCanary }));
 
 	yield* Effect.when(leased(run.state, session, repo), Effect.succeed(of.leasedInRepo));
-	yield* posted(run.post, { harness: "claude", model: of.model ?? sentModels.claudeHaiku, session }, [of.turn]);
+
+	const sent = { harness: "claude", model: of.model ?? sentModels.claudeHaiku, session } as const;
+
+	yield* Effect.suspend(() => {
+		if (of.pinnedByLine === true) {
+			return postedPinnedByLine(run.post, sent, of.turn);
+		}
+
+		return posted(run.post, sent, [of.turn]);
+	});
 
 	const models = yield* Effect.andThen(run.mocks.accounts, (received) =>
 		Effect.forEach(received, modelsIn, { concurrency: 1 }),
@@ -65,7 +76,8 @@ const atCarrier = [[], [], [sentModels.claudeHaiku]];
 const heldCarryingFirst = Effect.gen(function* heldCarryingFirst() {
 	const pinned = yield* walkedOver({
 		leasedInRepo: false,
-		scripts: { baas: [answering, answering], lacks: lacksFirst, store: pinnedStore },
+		pinnedByLine: true,
+		scripts: { baas: [answering, answering], lacks: lacksFirst },
 		turn: clean,
 	});
 

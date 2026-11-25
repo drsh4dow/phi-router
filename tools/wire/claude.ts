@@ -178,11 +178,7 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 		{ concurrency: 1 },
 	);
 
-	const phi = yield* phiTurns({
-		clean: run.clean.text,
-		command: (prompt) => turn(prompt, resumed),
-		prompt: (prompt) => turn(prompt, resumedEvents),
-	});
+	const phi = yield* phiTurns((prompt) => turn(prompt, resumed));
 
 	const all = [clean, canary, followed, tool, ...phi.inOrder, handedOff, after] as const;
 	const stored = yield* storedIn(state, roots);
@@ -195,7 +191,7 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 		turns: all,
 	});
 
-	const phiChecks = [...phiChecksOf({ cleanText: run.clean.text, turns: phi }), ...shownChecksOf(phi)];
+	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
 	const sealed = sealCheckOf([canary, clean, followed, tool, ...phi.inOrder]);
 
 	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });

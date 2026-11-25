@@ -1,8 +1,8 @@
 import { Console, Effect, Option, Schema, String as Str, pipe } from "effect";
 import { SessionId, phiCommand } from "#shared/cli.ts";
-import { failedAs, pin, unpin } from "#router/features/cli/sessions/index.ts";
 import { statusText, usage } from "./phi-text.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
+import { failedAs } from "#router/features/cli/sessions/index.ts";
 import { portOf } from "./session-start.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 
@@ -12,7 +12,9 @@ const Blocked = Schema.fromJsonString(Schema.Struct({ decision: Schema.Literal("
 
 const slashed = /^\/(?:phi-router:)?phi(?:\s+(?<words>[\s\S]*))?$/u;
 
-const bare = new RegExp(`^${phiCommand.name}(?:\\s+(?<words>${phiCommand.pin}|${phiCommand.unpin}))?$`, "u");
+const droppedPin = "pin";
+
+const bare = new RegExp(`^${phiCommand.name}(?:\\s+(?<words>${droppedPin}))?$`, "u");
 
 const wordsOf = (prompt: string): Option.Option<string> => {
 	const typed = Str.trim(prompt);
@@ -26,17 +28,11 @@ const wordsOf = (prompt: string): Option.Option<string> => {
 };
 
 const answerOf = Effect.fnUntraced(function* answerOf(words: string, session: typeof SessionId.Type, port: number) {
-	const word = Str.trim(words);
-	const requests = yield* SessionRequests;
-
-	if (word === phiCommand.pin) {
-		yield* pin(session, port);
-	} else if (word === phiCommand.unpin) {
-		yield* unpin(session, port);
-	} else if (Str.isNonEmpty(word)) {
+	if (Str.isNonEmpty(Str.trim(words))) {
 		return usage;
 	}
 
+	const requests = yield* SessionRequests;
 	const status = yield* Effect.mapError(requests.status(port, session), failedAs({ command: "status", port }));
 
 	return statusText(status);

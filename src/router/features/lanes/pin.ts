@@ -40,17 +40,15 @@ const insideOf =
 
 interface Arrival {
 	readonly session: string;
-	readonly sessionPinned: boolean;
 	readonly asked: Asked;
 }
 
 const pinnedBy = Effect.fnUntraced(function* pinnedBy(request: {
 	readonly session: string;
-	readonly sessionPinned: boolean;
 	readonly asked: Asked;
 	readonly baaRepos: readonly string[];
 }) {
-	if (request.sessionPinned || pinsItself(request.asked)) {
+	if (pinsItself(request.asked)) {
 		return Option.some<PinnedBy>("pinned");
 	}
 

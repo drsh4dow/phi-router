@@ -50,7 +50,7 @@ const unknownPaths = pipe(
 		noted(HttpClientRequest.post("/v1/memories/trace_summarize")),
 		noted(HttpClientRequest.post("/v1/files")),
 		HttpClientRequest.get("/v1/unknown"),
-		noted(HttpClientRequest.post("/phi-router/unpin")),
+		noted(HttpClientRequest.post("/phi-router/pin")),
 		HttpClientRequest.get("/phi-router/sessions"),
 	],
 	Array.map(HttpClientRequest.setHeaders(login)),

@@ -85,7 +85,6 @@ const productPort = 47_411;
 
 const spelling = {
 	models: { name: "models" },
-	pin: { name: "pin", session: "session" },
 	program: "phi-router",
 	setup: {
 		answers: "answers",
@@ -96,12 +95,11 @@ const spelling = {
 	},
 	start: { folder: "folder", name: "start", pid: "pid", port: "port", session: "session" },
 	status: { name: "status", session: "session" },
-	unpin: { name: "unpin", session: "session" },
 };
 
 const setupEnded = "Setup ended before it finished. Nothing was saved or changed.";
 
-const phiCommand = { name: "phi", pin: "pin", setup: "setup", unpin: "unpin" } as const;
+const phiCommand = { name: "phi", setup: "setup" } as const;
 
 export {
 	CommandFailed,

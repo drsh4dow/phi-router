@@ -6,7 +6,7 @@ export { Proofs, hmacOf, proofOf } from "./proof.ts";
 
 export { Listener, listensOn, loopback, serve } from "./server.ts";
 
-export { PinRequestJson, SessionRequests, sessionPaths } from "./session-request.ts";
+export { SessionRequests, sessionPaths } from "./session-request.ts";
 
 export type { Answered, LeaseReply, LeaseRequest } from "./lease-request.ts";
 

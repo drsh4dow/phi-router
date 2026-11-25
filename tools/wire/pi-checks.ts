@@ -199,7 +199,7 @@ const sealedModelChecksOf = (chosen: PhiTurned): readonly Check[] => {
 };
 
 const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, Failure, Needs>(
-	turn: (asked: { readonly prompt: string } | RpcLine) => Effect.Effect<Turn, Failure, Needs>,
+	turn: (asked: RpcLine) => Effect.Effect<Turn, Failure, Needs>,
 	run: Run,
 ) {
 	const typed = (message: string, turnEnd: string): Effect.Effect<Turn, Failure | Schema.SchemaError, Needs> =>
@@ -207,11 +207,7 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 			turn({ stdinLine: `${line}\n`, turnEnd }),
 		);
 
-	const phi = yield* phiTurns({
-		clean: run.clean.text,
-		command: (message) => typed(message, rpcAnswered),
-		prompt: (prompt) => turn({ prompt }),
-	});
+	const phi = yield* phiTurns((message) => typed(message, rpcAnswered));
 
 	const sealing = yield* typed(run.phi.text, runEnded);
 
@@ -219,13 +215,13 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 	const chosen = yield* turn({ stdinLine: `${choosingSealed}\n${cleanLine}\n`, turnEnd: runEnded });
 
 	const checks: readonly Check[] = [
-		...phiChecksOf({ cleanText: run.clean.text, turns: phi }),
-		...shownChecksOf(phi),
+		...phiChecksOf(phi),
+		...shownChecksOf({ harness: "pi", turns: phi }),
 		sealCheckOf([sealing, ...phi.inOrder]),
 		{
-			name: "pi runs /phi, /phi pin and /phi unpin as its extension command, which starts no run",
+			name: "pi runs /phi and /phi pin as its extension command, which starts no run",
 			ok: pipe(
-				[phi.status, phi.pin, phi.unpin],
+				phi.inOrder,
 				Array.every((turned) => turned.shown.handled),
 			),
 		},
