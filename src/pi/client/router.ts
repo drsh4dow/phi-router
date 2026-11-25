@@ -67,8 +67,6 @@ const decodedAs =
 
 const decodedModels = decodedAs(spelling.models.name, Schema.decodeEffect(ModelsJson));
 
-const decodedStep = decodedAs(spelling.setup.name, Schema.decodeEffect(SetupStepJson));
-
 type Asking<Answer> = (session: typeof SessionId.Type, port: number) => Effect.Effect<Answer, CommandFailed>;
 
 type Answers = typeof SetupAnswersJson.Type;
@@ -160,7 +158,7 @@ class Router extends Context.Service<
 					const args = yield* setupArgs(spelling.setup.json, answers);
 					const output = yield* run(spelling.setup.name, args);
 
-					return yield* decodedStep(output);
+					return yield* decodedAs(spelling.setup.name, Schema.decodeEffect(SetupStepJson))(output);
 				});
 
 				const setUp = Effect.fn("Router.setUp")(function* setUp(given: SetUp) {
