@@ -4,12 +4,12 @@ import { answers, freePort, leasedPids, refusedWithin } from "#tools/lifecycle/l
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import { installedIn, piRun, place, rpcAnswered } from "./pi-run.ts";
-import { piChecksOf, piPhiPlay } from "./pi-checks.ts";
+import { piChecksOf, piOpen, piPhiPlay } from "./pi-checks.ts";
+import { stampClockIn, storedIn } from "./stored.ts";
 import { FetchHttpClient } from "effect/http";
 import type { RpcLine } from "./pi-run.ts";
 import { leftOf } from "./checks.ts";
 import { piWire } from "#router/features/route/index.ts";
-import { storedIn } from "./stored.ts";
 
 const sessions = ["17171717-1717-4717-8717-171717171717", "27272727-2727-4727-8727-272727272727"] as const;
 
@@ -36,6 +36,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const { breaches, env, received, roots, state } = yield* mocked({
 		configExtras: { sealedModel: fakes.sealedModel },
 		holdsPhi: run.judgeSeals,
+		open: piOpen,
 	});
 
 	const port = yield* freePort;
@@ -108,6 +109,8 @@ const piPlay = Effect.fnUntraced(function* piPlay(run: Run) {
 	});
 
 	const played = Struct.assign(Struct.assign(left, install), {
+		clock: yield* stampClockIn(state),
+		overflow: phi.overflow,
 		routerBefore,
 		routerStopped: Option.isSome(stoppedWithin),
 		verdictStoreFiles,

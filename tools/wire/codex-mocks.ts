@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Struct, pipe } from "effect";
 import type { Asked, Json, Said } from "#router/client/mock-upstreams/index.ts";
-import { handOff, isSubagent, subagent } from "./phi-checks.ts";
+import { handOff, isSubagent, overflowPrompts, subagent } from "./phi-checks.ts";
 import { pinnedRoleFile, sealedRole } from "#router/features/cli/index.ts";
 import { replyMessage, replying } from "#tools/route/harnesses.ts";
 import type { Cause } from "effect";
@@ -76,6 +76,15 @@ const baaScript = (asked: Asked): Said => {
 		return saying(subagent.answer);
 	}
 
+	if (
+		pipe(
+			overflowPrompts,
+			Array.some((prompt) => Str.includes(prompt)(asked.last)),
+		)
+	) {
+		return saying("ok");
+	}
+
 	if (isToolOutput(asked)) {
 		return saying("Noted.");
 	}
@@ -90,6 +99,8 @@ const Entry = Schema.StructWithRest(Schema.Struct({ slug: Schema.String }), [
 const Catalog = Schema.fromJsonString(Schema.Struct({ models: Schema.Array(Entry) }));
 
 const dialect = "gpt-5.5";
+
+const ok = 200;
 
 const catalogSlugsOf = Effect.fnUntraced(function* catalogSlugsOf(catalog: string) {
 	const { models } = yield* Schema.decodeEffect(Catalog)(catalog);
@@ -111,13 +122,14 @@ const catalogOf = Effect.fnUntraced(function* catalogOf(bundled: string) {
 
 	const served = [...models, Struct.assign(copied, { slug: fakes.targetModel })];
 	const body = yield* Schema.encodeEffect(Catalog)({ models: served });
+	const answer: Said = { body, kind: "status", status: ok };
 
 	const slugs = pipe(
 		served,
 		Array.map(({ slug }) => slug),
 	);
 
-	return { body, slugs };
+	return { answer, slugs };
 });
 
 const installed = Effect.fnUntraced(function* installed(where: { readonly home: string; readonly plugin: string }) {

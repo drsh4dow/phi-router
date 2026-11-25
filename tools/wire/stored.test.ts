@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Order, Path, Struct } from "effect";
 import { assert, describe, it } from "@effect/vitest";
-import { laneLogHolds, storedIn } from "./stored.ts";
+import { laneLogHolds, overflowing, storedIn } from "./stored.ts";
 import { Digest } from "effect/crypto";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
@@ -37,6 +37,8 @@ const turns = [
 	{ baa: [], open: [sent("GET", "/v1/models"), sent("POST", "/v1/messages")] },
 	{ baa: [sent("POST", "/v1/responses")], open: [] },
 ];
+
+const overflowed = Struct.assign(sent("POST", "/v1/messages"), { body: `{"last":"${overflowing}"}` });
 
 const stateFolder = Effect.gen(function* stateFolder() {
 	const fs = yield* FileSystem.FileSystem;
@@ -88,8 +90,9 @@ const laneLogChecked = Effect.gen(function* laneLogChecked() {
 			laneLogHolds({ stored: stored([line, line], laneLogText), turns }),
 			laneLogHolds({ stored: stored([line], laneLogText), turns }),
 			laneLogHolds({ stored: stored([line, line], `${laneLogText}${key}\n`), turns }),
+			laneLogHolds({ stored: stored([line], laneLogText), turns: [{ baa: [overflowed], open: [overflowed] }] }),
 		],
-		[true, false, false],
+		[true, false, false, true],
 	);
 });
 
@@ -102,7 +105,7 @@ describe("what a wire run left in the router's state folder", () => {
 	});
 	it.layer(Digest.layerWebCrypto)((test) => {
 		test.effect(
-			"holds a lane log with one line per model request an account received, and no content key",
+			"holds a lane log with one line per model request an account took, a 429 and its overflow as one, and no content key",
 			() => laneLogChecked,
 		);
 	});

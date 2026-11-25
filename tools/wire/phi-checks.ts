@@ -1,10 +1,11 @@
-import { Array, Effect, String as Str, pipe } from "effect";
+import { Array, Effect, Number, String as Str, pipe } from "effect";
+import type { Asked, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import type { Check, Turned } from "./checks.ts";
+import { isModelPost, isRefused, overflowing } from "./stored.ts";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
-import type { Sent } from "#router/client/mock-upstreams/index.ts";
+import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import { everyOf } from "./checks.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
-import { isModelPost } from "./stored.ts";
 import { stubsFor } from "#router/features/border/index.ts";
 import { voidedSsn } from "./cases.ts";
 
@@ -168,6 +169,135 @@ const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Ch
 	];
 };
 
-export { handOff, isSubagent, phiChecksOf, phiTurns, sealCheckOf, shownChecksOf, shownIn, subagent, subagentChecksOf };
+const insideStamp = "Now list the test steps in one line.";
+
+const overflowPrompts = [overflowing, insideStamp] as const;
+
+const tooManyRequests = 429;
+
+const refusing =
+	(script: (asked: Asked) => Said) =>
+	(asked: Asked): Said => {
+		if (Str.includes(overflowing)(asked.last)) {
+			return { body: "{}", kind: "status", status: tooManyRequests };
+		}
+
+		return script(asked);
+	};
+
+interface OverflowRun<Turn, Failure, Needs> {
+	readonly prompt: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
+	readonly command: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
+	readonly status: string;
+}
+
+const overflowTurns = Effect.fnUntraced(function* overflowTurns<Turn, Failure, Needs>(
+	play: OverflowRun<Turn, Failure, Needs>,
+) {
+	const inOrder = yield* Effect.all([play.prompt(overflowing), play.prompt(insideStamp), play.command(play.status)], {
+		concurrency: 1,
+	});
+
+	const [overflowed, quiet, status] = inOrder;
+
+	return { after: [overflowed, quiet] as const, inOrder, status };
+});
+
+interface PrintedTurn extends Turned {
+	readonly printed: string;
+}
+
+interface Overflowed {
+	readonly after: readonly [PrintedTurn, ...PrintedTurn[]];
+	readonly status: PrintedTurn;
+	readonly command: string;
+	readonly all: readonly PrintedTurn[];
+	readonly lines: readonly LaneLogLine[];
+	readonly session: string;
+	readonly clock: string;
+}
+
+const noticeAt = (clock: string): string =>
+	`phi-router: your subscription is rate-limited until ${clock}, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add`;
+
+const once = 1;
+
+const timesIn = (printed: string, text: string): number => Str.split(printed, text).length - once;
+
+const noticesIn = (turn: PrintedTurn): number => timesIn(turn.printed, "ran on your BAA account");
+
+const holding =
+	(prompt: string) =>
+	({ body }: Sent): boolean =>
+		Str.includes(prompt)(body);
+
+const isOverflow = (line: LaneLogLine): boolean => line.reason === "overflow";
+
+const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
+	const [overflowed, ...later] = played.after;
+
+	const [overflowLine, insideLine] = pipe(
+		played.lines,
+		Array.filter((line) => line.session === played.session),
+		Array.takeRight(overflowPrompts.length),
+		Array.map(isOverflow),
+	);
+
+	const afterOpen = pipe(
+		played.after,
+		Array.flatMap(({ open }) => open),
+		Array.filter(isModelPost),
+	);
+
+	const afterBaa = pipe(
+		played.after,
+		Array.flatMap(({ baa }) => baa),
+	);
+
+	return [
+		{
+			name: "after the open mock answers 429, the clean turn reaches the BAA mock and its lane log line says overflow",
+			ok:
+				pipe(overflowed.open, Array.some(isRefused)) &&
+				pipe(overflowed.baa, Array.some(holding(overflowing))) &&
+				overflowLine === true,
+		},
+		{
+			name: "the harness shows the overflow notice once, with the stamp's HH:MM, and no other turn shows one",
+			ok:
+				timesIn(overflowed.printed, noticeAt(played.clock)) === once &&
+				pipe(played.all, Array.map(noticesIn), Number.sumAll) === once,
+		},
+		{
+			name: "the next clean turn, inside the stamp, runs on the BAA mock with an overflow line and shows no notice",
+			ok:
+				pipe(afterBaa, Array.some(holding(insideStamp))) &&
+				pipe(afterOpen, Array.every(isRefused)) &&
+				insideLine === true &&
+				pipe(later, Array.map(noticesIn), Number.sumAll) < once,
+		},
+		{
+			name: `${played.command} shows the open account rate-limited until the stamp's HH:MM`,
+			ok: Str.includes(`Clean lane: open (rate-limited until ${played.clock})`)(played.status.printed),
+		},
+	];
+};
+
+export {
+	handOff,
+	insideStamp,
+	isSubagent,
+	overflowChecksOf,
+	overflowPrompts,
+	overflowTurns,
+	phiChecksOf,
+	phiTurns,
+	refusing,
+	sealCheckOf,
+	shownChecksOf,
+	shownIn,
+	subagent,
+	subagentChecksOf,
+};
 
 export type { PhiTurned };

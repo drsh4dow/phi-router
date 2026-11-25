@@ -166,7 +166,7 @@ const commonChecksOf =
 			ok: everyOf(played.stored.lines, (line) => Array.contains(played.sessions, line.session)),
 		},
 		{
-			name: "the lane log has one line per model request an account received, and no content key",
+			name: "the lane log has one line per model request an account took, and no content key",
 			ok: laneLogHolds(played),
 		},
 	];

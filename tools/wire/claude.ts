@@ -8,17 +8,20 @@ import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
 	handOff,
 	isSubagent,
+	overflowChecksOf,
+	overflowTurns,
 	phiChecksOf,
 	phiTurns,
+	refusing,
 	sealCheckOf,
 	shownChecksOf,
 	subagent,
 	subagentChecksOf,
 } from "./phi-checks.ts";
+import { stampClockIn, storedIn } from "./stored.ts";
 import { textEvents, toolEvents } from "#router/client/mock-upstreams/index.ts";
 import { pluginCopy } from "#tools/plugin/copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
-import { storedIn } from "./stored.ts";
 
 const place = Effect.gen(function* place() {
 	const fs = yield* FileSystem.FileSystem;
@@ -66,6 +69,7 @@ const claudeTurn = Effect.fnUntraced(
 				DISABLE_TELEMETRY: "1",
 				HOME: turn.place.home,
 				PATH: searchPath,
+				TZ: "UTC",
 			}),
 			extendEnv: false,
 		});
@@ -135,7 +139,7 @@ const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => b
 		baa: baaScript,
 		configExtras: { sealedModel: fakes.sealedModel },
 		holdsPhi: judgeSeals,
-		open: openScript(file),
+		open: refusing(openScript(file)),
 	});
 
 	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
@@ -180,7 +184,13 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	const phi = yield* phiTurns((prompt) => turn(prompt, resumed));
 
-	const all = [clean, canary, followed, tool, ...phi.inOrder, handedOff, after] as const;
+	const overflow = yield* overflowTurns({
+		command: (prompt) => turn(prompt, resumed),
+		prompt: (prompt) => turn(prompt, resumedEvents),
+		status: "/phi",
+	});
+
+	const all = [clean, canary, followed, tool, ...phi.inOrder, handedOff, after, ...overflow.inOrder] as const;
 	const stored = yield* storedIn(state, roots);
 
 	const left = leftOf({
@@ -192,12 +202,25 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	});
 
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
-	const sealed = sealCheckOf([canary, clean, followed, tool, ...phi.inOrder]);
+	const sealed = sealCheckOf([canary, clean, followed, tool, ...phi.inOrder, ...overflow.inOrder]);
+
+	const overflowed = overflowChecksOf({
+		after: overflow.after,
+		all,
+		clock: yield* stampClockIn(state),
+		command: "/phi",
+		lines: stored.lines,
+		session,
+		status: overflow.status,
+	});
 
 	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });
 
 	return {
-		checks: yield* withCredentialRule([...checksOf(left), ...phiChecks, sealed, ...handing], () => breaches),
+		checks: yield* withCredentialRule(
+			[...checksOf(left), ...phiChecks, sealed, ...handing, ...overflowed],
+			() => breaches,
+		),
 		stored,
 		turns: all,
 	} satisfies Outcome;

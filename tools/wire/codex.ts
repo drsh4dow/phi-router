@@ -5,10 +5,18 @@ import { baaScript, catalogOf, catalogSlugsOf, execSessionOf, files, installed, 
 import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
-import { handOff, phiChecksOf, phiTurns, subagentChecksOf } from "./phi-checks.ts";
-import type { Said } from "#router/client/mock-upstreams/index.ts";
+import {
+	handOff,
+	overflowChecksOf,
+	overflowPrompts,
+	phiChecksOf,
+	phiTurns,
+	refusing,
+	subagentChecksOf,
+} from "./phi-checks.ts";
+import { stampClockIn, storedIn } from "./stored.ts";
+import { codexTui } from "./codex-tui.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
-import { storedIn } from "./stored.ts";
 
 const plugin = decodeURIComponent(new URL("../../plugins/claude", import.meta.url).pathname);
 
@@ -50,26 +58,33 @@ const configOf = (router: string): string =>
 		"\n",
 	);
 
+interface CodexIn {
+	readonly place: Place;
+	readonly codexHome: string;
+	readonly folders: Readonly<Record<string, string>>;
+	readonly router: string;
+}
+
+const codexEnvOf = Effect.fnUntraced(function* codexEnvOf(run: CodexIn) {
+	const searchPath = yield* Config.String("PATH");
+
+	return Struct.assign(run.folders, {
+		CODEX_HOME: run.codexHome,
+		HOME: run.place.home,
+		PATH: searchPath,
+		PHI_ROUTER_ADDRESS: run.router,
+		PLUGIN_ROOT: plugin,
+		TZ: "UTC",
+	});
+});
+
 const codexRun = Effect.fnUntraced(
-	function* codexRun(run: {
-		readonly place: Place;
-		readonly codexHome: string;
-		readonly args: readonly string[];
-		readonly folders: Readonly<Record<string, string>>;
-		readonly router: string;
-	}) {
+	function* codexRun(run: CodexIn & { readonly args: readonly string[] }) {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-		const searchPath = yield* Config.String("PATH");
 
 		const command = ChildProcess.make("codex", run.args, {
 			cwd: run.place.work,
-			env: Struct.assign(run.folders, {
-				CODEX_HOME: run.codexHome,
-				HOME: run.place.home,
-				PATH: searchPath,
-				PHI_ROUTER_ADDRESS: run.router,
-				PLUGIN_ROOT: plugin,
-			}),
+			env: yield* codexEnvOf(run),
 			extendEnv: false,
 			stdin: "ignore",
 		});
@@ -90,8 +105,6 @@ const codexRun = Effect.fnUntraced(
 	Effect.timeout("3 minutes"),
 );
 
-const ok = 200;
-
 const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -110,16 +123,18 @@ const routedOn = Effect.fnUntraced(function* routedOn(run: Run, where: Place) {
 
 	const { breaches, env, received, roots, state } = yield* mocked({
 		baa: baaScript,
-		catalog: (): Said => ({ body: served.body, kind: "status", status: ok }),
+		catalog: () => served.answer,
 		configExtras: { sealedModel: fakes.sealedModel },
 		harness: "codex",
 		holdsPhi: run.judgeSeals,
-		open: openScript,
+		open: refusing(openScript),
 	});
 
 	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 
-	yield* fs.writeFileString(path.join(where.routedCodexHome, "config.toml"), configOf(router.url));
+	const trusted = `[projects."${where.work}"]\ntrust_level = "trusted"`;
+
+	yield* fs.writeFileString(path.join(where.routedCodexHome, "config.toml"), `${configOf(router.url)}\n${trusted}`);
 	yield* installed({ home: where.routedCodexHome, plugin });
 
 	return {
@@ -191,6 +206,27 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 		}) satisfies CodexTurned;
 	});
 
+	const inTui = Effect.fnUntraced(function* inTui(
+		session: string,
+		typed: readonly { readonly line: string; readonly shows: string }[],
+	) {
+		const codexIn = { codexHome: where.routedCodexHome, folders, place: where, router };
+		const env = yield* codexEnvOf(codexIn);
+		const socket = path.join(where.home, "tmux.sock");
+
+		const ran = yield* during(
+			() => received,
+			() => codexTui({ env, session, socket, typed, work: where.work }),
+		);
+
+		return Struct.assign(ran, {
+			blocked: false,
+			fellBackToDefaultMetadata: Str.includes(fallback)(ran.printed),
+			stderr: "",
+			stdout: ran.printed,
+		}) satisfies CodexTurned;
+	});
+
 	const handingOff = Effect.gen(function* handingOff() {
 		const handedOff = yield* turn([...exec, handOff]);
 		const handing = yield* execSessionOf(handedOff.stderr);
@@ -199,13 +235,13 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 		return { after, handedOff, handing };
 	});
 
-	return { breaches, handingOff, roots, served, state, turn };
+	return { breaches, handingOff, inTui, roots, served, state, turn };
 });
 
 const readChart = `Read the file ${files.chart} and tell me what it says.`;
 
 const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
-	const { breaches, handingOff, roots, served, state, turn } = yield* setUp(run);
+	const { breaches, handingOff, inTui, roots, served, state, turn } = yield* setUp(run);
 	const resumed = (prompt: string): ReturnType<typeof turn> => turn([...exec, "resume", "--last", prompt]);
 
 	const turns = yield* Effect.all(
@@ -222,6 +258,15 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const [phi, { after, handedOff, handing }] = yield* Effect.all([phiTurns(resumed), handingOff], { concurrency: 1 });
 
 	const [models, clean] = turns;
+	const cleanSession = yield* execSessionOf(clean.stderr);
+
+	const overflowed = yield* inTui(cleanSession, [
+		...pipe(
+			overflowPrompts,
+			Array.map((line) => ({ line, shows: "• ok" })),
+		),
+		{ line: "phi", shows: "Clean lane: " },
+	]);
 
 	const listing = {
 		listedByCodex: yield* catalogSlugsOf(models.stdout),
@@ -231,12 +276,18 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 
 	const stored = yield* storedIn(state, roots);
 
+	const titled = pipe(
+		stored.lines,
+		Array.filter(({ reason }) => reason === "title"),
+		Array.map(({ session }) => session),
+	);
+
 	const left = leftOf({
 		prompts: [run.clean.text, run.phi.text, followUp, readChart, handOff],
 		run,
-		sessions: [yield* execSessionOf(clean.stderr), handing],
+		sessions: [cleanSession, handing, ...titled],
 		stored,
-		turns: [...turns, ...phi.inOrder, handedOff, after] as const,
+		turns: [...turns, ...phi.inOrder, handedOff, after, overflowed] as const,
 	});
 
 	const checks = yield* withCredentialRule(
@@ -244,6 +295,15 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 			...codexChecksOf(Struct.assign(left, listing)),
 			...phiChecksOf(phi),
 			...subagentChecksOf({ after, handedOff, harness: "codex" }),
+			...overflowChecksOf({
+				after: [overflowed],
+				all: left.turns,
+				clock: yield* stampClockIn(state),
+				command: "phi",
+				lines: stored.lines,
+				session: cleanSession,
+				status: overflowed,
+			}),
 			{
 				name: "codex blocks /phi and /phi pin in the prompt hook",
 				ok: pipe(
