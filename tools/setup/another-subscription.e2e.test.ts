@@ -156,6 +156,14 @@ const macToken = Effect.gen(function* macToken() {
 		sealed: claudeLanes.sealed,
 	});
 	assert.strictEqual(saved, `${keys.subscription}\n`);
+
+	const again = yield* typedRun(of, ["accounts", "add"], [tokenPasted]);
+	const after = yield* writtenConfigOf(of);
+	const kept = yield* fs.exists(`${slot(of, "claude-open-3")}/token`);
+
+	assert.notStrictEqual(again.exitCode, ok, again.shown);
+	assert.include(again.shown, "phi-router: That token is claude-3's, which phi-router already uses. Nothing changed.");
+	assert.deepStrictEqual({ after, kept }, { after: config, kept: false }, "the same token pasted again adds nothing");
 }).pipe(Effect.scoped);
 
 const anotherQuestion =
@@ -274,7 +282,7 @@ it.layer(layer)("phi-router accounts add with no argument", (test) => {
 		patient,
 	);
 	test.effect(
-		"on macOS runs claude setup-token, reads the token at a hidden prompt and keeps it in a file of its own",
+		"on macOS runs claude setup-token, reads the token at a hidden prompt and keeps it in a file of its own, and refuses a token phi-router already uses",
 		() => macToken,
 		patient,
 	);

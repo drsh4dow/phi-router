@@ -91,7 +91,7 @@ const folderLogin = Effect.fnUntraced(function* folderLogin(vendor: Vendor, fold
 
 const setupToken = ["claude", "setup-token"] as const;
 
-const typedToken = Effect.fnUntraced(function* typedToken(keyFile: string) {
+const typedToken = Effect.gen(function* typedToken() {
 	yield* canLogIn({ withBrowser: false });
 
 	const code = yield* handedOver(setupToken).pipe(Effect.orElseSucceed(() => notRun));
@@ -110,17 +110,52 @@ const typedToken = Effect.fnUntraced(function* typedToken(keyFile: string) {
 		return yield* refused("That is not a Claude subscription token, which starts with sk-ant-oat.");
 	}
 
-	yield* saveToken(keyFile, token);
-
 	return token;
+});
+
+const tokenHolders = Effect.gen(function* tokenHolders() {
+	const configured = yield* configuredAccounts;
+
+	const keyed = pipe(
+		Option.match(configured, { onNone: () => [], onSome: ({ clean, sealed }) => [...clean, ...sealed] }),
+		Array.flatMap(({ credential, name }) => {
+			if (credential.kind !== "key" || credential.scheme !== "oauth" || "keyCommand" in credential.source) {
+				return [];
+			}
+
+			return [{ name, source: credential.source }];
+		}),
+	);
+
+	return yield* Effect.forEach(
+		keyed,
+		({ name, source }) =>
+			pipe(
+				Effect.option(readKey(source)),
+				Effect.map(Option.map((held) => ({ name, value: Redacted.value(held) }))),
+			),
+		{ concurrency: 1 },
+	).pipe(Effect.map(Array.getSomes));
 });
 
 const tokenLogin = Effect.fnUntraced(function* tokenLogin(folder: string) {
 	const path = yield* Path.Path;
 	const keyFile = path.join(folder, "token");
 	const held = yield* Effect.option(readKey({ keyFile }));
-	const token = yield* Option.match(held, { onNone: () => typedToken(keyFile), onSome: Effect.succeed });
+	const token = yield* Option.match(held, { onNone: () => typedToken, onSome: Effect.succeed });
 	const value = Redacted.value(token);
+	const holders = yield* tokenHolders;
+
+	const holder = pipe(
+		holders,
+		Array.findFirst((holding) => holding.value === value),
+	);
+
+	if (Option.isSome(holder)) {
+		return yield* refused(`That token is ${holder.value.name}'s, which phi-router already uses.`);
+	}
+
+	yield* Effect.when(saveToken(keyFile, token), Effect.succeed(Option.isNone(held)));
 
 	const summary = Option.match(tokenKindOf(value), {
 		onNone: () => "Claude token.",
