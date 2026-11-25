@@ -1,4 +1,17 @@
-import { Array, Config, Effect, Formatter, Option, Schema, Struct, pipe } from "effect";
+import {
+	Array,
+	Config,
+	Effect,
+	FileSystem,
+	Formatter,
+	Option,
+	Path,
+	Record,
+	Schema,
+	Stream,
+	Struct,
+	pipe,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
@@ -12,7 +25,15 @@ const ok = 200;
 
 const session = "stand-in-session";
 
-const Settings = Schema.fromJsonString(Schema.Struct({ env: Schema.Record(Schema.String, Schema.String) }));
+const Env = Schema.Record(Schema.String, Schema.String);
+
+const Settings = Schema.fromJsonString(Schema.Struct({ env: Schema.optionalKey(Env) }));
+
+const PromptMatcher = Schema.Struct({ hooks: Schema.Array(Schema.Struct({ command: Schema.String })) });
+
+const PromptEvents = Schema.Struct({ UserPromptSubmit: Schema.Array(PromptMatcher) });
+
+const PromptHooks = Schema.fromJsonString(Schema.Struct({ hooks: PromptEvents }));
 
 const Text = Schema.Struct({ text: Schema.String, type: Schema.Literal("text") });
 
@@ -41,7 +62,70 @@ const valueOf = (flag: string): Effect.Effect<string, string> =>
 		Effect.mapError(() => `the stand-in claude needs ${flag}`),
 	);
 
-const settings = valueOf("--settings").pipe(Effect.flatMap(Schema.decodeEffect(Settings)));
+const envIn = Effect.fnUntraced(function* envIn(file: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const exists = yield* fs.exists(file);
+
+	if (!exists) {
+		return {};
+	}
+
+	const { env = {} } = yield* Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(Settings));
+
+	return env;
+});
+
+const settings = Effect.gen(function* settings() {
+	const path = yield* Path.Path;
+	const user = yield* Config.String("CLAUDE_CONFIG_DIR");
+	const project = path.join(process.cwd(), ".claude");
+
+	const files = [
+		path.join(user, "settings.json"),
+		path.join(project, "settings.json"),
+		path.join(project, "settings.local.json"),
+	];
+
+	const envs = yield* Effect.forEach(files, envIn, { concurrency: 1 });
+
+	const env = Array.reduce(envs, Record.empty<string, string>(), (merged, each) =>
+		Record.union(merged, each, (_before, after) => after),
+	);
+
+	return { env };
+});
+
+const blocked = 2;
+
+const firstHook = 1;
+
+const hookPassed = Effect.fnUntraced(function* hookPassed(command: string, plugin: string) {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const input = Formatter.formatJson({ cwd: process.cwd(), hook_event_name: "UserPromptSubmit", session_id: session });
+	const stdin = Stream.encodeText(Stream.make(input));
+	const env = { CLAUDE_PLUGIN_ROOT: plugin };
+	const hook = yield* spawner.spawn(ChildProcess.make("sh", ["-c", command], { env, extendEnv: true, stdin }));
+	const said = yield* Stream.mkString(Stream.decodeText(hook.stderr));
+	const code = yield* hook.exitCode;
+	const stopped = Effect.fail(`UserPromptSubmit operation blocked by hook: ${said}`);
+
+	yield* Effect.when(stopped, Effect.succeed(code === blocked));
+}, Effect.scoped);
+
+const promptHooksPassed = Effect.gen(function* promptHooksPassed() {
+	const fs = yield* FileSystem.FileSystem;
+	const plugin = yield* valueOf("--plugin-dir");
+	const text = yield* fs.readFileString(`${plugin}/hooks/hooks.json`);
+	const { hooks } = yield* Schema.decodeEffect(PromptHooks)(text);
+
+	const first = pipe(
+		hooks.UserPromptSubmit,
+		Array.flatMap((matcher) => matcher.hooks),
+		Array.take(firstHook),
+	);
+
+	yield* Effect.forEach(first, ({ command }) => hookPassed(command, plugin), { concurrency: 1, discard: true });
+});
 
 const sessionStarted = Effect.fnUntraced(function* sessionStarted() {
 	const plugin = yield* valueOf("--plugin-dir");
@@ -77,6 +161,7 @@ const turn = Effect.gen(function* turn() {
 	const { env } = yield* settings;
 
 	yield* sessionStarted();
+	yield* promptHooksPassed;
 
 	const response = yield* request(env).pipe(Effect.flatMap(client.execute));
 
