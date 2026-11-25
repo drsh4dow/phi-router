@@ -1,11 +1,12 @@
 import { Array, Config, Console, Effect, String as Str, pipe } from "effect";
-import { claudeFolder, claudeLogin, claudeSignIn } from "#router/client/harnesses/index.ts";
+import { claudeFolder, claudeSignIn } from "#router/client/harnesses/index.ts";
 import { shown, signInElsewhere, signInNamed } from "./copy.ts";
 import type { Filler } from "./plan.ts";
 import type { HarnessName } from "./harnesses.ts";
 import type { Named } from "./copy.ts";
 import { Platform } from "#router/features/cli/platform.ts";
 import { isTerminal } from "#router/client/terminal.ts";
+import { logIn } from "#router/client/accounts/index.ts";
 import { loginFolderOf } from "#router/client/keys/index.ts";
 import { stopped } from "./keys.ts";
 
@@ -53,7 +54,7 @@ const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole, harness:
 		return yield* stopped(signInElsewhere({ folder, harness }));
 	}
 
-	const code = yield* claudeLogin(folder);
+	const code = yield* logIn("anthropic", folder);
 	const after = yield* claudeSignIn(folder);
 
 	if (code !== succeeded || after.kind === "none") {
