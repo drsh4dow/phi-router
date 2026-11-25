@@ -129,7 +129,7 @@ An AI model built to make fast, structured decisions that software uses directly
 _Avoid_: small model, fast model
 
 **Judge**:
-The decision model that scores whether a piece holds PHI when no rule sealed it. It runs under a BAA. The file's `judge` block runs **Decisions**, OpenAI's Decisions API. With no `judge` block, the first OpenAI API-key account on `sealed` runs Decisions, else the first Anthropic account on `sealed` with its own credential, not forwarded, runs the **Claude judge** on the Messages API (ADR 0009).
+The System One model that scores whether a piece holds PHI when no rule sealed it. It runs under a BAA on **Decisions**, OpenAI's Decisions API, the only judge phi-router offers (ADR 0014). The file's `judge` block runs it on a key of its own. With no `judge` block, the first OpenAI API-key account on `sealed` runs it.
 _Avoid_: classifier, scanner
 
 **Part**:
