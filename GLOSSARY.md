@@ -17,7 +17,7 @@ _Avoid_: client, tool
 One running process of a harness.
 
 **Session**:
-One conversation in an instance, named by the session id its harness sends with each request. pi sends none of its own, so the pi package adds a session header. The verdict store, the pin and the lane log are kept per session.
+One conversation in an instance, named by the session id its harness sends with each request. pi sends none of its own, so the pi package adds a session header. The verdict store and the lane log are kept per session.
 
 **Provider `phi`**:
 The provider the pi package adds to pi, at the router's address, with the models `phi/auto` and `phi/sealed`. Only a request of this provider is routed.
@@ -157,7 +157,7 @@ A part whose exact text the configuration lists, so the policy skips it.
 A hash of the policy, the judge, its thresholds and its model. A verdict stored under another policy version is ignored and its part judged again.
 
 **Verdict store**:
-One file per session id that holds the session's content keys with their verdicts, its reply keys, its pin and the policy version. It never holds content.
+One file per session id that holds the session's content keys with their verdicts, its reply keys and the policy version. It never holds content.
 
 **Standing**:
 A part's verdict as one read of the verdict store gives it: sealed, cleared, or unknown when the store holds no verdict for its key.
@@ -177,7 +177,7 @@ The constant text an open account receives in place of a part that is sealed or 
 The check on every request bound for an open account, which passes cleared parts and stubs the rest.
 
 **Pin**:
-A session's or a subagent's choice to run wholly on the sealed lane, with nothing judged.
+What runs a request on the sealed lane with nothing judged: the model `phi/sealed`, the pinned line, a BAA repo or a title request.
 
 **Pinned subagent**:
 A subagent started on `phi/sealed`. Claude Code names it `phi-router:phi-sealed` and Codex `phi-sealed`. pi has none.
@@ -192,7 +192,7 @@ A repository whose sessions run wholly on the sealed lane.
 Codex's request that names a thread, marked by `thread_source: "thread_title"` in its turn metadata. It runs sealed with the reason `title`, with no judge call and no bridge.
 
 **Lane log**:
-One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, no sealed new content; `sealed new content`; `pinned`, the session's pin; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or a clean request had no open account left; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
+One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, no sealed new content; `sealed new content`; `pinned`, the model `phi/sealed` or the pinned line; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or a clean request had no open account left; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
 
 **Bridge**:
 The constant block the router adds to the system prompt of every request that is neither pinned nor a title request, on both lanes.

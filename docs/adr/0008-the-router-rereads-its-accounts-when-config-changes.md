@@ -6,7 +6,7 @@ We chose this because `/phi` must list an account right after `accounts add`, in
 
 ## Considered options
 
-- `accounts add` asks the running router to reload, as `pin` does (ADR 0007). Rejected because it adds a route, a client call and its failure cases, and the router still has to rebuild its accounts. A hand edit would still need a restart.
+- `accounts add` asks the running router to reload over its port, as `status` asks it (ADR 0007). Rejected because it adds a route, a client call and its failure cases, and the router still has to rebuild its accounts. A hand edit would still need a restart.
 - Watch the file for changes. Rejected because a watcher is one more resource the router must hold and close, and the next request reads the file anyway.
 - Keep the accounts that did not change and build only new ones. Rejected as more than this needs. A rebuild starts each login folder's state fresh.
 

@@ -4,7 +4,7 @@
 
 - `phi-router start` posts a lease, and launches `serve` when nothing answers on the port.
 - `serve` exits within one lease interval (5 s) once no leased pid is alive, and after about 5 s when it never gets a lease.
-- `status`, `pin` and `unpin` take a session and ask the running router.
+- `status` takes a session and asks the running router.
 
 ## How to get to it (user POV)
 
