@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate, pipe } from "effect";
+import { Array, Effect, Option, Predicate, Record, pipe } from "effect";
 import type { Found, Kept } from "./plan.ts";
 import type { HarnessName } from "./harnesses.ts";
 import { Platform } from "#router/features/cli/platform.ts";
@@ -8,12 +8,6 @@ import { harnesses } from "./harnesses.ts";
 import { keptRoles } from "./kept.ts";
 import { machineKeys } from "./machine-keys.ts";
 
-const others: Readonly<Record<HarnessName, readonly HarnessName[]>> = {
-	claude: ["codex", "pi"],
-	codex: ["claude", "pi"],
-	pi: ["claude", "codex"],
-};
-
 const signedInAs = Effect.fnUntraced(function* signedInAs(name: HarnessName) {
 	const signIn = yield* harnesses[name].signIn;
 
@@ -21,7 +15,8 @@ const signedInAs = Effect.fnUntraced(function* signedInAs(name: HarnessName) {
 });
 
 const signedInOthers = Effect.fnUntraced(function* signedInOthers(name: HarnessName) {
-	const seen = yield* Effect.forEach(others[name], signedInAs, { concurrency: 1 });
+	const others = Array.filter(Record.keys(harnesses), (other) => other !== name);
+	const seen = yield* Effect.forEach(others, signedInAs, { concurrency: 1 });
 
 	return pipe(
 		seen,
