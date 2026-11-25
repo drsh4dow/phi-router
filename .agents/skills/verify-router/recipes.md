@@ -187,3 +187,36 @@ file: exit 0, other listener got 0 requests
 ```
 
 `claude -p` exits 0 on a prompt a hook blocked. The script exits 1 with a `FAIL` line when the clean turn does not reply `ok`, a setting is not named, or the other listener gets any request. Each turn sends one `CONNECT api.anthropic.com:443` through the proxy, the unchanged turn included, and the Vertex turn probes Google's metadata address before its prompt.
+
+## 8. Setup inside the Claude Code window
+
+The real claude TUI in tmux follows the README line as SETUP.md asks: the agent runs `npx phi-router setup claude --json`, asks each question with `AskUserQuestion`, runs `--apply`, says apply's last line, and runs `--apply` again when the user says `done`. Then the user types a clean prompt and a canary prompt. Setup reads the machine as it would a user's, so nothing points claude at a mock: api.anthropic.com and api.openai.com resolve to loopback through a bind-mounted `/etc/hosts` and `/etc/nsswitch.conf`, and `recipes/setup-claude-mock.ts` serves both on 127.0.0.1:443 behind a throwaway CA in `NODE_EXTRA_CA_CERTS`, which claude, bun and node honor. Its open account plays the agent from the conversation in each request, and answers auto mode's safety check with `<block>no</block>`, as the real check answers a command it lets run, so auto mode stays on. A fake Max login lives in `.credentials.json`, with the `oauthAccount` a real login leaves in `.claude.json`: without it `claude auth status` prints `"email": null`, which setup reads as signed out. `say` presses Enter again while the text sits in the input box, because a loaded machine can drop the first Enter. `configure` types no key until the options panel shows, and tries again 3 s later while Claude Code says the plugin isn't installed: right after the shell install it said so once, about 2 s after the install, and opened the panel from about 8 s on. Its BAA account, the key checks and the judge answer by credential. It logs each request to `$ROOT/mock.jsonl` with whether it held the canary or a fake key, never a value. `npx` is a shim that runs this checkout's launcher, with `--source` for setup.
+
+```sh
+ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-found setup-claude.sh found-keys
+ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-pasted setup-claude.sh pasted-keys
+ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-headless setup-claude.sh headless
+```
+
+| Run           | Starts with                                                   | The user                                                                                                                           | The agent ends with                         |
+| ------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `found-keys`  | a fake Max login, an Anthropic key in pi, `OPENAI_API_KEY`    | picks the two found keys, then types `/reload-plugins`                                                                             | `Done. Type /reload-plugins to turn it on.` |
+| `pasted-keys` | a fake Max login and no key                                   | picks an Anthropic API key, pastes both keys in `/plugin configure phi-router`, whose save reloads the plugins, and says `done`    | `Done. This window is protected.`           |
+| `headless`    | a fake Max login, `OPENAI_API_KEY`, no `DISPLAY` or `BROWSER` | picks a Claude Enterprise login, runs the command setup printed in a second tmux window, says `done`, then types `/reload-plugins` | `Done. Type /reload-plugins to turn it on.` |
+
+```
+pass apply exited 0
+pass the agent ended with: Done. This window is protected.
+after apply: no router on 47411
+after apply: 0 retry lines
+pass a router answers on 47411 after the first prompt
+pass lane log: clean, then sealed for the canary
+pass the canary reached the BAA account
+pass the canary reached no other account
+pass no fake key reached the open account
+pass the keys are only in: claude/.credentials.json config/phi-router/keys/anthropic config/phi-router/keys/openai config/phi-router/keys/pasted/anthropic config/phi-router/keys/pasted/openai
+```
+
+That is `pasted-keys`. The last check greps every file of the run, the Claude Code folder, HOME and its transcripts included, and allows a key only in phi-router's key files, the Claude Code credentials file that holds plugin options, and pi's `auth.json`. `headless` prints the environment and the command it ran, `DISPLAY='' BROWSER='' WAYLAND_DISPLAY=''` and `the terminal runs setup's command: CLAUDE_CONFIG_DIR='…/logins/claude-baa' claude auth login`. A vendor sign-in cannot finish offline, so in that terminal alone a `claude` shim answers `auth login` by writing the Claude Enterprise login it would leave. The screens are `$ROOT/screen-*.txt`, and `env MOCK_BODIES=<folder> setup-claude.sh RUN` keeps each `/v1/messages` body.
+
+A run is one `case` block: `start` writes the starting state and `drive` types until the last apply, with `say`, `pick LABEL` (arrow keys, then Enter) and `configure ANTHROPIC_KEY OPENAI_KEY`. In six timed runs the agent's reply after apply left 0.05 to 0.55 s after apply rewrote `settings.json` and still reached api.anthropic.com directly. A reply sent after Claude Code applies the new settings would go to 47411 (inferred), where nothing listens until the next prompt's hook starts a router.
