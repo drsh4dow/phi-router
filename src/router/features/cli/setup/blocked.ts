@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Record, String as Str, pipe } from "effect";
+import { Array, Config, Effect, Option, Record, String as Str, pipe } from "effect";
 import { managedEnv, userSettings } from "#router/client/harnesses/index.ts";
 import { routerAddress } from "#router/features/cli/claude/index.ts";
 import { stops } from "./copy.ts";
@@ -11,6 +11,8 @@ const providerSwitches = {
 	CLAUDE_CODE_USE_VERTEX: "Vertex AI",
 } as const;
 
+const baseUrl = "ANTHROPIC_BASE_URL";
+
 const hostPattern = /^[a-z]+:\/\/(?:[^/@]*@)?(?<host>[^/:@]+)/iu;
 
 const hostOf = (address: string): string =>
@@ -18,12 +20,13 @@ const hostOf = (address: string): string =>
 		Option.fromNullishOr(hostPattern.exec(address)),
 		Option.flatMap(({ groups }) => Option.fromNullishOr(groups)),
 		Option.flatMap(({ host }) => Option.fromNullishOr(host)),
-		Option.getOrElse(() => "ANTHROPIC_BASE_URL"),
+		Option.getOrElse(() => baseUrl),
 	);
 
 const gatewayIn = (env: Readonly<Record<string, string>>, whose: string): Option.Option<string> =>
 	pipe(
-		Record.get(env, "ANTHROPIC_BASE_URL"),
+		Record.get(env, baseUrl),
+		Option.filter(Str.isNonEmpty),
 		Option.filter((address) => address !== routerAddress),
 		Option.map((address) => stops.gateway(hostOf(address), whose)),
 	);
@@ -41,10 +44,16 @@ const claudeBlocked = Effect.fnUntraced(function* claudeBlocked(os: string) {
 	const managed = yield* managedEnv(os);
 	const settings = yield* userSettings("");
 
+	const shell = yield* Config.String(baseUrl).pipe(
+		Config.map((url): Readonly<Record<string, string>> => ({ [baseUrl]: url })),
+		Config.withDefault({}),
+	);
+
 	return pipe(
 		providerIn(managed),
 		Option.orElse(() => gatewayIn(managed, "company's ")),
 		Option.orElse(() => gatewayIn(settings.env, "")),
+		Option.orElse(() => gatewayIn(shell, "")),
 	);
 });
 

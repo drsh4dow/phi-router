@@ -10,6 +10,7 @@ import {
 	patient,
 	setUp,
 	tracked,
+	withEnv,
 	withStatus,
 	writeOwnSettings,
 } from "./set-up.ts";
@@ -21,6 +22,7 @@ interface Stop {
 	readonly kind: string;
 	readonly given: (of: World) => Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem>;
 	readonly line: string;
+	readonly env?: Readonly<Record<string, string>>;
 }
 
 const signedInVia = (of: World, apiProvider: string): ReturnType<Stop["given"]> =>
@@ -72,6 +74,12 @@ const stops: readonly Stop[] = [
 		line: "phi-router doesn't work with your gateway (llm-gateway.example.com) yet. Nothing changed.",
 	},
 	{
+		env: { ANTHROPIC_BASE_URL: "https://llm-gateway.example.com" },
+		given: () => Effect.void,
+		kind: "the shell that runs setup sends Claude Code to another gateway",
+		line: "phi-router doesn't work with your gateway (llm-gateway.example.com) yet. Nothing changed.",
+	},
+	{
 		given: (of) =>
 			managed(of, { ANTHROPIC_BASE_URL: "https://phi-test-user:phi-test-secret@llm-gateway.example.com:8443/v1" }),
 		kind: "managed settings send Claude Code to a gateway whose address holds a login",
@@ -95,8 +103,9 @@ const stops: readonly Stop[] = [
 	},
 ];
 
-const stopped = Effect.fnUntraced(function* stopped({ given, line }: Stop) {
-	const of = yield* world;
+const stopped = Effect.fnUntraced(function* stopped({ env = {}, given, line }: Stop) {
+	const made = yield* world;
+	const of = withEnv(env)(made);
 
 	yield* given(of);
 
