@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Layer, Option, PlatformError, Sink, Stream, pipe } from "effect";
+import { Array, Effect, Equal, Layer, Option, PlatformError, Record, Redacted, Ref, Sink, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CommandFailed, SessionId } from "#shared/cli.ts";
 import { assert, it } from "@effect/vitest";
@@ -168,7 +168,7 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client",
 			assert.deepStrictEqual(
 				{ cause: failure.cause, command: failure.command },
 				{
-					cause: `${exitedLine}phi-router: the router refused the session`,
+					cause: `${exitedLine}\nphi-router: the router refused the session`,
 					command: "status",
 				},
 			);
@@ -225,6 +225,86 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client's
 				const failure = yield* Effect.flip(router.pin(SessionId.make("down"), routerPort));
 
 				assert.instanceOf(failure, CommandFailed);
+			}),
+	);
+});
+
+const readyLine =
+	'{"found":["phi-router found"],"keys":[{"prompt":"OpenAI key (PHI check):","vendor":"openai"}],"kind":"ready"}';
+
+const heldKey = "sk-proj-held-in-the-environment";
+
+const spawned: ChildProcess.StandardCommand[] = [];
+
+const applyReply: Reply = { exitCode: clean, stdout: "✓ OpenAI key works\n\n  PHI check       OpenAI\n" };
+
+const setupCli = Layer.succeed(
+	ChildProcessSpawner.ChildProcessSpawner,
+	ChildProcessSpawner.make((command) => {
+		if (!ChildProcess.isStandardCommand(command)) {
+			return Effect.succeed(handle(usage));
+		}
+
+		spawned.push(command);
+
+		if (Array.contains(command.args, "--apply")) {
+			return Effect.succeed(handle(applyReply));
+		}
+
+		return Effect.succeed(handle({ exitCode: clean, stdout: readyLine }));
+	}),
+);
+
+const lastSpawned = (): Option.Option<ChildProcess.StandardCommand> => Array.last(spawned);
+
+it.layer(Layer.provide(Router.layer("phi-router"), setupCli))("the pi router client's setup", (test) => {
+	test.effect("asks phi-router setup pi --json for the step that follows the picks, and decodes it", () =>
+		Effect.gen(function* stepped() {
+			const router = yield* Router;
+			const step = yield* router.setupStep({ baa: "key" });
+
+			assert.deepStrictEqual(step, {
+				found: ["phi-router found"],
+				keys: [{ prompt: "OpenAI key (PHI check):", vendor: "openai" }],
+				kind: "ready",
+			});
+			assert.deepStrictEqual(
+				Option.map(lastSpawned(), ({ args, command }) => [command, ...args]),
+				Option.some(["phi-router", "setup", "pi", "--json", "--answers", '{"baa":"key"}']),
+			);
+		}),
+	);
+
+	test.effect(
+		"hands each typed key to phi-router setup pi --apply in its environment alone, and shows each line it prints",
+		() =>
+			Effect.gen(function* applied() {
+				const router = yield* Router;
+				const shown = yield* Ref.make<readonly string[]>([]);
+
+				yield* router.setUp({
+					answers: { baa: "key" },
+					keys: [{ key: Redacted.make(heldKey), vendor: "openai" }],
+					shown: (line) => Ref.update(shown, Array.append(line)),
+				});
+
+				const command = yield* Effect.fromOption(lastSpawned());
+				const lines = yield* Ref.get(shown);
+
+				const given = pipe(
+					Option.fromNullishOr(command.options.env),
+					Option.flatMap(Record.get("PHI_ROUTER_OPENAI_KEY")),
+					Option.filter(Redacted.isRedacted),
+					Option.map(Redacted.value),
+				);
+
+				assert.deepStrictEqual(
+					[command.command, ...command.args],
+					["phi-router", "setup", "pi", "--apply", "--answers", '{"baa":"key"}'],
+				);
+				assert.deepStrictEqual(given, Option.some(heldKey));
+				assert.isTrue(command.options.extendEnv);
+				assert.deepStrictEqual(lines, ["✓ OpenAI key works", "", "  PHI check       OpenAI"]);
 			}),
 	);
 });

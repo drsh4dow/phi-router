@@ -32,6 +32,7 @@ import { NodeServices } from "@effect/platform-node";
 import type { Observe } from "#pi/features/phi/index.ts";
 import { Router } from "#pi/client/router.ts";
 import { piWire } from "#shared/pi.ts";
+import { setUp } from "#pi/features/setup/index.ts";
 
 const launcher = decodeURIComponent(new URL("../claude/bin/phi-router", import.meta.url).pathname);
 
@@ -101,8 +102,15 @@ const observed =
 	(_event, ctx) =>
 		Effect.runPromise(Effect.provide(observe(ctx), router()));
 
-const phiAnswered: (port: number) => RegisteredCommand["handler"] = (port) => (words, ctx) =>
-	Effect.runPromise(Effect.provide(answered(port)(words, ctx), router()));
+const phiAnswered =
+	(port: number, pi: Pick<ExtensionAPI, "setModel">): RegisteredCommand["handler"] =>
+	(words, ctx) => {
+		if (Str.trim(words) === phiCommand.setup) {
+			return Effect.runPromise(Effect.provide(setUp({ pi, port })(ctx), router()));
+		}
+
+		return Effect.runPromise(Effect.provide(answered(port)(words, ctx), router()));
+	};
 
 const checked =
 	(port: number): ExtensionHandler<InputEvent, InputEventResult> =>
@@ -136,7 +144,7 @@ const bypassProxies = Effect.forEach(
 );
 
 const registered = Effect.fnUntraced(function* registered(
-	pi: Readonly<Pick<ExtensionAPI, "appendEntry" | "on" | "registerCommand" | "registerProvider">>,
+	pi: Readonly<Pick<ExtensionAPI, "appendEntry" | "on" | "registerCommand" | "registerProvider" | "setModel">>,
 ) {
 	const models = yield* Effect.orElseSucceed(
 		Router.use((client) => client.models),
@@ -152,7 +160,7 @@ const registered = Effect.fnUntraced(function* registered(
 	onRouter(pi, port, shows);
 	pi.on("before_provider_headers", recordUse({ pi, routedProvider }));
 	pi.on("before_provider_headers", headed);
-	pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port) });
+	pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port, pi) });
 });
 
 const extension: ExtensionFactory = (pi) => Effect.runPromise(Effect.provide(registered(pi), router()));

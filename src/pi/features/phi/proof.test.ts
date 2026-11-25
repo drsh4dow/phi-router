@@ -24,6 +24,8 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean) {
 	const service = Router.of({
 		models: Effect.succeed({}),
 		pin: () => Effect.void,
+		setUp: () => Effect.die("the proof sets nothing up"),
+		setupStep: () => Effect.die("the proof sets nothing up"),
 		start: (session, folder, port) =>
 			Effect.andThen(
 				recorded(`start ${session} ${folder} ${String(port)}`),

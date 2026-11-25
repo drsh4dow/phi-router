@@ -48,6 +48,8 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	const service = Router.of({
 		models: Effect.succeed({}),
 		pin: (_session, port) => Effect.andThen(ask("pin", port), Ref.set(pinned, true)),
+		setUp: () => Effect.die("/phi sets nothing up"),
+		setupStep: () => Effect.die("/phi sets nothing up"),
 		start: () => Effect.void,
 		status: (_session, port) =>
 			Effect.andThen(
@@ -194,7 +196,7 @@ it.effect("/phi with a word it does not know shows its usage and asks the router
 				shown: [
 					[
 						"warning",
-						"/phi shows this session's routing, /phi pin pins it to the sealed lane, /phi unpin clears the pin.",
+						"/phi setup sets up phi-router, /phi shows this session's routing, /phi pin pins it to the sealed lane, /phi unpin clears the pin.",
 					],
 				],
 			},
