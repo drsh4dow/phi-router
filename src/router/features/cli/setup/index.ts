@@ -1,5 +1,5 @@
 import { Command, Flag } from "effect/cli";
-import { Effect, Option, Schema, Struct } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { SetupAnswersJson, spelling } from "#shared/cli.ts";
 import { applied, reported } from "./wire.ts";
 import type { HarnessName } from "./harnesses.ts";
@@ -16,11 +16,13 @@ const noVersion = stopped(
 const unreadAnswers = stopped("Setup could not read --answers. Nothing was changed.");
 
 const flags = {
-	answers: Flag.optional(Flag.String(spelling.setup.answers)),
+	answers: Flag.optional(Flag.String(spelling.setup.answers)).pipe(Flag.map((json) => Option.getOrUndefined(json))),
 	apply: Flag.Boolean(spelling.setup.apply).pipe(Flag.withDefault(false)),
 	json: Flag.Boolean(spelling.setup.json).pipe(Flag.withDefault(false)),
 	newKey: Flag.Boolean("new-key").pipe(Flag.withDefault(false)),
-	source: Flag.optional(Flag.Directory("source", { mustExist: true })),
+	source: Flag.optional(Flag.Directory("source", { mustExist: true })).pipe(
+		Flag.map((folder) => Option.getOrUndefined(folder)),
+	),
 };
 
 const setup = Effect.fn("setup")(function* setup(
@@ -51,35 +53,11 @@ const setup = Effect.fn("setup")(function* setup(
 	return yield* asked(name, found, source);
 });
 
-const claude = Command.make("claude", flags, (given) =>
-	setup(
-		"claude",
-		Struct.assign(given, {
-			answers: Option.getOrUndefined(given.answers),
-			source: Option.getOrUndefined(given.source),
-		}),
-	),
-);
+const claude = Command.make("claude", flags, (given) => setup("claude", given));
 
-const codex = Command.make("codex", flags, (given) =>
-	setup(
-		"codex",
-		Struct.assign(given, {
-			answers: Option.getOrUndefined(given.answers),
-			source: Option.getOrUndefined(given.source),
-		}),
-	),
-);
+const codex = Command.make("codex", flags, (given) => setup("codex", given));
 
-const pi = Command.make("pi", flags, (given) =>
-	setup(
-		"pi",
-		Struct.assign(given, {
-			answers: Option.getOrUndefined(given.answers),
-			source: Option.getOrUndefined(given.source),
-		}),
-	),
-);
+const pi = Command.make("pi", flags, (given) => setup("pi", given));
 
 const setupCommand = Command.make(spelling.setup.name).pipe(
 	Command.withSubcommands([claude, codex, pi]),
