@@ -1,5 +1,6 @@
 import { Array, DateTime, Effect, Option, String as Str, flow, pipe } from "effect";
 import type { Status } from "#shared/cli.ts";
+import { localTimeOf } from "#router/features/cli/accounts/index.ts";
 import { phiCommand } from "#shared/cli.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 
@@ -14,8 +15,6 @@ interface Overflow {
 }
 
 const one = 1;
-
-const clockDigits = 2;
 
 const usage = `/${phiCommand.name} shows this session's routing. To run work on the BAA account, hand it to the phi-sealed subagent or switch the model to ${pinnedModel}.`;
 
@@ -34,17 +33,8 @@ const ranOn = (last: NonNullable<Reported["last"]>): string => {
 const lastOf: Shows = (status) =>
 	pipe(Option.fromNullishOr(status.last), Option.match({ onNone: () => "none yet", onSome: ranOn }));
 
-const twoDigits = (part: number): string => Str.padStart(clockDigits, "0")(String(part));
-
 const clockOf = (at: string | number): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
-	Option.match(DateTime.make(at), {
-		onNone: () => Effect.succeed(String(at)),
-		onSome: flow(
-			DateTime.setZoneCurrent,
-			Effect.map(DateTime.toParts),
-			Effect.map(({ hour, minute }) => `${twoDigits(hour)}:${twoDigits(minute)}`),
-		),
-	});
+	Option.match(DateTime.make(at), { onNone: () => Effect.succeed(String(at)), onSome: localTimeOf });
 
 const listOf = (names: readonly string[]): string =>
 	pipe(
