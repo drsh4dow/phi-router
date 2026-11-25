@@ -69,7 +69,11 @@ const stopped = (of: { readonly walked: Walked; readonly aim: Aim; readonly spen
 	};
 };
 
-const lineOf = (of: { readonly arrival: Arrived; readonly walked: Walked }): Omit<Routed, "session"> => {
+const lineOf = (of: {
+	readonly arrival: Arrived;
+	readonly walked: Walked;
+	readonly answered: boolean;
+}): Omit<Routed, "session"> => {
 	const { arrival, walked } = of;
 
 	const ats = pipe(
@@ -90,7 +94,11 @@ const lineOf = (of: { readonly arrival: Arrived; readonly walked: Walked }): Omi
 		substitute: walked.send.substitute,
 	} as const;
 
-	if (first.account === latest.account || line.reason === "overflow") {
+	if (line.reason === "overflow" && of.answered) {
+		return line;
+	}
+
+	if (line.reason !== "overflow" && first.account === latest.account) {
 		return line;
 	}
 

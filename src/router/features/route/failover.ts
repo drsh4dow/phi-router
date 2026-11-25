@@ -1,5 +1,5 @@
 import type { Aim, Arrived } from "./send.ts";
-import { Array, Effect, Option, Predicate, Ref, Schema, Stream, Struct, pipe } from "effect";
+import { Array, Effect, Exit, Option, Predicate, Ref, Schema, Stream, Struct, pipe } from "effect";
 import type { PlatformError, Scope } from "effect";
 import type { Spend, Stop } from "./walked.ts";
 import { chosen, keepingReplyKeys, targetOf } from "./send.ts";
@@ -198,7 +198,11 @@ const dispatched = Effect.fnUntraced(function* dispatched(arrival: Arrived) {
 
 	return yield* aimed(walking, walk).pipe(
 		Effect.flatMap((aim) => tried(walking, aim)),
-		Effect.onExit(() => Effect.flatMap(Ref.get(walked), (done) => append(lineOf({ arrival, walked: done })))),
+		Effect.onExit((exit) => {
+			const answered = Exit.isSuccess(exit) && exit.value.status === statuses.ok;
+
+			return Effect.flatMap(Ref.get(walked), (done) => append(lineOf({ answered, arrival, walked: done })));
+		}),
 	);
 });
 

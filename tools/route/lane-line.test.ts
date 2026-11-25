@@ -85,7 +85,7 @@ const hungUp = Effect.gen(function* hungUp() {
 			),
 			opened: opened.length,
 		},
-		{ lines: [["baa", "sealed", "overflow"]], opened: 1 },
+		{ lines: [["baa", "sealed", "failover"]], opened: 1 },
 	);
 });
 
@@ -111,7 +111,7 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 			),
 			status: response.status,
 		},
-		{ lines: [["baa-2", "sealed", "overflow"]], status: badGateway },
+		{ lines: [["baa-2", "sealed", "failover"]], status: badGateway },
 	);
 });
 
@@ -225,10 +225,13 @@ const storeFailed = Effect.gen(function* storeFailed() {
 
 it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 	test.effect(
-		"is still written when the harness hangs up while a failed-over request waits on the BAA account, naming that account",
+		"is still written when the harness hangs up while a failed-over request waits on the BAA account, naming that account, as failover since the BAA account never answered",
 		() => hungUp,
 	);
-	test.effect("names the last account tried when no account answers, for overflow", () => noneAnswered);
+	test.effect(
+		"names the last account tried when no account answers, as failover and not overflow, since no BAA account ran it",
+		() => noneAnswered,
+	);
 	test.effect(
 		"names the BAA account whose login ended when a sealed request has no other and fails, and the 502 answer gives its login command",
 		() => sealedEnded,
