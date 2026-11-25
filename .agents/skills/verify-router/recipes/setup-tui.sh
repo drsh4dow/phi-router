@@ -77,6 +77,11 @@ keys_in() {
 	shot baa-pick
 	if [ "$world" != max ]; then tm send-keys -t pi Down; sleep 0.3; fi
 	tm send-keys -t pi Enter
+	wait_for "Add another subscription?" 30 || fail "pi did not offer another subscription"
+	shot another-pick
+	tm send-keys -t pi Down
+	sleep 0.3
+	tm send-keys -t pi Enter
 	if [ "$world" = max ]; then
 		wait_for "Anthropic key (BAA):" 30 || fail "pi asked for no Anthropic key"
 		tm send-keys -t pi -l "$anthropic_key"
