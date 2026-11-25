@@ -1,5 +1,6 @@
 import { Array, Console, Effect, Option, Struct, pipe } from "effect";
 import type { HarnessName, Target } from "./harnesses.ts";
+import { anotherSignedIn, signedIn } from "./sign-ins.ts";
 import { checkedKeys, savedKey } from "./held-keys.ts";
 import { enterpriseNote, roleNames, rows, shown } from "./copy.ts";
 import type { NewAccount } from "#router/client/config-writer.ts";
@@ -9,7 +10,6 @@ import type { Typed } from "./held-keys.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
 import { harnesses } from "./harnesses.ts";
-import { signedIn } from "./sign-ins.ts";
 import { stopped } from "./keys.ts";
 import { turnedOn } from "./install.ts";
 
@@ -42,10 +42,20 @@ const settled = Effect.fnUntraced(function* settled(name: HarnessName, roles: Re
 const written = Effect.fnUntraced(function* written(
 	title: string,
 	vendor: Vendor,
-	roles: Readonly<Record<"open" | "baa" | "judge", Settled>>,
+	{
+		another,
+		roles,
+	}: {
+		readonly roles: Readonly<Record<"open" | "baa" | "judge", Settled>>;
+		readonly another: readonly { readonly account: NewAccount }[];
+	},
 ) {
 	const accounts = [
 		...Array.map(Option.toArray(accountOf(roles.open, vendor)), (account) => ({ account, lane: "clean" as const })),
+		...pipe(
+			another,
+			Array.map(({ account }) => ({ account, lane: "clean" as const })),
+		),
 		...Array.map(Option.toArray(accountOf(roles.baa, vendor)), (account) => ({ account, lane: "sealed" as const })),
 	];
 
@@ -68,7 +78,7 @@ const written = Effect.fnUntraced(function* written(
 
 const apply = Effect.fn("setup apply")(function* apply(
 	name: HarnessName,
-	ready: { readonly roles: Ready["roles"]; readonly typed: Typed },
+	ready: { readonly roles: Ready["roles"]; readonly typed: Typed; readonly another: boolean },
 	target: Target,
 ) {
 	const { title, vendor } = harnesses[name];
@@ -81,12 +91,18 @@ const apply = Effect.fn("setup apply")(function* apply(
 	yield* checkedKeys(title, roles, typed);
 
 	const done = yield* settled(name, roles, typed);
+	const another = yield* Effect.when(anotherSignedIn(name, done.open.label), Effect.succeed(ready.another));
+	const added = Option.toArray(Option.flatten(another));
 
-	yield* written(title, vendor, done);
+	yield* written(title, vendor, { another: added, roles: done });
 	yield* turnedOn(name, target, done.open.label.plan);
 
 	const summary = rows([
 		[roleNames.open, shown(done.open.label)],
+		...pipe(
+			added,
+			Array.map(({ label }) => ["", shown(label)] as const),
+		),
 		[roleNames.baa, shown(done.baa.label)],
 		[roleNames.judge, "OpenAI"],
 	]);

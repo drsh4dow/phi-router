@@ -32,12 +32,47 @@ it.effect(
 		Effect.sync(() => {
 			const piKey = { kind: "key", place: "pi", vendor: "openai" };
 
-			assert.deepNestedInclude(plan({ answers: { baa: "pi" }, found: refusedJudge }), {
+			assert.deepNestedInclude(plan({ answers: { another: "no", baa: "pi" }, found: refusedJudge }), {
 				kind: "ready",
 				"roles.baa": piKey,
 				"roles.judge": piKey,
 			});
 		}),
+);
+
+it.effect(
+	"a first setup asks, once the accounts are settled, whether to add another subscription, naming the open account",
+	() =>
+		Effect.sync(() => {
+			assert.deepStrictEqual(plan({ answers: {}, found: codex }), {
+				kind: "ask",
+				question: {
+					choices: [
+						{ id: "yes", label: "Yes" },
+						{ id: "no", label: "No" },
+					],
+					id: "another",
+					text: "Add another subscription? It takes over when plus · you@example.com hits its rate limit.",
+				},
+			});
+			assert.deepNestedInclude(plan({ answers: { another: "yes" }, found: codex }), {
+				another: true,
+				kind: "ready",
+			});
+		}),
+);
+
+const held = { key: { keyFile: "/keys/openai" }, label: { plan: "OpenAI" }, rekey: false };
+
+const setUp = Struct.assign(codex, {
+	kept: { baa: held, judge: held, open: { label: { plan: "plus" }, rekey: false } },
+});
+
+it.effect("a setup that keeps the accounts it holds never offers another subscription, whatever was answered", () =>
+	Effect.sync(() => {
+		assert.deepNestedInclude(plan({ answers: {}, found: setUp }), { another: false, kind: "ready" });
+		assert.deepNestedInclude(plan({ answers: { another: "yes" }, found: setUp }), { another: false, kind: "ready" });
+	}),
 );
 
 const refusedJudgeWithEnvKey = Struct.assign(refusedJudge, { keys: [{ place: "env", vendor: "openai" }] } as const);
@@ -54,7 +89,7 @@ it.effect(
 	"a refused PHI check key on Codex is asked again when patient data takes OPENAI_API_KEY, which no key file holds",
 	() =>
 		Effect.sync(() => {
-			const step = plan({ answers: { baa: "env" }, found: refusedJudgeWithEnvKey });
+			const step = plan({ answers: { another: "no", baa: "env" }, found: refusedJudgeWithEnvKey });
 
 			assert.deepNestedInclude(step, {
 				kind: "ready",

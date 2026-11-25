@@ -1,13 +1,14 @@
-import { Console, Effect } from "effect";
+import { Console, Effect, Option } from "effect";
 import { claudeFolder, claudeSignIn } from "#router/client/harnesses/index.ts";
+import { opensBrowser, subscriptionLogin } from "#router/features/cli/accounts/index.ts";
 import { shown, signInElsewhere, signInNamed } from "./copy.ts";
 import type { Filler } from "./plan.ts";
 import type { HarnessName } from "./harnesses.ts";
 import type { Named } from "./copy.ts";
+import { harnesses } from "./harnesses.ts";
 import { isTerminal } from "#router/client/terminal.ts";
 import { logIn } from "#router/client/accounts/index.ts";
 import { loginFolderOf } from "#router/client/keys/index.ts";
-import { opensBrowser } from "#router/features/cli/accounts/index.ts";
 import { stopped } from "./keys.ts";
 
 interface Folder {
@@ -74,6 +75,19 @@ const signedIn = Effect.fnUntraced(function* signedIn(filler: Filler, harness: H
 	return filler satisfies Signed;
 });
 
-export { signedIn };
+const addLater = "Add one later: run `npx phi-router accounts add` in a terminal.";
+
+const anotherSignedIn = Effect.fnUntraced(function* anotherSignedIn(name: HarnessName, open: Named) {
+	const taken = Option.toArray(Option.fromUndefinedOr(open.account));
+
+	return yield* subscriptionLogin(harnesses[name].vendor, taken).pipe(
+		Effect.map(({ account, signIn }) => ({ account, label: signInNamed(signIn) })),
+		Effect.tap(({ label }) => Console.log(`✓ Signed in as ${shown(label)}`)),
+		Effect.asSome,
+		Effect.catchTag("AddRefused", ({ reason }) => Effect.as(Console.log(`! ${reason} ${addLater}`), Option.none())),
+	);
+});
+
+export { anotherSignedIn, signedIn };
 
 export type { Signed };

@@ -42,7 +42,7 @@ const ModelsJson = Schema.fromJsonString(
 
 const SetupVendor = Schema.Literals(["anthropic", "openai"]);
 
-const QuestionId = Schema.Literals(["enterprise", "everyday", "baa", "judge"]);
+const QuestionId = Schema.Literals(["enterprise", "everyday", "baa", "judge", "another"]);
 
 const ChoiceId = Schema.Literals([
 	"yes",
@@ -59,7 +59,13 @@ const ChoiceId = Schema.Literals([
 
 const Answer = Schema.optionalKey(ChoiceId);
 
-const SetupAnswers = Schema.Struct({ baa: Answer, enterprise: Answer, everyday: Answer, judge: Answer });
+const SetupAnswers = Schema.Struct({
+	another: Answer,
+	baa: Answer,
+	enterprise: Answer,
+	everyday: Answer,
+	judge: Answer,
+});
 
 const SetupAnswersJson = Schema.fromJsonString(SetupAnswers);
 

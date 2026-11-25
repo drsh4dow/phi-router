@@ -11,6 +11,7 @@ import {
 	lastLine,
 	layer,
 	loginFolders,
+	noAnother,
 	ok,
 	ownSettings,
 	patient,
@@ -111,7 +112,14 @@ const headless = Effect.gen(function* headless() {
 
 	yield* fs.writeFileString(`${of.fakeHarnessFolder}/next-sign-in.json`, enterpriseStatus);
 
-	const run = yield* setUp(of, "claude", [{ after: questions.baa, typed: down }, judgeKey, loginCode, enter]);
+	const run = yield* setUp(of, "claude", [
+		{ after: questions.baa, typed: down },
+		noAnother,
+		judgeKey,
+		loginCode,
+		enter,
+	]);
+
 	const config = yield* writtenConfigOf(of);
 	const logins = yield* loginsOf(of);
 	const browserOpened = yield* fs.exists(`${of.fakeHarnessFolder}/browser-launches`);
@@ -135,7 +143,7 @@ const wrongSignIn = Effect.gen(function* wrongSignIn() {
 
 	yield* writeOwnSettings(of);
 
-	const run = yield* setUp(of, "claude", [{ after: questions.baa, typed: down }, judgeKey, loginCode]);
+	const run = yield* setUp(of, "claude", [{ after: questions.baa, typed: down }, noAnother, judgeKey, loginCode]);
 	const configWritten = yield* fs.exists(`${of.xdg.XDG_CONFIG_HOME}/phi-router/config.json`);
 	const settings = yield* fs.readFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`);
 

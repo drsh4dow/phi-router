@@ -1,6 +1,24 @@
 import { Effect, FileSystem, Formatter } from "effect";
 import type { Typed, World } from "./world.ts";
-import { asDarwin, down, lastLine, layer, ok, patient, withEnv, writtenConfigOf } from "./set-up.ts";
+import {
+	asDarwin,
+	baaKey,
+	down,
+	enter,
+	firstPick,
+	judgeKey,
+	keyFiles,
+	keyPicked,
+	lastLine,
+	layer,
+	ok,
+	patient,
+	questions,
+	setUp,
+	tracked,
+	withEnv,
+	writtenConfigOf,
+} from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { claudeCredentials, phiRouter } from "#tools/cli/accounts-run.ts";
 import { claudeStatus, keys, typedRun, world } from "./world.ts";
@@ -80,7 +98,7 @@ const noTerminalThenLeftBehind = Effect.gen(function* noTerminalThenLeftBehind()
 	assert.notStrictEqual(refused.exitCode, ok, refused.stdout);
 	assert.include(
 		refused.stderr,
-		"phi-router: Logging in to another subscription needs a terminal or a browser. Run `npx phi-router accounts add` in a terminal. Nothing changed.",
+		"phi-router: Logging in to another subscription needs a terminal or a browser, and here is neither. Nothing changed.",
 	);
 	assert.deepStrictEqual(unchanged, claudeLanes);
 
@@ -139,6 +157,105 @@ const macToken = Effect.gen(function* macToken() {
 	});
 	assert.strictEqual(saved, `${keys.subscription}\n`);
 }).pipe(Effect.scoped);
+
+const anotherQuestion =
+	"Add another subscription? It takes over when Claude Max · you@example.com hits its rate limit.";
+
+const yesAnother: Typed = { after: questions.another, typed: "" };
+
+const twoSubscriptions = `  Everyday work   Claude Max · you@example.com
+                  Claude Max · roe@example.com
+  Patient data    Anthropic API key
+  PHI check       OpenAI
+`;
+
+const setUpWithAnother = Effect.gen(function* setUpWithAnother() {
+	const of = yield* world;
+	const run = yield* setUp(of, "claude", [keyPicked, yesAnother, baaKey, judgeKey, loginCode, enter]);
+	const config = yield* writtenConfigOf(of);
+	const { anthropic, openai } = keyFiles(of);
+
+	assert.strictEqual(run.exitCode, ok, run.shown);
+	assert.deepStrictEqual(firstPick({ question: anotherQuestion, shown: run.shown }), ["❯ Yes", "  No"]);
+	assert.include(run.shown, "✓ Signed in as Claude Max · roe@example.com\n");
+	assert.include(run.shown, twoSubscriptions);
+	assert.deepStrictEqual(config, {
+		clean: [
+			{ forwarded: true, name: "claude-1", vendor: "anthropic" },
+			{ loginFolder: slot(of, "claude-open-2"), name: "claude-2", vendor: "anthropic" },
+		],
+		judge: { endpoint: "https://api.openai.com/v1", keyFile: openai },
+		sealed: [{ keyFile: anthropic, name: "claude-3", scheme: "apiKey", vendor: "anthropic" }],
+	});
+
+	const { after, before, run: rerun } = yield* tracked(of, ["setup", "claude"], [enter]);
+
+	assert.strictEqual(rerun.exitCode, ok, rerun.shown);
+	assert.notInclude(rerun.shown, "❯", "a second run asks nothing");
+	assert.deepStrictEqual(after, before, "a second run changes no file");
+}).pipe(Effect.scoped);
+
+const sameAccountKept = Effect.gen(function* sameAccountKept() {
+	const fs = yield* FileSystem.FileSystem;
+	const of = yield* world;
+
+	yield* fs.writeFileString(
+		`${of.fakeHarnessFolder}/next-sign-in.json`,
+		claudeStatus({ email: "you@example.com", plan: "max" }),
+	);
+
+	const run = yield* setUp(of, "claude", [keyPicked, yesAnother, baaKey, judgeKey, loginCode, enter]);
+	const config = yield* writtenConfigOf(of);
+
+	assert.strictEqual(run.exitCode, ok, run.shown);
+	assert.include(
+		run.shown,
+		"! You logged in to you@example.com, which phi-router already uses. Add one later: run `npx phi-router accounts add` in a terminal.\n",
+	);
+	assert.deepNestedInclude(config, { clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }] });
+}).pipe(Effect.scoped);
+
+const appliedWithAnother = ["setup", "claude", "--apply", "--answers", '{"another":"yes","baa":"key"}'];
+
+const driven = Effect.gen(function* driven() {
+	const made = yield* world;
+	const of = withEnv({ PHI_ROUTER_ANTHROPIC_KEY: keys.anthropic, PHI_ROUTER_OPENAI_KEY: keys.openai })(made);
+	const reported = yield* phiRouter(of.env, ["setup", "claude", "--json", "--answers", '{"baa":"key"}']);
+	const applied = yield* phiRouter(of.env, appliedWithAnother);
+	const config = yield* writtenConfigOf(of);
+	const logins = yield* loginsOf(of);
+
+	assert.include(
+		reported.stdout,
+		`"kind":"ask","question":{"choices":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"id":"another","text":"${anotherQuestion}"}`,
+	);
+	assert.strictEqual(applied.exitCode, ok, applied.stderr);
+	assert.include(
+		applied.stdout,
+		"! Logging in to another subscription needs a terminal or a browser, and here is neither. Add one later: run `npx phi-router accounts add` in a terminal.\n",
+	);
+	assert.strictEqual(lastLine(applied.stdout), "Done. Type `/reload-plugins` to turn it on.");
+	assert.deepNestedInclude(config, { clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }] });
+	assert.strictEqual(logins, "", "no login ran");
+}).pipe(Effect.scoped);
+
+it.layer(layer)("setup offers another subscription", (test) => {
+	test.effect(
+		"a first setup asks once the accounts are settled, logs in to another subscription in a login folder of its own, puts it on the clean lane after the harness's own, and a second run asks nothing and changes no file",
+		() => setUpWithAnother,
+		patient,
+	);
+	test.effect(
+		"a login to the account setup already uses is left out with a line naming accounts add, and the rest of setup goes on",
+		() => sameAccountKept,
+		patient,
+	);
+	test.effect(
+		"--json asks the question, and --apply with yes but no terminal and no browser sets up the rest and names accounts add",
+		() => driven,
+		patient,
+	);
+});
 
 it.layer(layer)("phi-router accounts add with no argument", (test) => {
 	test.effect(

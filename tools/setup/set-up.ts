@@ -16,6 +16,7 @@ const down = "\u001B[B";
 const endOfInput = "\u0004";
 
 const questions = {
+	another: "Add another subscription?",
 	baa: "Which account does your BAA cover?",
 	everyday: "What do you use for everyday work?",
 	openai: "Which OpenAI key does your BAA cover?",
@@ -29,7 +30,9 @@ const baaKey: Typed = { after: "Anthropic key (BAA)", typed: keys.anthropic };
 
 const judgeKey: Typed = { after: "OpenAI key (PHI check)", typed: keys.openai };
 
-const maxAnswers: readonly Typed[] = [keyPicked, baaKey, judgeKey, enter];
+const noAnother: Typed = { after: questions.another, typed: down };
+
+const maxAnswers: readonly Typed[] = [keyPicked, noAnother, baaKey, judgeKey, enter];
 
 const ownSettings = '{\n  "model": "opus"\n}\n';
 
@@ -255,6 +258,7 @@ export {
 	layer,
 	loginFolders,
 	maxAnswers,
+	noAnother,
 	ok,
 	ownSettings,
 	patient,

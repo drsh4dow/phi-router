@@ -15,6 +15,7 @@ import {
 	keysOutsideKeyFiles,
 	layer,
 	maxAnswers,
+	noAnother,
 	ok,
 	patient,
 	piHolds,
@@ -57,6 +58,7 @@ const everythingFound = Effect.gen(function* everythingFound() {
 	const run = yield* setUp(of, "claude", [
 		{ after: questions.baa, typed: `${down}${down}` },
 		{ after: questions.openai, typed: `${down}${down}` },
+		noAnother,
 		enter,
 	]);
 
@@ -99,7 +101,7 @@ const savedEarlier: Given = Effect.fnUntraced(function* savedEarlier(of: World) 
 
 const anthropicPick = ["❯ Anthropic API key", "  Claude Enterprise login"];
 
-const thirdAnthropicChoice = [{ after: questions.baa, typed: `${down}${down}` }, judgeKey, enter];
+const thirdAnthropicChoice = [{ after: questions.baa, typed: `${down}${down}` }, noAnother, judgeKey, enter];
 
 const foundKeys: readonly FoundKey[] = [
 	{
@@ -110,7 +112,7 @@ const foundKeys: readonly FoundKey[] = [
 		question: questions.baa,
 	},
 	{
-		answers: [keyPicked, { after: questions.openai, typed: down }, baaKey, enter],
+		answers: [keyPicked, { after: questions.openai, typed: down }, noAnother, baaKey, enter],
 		given: (of) => Effect.succeed(withEnv({ OPENAI_API_KEY: keys.openai })(of)),
 		kind: "a key in OPENAI_API_KEY",
 		pick: ["❯ Another OpenAI key", "  OpenAI key from OPENAI_API_KEY", "  I don't have one"],

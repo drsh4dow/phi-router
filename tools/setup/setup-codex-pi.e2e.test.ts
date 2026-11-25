@@ -12,6 +12,7 @@ import {
 	layer,
 	loginFolders,
 	maxAnswers,
+	noAnother,
 	ok,
 	patient,
 	piHolds,
@@ -99,7 +100,7 @@ const codexSetUp = Effect.gen(function* codexSetUp() {
 
 	yield* codexSignedIn(of);
 
-	const run = yield* setUp(of, "codex", [{ after: "OpenAI key (BAA)", typed: keys.openai }, enter]);
+	const run = yield* setUp(of, "codex", [noAnother, { after: "OpenAI key (BAA)", typed: keys.openai }, enter]);
 	const checked = yield* of.checkedKeys();
 
 	assertCodexScreens(run);
@@ -117,7 +118,12 @@ const foundKeyPicked = Effect.gen(function* foundKeyPicked() {
 
 	yield* codexSignedIn(of);
 
-	const run = yield* setUp(of, "codex", [{ after: "Which OpenAI key does your BAA cover?", typed: down }, enter]);
+	const run = yield* setUp(of, "codex", [
+		{ after: "Which OpenAI key does your BAA cover?", typed: down },
+		noAnother,
+		enter,
+	]);
+
 	const config = yield* writtenConfigOf(of);
 	const judge = { endpoint: "https://api.openai.com/v1", keyEnv: "OPENAI_API_KEY" };
 
