@@ -161,21 +161,39 @@ const onMac = Effect.gen(function* onMac() {
 	assert.notInclude(run.shown, "Claude Enterprise login");
 }).pipe(Effect.scoped);
 
-const tokenStatus = '{"loggedIn":true,"authMethod":"oauth_token","apiProvider":"firstParty","subscriptionType":null}';
+interface Status {
+	readonly kind: string;
+	readonly status: string;
+	readonly plan: string;
+}
 
-const tokenSubscriber = Effect.gen(function* tokenSubscriber() {
+const statuses: readonly Status[] = [
+	{
+		kind: "a Claude subscription signed in through CLAUDE_CODE_OAUTH_TOKEN",
+		plan: "Claude subscription",
+		status: '{"loggedIn":true,"authMethod":"oauth_token","apiProvider":"firstParty","subscriptionType":null}',
+	},
+	{
+		kind: "a Claude Max login whose status prints no email",
+		plan: "Claude Max",
+		status:
+			'{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty","email":null,"subscriptionType":"max"}',
+	},
+];
+
+const subscribed = Effect.fnUntraced(function* subscribed({ plan, status }: Status) {
 	const of = yield* world;
 
-	yield* withStatus(of, tokenStatus);
+	yield* withStatus(of, status);
 
 	const run = yield* setUp(of, "claude", maxAnswers);
 	const config = yield* writtenConfigOf(of);
 
 	assert.strictEqual(run.exitCode, ok, run.shown);
-	assert.include(run.shown, "  Claude Code     Claude subscription\n");
-	assert.include(run.shown, "  Everyday work   Claude subscription\n  Patient data    Anthropic API key\n");
+	assert.include(run.shown, `  Claude Code     ${plan}\n`);
+	assert.include(run.shown, `  Everyday work   ${plan}\n  Patient data    Anthropic API key\n`);
 	assert.deepNestedInclude(config, { "clean[0].forwarded": true });
-}).pipe(Effect.scoped);
+}, Effect.scoped);
 
 const tildeAgent = Effect.gen(function* tildeAgent() {
 	const fs = yield* FileSystem.FileSystem;
@@ -194,9 +212,9 @@ const tildeAgent = Effect.gen(function* tildeAgent() {
 }).pipe(Effect.scoped);
 
 it.layer(layer)("setup finds what the machine has", (test) => {
-	test.effect(
-		"a Claude subscription signed in through CLAUDE_CODE_OAUTH_TOKEN is the everyday account Claude Code forwards",
-		() => tokenSubscriber,
+	test.effect.each(statuses)(
+		"$kind is the everyday account Claude Code forwards, named by its plan",
+		subscribed,
 		patient,
 	);
 	test.effect(
