@@ -1,13 +1,12 @@
 import { Array, Effect, Option, Schedule, String as Str, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { succeeded } from "./checks.ts";
 
 const window = { height: "60", name: "codex", width: "250" } as const;
 
 const pasteSettles = "1 second";
 
 const timesIn = (pane: string, text: string): number => Str.split(pane, text).length;
-
-const settled = 0;
 
 const timedOut = 1;
 
@@ -75,7 +74,7 @@ const codexTui = Effect.fnUntraced(function* codexTui(run: {
 	const printed = yield* pane;
 
 	if (started && pipe(answered, Array.every(Boolean))) {
-		return { exitCode: settled, printed };
+		return { exitCode: succeeded, printed };
 	}
 
 	return { exitCode: timedOut, printed };
