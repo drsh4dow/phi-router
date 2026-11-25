@@ -51,12 +51,16 @@ tag)
 	echo "Pushed and published nothing."
 	;;
 publish)
-	if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+	commit=$(git rev-parse "$tag^{commit}")
+	published=$(git ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}" | tail -n 1 | cut -f1)
+	if [ -z "$published" ]; then
+		git push origin "refs/tags/$tag"
+	elif [ "$published" = "$commit" ]; then
 		echo "origin already holds $tag."
 	else
-		git push origin "refs/tags/$tag"
+		echo "origin's $tag is $published, but this run tagged $commit, so publish stopped before the channel and npm. Rerun only the failed publish job of the run that pushed $tag, which reuses its tag." >&2
+		exit 1
 	fi
-	commit=$(git rev-parse "$tag^{commit}")
 	channel=$(git ls-remote origin refs/heads/release | cut -f1)
 	channel_version=
 	if [ -n "$channel" ]; then
