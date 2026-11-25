@@ -1,17 +1,12 @@
 import { Array, Effect, Option, Schema, pipe } from "effect";
 import { Configuration, configuredAccounts } from "#router/client/configuration/index.ts";
-import type { KeySource, NamedAccount } from "#router/client/configuration/index.ts";
-
-interface ChosenJudge {
-	readonly endpoint: string;
-	readonly key: KeySource;
-}
+import type { NamedAccount, NamedJudge } from "#router/client/configuration/index.ts";
 
 class NoJudge extends Schema.TaggedError<NoJudge, { readonly brand: unique symbol }>()("NoJudge", {
 	message: Schema.String,
 }) {}
 
-const decisionsOn = (account: NamedAccount): Option.Option<ChosenJudge> => {
+const decisionsOn = (account: NamedAccount): Option.Option<NamedJudge> => {
 	if (account.vendor !== "openai" || account.credential.kind !== "key") {
 		return Option.none();
 	}
@@ -44,5 +39,3 @@ const chosenJudge = Effect.gen(function* chosenJudge() {
 });
 
 export { chosenJudge };
-
-export type { ChosenJudge };

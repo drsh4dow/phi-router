@@ -106,4 +106,4 @@ class Configuration extends Context.Service<Configuration, SettingsBesideLanes>(
 
 export { Configuration, absent, configFile, configText, configuredJudge };
 
-export type { KeySource };
+export type { KeySource, NamedJudge };
