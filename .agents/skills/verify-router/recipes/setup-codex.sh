@@ -38,8 +38,6 @@ found-key)
 	applies=1 snapshots="^$CODEX_HOME/shell_snapshots/"
 	start() { export OPENAI_API_KEY="$openai_key"; }
 	drive() {
-		say "$readme"
-		approved || fail "codex asked no approval for setup"
 		spoken "$question" 120 && shot question || fail "the agent did not ask: $question"
 		n=$(screen | sed -n 's/^ *\([0-9]\)\. OpenAI key from OPENAI_API_KEY *$/\1/p' | tail -1)
 		say "${n:-2}"
@@ -51,8 +49,6 @@ no-key)
 	applies=2 snapshots='^$'
 	start() { :; }
 	drive() {
-		say "$readme"
-		approved || fail "codex asked no approval for setup"
 		applied 1 || fail "the agent never ran apply"
 		spoken "I need an OpenAI key" 60 && shot key-asked || fail "the agent did not name a terminal command"
 		echo "the agent said: $(tail -1 "$ROOT/apply.out")"
@@ -92,6 +88,8 @@ until screen | grep -q '›'; do
 	sleep 0.5
 done
 shot start
+say "$readme"
+approved || fail "codex asked no approval for setup"
 drive
 if applied "$applies"; then
 	sleep 2

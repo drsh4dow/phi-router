@@ -58,8 +58,6 @@ found-keys | found-keys-tool | found-keys-delay)
 		export OPENAI_API_KEY="$openai_key"
 	}
 	drive() {
-		say "$readme"
-		waits "Enter to select" 120 && shot picker
 		pick "Anthropic key saved in pi"
 		pick "OpenAI key from OPENAI_API_KEY"
 	}
@@ -68,8 +66,6 @@ pasted-keys)
 	applies=2 ending='Done. This window is protected.'
 	start() { :; }
 	drive() {
-		say "$readme"
-		waits "Enter to select" 120 && shot picker
 		pick "Anthropic API key"
 		applied 1 || fail "the agent never ran apply"
 		waits "I need two keys" 60 && shot paste-asked || fail "the agent did not ask for the keys"
@@ -97,8 +93,6 @@ EOF
 		chmod +x "$ROOT/login-bin/claude"
 	}
 	drive() {
-		say "$readme"
-		waits "Enter to select" 120 && shot picker
 		pick "Claude Enterprise login"
 		pick "OpenAI key from OPENAI_API_KEY"
 		applied 1 || fail "the agent never ran apply"
@@ -129,6 +123,8 @@ until screen | grep -A1 '^─' | grep -q '^❯'; do
 	[ $(($(date +%s) - t)) -ge 60 ] && fail "claude showed no input box" && break
 	sleep 0.5
 done
+say "$readme"
+waits "Enter to select" 120 && shot picker
 drive
 if applied "$applies"; then
 	tail -1 "$ROOT/npx.log" | grep -q '^exit 0: setup claude --apply' && pass "apply exited 0" || fail "apply: $(tail -1 "$ROOT/npx.log")"
