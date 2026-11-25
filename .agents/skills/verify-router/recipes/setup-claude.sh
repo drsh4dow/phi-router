@@ -32,7 +32,7 @@ enterprise_token=sk-ant-oat01-phirecipeenterprise$(printf '%080d' 9)
 MOCK_LOG=$ROOT/mock.jsonl
 export MOCK_LOG
 FAKE_OPEN_TOKEN=$open_token FAKE_ENTERPRISE_TOKEN=$enterprise_token FAKE_BAA_KEY=$baa_key FAKE_OPENAI_KEY=$openai_key MOCK_CERT=$w/tls.pem MOCK_CERT_KEY=$w/tls.key \
-	MOCK_AFTER_APPLY=$after_apply MOCK_BODIES=${MOCK_BODIES:-} bun "$RECIPES/setup-claude-mock.ts" >mock.out 2>&1 &
+	MOCK_AFTER_APPLY=$after_apply MOCK_BODIES=${MOCK_BODIES:-} bun "$RECIPES/setup-mock.ts" >mock.out 2>&1 &
 mock=$!
 until grep -qs listening mock.out || ! kill -0 "$mock" 2>/dev/null; do sleep 0.2; done
 
