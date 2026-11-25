@@ -3,7 +3,7 @@ import type { NamedAccount, Vendor } from "#router/client/configuration/index.ts
 import { claudeSignIn, codexFolderSignIn, codexSignIn } from "#router/client/harnesses/index.ts";
 import { fromFolder, refused, summaryOf, tokenKindOf } from "./found.ts";
 import { handedOver, hiddenLine, isTerminal, picked } from "#router/client/terminal.ts";
-import { loginFolderOf, saveToken, tokenFileIn } from "#router/client/keys/index.ts";
+import { loginFolderOf, saveToken } from "#router/client/keys/index.ts";
 import { loginFolders, readKey } from "#router/client/accounts/index.ts";
 import type { Found } from "./found.ts";
 import { Platform } from "#router/features/cli/platform.ts";
@@ -124,7 +124,8 @@ const typedToken = Effect.fnUntraced(function* typedToken(keyFile: string) {
 });
 
 const tokenLogin = Effect.fnUntraced(function* tokenLogin(folder: string) {
-	const keyFile = yield* tokenFileIn(folder);
+	const path = yield* Path.Path;
+	const keyFile = path.join(folder, "token");
 	const held = yield* Effect.option(readKey({ keyFile }));
 	const token = yield* Option.match(held, { onNone: () => typedToken(keyFile), onSome: Effect.succeed });
 	const value = Redacted.value(token);
