@@ -100,7 +100,7 @@ const harnesses = {
 			"Done. Close any pi window that was already open, and use the one setup starts.",
 			`Undo any time with: pi remove ${source.piPackage}`,
 			"",
-			"Press Enter to start pi on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.",
+			"Press Enter to start pi on phi/auto. Models outside phi skip phi-router.",
 		],
 		installCommands: (source: InstallSource): readonly Argv[] => [["pi", "install", source.piPackage]],
 		installed: Effect.map(
