@@ -92,12 +92,6 @@ const failureText: (failed: Pick<CommandFailed, "cause" | "command">) => string 
 const sessionOf: (ctx: ShownContext) => typeof SessionId.Type = (ctx) =>
 	SessionId.make(ctx.sessionManager.getSessionId());
 
-const statusOf = Effect.fnUntraced(function* statusOf(session: typeof SessionId.Type, port: number) {
-	const client = yield* Router;
-
-	return yield* client.status(session, port);
-});
-
 const routed = (ctx: Pick<ShownContext, "model">): boolean =>
 	pipe(
 		Option.fromNullishOr(ctx.model),
@@ -118,7 +112,7 @@ const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.E
 			});
 		}
 
-		return statusOf(sessionOf(ctx), port).pipe(
+		return Router.use((client) => client.status(sessionOf(ctx), port)).pipe(
 			Effect.match({
 				onFailure: (failed) => {
 					ctx.ui.notify(failureText(failed), "error");
@@ -147,7 +141,7 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 				}
 
 				const session = sessionOf(ctx);
-				const status = yield* statusOf(session, port);
+				const status = yield* Router.use((client) => client.status(session, port));
 				const shown = yield* Ref.getAndUpdate(seen, Record.set(session, status.sealed));
 
 				const before = Option.orElse(Record.get(shown, session), () =>
