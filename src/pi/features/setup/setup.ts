@@ -1,16 +1,14 @@
+import type { Answers, TypedKey } from "#pi/client/router.ts";
 import { Array, Effect, Option, Record, Ref, Schema, String as Str, Struct, pipe } from "effect";
 import { CommandFailed, setupEnded } from "#shared/cli.ts";
 import type { ExtensionAPI, ExtensionUIContext, ModelRegistry, SessionManager } from "@earendil-works/pi-coding-agent";
 import type { KeyFieldFactory, Typed } from "./key-field.ts";
-import type { SetupAnswersJson, SetupStepJson } from "#shared/cli.ts";
 import { Router } from "#pi/client/router.ts";
-import type { TypedKey } from "#pi/client/router.ts";
+import type { SetupStepJson } from "#shared/cli.ts";
 import { keyField } from "./key-field.ts";
 import { piWire } from "#shared/pi.ts";
 
 class SetupEnded extends Schema.TaggedError<SetupEnded, { readonly brand: unique symbol }>()("SetupEnded", {}) {}
-
-type Answers = typeof SetupAnswersJson.Type;
 
 type Step = typeof SetupStepJson.Type;
 
