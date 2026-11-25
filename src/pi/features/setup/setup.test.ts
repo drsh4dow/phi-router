@@ -217,7 +217,7 @@ it.effect(
 				["info", "phi-router found\n  pi              Claude"],
 				[
 					"info",
-					"✓ Anthropic key works\n✓ OpenAI key works\n\n  Patient data    Anthropic API key\n\nThis session now runs on phi/auto. Only phi/auto is protected. Other models in /model skip phi-router.",
+					"✓ Anthropic key works\n✓ OpenAI key works\n\n  Patient data    Anthropic API key\n\nThis session now runs on phi/auto. Models outside phi skip phi-router.",
 				],
 			]);
 			assert.isTrue(ran.widgetCleared);
