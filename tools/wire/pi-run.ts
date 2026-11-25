@@ -118,8 +118,11 @@ const rpcAnswered = `"type":"response"`;
 
 interface RpcLine {
 	readonly stdinLine: string;
+	readonly followUp?: string;
 	readonly turnEnd: string;
 }
+
+const runStarted = `"type":"agent_start"`;
 
 const piRun = Effect.fnUntraced(
 	function* piRun(
@@ -130,12 +133,21 @@ const piRun = Effect.fnUntraced(
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const searchPath = yield* userPath;
 		const answered = yield* Deferred.make<boolean>();
+		const started = yield* Deferred.make<boolean>();
 		const rpc = Option.fromUndefinedOr(given.rpc);
+
+		const followed = (followUp: string | undefined): Stream.Stream<string> =>
+			Option.match(Option.fromUndefinedOr(followUp), {
+				onNone: () => Stream.empty,
+				onSome: (line) => Stream.fromEffect(Effect.as(Deferred.await(started), line)),
+			});
+
+		const untilAnswered = Stream.fromEffectDrain(Deferred.await(answered));
 
 		const input = Option.match(rpc, {
 			onNone: () => Stream.empty,
-			onSome: ({ stdinLine }) =>
-				Stream.concat(Stream.make(stdinLine), Stream.fromEffectDrain(Deferred.await(answered))),
+			onSome: ({ followUp, stdinLine }) =>
+				Stream.make(stdinLine).pipe(Stream.concat(followed(followUp)), Stream.concat(untilAnswered)),
 		});
 
 		const command = ChildProcess.make("pi", args, {
@@ -146,6 +158,7 @@ const piRun = Effect.fnUntraced(
 				PI_CODING_AGENT_DIR: where.agent,
 				PI_OFFLINE: "1",
 				TMPDIR: where.temporary,
+				TZ: "UTC",
 				XDG_CACHE_HOME: `${where.home}/.cache`,
 				XDG_DATA_HOME: `${where.home}/.local/share`,
 			}),
@@ -157,12 +170,13 @@ const piRun = Effect.fnUntraced(
 
 		const printed = yield* Stream.merge(handle.stdout, handle.stderr).pipe(
 			Stream.decodeText,
-			Stream.tap((text) =>
-				Effect.when(
-					Deferred.succeed(answered, true),
-					Effect.succeed(Option.exists(rpc, ({ turnEnd }) => Str.includes(turnEnd)(text))),
-				),
-			),
+			Stream.tap((text) => {
+				const isStart = Str.includes(runStarted)(text);
+				const ended = Option.exists(rpc, ({ turnEnd }) => Str.includes(turnEnd)(text));
+				const startedNow = Effect.when(Deferred.succeed(started, true), Effect.succeed(isStart));
+
+				return Effect.andThen(startedNow, Effect.when(Deferred.succeed(answered, true), Effect.succeed(ended)));
+			}),
 			Stream.mkString,
 		);
 
