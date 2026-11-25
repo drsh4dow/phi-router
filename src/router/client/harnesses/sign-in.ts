@@ -2,7 +2,6 @@ import { Array, Effect, FileSystem, Option, Path, Record, Schema, String as Str,
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { agentFolder } from "./pi.ts";
 import { codexHome } from "./codex.ts";
-import { folderPrivately } from "#router/client/private-file.ts";
 
 type SignIn =
 	| { readonly kind: "plan"; readonly plan: string; readonly account?: string | undefined }
@@ -114,8 +113,6 @@ const claudeSignIn = Effect.fnUntraced(function* claudeSignIn(folder: string) {
 
 const claudeLogin = Effect.fnUntraced(function* claudeLogin(folder: string) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-
-	yield* folderPrivately(folder);
 
 	return yield* spawner.exitCode(
 		ChildProcess.make("claude", ["auth", "login"], {
