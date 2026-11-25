@@ -7,9 +7,9 @@ import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
 	handOff,
+	insideStamp,
 	isSubagent,
 	overflowChecksOf,
-	overflowTurns,
 	phiChecksOf,
 	phiTurns,
 	refusing,
@@ -18,7 +18,7 @@ import {
 	subagent,
 	subagentChecksOf,
 } from "./phi-checks.ts";
-import { stampClockIn, storedIn } from "./stored.ts";
+import { overflowing, stampClockIn, storedIn } from "./stored.ts";
 import { textEvents, toolEvents } from "#router/client/mock-upstreams/index.ts";
 import { pluginCopy } from "#tools/plugin/copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
@@ -184,13 +184,13 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	const phi = yield* phiTurns((prompt) => turn(prompt, resumed));
 
-	const overflow = yield* overflowTurns({
-		command: (prompt) => turn(prompt, resumed),
-		prompt: (prompt) => turn(prompt, resumedEvents),
-		status: "/phi",
-	});
+	const overflow = yield* Effect.all(
+		[turn(overflowing, resumedEvents), turn(insideStamp, resumedEvents), turn("/phi", resumed)],
+		{ concurrency: 1 },
+	);
 
-	const all = [clean, canary, followed, tool, ...phi.inOrder, handedOff, after, ...overflow.inOrder] as const;
+	const [overflowed, quiet, status] = overflow;
+	const all = [clean, canary, followed, tool, ...phi.inOrder, handedOff, after, ...overflow] as const;
 	const stored = yield* storedIn(state, roots);
 
 	const left = leftOf({
@@ -202,23 +202,23 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	});
 
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
-	const sealed = sealCheckOf([canary, clean, followed, tool, ...phi.inOrder, ...overflow.inOrder]);
+	const sealed = sealCheckOf([canary, clean, followed, tool, ...phi.inOrder, ...overflow]);
 
-	const overflowed = overflowChecksOf({
-		after: overflow.after,
+	const overflowChecks = overflowChecksOf({
+		after: [overflowed, quiet],
 		all,
 		clock: yield* stampClockIn(state),
 		command: "/phi",
 		lines: stored.lines,
 		session,
-		status: overflow.status,
+		status,
 	});
 
 	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });
 
 	return {
 		checks: yield* withCredentialRule(
-			[...checksOf(left), ...phiChecks, sealed, ...handing, ...overflowed],
+			[...checksOf(left), ...phiChecks, sealed, ...handing, ...overflowChecks],
 			() => breaches,
 		),
 		stored,

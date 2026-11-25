@@ -185,24 +185,6 @@ const refusing =
 		return script(asked);
 	};
 
-interface OverflowRun<Turn, Failure, Needs> {
-	readonly prompt: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
-	readonly command: (prompt: string) => Effect.Effect<Turn, Failure, Needs>;
-	readonly status: string;
-}
-
-const overflowTurns = Effect.fnUntraced(function* overflowTurns<Turn, Failure, Needs>(
-	play: OverflowRun<Turn, Failure, Needs>,
-) {
-	const inOrder = yield* Effect.all([play.prompt(overflowing), play.prompt(insideStamp), play.command(play.status)], {
-		concurrency: 1,
-	});
-
-	const [overflowed, quiet, status] = inOrder;
-
-	return { after: [overflowed, quiet] as const, inOrder, status };
-});
-
 interface PrintedTurn extends Turned {
 	readonly printed: string;
 }
@@ -287,7 +269,6 @@ export {
 	isSubagent,
 	overflowChecksOf,
 	overflowPrompts,
-	overflowTurns,
 	phiChecksOf,
 	phiTurns,
 	refusing,
