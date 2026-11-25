@@ -68,15 +68,15 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 	const posted = Effect.gen(function* posted() {
 		const proven = yield* proofs.ask(port);
 
-		if (proven === "refuted") {
+		if (proven.kind === "refuted") {
 			return yield* failed("notYours");
 		}
 
-		if (proven === "proved") {
+		if (proven.kind === "proved") {
 			return yield* requests.post(port, request);
 		}
 
-		return proven;
+		return proven.kind;
 	});
 
 	const answered = yield* posted.pipe(

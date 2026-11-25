@@ -4,6 +4,7 @@ import { Mac, SecureRandom } from "effect/crypto";
 import type { Outgoing, Path as Row } from "./server.ts";
 import { Hex } from "effect/encoding";
 import type { PlatformError } from "effect";
+import { Release } from "#router/primitives/release.ts";
 import { UserDirectories } from "effect/persistence";
 import { loopback } from "./server.ts";
 import { writePrivately } from "#router/client/private-file.ts";
@@ -16,7 +17,9 @@ const Secret = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u));
 
 const Nonce = Secret;
 
-const ProofJson = Schema.fromJsonString(Schema.Struct({ proof: Schema.String }));
+const ProofJson = Schema.fromJsonString(
+	Schema.Struct({ proof: Schema.String, version: Schema.OptionFromOptionalKey(Schema.String) }),
+);
 
 const answerLimit = 1024;
 
@@ -54,7 +57,7 @@ const storedIn = Effect.fnUntraced(function* storedIn(file: string) {
 	return yield* Schema.decodeEffect(Secret)(text);
 });
 
-const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number) {
+const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number, version: string | undefined) {
 	yield* storedIn(file).pipe(Effect.catch(() => fresh.pipe(Effect.flatMap((secret) => writePrivately(file, secret)))));
 
 	const services = yield* Effect.context<FileSystem.FileSystem | Mac.Mac>();
@@ -64,7 +67,7 @@ const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number) {
 			Schema.decodeUnknownEffect(Nonce)(query["nonce"]),
 			Effect.flatMap((nonce) => Effect.flatMap(storedIn(file), (secret) => proofOf(secret, nonce, port))),
 			Effect.provideContext(services),
-			Effect.flatMap((proof) => Schema.encodeEffect(ProofJson)({ proof })),
+			Effect.flatMap((proof) => Schema.encodeEffect(ProofJson)({ proof, version: Option.fromUndefinedOr(version) })),
 			Effect.match({
 				onFailure: (): Outgoing => ({ body: '{"proof":null}', kind: "whole", status: statuses.badRequest }),
 				onSuccess: (body): Outgoing => ({ body, kind: "whole", status: statuses.ok }),
@@ -74,7 +77,11 @@ const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number) {
 	return { answer, method: "GET", path: proofPath } satisfies Row;
 });
 
-type Proven = "proved" | "refuted" | "unanswered" | "waiting";
+type Proven =
+	| { readonly kind: "proved"; readonly version: Option.Option<typeof Release.Type> }
+	| { readonly kind: "refuted" | "unanswered" | "waiting" };
+
+const refuted: Proven = { kind: "refuted" };
 
 const provenBy = Effect.fnUntraced(function* provenBy(answer: {
 	readonly status: number;
@@ -84,24 +91,26 @@ const provenBy = Effect.fnUntraced(function* provenBy(answer: {
 	readonly file: string;
 }) {
 	if (answer.status === statuses.unavailable) {
-		return "waiting";
+		return { kind: "waiting" } satisfies Proven;
 	}
 
-	const { proof } = yield* Schema.decodeEffect(ProofJson)(answer.body);
+	const { proof, version } = yield* Schema.decodeEffect(ProofJson)(answer.body);
 	const secret = yield* storedIn(answer.file);
 	const expected = yield* proofOf(secret, answer.nonce, answer.port);
 
 	if (answer.status === statuses.ok && proof === expected) {
-		return "proved";
+		const reported = pipe(version, Option.filter(Schema.is(Release)));
+
+		return { kind: "proved", version: reported } satisfies Proven;
 	}
 
-	return "refuted";
+	return refuted;
 });
 
 class Proofs extends Context.Service<
 	Proofs,
 	{
-		readonly row: (port: number) => Effect.Effect<Row, PlatformError.PlatformError>;
+		readonly row: (port: number, version: string | undefined) => Effect.Effect<Row, PlatformError.PlatformError>;
 		readonly ask: (port: number) => Effect.Effect<Proven>;
 	}
 >()("phi-router/router/client/router-port/proof/Proofs") {
@@ -123,7 +132,7 @@ class Proofs extends Context.Service<
 					const answered = yield* Effect.option(client.execute(sent));
 
 					if (Option.isNone(answered)) {
-						return "unanswered";
+						return { kind: "unanswered" } satisfies Proven;
 					}
 
 					const body = yield* answered.value.stream.pipe(
@@ -139,13 +148,13 @@ class Proofs extends Context.Service<
 
 					return yield* provenBy({ body, file, nonce, port, status: answered.value.status });
 				}).pipe(
-					Effect.orElseSucceed((): Proven => "refuted"),
+					Effect.orElseSucceed(() => refuted),
 					Effect.scoped,
 					Effect.provideContext(services),
 					Effect.provideService(HttpClient.TracerPropagationEnabled, false),
 				);
 
-			return Proofs.of({ ask, row: (port) => Effect.provideContext(rowOf(file, port), services) });
+			return Proofs.of({ ask, row: (port, version) => Effect.provideContext(rowOf(file, port, version), services) });
 		}),
 	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, UserDirectories.layer, macs)));
 }

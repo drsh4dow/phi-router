@@ -1,4 +1,6 @@
-import { Array, Function, Option, Order, String as Str, pipe } from "effect";
+import { Array, Function, Option, Order, Schema, String as Str, pipe } from "effect";
+
+const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u));
 
 const parts = /^(?<core>[^-]*)(?:-(?<prerelease>.*))?$/u;
 
@@ -50,4 +52,4 @@ const isOlder: {
 	Order.isLessThan(releaseOrder)(version, than),
 );
 
-export { isOlder };
+export { Release, isOlder };

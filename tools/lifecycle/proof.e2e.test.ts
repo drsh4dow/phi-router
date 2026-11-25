@@ -213,7 +213,7 @@ const asked = Effect.fnUntraced(function* asked() {
 
 	assert.deepStrictEqual(
 		{ answers, fresh: fresh.length, sent: sent.length },
-		{ answers: ["waiting", "waiting", "unanswered"], fresh: 2, sent: 2 },
+		{ answers: [{ kind: "waiting" }, { kind: "waiting" }, { kind: "unanswered" }], fresh: 2, sent: 2 },
 	);
 }, Effect.scoped);
 
