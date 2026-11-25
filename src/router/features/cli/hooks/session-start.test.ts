@@ -1,7 +1,8 @@
 import { Array, ConfigProvider, Effect, Option, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { loopback, productPort } from "#shared/cli.ts";
-import { portOf, providerSwitchOn } from "./session-start.ts";
+import { portOf } from "./session-start.ts";
+import { providerSwitchOn } from "#router/features/cli/claude/index.ts";
 
 const port = String(productPort);
 

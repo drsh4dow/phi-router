@@ -1,8 +1,8 @@
-import { Array, Config, Effect, Option, Record, Redacted, Schema, String as Str, pipe } from "effect";
+import { Config, Effect, Option, Record, Redacted, Schema, String as Str, pipe } from "effect";
+import { modelAddressSetting, providerSwitchOn } from "#router/features/cli/claude/index.ts";
 import type { Pid } from "#shared/cli.ts";
 import { SessionId } from "#shared/cli.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
-import { modelAddressSetting } from "#router/features/cli/claude/index.ts";
 import { savePastedKey } from "#router/client/keys/index.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 import { start } from "#router/features/cli/start.ts";
@@ -19,33 +19,7 @@ const portOf = (address: string): Option.Option<number> =>
 		Option.map(({ port = "" }) => Number(port)),
 	);
 
-const providerSwitches = [
-	"CLAUDE_CODE_USE_BEDROCK",
-	"CLAUDE_CODE_USE_VERTEX",
-	"CLAUDE_CODE_USE_FOUNDRY",
-	"CLAUDE_CODE_USE_ANTHROPIC_AWS",
-	"CLAUDE_CODE_USE_ANTHROPIC_GOOGLE_CLOUD",
-	"CLAUDE_CODE_USE_MANTLE",
-	"CLAUDE_CODE_USE_GATEWAY",
-] as const;
-
 const hookHarness = { false: "codex", true: "claude" } as const;
-
-const switchedOn = ["1", "true", "yes", "on"];
-
-const providerSwitchOn = Effect.gen(function* providerSwitchOn() {
-	const values = yield* Effect.forEach(
-		providerSwitches,
-		(name) => Effect.map(Config.String(name).pipe(Config.withDefault("")), (value) => ({ name, value })),
-		{ concurrency: 1 },
-	);
-
-	return pipe(
-		values,
-		Array.findFirst(({ value }) => Array.contains(switchedOn, Str.toLowerCase(Str.trim(value)))),
-		Option.map(({ name }) => name),
-	);
-});
 
 const pluginOptions = {
 	anthropic: "CLAUDE_PLUGIN_OPTION_ANTHROPIC_KEY",
@@ -129,4 +103,4 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 	yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
 });
 
-export { portOf, providerSwitchOn, sessionStart };
+export { portOf, sessionStart };
