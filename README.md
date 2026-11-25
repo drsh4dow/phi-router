@@ -24,7 +24,7 @@ Paste this into your coding agent:
 Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md
 ```
 
-It gives you one command to run in a terminal. Or run it yourself, with `codex` or `pi` in place of `claude`:
+Claude Code sets it up in the same window, and you paste any key it needs in the plugin's masked field. Codex and pi give you one command to run in a terminal. Or run it yourself, with `codex` or `pi` in place of `claude`:
 
 ```sh
 npx phi-router setup claude
