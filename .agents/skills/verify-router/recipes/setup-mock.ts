@@ -3,6 +3,7 @@ import { appendFileSync } from "node:fs";
 const env = (name: string): string => process.env[name] ?? "";
 const fakes = {
 	baa: env("FAKE_BAA_KEY"),
+	chatgpt: env("FAKE_CHATGPT_TOKEN"),
 	enterprise: env("FAKE_ENTERPRISE_TOKEN"),
 	open: env("FAKE_OPEN_TOKEN"),
 	openai: env("FAKE_OPENAI_KEY"),
@@ -138,6 +139,139 @@ const agentTurn = (body: Json): Block[] => {
 	return [text("ok")];
 };
 
+const textIn = (item: Json): string =>
+	(typeof item.content === "string" ? [{ text: item.content }] : (item.content ?? []))
+		.map((c: Json) => c.text ?? "")
+		.join("\n");
+const codexOutputOf = (item: Json): string =>
+	typeof item.output === "string" ? item.output : (item.output ?? []).map((c: Json) => c.text ?? "").join("\n");
+const said = (words: string): Json => ({
+	content: [{ annotations: [], text: words, type: "output_text" }],
+	id: `msg_setup_${String(++uses)}`,
+	role: "assistant",
+	status: "completed",
+	type: "message",
+});
+const codexSetup = (args: string): Json => {
+	const call = {
+		cmd: `npx phi-router setup codex ${args}`,
+		justification: "Setup writes Codex's settings and checks keys online.",
+		prefix_rule: ["npx", "phi-router", "setup", "codex"],
+		sandbox_permissions: "require_escalated",
+		yield_time_ms: 30000,
+	};
+	return {
+		call_id: `call_setup_${String(++uses)}`,
+		id: `ctc_setup_${String(uses)}`,
+		input: [
+			`let ran = await tools.exec_command(${JSON.stringify(call)});`,
+			"let printed = ran.output;",
+			"while (ran.session_id !== undefined) {",
+			'\tran = await tools.write_stdin({ session_id: ran.session_id, chars: "", yield_time_ms: 30000 });',
+			"\tprinted += ran.output;",
+			"}",
+			"text(printed);",
+		].join("\n"),
+		name: "exec",
+		status: "completed",
+		type: "custom_tool_call",
+	};
+};
+const commandOf = (call: Json): string => JSON.parse(/"cmd":("(?:[^"\\]|\\.)*")/.exec(call?.input ?? "")?.[1] ?? '""');
+const codexStep = (answers: Json): Json =>
+	codexSetup(Object.keys(answers).length === 0 ? "--json" : `--json --answers ${asJson(answers)}`);
+const codexSetupCalls = (items: Json[]): Json[] =>
+	items.filter((i) => i.type === "custom_tool_call" && / phi-router setup codex /.test(commandOf(i)));
+const printedSince = (items: Json[], call: Json): string =>
+	items
+		.slice(items.indexOf(call))
+		.filter((i) => i.type === "custom_tool_call_output" || i.type === "function_call_output")
+		.map(codexOutputOf)
+		.join("\n");
+const askedOf = (items: Json[]): Json =>
+	codexSetupCalls(items)
+		.filter((call) => commandOf(call).includes("--json"))
+		.map((call) => stepIn(printedSince(items, call)))
+		.findLast((step) => step?.kind === "ask")?.question;
+
+const codexTurn = (body: Json): Json[] => {
+	if (body.text?.format?.type === "json_schema") return [said('{"title":"Set up phi-router"}')];
+	const items: Json[] = body.input ?? [];
+	const last = items.findLast((i) => (i.type === "message" && i.role === "user") || i.type.endsWith("_output"));
+	if (last?.type === "custom_tool_call_output" || last?.type === "function_call_output") {
+		const running = /Script running with cell ID (\S+)/.exec(codexOutputOf(last));
+		if (running !== null)
+			return [
+				{
+					arguments: JSON.stringify({ cell_id: running[1], yield_time_ms: 30000 }),
+					call_id: `call_setup_${String(++uses)}`,
+					id: `fc_setup_${String(uses)}`,
+					name: "wait",
+					status: "completed",
+					type: "function_call",
+				},
+			];
+		const call = codexSetupCalls(items).at(-1);
+		const command = commandOf(call);
+		const printed = printedSince(items, call);
+		if (command.includes("--apply")) return [said(lastLine(printed))];
+		if (command.includes("--json")) {
+			const step = stepIn(printed);
+			if (step?.kind === "ask") {
+				const choices = step.question.choices.map((c: Json, n: number) => `${String(n + 1)}. ${c.label}`);
+				return [said([step.question.text, ...choices].join("\n"))];
+			}
+			if (step?.kind === "stop") return [said(step.line)];
+			if (step?.kind === "ready")
+				return [codexSetup(command.replace(/^npx phi-router setup codex --json/, "--apply"))];
+			return [said("Setup printed no step.")];
+		}
+		return [said("done")];
+	}
+	const typed = items
+		.filter((i) => i.type === "message" && i.role === "user")
+		.map(textIn)
+		.filter((t) => !t.trimStart().startsWith("<"))
+		.at(-1)
+		?.trim();
+	const soFar = answersIn(commandOf(codexSetupCalls(items).at(-1)));
+	if (typed === undefined) return [said("ok")];
+	if (typed.includes("SETUP.md")) return [said("Checking what you have. Keys never show up here."), codexStep({})];
+	const question = askedOf(items);
+	const choice = question?.choices.find((c: Json, n: number) => typed === String(n + 1) || typed === c.label);
+	if (choice !== undefined) return [codexStep({ ...soFar, [question.id]: choice.id })];
+	return [said("ok")];
+};
+
+const codexStreamed = (items: Json[]): Response => {
+	const usage = {
+		input_tokens: 1,
+		input_tokens_details: { cached_tokens: 0 },
+		output_tokens: 1,
+		output_tokens_details: { reasoning_tokens: 0 },
+		total_tokens: 2,
+	};
+	const response = {
+		id: `resp_setup_${String(++uses)}`,
+		model: "mock",
+		object: "response",
+		output: items,
+		status: "completed",
+		usage,
+	};
+	const events = [
+		{ response: { ...response, output: [], status: "in_progress" }, type: "response.created" },
+		...items.flatMap((item, index) => [
+			{ item, output_index: index, type: "response.output_item.added" },
+			{ item, output_index: index, type: "response.output_item.done" },
+		]),
+		{ response, type: "response.completed" },
+	];
+	return new Response(events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join(""), {
+		headers: { "content-type": "text/event-stream" },
+	});
+};
+
 const message = (blocks: Block[], model: string): Json => ({
 	content: blocks,
 	id: `msg_setup_${String(++uses)}`,
@@ -194,7 +328,9 @@ const whoOf = (host: string, request: Request): string => {
 	if (host === "api.anthropic.com" && bearer !== "" && bearer === fakes.open) return "open";
 	if (host === "api.anthropic.com" && apiKey !== "" && apiKey === fakes.baa) return "baa";
 	if (host === "api.anthropic.com" && bearer !== "" && bearer === fakes.enterprise) return "baa";
-	if (host === "api.openai.com" && bearer !== "" && bearer === fakes.openai) return "openai";
+	if (host === "chatgpt.com" && bearer !== "" && bearer === fakes.chatgpt) return "open";
+	if (host === "api.openai.com" && bearer !== "" && bearer === fakes.openai)
+		return new URL(request.url).pathname === "/v1/responses" ? "baa" : "openai";
 	return "unknown";
 };
 
@@ -207,6 +343,23 @@ const answer = (host: string, path: string, who: string, request: Request, body:
 			: [new Response("", { status: 401 }), "models refused"];
 	}
 	if (path === "/v1/messages/count_tokens") return [Response.json({ input_tokens: 1 }), "count"];
+	if (host === "chatgpt.com" && path === "/backend-api/wham/accounts/check" && who === "open") {
+		const account = { account_routing_override: "NO_CONSTRAINT", id: "acct-phirecipe", plan_type: "plus" };
+		const accounts = [{ ...account, structure: "personal", workspace_backend_origin: "NO_CONSTRAINT" }];
+		return [Response.json({ account_ordering: [account.id], accounts, default_account_id: account.id }), "accounts"];
+	}
+	if (host === "chatgpt.com" && path.endsWith("/responses") && request.method === "GET")
+		return [new Response("", { status: 404 }), "no websocket"];
+	if (host === "chatgpt.com" && path.endsWith("/responses") && who === "open") {
+		const items = codexTurn(body);
+		const did = items.map((i) =>
+			i.type === "message"
+				? "text"
+				: `${i.name}${i.name === "exec" ? `:${/--(json|apply)/.exec(commandOf(i))?.[0] ?? "other"}` : ""}`,
+		);
+		return [codexStreamed(items), did.join("+")];
+	}
+	if (path === "/v1/responses" && who === "baa") return [codexStreamed([said("ok from the BAA account")]), "text"];
 	if (path === "/v1/messages" && who === "open") {
 		const blocks = agentTurn(body);
 		const did = blocks.map((b) =>
@@ -219,7 +372,7 @@ const answer = (host: string, path: string, who: string, request: Request, body:
 	if (path === "/v1/messages" && who === "baa") return [replied(body, [text("ok from the BAA account")]), "text"];
 	if (path === "/v1/decisions" && who === "openai")
 		return [Response.json(decision(JSON.stringify(body).includes(canary))), "decision"];
-	if (who === "unknown" && (path === "/v1/messages" || path === "/v1/decisions"))
+	if (who === "unknown" && /\/(messages|responses|decisions)$/.test(path))
 		return [new Response("", { status: 401 }), "refused"];
 	return [new Response("", { status: 404 }), "unknown path"];
 };
@@ -228,13 +381,16 @@ const server = Bun.serve({
 	async fetch(request) {
 		const url = new URL(request.url);
 		const host = (request.headers.get("host") ?? url.hostname).replace(/:443$/, "");
-		const raw = await request.text();
+		const bytes = new Uint8Array(await request.arrayBuffer());
+		const raw = new TextDecoder().decode(
+			request.headers.get("content-encoding") === "zstd" ? Bun.zstdDecompressSync(bytes) : bytes,
+		);
 		let body: Json = {};
 		try {
 			body = JSON.parse(raw || "{}");
 		} catch {}
 		const who = whoOf(host, request);
-		if (env("MOCK_BODIES") !== "" && url.pathname === "/v1/messages")
+		if (env("MOCK_BODIES") !== "" && /\/(messages|responses)$/.test(url.pathname))
 			Bun.write(`${env("MOCK_BODIES")}/${String(Date.now())}-${who}.json`, raw);
 		const [response, did] = answer(host, url.pathname, who, request, body);
 		const holdsKey = Object.values(fakes).some((fake) => fake !== "" && raw.includes(fake));
