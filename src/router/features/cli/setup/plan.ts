@@ -288,7 +288,9 @@ const baaOf = (found: Found, answers: Answers, side: Sides): Filler | Pending =>
 const judgeOf = (found: Found, answers: Answers, baa: Filler): Filler | Pending => {
 	const sharesBaaKey = found.vendor === "openai" && baa.kind === "key";
 
-	if (rekeyed(found.kept.judge) && !sharesBaaKey) {
+	const savesBaaKey = sharesBaaKey && baa.kind === "key" && baa.place !== "env";
+
+	if (rekeyed(found.kept.judge) && !savesBaaKey) {
 		return typed("openai");
 	}
 
