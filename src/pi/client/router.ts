@@ -151,9 +151,7 @@ class Router extends Context.Service<
 				const setupArgs = Effect.fnUntraced(function* setupArgs(flag: string, answers: Answers) {
 					const { answers: answersFlag, name } = spelling.setup;
 
-					const encoded = yield* Effect.mapError(Schema.encodeEffect(SetupAnswersJson)(answers), (cause) =>
-						CommandFailed.make({ cause, command: name }),
-					);
+					const encoded = yield* Effect.orDie(Schema.encodeEffect(SetupAnswersJson)(answers));
 
 					return [name, harness, `--${flag}`, `--${answersFlag}`, encoded];
 				});
