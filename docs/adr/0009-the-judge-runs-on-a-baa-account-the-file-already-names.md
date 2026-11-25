@@ -1,5 +1,7 @@
 # The judge runs on a BAA account the file already names
 
+Superseded by [ADR 0014](0014-the-judge-runs-only-on-a-system-one-model.md): the judge runs only on a System One model, OpenAI Decisions, and the Claude judge is gone.
+
 The router picks the judge from `config.json` once, when it starts:
 
 1. A `judge` block: OpenAI Decisions at its endpoint, with its own key, as before.
