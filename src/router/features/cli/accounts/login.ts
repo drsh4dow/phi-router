@@ -57,10 +57,7 @@ const isSubscription = (signIn: SignIn): boolean => signIn.kind === "plan" || si
 const folderSignIns = { anthropic: claudeSignIn, openai: codexFolderSignIn } as const;
 
 const takenIn = (signIn: SignIn, taken: readonly string[]): Option.Option<string> =>
-	pipe(
-		emailOf(signIn),
-		Option.filter((email) => Array.contains(taken, email)),
-	);
+	Option.filter(emailOf(signIn), (email) => Array.contains(taken, email));
 
 const folderLogin = Effect.fnUntraced(function* folderLogin(vendor: Vendor, folder: string, taken: readonly string[]) {
 	const held = yield* folderSignIns[vendor](folder);
