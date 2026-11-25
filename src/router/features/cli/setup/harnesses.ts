@@ -23,7 +23,6 @@ import { start } from "#router/features/cli/start.ts";
 import { statementsOf } from "#router/primitives/toml.ts";
 
 interface Target {
-	readonly channel: string;
 	readonly version: string;
 	readonly checkout?: string | undefined;
 }
@@ -42,7 +41,7 @@ interface HarnessSetup {
 	readonly vendor: Vendor;
 	readonly canary: (packageRoot: string) => Effect.Effect<readonly Check[], unknown, unknown>;
 	readonly closingLines: (target: Target) => readonly string[];
-	readonly installed: (target: Target) => Effect.Effect<Installed, unknown, unknown>;
+	readonly installed: Effect.Effect<Installed, unknown, unknown>;
 	readonly steps: (target: Target) => Readonly<Record<Move, readonly Step[]>>;
 	readonly signIn: Effect.Effect<SignIn, unknown, unknown>;
 	readonly signInHow: string;
@@ -54,6 +53,8 @@ interface HarnessSetup {
 const repository = "drsh4dow/phi-router";
 
 const marketplace = "phi-router";
+
+const channel = "release";
 
 interface Source {
 	readonly fromRepository: boolean;
@@ -87,14 +88,13 @@ const Fetched = Schema.Struct({ source: GithubSource });
 
 const Followed = Schema.Struct({ autoUpdate: Schema.Literal(true), source: GithubSource });
 
-const claudeInstalled = Effect.fnUntraced(function* claudeInstalled(target: Target) {
+const onChannel = (entry: { readonly source: typeof GithubSource.Type }): boolean => entry.source.ref === channel;
+
+const claudeInstalled = Effect.gen(function* claudeInstalled() {
 	const plugin = yield* claudePlugin("", pluginId);
 	const { declared, fetched } = yield* claudeMarketplace("", marketplace);
 	const fromRepository = pipe(fetched, Option.flatMap(Schema.decodeUnknownOption(Fetched)));
 	const followed = pipe(declared, Option.flatMap(Schema.decodeUnknownOption(Followed)));
-
-	const onChannel = (entry: { readonly source: typeof GithubSource.Type }): boolean =>
-		entry.source.ref === target.channel;
 
 	return installedAs({
 		fromRepository: Option.isSome(fromRepository),
@@ -110,7 +110,7 @@ const claudeInstalled = Effect.fnUntraced(function* claudeInstalled(target: Targ
 
 const codexRepository = `"https://github.com/${repository}.git"`;
 
-const codexInstalled = Effect.fnUntraced(function* codexInstalled(target: Target) {
+const codexInstalled = Effect.gen(function* codexInstalled() {
 	const path = yield* Path.Path;
 	const home = yield* codexHome("");
 	const plugin = yield* codexPlugin(path.join(home, "plugins", "cache", marketplace, "phi-router"));
@@ -129,7 +129,7 @@ const codexInstalled = Effect.fnUntraced(function* codexInstalled(target: Target
 
 	return installedAs({
 		fromRepository: Option.exists(added, (value) => value === codexRepository),
-		onChannel: Option.exists(valueOf("ref"), (ref) => ref === `"${target.channel}"`),
+		onChannel: Option.exists(valueOf("ref"), (ref) => ref === `"${channel}"`),
 		version: pipe(
 			plugin,
 			Option.filter(() => Option.isSome(added)),
@@ -198,7 +198,7 @@ const harnesses = {
 		signInHow: "/login",
 		start: ["claude"] satisfies Argv,
 		steps: (target: Target) => {
-			const source = target.checkout ?? `${repository}@${target.channel}`;
+			const source = target.checkout ?? `${repository}@${channel}`;
 
 			const install: Argv = [
 				"claude",
@@ -211,7 +211,7 @@ const harnesses = {
 				"user",
 			];
 
-			const followed = followedMarketplace("", marketplace, { ref: target.channel, repo: repository });
+			const followed = followedMarketplace("", marketplace, { ref: channel, repo: repository });
 			const refreshed: Argv = ["claude", "plugin", "marketplace", "update", marketplace];
 			const updated: Argv = ["claude", "plugin", "update", pluginId, "--scope", "user"];
 
@@ -250,7 +250,7 @@ const harnesses = {
 		start: ["codex"] satisfies Argv,
 		steps: (target: Target) => {
 			const source = Option.match(Option.fromUndefinedOr(target.checkout), {
-				onNone: () => [repository, "--ref", target.channel],
+				onNone: () => [repository, "--ref", channel],
 				onSome: (folder) => [folder],
 			});
 
@@ -275,7 +275,7 @@ const harnesses = {
 			"",
 			"Press Enter to start pi on phi/auto. Models outside phi skip phi-router.",
 		],
-		installed: () => piInstalled,
+		installed: piInstalled,
 		signIn: piSignIn,
 		signInHow: "/login",
 		start: ["pi", "--model", "phi/auto"] satisfies Argv,

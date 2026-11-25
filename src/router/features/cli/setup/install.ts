@@ -68,7 +68,7 @@ const versionIn = (installed: Installed): Option.Option<string> => {
 
 const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, target: Target) {
 	const { installed, steps, title } = harnesses[name];
-	const before = yield* installed(target);
+	const before = yield* installed;
 	const move = moveOf({ installed: before, target });
 
 	yield* Effect.forEach(
@@ -91,7 +91,7 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, t
 		{ concurrency: 1, discard: true },
 	);
 
-	const after = yield* installed(target);
+	const after = yield* installed;
 
 	const version = yield* Effect.mapError(Effect.fromOption(versionIn(after)), () =>
 		stopped(`${title} did not install phi-router. Your key is saved.`),
@@ -100,14 +100,11 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, t
 	yield* Console.log(`✓ Installed phi-router ${version} in ${title}`);
 });
 
-const targetOf = Effect.fnUntraced(function* targetOf(given: {
-	readonly channel: string;
-	readonly checkout: string | undefined;
-}) {
+const targetOf = Effect.fnUntraced(function* targetOf(checkout: string | undefined) {
 	const { entry } = yield* Platform;
 	const version = yield* versionOf(entry);
 
-	return { channel: given.channel, checkout: given.checkout, version } satisfies Target;
+	return { checkout, version } satisfies Target;
 });
 
 const tested = Effect.fnUntraced(function* tested(name: HarnessName) {
