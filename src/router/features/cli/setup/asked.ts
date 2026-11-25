@@ -1,6 +1,6 @@
 import type { Answers, Found, Ready, Step } from "./plan.ts";
 import { Array, Console, Effect, Option, Record, Redacted, String as Str, pipe } from "effect";
-import type { HarnessName, InstallSource } from "./harnesses.ts";
+import type { HarnessName, Target } from "./harnesses.ts";
 import { answering, foundScreen, keyPrompt, plan } from "./plan.ts";
 import { enterPressed, handedOver, hiddenLine, isTerminal, picked } from "#router/client/terminal.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
@@ -69,7 +69,7 @@ const typedKey = Effect.fnUntraced(function* typedKey(vendor: Vendor, roles: Rea
 	return [vendor, Redacted.make(trimmed)] as const;
 });
 
-const asked = Effect.fnUntraced(function* asked(name: HarnessName, found: Found, source: InstallSource) {
+const asked = Effect.fnUntraced(function* asked(name: HarnessName, found: Found, target: Target) {
 	const { closingLines, start } = harnesses[name];
 
 	yield* Effect.filterOrFail(isTerminal, Boolean, () => noTerminal);
@@ -78,8 +78,8 @@ const asked = Effect.fnUntraced(function* asked(name: HarnessName, found: Found,
 	const ready = yield* Effect.flatMap(answered(found, {}), readyOf);
 	const typed = yield* Effect.forEach(ready.typed, (vendor) => typedKey(vendor, ready.roles), { concurrency: 1 });
 
-	yield* apply(name, { roles: ready.roles, typed: Record.fromEntries(typed) }, source);
-	yield* Console.log(Array.join(["", ...closingLines(source)], "\n"));
+	yield* apply(name, { roles: ready.roles, typed: Record.fromEntries(typed) }, target);
+	yield* Console.log(Array.join(["", ...closingLines(target)], "\n"));
 	yield* Effect.when(Effect.asVoid(handedOver(start)), enterPressed);
 });
 

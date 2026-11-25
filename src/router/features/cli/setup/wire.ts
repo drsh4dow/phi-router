@@ -1,6 +1,6 @@
 import type { Answers, Found, Step } from "./plan.ts";
-import { Array, Console, Effect, Option, Schema, pipe } from "effect";
-import type { HarnessName, InstallSource } from "./harnesses.ts";
+import { Array, Console, Effect, Schema, pipe } from "effect";
+import type { HarnessName, Target } from "./harnesses.ts";
 import { codexDone, windowDone } from "./copy.ts";
 import { foundScreen, keyPrompt, plan } from "./plan.ts";
 import { SetupStepJson } from "#shared/cli.ts";
@@ -37,14 +37,14 @@ const reported = Effect.fnUntraced(function* reported(found: Found, answers: Ans
 const applied = Effect.fnUntraced(function* applied(
 	name: HarnessName,
 	found: Found,
-	given: { readonly answers: Answers; readonly answersJson: string | undefined; readonly source: InstallSource },
+	given: { readonly answers: Answers; readonly answersJson: string | undefined; readonly target: Target },
 ) {
 	const ready = yield* readyOf(plan({ answers: given.answers, found }));
 	const typed = yield* givenKeys(name, ready, given);
-	const before = yield* harnesses[name].installed;
+	const before = yield* harnesses[name].installed(given.target);
 
-	yield* apply(name, { roles: ready.roles, typed }, given.source);
-	yield* Effect.when(Console.log(windowDone[`${Option.isSome(before)}`]), Effect.succeed(name === "claude"));
+	yield* apply(name, { roles: ready.roles, typed }, given.target);
+	yield* Effect.when(Console.log(windowDone[`${before.kind !== "absent"}`]), Effect.succeed(name === "claude"));
 	yield* Effect.when(Console.log(codexDone), Effect.succeed(name === "codex"));
 });
 

@@ -1,4 +1,13 @@
-export { claudeFolder, claudePlugin, claudeTurn, managedEnv, rewriteEnv, userSettings } from "./claude-code.ts";
+export {
+	claudeFolder,
+	claudeMarketplace,
+	claudePlugin,
+	claudeTurn,
+	followedMarketplace,
+	managedEnv,
+	rewriteEnv,
+	userSettings,
+} from "./claude-code.ts";
 
 export { codexHome, codexPlugin, codexTurn, firstLine, removedIfPresent, rewritten, textOrEmpty } from "./codex.ts";
 

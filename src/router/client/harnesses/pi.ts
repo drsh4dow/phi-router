@@ -17,7 +17,7 @@ import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 
 const fakeLogin = "phi-doctor-fake-login";
 
-const PackageName = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
+const PackageManifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
 
 interface Asked {
 	readonly prompt: string;
@@ -66,32 +66,38 @@ const listed = Effect.fnUntraced(function* listed(agent: string) {
 	});
 }, Effect.scoped);
 
-const holdsRouter = Effect.fnUntraced(function* holdsRouter(folder: string) {
+const routerVersion = Effect.fnUntraced(function* routerVersion(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const text = yield* Effect.option(fs.readFileString(path.join(folder, "package.json")));
 
 	return pipe(
 		text,
-		Option.flatMap(Schema.decodeUnknownOption(PackageName)),
-		Option.exists(({ name }) => name === "phi-router"),
+		Option.flatMap(Schema.decodeUnknownOption(PackageManifest)),
+		Option.filter(({ name }) => name === "phi-router"),
+		Option.map(({ version }) => version),
 	);
 });
 
-interface Installed {
+interface Listed {
 	readonly folder: string;
 	readonly narrowedBySettings: boolean;
+	readonly source: string;
 }
 
 const filteredMark = " (filtered)";
 
-const installsOf = (printed: string, isAbsolute: (line: string) => boolean): readonly Installed[] => {
+const installsOf = (printed: string, isAbsolute: (line: string) => boolean): readonly Listed[] => {
 	const lines = pipe(Str.split(printed, "\n"), Array.map(Str.trim));
 
 	return pipe(
 		Array.zip(Array.prepend(lines, ""), lines),
 		Array.filter(([, line]) => isAbsolute(line)),
-		Array.map(([source, folder]) => ({ folder, narrowedBySettings: Str.endsWith(filteredMark)(source) })),
+		Array.map(([source, folder]) => ({
+			folder,
+			narrowedBySettings: Str.endsWith(filteredMark)(source),
+			source: Str.replace(filteredMark, "")(source),
+		})),
 	);
 };
 
@@ -102,13 +108,22 @@ const installedPackage = Effect.fnUntraced(function* installedPackage(agentDir: 
 	const exists = yield* fs.exists(agent);
 
 	if (!exists) {
-		return Option.none<Installed>();
+		return Option.none<Listed & { readonly version: string }>();
 	}
 
 	const printed = yield* listed(agent);
-	const found = yield* Effect.filter(installsOf(printed, path.isAbsolute), ({ folder }) => holdsRouter(folder));
 
-	return Array.head(found);
+	const found = yield* Effect.forEach(
+		installsOf(printed, path.isAbsolute),
+		(install) =>
+			Effect.map(
+				routerVersion(install.folder),
+				Option.map((version) => Struct.assign(install, { version })),
+			),
+		{ concurrency: 1 },
+	);
+
+	return Array.head(Array.getSomes(found));
 });
 
 const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {

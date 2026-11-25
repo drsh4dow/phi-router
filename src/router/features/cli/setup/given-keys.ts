@@ -1,5 +1,5 @@
 import { Array, Config, Effect, Option, Record, pipe } from "effect";
-import type { HarnessName, InstallSource } from "./harnesses.ts";
+import type { HarnessName, Target } from "./harnesses.ts";
 import { keyInTerminal, keyInputs, pasteAsked } from "./copy.ts";
 import type { Ready } from "./plan.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
@@ -33,7 +33,7 @@ const givenKey = Effect.fnUntraced(function* givenKey(name: HarnessName, vendor:
 
 interface Given {
 	readonly answersJson: string | undefined;
-	readonly source: InstallSource;
+	readonly target: Target;
 }
 
 const keysAsked = Effect.fnUntraced(function* keysAsked(
@@ -49,7 +49,7 @@ const keysAsked = Effect.fnUntraced(function* keysAsked(
 		return yield* stopped(`Setup needs the key in ${keyInputs[Array.headNonEmpty(missing)]}. Nothing changed.`);
 	}
 
-	yield* installedIn(name, given.source);
+	yield* installedIn(name, given.target);
 
 	return yield* stopped(pasteAsked(missing));
 });

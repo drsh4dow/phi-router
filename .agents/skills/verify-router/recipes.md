@@ -135,7 +135,7 @@ recipes/iso.sh setup-tui setup-tui.sh max
 ```
  ✓ Anthropic key works
  ✓ OpenAI key works
- ✓ Installed phi-router in pi
+ ✓ Installed phi-router 0.1.0 in pi
  ✓ Test: a fake patient record went to your BAA account, not Claude
    Everyday work   Claude
    Patient data    Anthropic API key

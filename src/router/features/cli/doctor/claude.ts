@@ -61,7 +61,10 @@ const doctorClaude = Effect.fn("doctor claude")(function* doctorClaude(configDir
 		`Run phi-router on claude for a missing setting, and claude plugin install ${pluginId} for the plugin.`,
 	);
 
-	const checks = yield* Option.match(installed, { onNone: () => Effect.succeed([]), onSome: claudeCanary });
+	const checks = yield* Option.match(installed, {
+		onNone: () => Effect.succeed([]),
+		onSome: ({ installPath }) => claudeCanary(installPath),
+	});
 
 	yield* reported(
 		"claude",
