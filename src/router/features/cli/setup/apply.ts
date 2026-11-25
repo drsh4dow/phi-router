@@ -40,16 +40,12 @@ const settled = Effect.fnUntraced(function* settled(name: HarnessName, roles: Re
 });
 
 const written = Effect.fnUntraced(function* written(
-	title: string,
-	vendor: Vendor,
-	{
-		another,
-		roles,
-	}: {
-		readonly roles: Readonly<Record<"open" | "baa" | "judge", Settled>>;
-		readonly another: readonly { readonly account: NewAccount }[];
-	},
+	name: HarnessName,
+	roles: Readonly<Record<"open" | "baa" | "judge", Settled>>,
+	another: readonly { readonly account: NewAccount }[],
 ) {
+	const { title, vendor } = harnesses[name];
+
 	const accounts = [
 		...Array.map(Option.toArray(accountOf(roles.open, vendor)), (account) => ({ account, lane: "clean" as const })),
 		...pipe(
@@ -81,7 +77,7 @@ const apply = Effect.fn("setup apply")(function* apply(
 	ready: { readonly roles: Ready["roles"]; readonly typed: Typed; readonly another: boolean },
 	target: Target,
 ) {
-	const { title, vendor } = harnesses[name];
+	const { title } = harnesses[name];
 	const { roles, typed } = ready;
 
 	if (roles.baa.kind === "harnessFolder" || roles.baa.kind === "signIn") {
@@ -94,7 +90,7 @@ const apply = Effect.fn("setup apply")(function* apply(
 	const another = yield* Effect.when(anotherSignedIn(name, done.open.label), Effect.succeed(ready.another));
 	const added = Option.toArray(Option.flatten(another));
 
-	yield* written(title, vendor, { another: added, roles: done });
+	yield* written(name, done, added);
 	yield* turnedOn(name, target, done.open.label.plan);
 
 	const summary = rows([
