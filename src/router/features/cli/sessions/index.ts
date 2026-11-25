@@ -1,4 +1,3 @@
-import { Array, pipe } from "effect";
 import { Command, Flag } from "effect/cli";
 import { SessionId, productPort, spelling } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
@@ -8,12 +7,11 @@ const session = Flag.String(spelling.status.session).pipe(Flag.withSchema(Sessio
 
 const port = Flag.Int(spelling.start.port).pipe(Flag.withDefault(productPort));
 
-const asked = { port, session };
-
-const sessionCommands = pipe(
-	[Command.make(spelling.status.name, asked, (flags) => status(flags.session, flags.port))],
-	Array.map(Command.provide(SessionRequests.layer)),
-);
+const sessionCommands = [
+	Command.make(spelling.status.name, { port, session }, (flags) => status(flags.session, flags.port)).pipe(
+		Command.provide(SessionRequests.layer),
+	),
+];
 
 export { port, session, sessionCommands };
 
