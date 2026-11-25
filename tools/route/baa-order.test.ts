@@ -1,17 +1,7 @@
 import type { AccountScript, Scripts } from "./harnesses.ts";
 import { Effect, FileSystem, Layer, Stream, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
-import {
-	clean,
-	holdsCanary,
-	leased,
-	linesIn,
-	modelsIn,
-	phi,
-	posted,
-	postedPinnedByLine,
-	sentModels,
-} from "./target-models.ts";
+import { clean, holdsCanary, leased, linesIn, modelsIn, phi, posted, sentModels } from "./target-models.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { SessionRequests } from "#router/client/router-port/index.ts";
@@ -51,15 +41,11 @@ const walkedOver = Effect.fnUntraced(function* walkedOver(of: {
 
 	yield* Effect.when(leased(run.state, session, repo), Effect.succeed(of.leasedInRepo));
 
-	const sent = { harness: "claude", model: of.model ?? sentModels.claudeHaiku, session } as const;
-
-	yield* Effect.suspend(() => {
-		if (of.pinnedByLine === true) {
-			return postedPinnedByLine(run.post, sent, of.turn);
-		}
-
-		return posted(run.post, sent, [of.turn]);
-	});
+	yield* posted(
+		run.post,
+		{ harness: "claude", model: of.model ?? sentModels.claudeHaiku, pinnedByLine: of.pinnedByLine === true, session },
+		[of.turn],
+	);
 
 	const models = yield* Effect.andThen(run.mocks.accounts, (received) =>
 		Effect.forEach(received, modelsIn, { concurrency: 1 }),

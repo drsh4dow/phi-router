@@ -37,7 +37,7 @@ const codexItemOf = ({ role, text }: Turn): Json => {
 };
 
 const bodyFor = Effect.fnUntraced(function* bodyFor(
-	sent: { readonly harness: HarnessName; readonly model: string },
+	sent: { readonly harness: HarnessName; readonly model: string; readonly pinnedByLine?: boolean },
 	turns: readonly Turn[],
 ) {
 	const field = yield* jsonText(sent.model);
@@ -50,35 +50,28 @@ const bodyFor = Effect.fnUntraced(function* bodyFor(
 		return bodyOf(turns);
 	});
 
-	return Str.replace('"model":"phi/auto"', `"model":${field}`)(body);
+	const named = Str.replace('"model":"phi/auto"', `"model":${field}`)(body);
+
+	if (sent.pinnedByLine !== true) {
+		return named;
+	}
+
+	const system = yield* jsonText([{ text: pinnedLine, type: "text" }]);
+
+	return Str.replace('"stream":true', `"stream":true,"system":${system}`)(named);
 });
 
 const posted = Effect.fnUntraced(function* posted(
 	post: Post,
-	sent: { readonly harness: HarnessName; readonly session: string; readonly model: string },
+	sent: {
+		readonly harness: HarnessName;
+		readonly session: string;
+		readonly model: string;
+		readonly pinnedByLine?: boolean;
+	},
 	turns: readonly Turn[],
 ) {
 	const body = yield* bodyFor(sent, turns);
-	const response = yield* post({ body, session: sent.session });
-
-	yield* response.text;
-
-	return response.status;
-});
-
-const postedPinnedByLine = Effect.fnUntraced(function* postedPinnedByLine(
-	post: Post,
-	sent: { readonly session: string; readonly model: string },
-	turn: Turn,
-) {
-	const body = yield* jsonText({
-		max_tokens: 1024,
-		messages: [{ content: [{ text: turn.text, type: "text" }], role: turn.role }],
-		model: sent.model,
-		stream: true,
-		system: [{ text: pinnedLine, type: "text" }],
-	});
-
 	const response = yield* post({ body, session: sent.session });
 
 	yield* response.text;
@@ -131,7 +124,6 @@ export {
 	modelsIn,
 	phi,
 	posted,
-	postedPinnedByLine,
 	sentModels,
 	unreadableLeases,
 };
