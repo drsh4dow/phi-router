@@ -109,12 +109,7 @@ const typedToken = Effect.fnUntraced(function* typedToken(keyFile: string) {
 
 	const token = Redacted.make(Str.trim(Redacted.value(typed)));
 
-	const subscription = pipe(
-		tokenKindOf(Redacted.value(token)),
-		Option.filter(({ scheme }) => scheme === "oauth"),
-	);
-
-	if (Option.isNone(subscription)) {
+	if (!Option.exists(tokenKindOf(Redacted.value(token)), ({ scheme }) => scheme === "oauth")) {
 		return yield* refused("That is not a Claude subscription token, which starts with sk-ant-oat.");
 	}
 
