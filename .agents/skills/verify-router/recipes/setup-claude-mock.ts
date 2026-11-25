@@ -91,7 +91,13 @@ const afterTool = (messages: Json[], result: Json): Block[] => {
 		return [stepCall({ ...answersSoFar(messages), [question.id]: choice.id })];
 	}
 
-	if (command.includes("setup claude --apply")) return [text(lastLine(output))];
+	if (command.includes("setup claude --apply")) {
+		const line = lastLine(output);
+		const more = env("MOCK_AFTER_APPLY") === "tool" && line.startsWith("Done.");
+		return more
+			? [text(line), tool("Bash", { command: "sleep 3; printf setup-confirmation", description: "Confirm" })]
+			: [text(line)];
+	}
 
 	if (command.includes("setup claude --json")) {
 		const step = stepIn(output);
