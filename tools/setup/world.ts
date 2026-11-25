@@ -16,7 +16,9 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { packageCopy, piCli, pluginCopy } from "#tools/plugin/copied.ts";
+import { Base64Url } from "effect/encoding";
 import { NodeHttpServer } from "@effect/platform-node";
+import { claudeCredentials } from "#tools/cli/accounts-run.ts";
 import { enabled } from "#tools/codex/configured.ts";
 import manifest from "#package.json" with { type: "json" };
 import { ran } from "#tools/lifecycle/launched.ts";
@@ -164,12 +166,29 @@ if (harness === "pi") {
 }
 `;
 
+const idToken = ({ email, plan }: { readonly email: string; readonly plan: string }): string => {
+	const claims = Formatter.formatJson({ email, "https://api.openai.com/auth": { chatgpt_plan_type: plan } });
+
+	return `phi-test.${Base64Url.encode(claims)}.phi-test`;
+};
+
+const codexLogin = Formatter.formatJson({
+	tokens: {
+		access_token: `phi-test.${Base64Url.encode(Formatter.formatJson({ exp: 4_102_444_800 }))}.phi-test`,
+		account_id: "phi-test-account",
+		id_token: idToken({ email: "other@example.com", plan: "pro" }),
+	},
+});
+
+const loginEnds = 4_102_444_800_000;
+
 const hang = '[ -e "$here/hang" ] && { : > "$here/canary-ran"; exec sleep 30; }; [ -e "$here/fail" ] && exit 1';
 
 const fakes: Readonly<Record<string, string>> = {
 	claude: `case "$*" in
 "auth status"*) cat "$CLAUDE_CONFIG_DIR/phi-fake-status.json" 2>/dev/null || { echo '${signedOut}'; exit 1; }; exit 0;;
-"auth login"*) printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/logins"; if [ -n "$DISPLAY$BROWSER" ]; then printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/browser-launches"; else printf 'Paste code here if prompted > '; IFS= read -r code || exit 1; fi; cp "$here/next-sign-in.json" "$CLAUDE_CONFIG_DIR/phi-fake-status.json"; exit 0;;
+"auth login"*) printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/logins"; if [ -n "$DISPLAY$BROWSER" ]; then printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/browser-launches"; else printf 'Paste code here if prompted > '; IFS= read -r code || exit 1; fi; cp "$here/next-sign-in.json" "$CLAUDE_CONFIG_DIR/phi-fake-status.json"; printf '%s' '${claudeCredentials(loginEnds)}' > "$CLAUDE_CONFIG_DIR/.credentials.json"; exit 0;;
+"setup-token") printf 'Your OAuth token: %s\n' '${keys.subscription}'; exit 0;;
 "plugin "*) exec "$here/bun" "$here/installs.cjs" claude "$@";;
 "") echo "claude started"; exit 0;;
 esac
@@ -177,6 +196,7 @@ ${hang}
 exec "$here/bun" '${claudeStandIn}' "$@"`,
 	codex: `case "$*" in
 "login status") cat "$CODEX_HOME/phi-fake-login" 2>/dev/null || { echo "Not logged in" >&2; exit 1; }; exit 0;;
+"login") printf '%s\n' "$CODEX_HOME" >> "$here/logins"; printf '%s' '${codexLogin}' > "$CODEX_HOME/auth.json"; exit 0;;
 "plugin "*) exec "$here/bun" "$here/installs.cjs" codex "$@";;
 "") echo "codex started"; exit 0;;
 esac
@@ -368,6 +388,6 @@ const filesUnder = Effect.fnUntraced(function* filesUnder(folder: string) {
 	);
 });
 
-export { claudeStatus, filesUnder, keys, typedRun, world };
+export { claudeStatus, filesUnder, idToken, keys, typedRun, world };
 
 export type { Typed, TypedRan, World };

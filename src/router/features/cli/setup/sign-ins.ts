@@ -1,13 +1,13 @@
-import { Array, Config, Console, Effect, String as Str, pipe } from "effect";
+import { Console, Effect } from "effect";
 import { claudeFolder, claudeSignIn } from "#router/client/harnesses/index.ts";
 import { shown, signInElsewhere, signInNamed } from "./copy.ts";
 import type { Filler } from "./plan.ts";
 import type { HarnessName } from "./harnesses.ts";
 import type { Named } from "./copy.ts";
-import { Platform } from "#router/features/cli/platform.ts";
 import { isTerminal } from "#router/client/terminal.ts";
 import { logIn } from "#router/client/accounts/index.ts";
 import { loginFolderOf } from "#router/client/keys/index.ts";
+import { opensBrowser } from "#router/features/cli/accounts/index.ts";
 import { stopped } from "./keys.ts";
 
 interface Folder {
@@ -26,18 +26,6 @@ const wanted = {
 } as const;
 
 type SignInRole = keyof typeof wanted;
-
-const browserVariables = ["BROWSER", "DISPLAY", "WAYLAND_DISPLAY"] as const;
-
-const opensBrowser = Effect.gen(function* opensBrowser() {
-	const { os } = yield* Platform;
-
-	const values = yield* Effect.forEach(browserVariables, (name) => Config.String(name).pipe(Config.withDefault("")), {
-		concurrency: 1,
-	});
-
-	return os === "darwin" || pipe(values, Array.some(Str.isNonEmpty));
-});
 
 const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole, harness: HarnessName) {
 	const folder = yield* loginFolderOf(`claude-${role}`);

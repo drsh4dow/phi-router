@@ -31,6 +31,12 @@ const loginFolderOf = Effect.fnUntraced(function* loginFolderOf(name: string) {
 	return folder;
 });
 
+const tokenFileIn = Effect.fnUntraced(function* tokenFileIn(loginFolder: string) {
+	const path = yield* Path.Path;
+
+	return path.join(loginFolder, "token");
+});
+
 const keyIn = Effect.fnUntraced(function* keyIn(keyFile: string) {
 	return yield* Effect.option(readKey({ keyFile }));
 });
@@ -60,4 +66,4 @@ const savePastedKey = Effect.fnUntraced(function* savePastedKey(vendor: Vendor, 
 	yield* Effect.flatMap(pastedKeyFileOf(vendor), (keyFile) => keyWritten(keyFile, key));
 });
 
-export { keyFileOf, loginFolderOf, pastedKey, saveKey, savePastedKey, savedKey };
+export { keyFileOf, keyWritten as saveToken, loginFolderOf, pastedKey, saveKey, savePastedKey, savedKey, tokenFileIn };

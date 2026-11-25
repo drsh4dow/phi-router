@@ -9,7 +9,7 @@ type NewAccount =
 	| { readonly vendor: Vendor; readonly loginFolder: string }
 	| { readonly vendor: Vendor; readonly keyCommand: string; readonly scheme: "apiKey" | "oauth" }
 	| { readonly vendor: Vendor; readonly forwarded: true }
-	| { readonly vendor: Vendor; readonly keyFile: string; readonly scheme: "apiKey" }
+	| { readonly vendor: Vendor; readonly keyFile: string; readonly scheme: "apiKey" | "oauth" }
 	| { readonly vendor: Vendor; readonly keyEnv: string; readonly scheme: "apiKey" };
 
 interface Wanted {

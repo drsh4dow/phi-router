@@ -1,6 +1,7 @@
 import { Console, DateTime, Effect, Option, Predicate } from "effect";
 import { fromCommand, fromFolder, refused } from "./found.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
+import { fromLogin } from "./login.ts";
 import { laneOf } from "#router/features/lanes/index.ts";
 import { realFolder } from "#router/client/processes.ts";
 
@@ -25,7 +26,11 @@ const foundBy = Effect.fnUntraced(function* foundBy(request: AddRequest) {
 		return yield* fromCommand(keyCommand);
 	}
 
-	return yield* refused('Name a login folder, or --command "<prints the token>".');
+	if (request.sealed) {
+		return yield* refused('Name a login folder, or --command "<prints the token>".');
+	}
+
+	return yield* fromLogin();
 });
 
 const accountsAdd = Effect.fn("accountsAdd")(function* accountsAdd(request: AddRequest) {

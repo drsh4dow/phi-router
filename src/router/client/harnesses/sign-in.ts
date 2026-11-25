@@ -125,10 +125,9 @@ const IdClaims = Schema.StringFromBase64Url.pipe(Schema.decodeTo(Claims));
 
 const claimsSegment = 1;
 
-const chatgptPlan = Effect.gen(function* chatgptPlan() {
+const chatgptSignIn = Effect.fnUntraced(function* chatgptSignIn(home: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const home = yield* codexHome("");
 	const text = yield* fs.readFileString(path.join(home, "auth.json"));
 	const { tokens } = yield* Schema.decodeEffect(IdToken)(text);
 	const segment = yield* Effect.fromOption(Array.get(Str.split(tokens.id_token, "."), claimsSegment));
@@ -142,7 +141,10 @@ const chatgptPlan = Effect.gen(function* chatgptPlan() {
 	);
 
 	return { account: claims.email, kind: "plan", plan } satisfies SignIn;
-}).pipe(Effect.orElseSucceed((): SignIn => ({ kind: "plan", plan: "ChatGPT" })));
+});
+
+const codexFolderSignIn = (folder: string): Effect.Effect<SignIn, never, FileSystem.FileSystem | Path.Path> =>
+	chatgptSignIn(folder).pipe(Effect.orElseSucceed(() => signedOut));
 
 const codexSignIn = Effect.gen(function* codexSignIn() {
 	const status = yield* printed(["codex", "login", "status"], {});
@@ -152,7 +154,9 @@ const codexSignIn = Effect.gen(function* codexSignIn() {
 	}
 
 	if (Str.includes("ChatGPT")(status.value.said)) {
-		return yield* chatgptPlan;
+		return yield* Effect.flatMap(codexHome(""), chatgptSignIn).pipe(
+			Effect.orElseSucceed((): SignIn => ({ kind: "plan", plan: "ChatGPT" })),
+		);
 	}
 
 	return { kind: "apiKey" } satisfies SignIn;
@@ -183,6 +187,6 @@ const piSignIn = Effect.gen(function* piSignIn() {
 	});
 });
 
-export { claudeSignIn, codexSignIn, piSignIn };
+export { claudeSignIn, codexFolderSignIn, codexSignIn, piSignIn };
 
 export type { SignIn };
