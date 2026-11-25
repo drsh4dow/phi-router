@@ -2,6 +2,8 @@
 
 You are a coding agent, and the human asked you to install phi-router. Name your harness. In Claude Code, follow [Claude Code](#claude-code). In Codex, follow [Codex](#codex). In pi, follow [pi](#pi). In any other harness, reply that phi-router works only in Claude Code, Codex and pi, and end your turn.
 
+In Claude Code and Codex, phi-router updates by itself once installed. When the human asks to update it now, follow the same section with `npx phi-router@latest` where it says `npx phi-router`. In pi, run `pi install npm:phi-router`, then `pi update npm:phi-router`, and tell the human to type `/reload`.
+
 ## Claude Code
 
 Setup runs in this window. A key must never enter this chat, because the chat goes to the human's subscription. So the human pastes keys in the plugin's masked field, which you cannot see. Say only the lines below, word for word, and nothing else.
