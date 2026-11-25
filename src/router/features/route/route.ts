@@ -58,7 +58,7 @@ const judgedOn = Effect.fnUntraced(function* judgedOn(
 const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: string, incoming: Incoming) {
 	const arrival = yield* serving.store.read(session, serving.policy);
 	const request = yield* serving.wire.decode(incoming.body, arrival.openWrote);
-	const pinned = yield* serving.pinnedBy({ asked: request, session, sessionPinned: arrival.pinned });
+	const pinned = yield* serving.pinnedBy({ asked: request, session });
 
 	if (Option.isSome(pinned)) {
 		const choice: Choice = { by: pinned.value, kind: "pinned" };

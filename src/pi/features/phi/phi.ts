@@ -16,7 +16,7 @@ const noneSealed = 0;
 
 const oneMessage = 1;
 
-const usage = `/${phiCommand.name} ${phiCommand.setup} sets up phi-router, /${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
+const usage = `/${phiCommand.name} ${phiCommand.setup} sets up phi-router, /${phiCommand.name} shows this session's routing. To run the session on the BAA account, switch the model to ${piWire.models.sealed}.`;
 
 type Shows = (status: Reported) => string;
 
@@ -42,19 +42,10 @@ const namesOf = (accounts: Reported["accounts"]["clean"]): string =>
 		Option.getOrElse(() => "none"),
 	);
 
-const pinOf: Shows = (status) => {
-	if (status.pinned) {
-		return "on, every request runs on the sealed lane";
-	}
-
-	return "off";
-};
-
 const statusText: Shows = (status) =>
 	Array.join(
 		[
 			`phi-router, session ${status.session}`,
-			`Pin: ${pinOf(status)}`,
 			`Last request: ${lastOf(status)}`,
 			`Messages: ${String(status.sealed)} sealed, ${String(status.cleared)} cleared`,
 			`Clean lane: ${namesOf(status.accounts.clean)}`,
@@ -64,16 +55,7 @@ const statusText: Shows = (status) =>
 	);
 
 const statusLine: Shows = (status) =>
-	Array.join(
-		[
-			"phi",
-			lastOf(status),
-			`${String(status.sealed)} sealed`,
-			`${String(status.cleared)} cleared`,
-			...Array.filter(["pinned"], () => status.pinned),
-		],
-		" · ",
-	);
+	Array.join(["phi", lastOf(status), `${String(status.sealed)} sealed`, `${String(status.cleared)} cleared`], " · ");
 
 const messagesIn = (count: number): string => {
 	if (count === oneMessage) {
@@ -110,29 +92,11 @@ const failureText: (failed: Pick<CommandFailed, "cause" | "command">) => string 
 const sessionOf: (ctx: ShownContext) => typeof SessionId.Type = (ctx) =>
 	SessionId.make(ctx.sessionManager.getSessionId());
 
-const askedOf = Effect.fnUntraced(function* askedOf(
-	asked: "status" | "pin" | "unpin",
-	session: typeof SessionId.Type,
-	port: number,
-) {
+const statusOf = Effect.fnUntraced(function* statusOf(session: typeof SessionId.Type, port: number) {
 	const client = yield* Router;
-
-	if (asked !== "status") {
-		yield* client[asked](session, port);
-	}
 
 	return yield* client.status(session, port);
 });
-
-const askedBy = (words: string): Option.Option<"status" | "pin" | "unpin"> => {
-	const word = Str.trim(words);
-
-	if (Str.isEmpty(word)) {
-		return Option.some("status");
-	}
-
-	return Option.liftPredicate(word, (said) => said === phiCommand.pin || said === phiCommand.unpin);
-};
 
 const routed = (ctx: Pick<ShownContext, "model">): boolean =>
 	pipe(
@@ -148,24 +112,23 @@ const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.E
 			});
 		}
 
-		return Option.match(askedBy(words), {
-			onNone: () =>
-				Effect.sync(() => {
-					ctx.ui.notify(usage, "warning");
-				}),
-			onSome: (asked) =>
-				askedOf(asked, sessionOf(ctx), port).pipe(
-					Effect.match({
-						onFailure: (failed) => {
-							ctx.ui.notify(failureText(failed), "error");
-						},
-						onSuccess: (status) => {
-							ctx.ui.setStatus(statusBarEntry, statusLine(status));
-							ctx.ui.notify(statusText(status), "info");
-						},
-					}),
-				),
-		});
+		if (Str.isNonEmpty(Str.trim(words))) {
+			return Effect.sync(() => {
+				ctx.ui.notify(usage, "warning");
+			});
+		}
+
+		return statusOf(sessionOf(ctx), port).pipe(
+			Effect.match({
+				onFailure: (failed) => {
+					ctx.ui.notify(failureText(failed), "error");
+				},
+				onSuccess: (status) => {
+					ctx.ui.setStatus(statusBarEntry, statusLine(status));
+					ctx.ui.notify(statusText(status), "info");
+				},
+			}),
+		);
 	};
 
 type Observe = (ctx: ShownContext) => Effect.Effect<void, never, Router>;
@@ -184,7 +147,7 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 				}
 
 				const session = sessionOf(ctx);
-				const status = yield* askedOf("status", session, port);
+				const status = yield* statusOf(session, port);
 				const shown = yield* Ref.getAndUpdate(seen, Record.set(session, status.sealed));
 
 				const before = Option.orElse(Record.get(shown, session), () =>

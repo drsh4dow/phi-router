@@ -24,13 +24,13 @@ it.effect("/phi and the seal notice name the last request's model, and say it wa
 					notice:
 						"phi-router: 1 message held patient identifiers and ran only on the BAA account. Last request: baa, model claude-sealed.",
 					status:
-						"phi-router, session s-1\nPin: off\nLast request: baa, model claude-sealed\nMessages: 1 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
+						"phi-router, session s-1\nLast request: baa, model claude-sealed\nMessages: 1 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
 				},
 				{
 					notice:
 						"phi-router: 1 message held patient identifiers and ran only on the BAA account. Last request: baa, model claude-sealed, a substitute for the requested model.",
 					status:
-						"phi-router, session s-1\nPin: off\nLast request: baa, model claude-sealed, a substitute for the requested model\nMessages: 1 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
+						"phi-router, session s-1\nLast request: baa, model claude-sealed, a substitute for the requested model\nMessages: 1 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
 				},
 			],
 		);

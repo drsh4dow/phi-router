@@ -9,6 +9,7 @@ import {
 	modelsIn,
 	phi,
 	posted,
+	postedPinnedByLine,
 	sentModels,
 } from "./target-models.ts";
 import type { AccountScript } from "./harnesses.ts";
@@ -112,33 +113,26 @@ const unsentSession = "unsent-1";
 
 const onArrival = 1;
 
-const readsFailing =
-	(pinned: boolean) =>
-	(real: VerdictStore["Service"]): VerdictStore["Service"] => {
-		const reads = { unsent: 0 };
+const readsFailing = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
+	const reads = { unsent: 0 };
 
-		return Struct.assign(real, {
-			read: (session: string, policy: string) =>
-				Effect.suspend(() => {
-					const read = Effect.andThen(
-						Effect.when(real.pin(session, policy, true), Effect.succeed(pinned)),
-						real.read(session, policy),
-					);
+	return Struct.assign(real, {
+		read: (session: string, policy: string) =>
+			Effect.suspend(() => {
+				if (session !== unsentSession) {
+					return real.read(session, policy);
+				}
 
-					if (session !== unsentSession) {
-						return read;
-					}
+				reads.unsent += 1;
 
-					reads.unsent += 1;
+				if (reads.unsent > onArrival) {
+					return unreadable;
+				}
 
-					if (reads.unsent > onArrival) {
-						return unreadable;
-					}
-
-					return read;
-				}),
-		});
-	};
+				return real.read(session, policy);
+			}),
+	});
+};
 
 interface Unsent {
 	readonly line: Option.Option<readonly (string | boolean)[]>;
@@ -163,7 +157,7 @@ const unsent = Effect.gen(function* unsent() {
 			holdsPhi: holdsCanary,
 			lacks: [[sentModels.claudeHaiku]],
 			open: of.open,
-			store: readsFailing(of.pinned),
+			store: readsFailing,
 		});
 
 		const stamping = posted(run.post, { harness: "claude", model: sentModels.claudeHaiku, session: "stamping-1" }, [
@@ -172,11 +166,13 @@ const unsent = Effect.gen(function* unsent() {
 
 		yield* Effect.when(stamping, Effect.succeed(of.stamp));
 
-		const unsentPost = posted(
-			run.post,
-			{ harness: "claude", model: sentModels.claudeHaiku, session: unsentSession },
-			[clean],
-		);
+		const unsentPost = Effect.suspend(() => {
+			if (of.pinned) {
+				return postedPinnedByLine(run.post, { model: sentModels.claudeHaiku, session: unsentSession }, clean);
+			}
+
+			return posted(run.post, { harness: "claude", model: sentModels.claudeHaiku, session: unsentSession }, [clean]);
+		});
 
 		const before = yield* run.mocks.accounts;
 		const status = yield* unsentPost;
@@ -211,7 +207,7 @@ it.layer(NodeServices.layer)("the substitute", (test) => {
 		() => targetAsSubstitute,
 	);
 	test.effect(
-		"is named on the line of a request whose store read fails on its walk, so no account received it, exactly when its walk starts at the BAA account, which lacks the model: once its open account is stamped or when it is pinned, and not when it starts at the open account",
+		"is named on the line of a request whose store read fails on its walk, so no account received it, exactly when its walk starts at the BAA account, which lacks the model: once its open account is stamped or when the pinned line pins it, and not when it starts at the open account",
 		() => unsent,
 	);
 });

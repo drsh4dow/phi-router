@@ -23,7 +23,6 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean) {
 
 	const service = Router.of({
 		models: Effect.succeed({}),
-		pin: () => Effect.void,
 		setUp: () => Effect.die("the proof sets nothing up"),
 		setupStep: () => Effect.die("the proof sets nothing up"),
 		start: (session, folder, port) =>
@@ -32,7 +31,6 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean) {
 				Effect.when(refused, Effect.succeed(refuses)),
 			),
 		status: () => Effect.die("the proof asks no status"),
-		unpin: () => Effect.void,
 	});
 
 	return { asked, service };

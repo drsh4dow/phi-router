@@ -71,18 +71,6 @@ const replies: readonly { readonly argv: readonly string[]; readonly reply: Repl
 		argv: ["phi-router", "models"],
 		reply: { exitCode: clean, stdout: '{"anthropic":{"auto":"claude-auto","sealed":"claude-baa"}}' },
 	},
-	{
-		argv: ["phi-router", "pin", "--session", "s1", "--port", String(routerPort)],
-		reply: { exitCode: clean, stdout: "" },
-	},
-	{
-		argv: ["phi-router", "unpin", "--session", "s1", "--port", String(routerPort)],
-		reply: { exitCode: clean, stdout: "" },
-	},
-	{
-		argv: ["phi-router", "pin", "--session", "down", "--port", String(routerPort)],
-		reply: { exitCode: failed, stdout: "" },
-	},
 ];
 
 const usage: Reply = { exitCode: misused, stdout: "" };
@@ -209,23 +197,6 @@ it.layer(Layer.provide(Router.layer("phi-router"), unspawned))("the pi router cl
 			assert.instanceOf(failure, CommandFailed);
 			assert.strictEqual(failure.command, "status");
 		}),
-	);
-});
-
-it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client's pin", (test) => {
-	test.effect(
-		"pins and unpins the session through the router on the port, and fails with CommandFailed when the CLI does",
-		() =>
-			Effect.gen(function* pinned() {
-				const router = yield* Router;
-
-				yield* router.pin(SessionId.make("s1"), routerPort);
-				yield* router.unpin(SessionId.make("s1"), routerPort);
-
-				const failure = yield* Effect.flip(router.pin(SessionId.make("down"), routerPort));
-
-				assert.instanceOf(failure, CommandFailed);
-			}),
 	);
 });
 

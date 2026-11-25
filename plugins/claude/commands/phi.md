@@ -1,6 +1,5 @@
 ---
-description: phi-router routing of this session. Add pin to run it on the sealed lane, unpin to clear the pin.
-argument-hint: "[pin | unpin]"
+description: phi-router routing of this session.
 disable-model-invocation: true
 ---
 

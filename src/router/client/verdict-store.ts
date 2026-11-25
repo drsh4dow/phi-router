@@ -8,7 +8,6 @@ type Verdict = "sealed" | "cleared";
 
 interface Summary {
 	readonly cleared: number;
-	readonly pinned: boolean;
 	readonly sealed: number;
 }
 
@@ -28,7 +27,6 @@ type StoreFailed = PlatformError.PlatformError | Schema.SchemaError;
 interface Known {
 	readonly standing: (key: string) => Verdict | "unknown";
 	readonly openWrote: (key: string) => boolean;
-	readonly pinned: boolean;
 }
 
 type Services = FileSystem.FileSystem | Path.Path | UserDirectories.UserDirectories;
@@ -40,7 +38,6 @@ const count = (stored: StoredFile): Summary => {
 
 	return {
 		cleared: Array.countBy(verdicts, (verdict) => verdict === "cleared"),
-		pinned: stored.pinned,
 		sealed: Array.countBy(verdicts, (verdict) => verdict === "sealed"),
 	};
 };
@@ -62,7 +59,6 @@ const knownOf = (stored: StoredFile): Known => {
 
 	return {
 		openWrote: (key) => openWrote.has(key),
-		pinned: stored.pinned,
 		standing: (key) => Option.getOrElse(Record.get(stored.verdicts, key), () => "unknown" as const),
 	};
 };
@@ -99,7 +95,7 @@ const current = (session: string, policy: string): Effect.Effect<StoredFile, Sto
 					return old;
 				}
 
-				return { openWrote: [], pinned: old.pinned, policy, verdicts: {} };
+				return { openWrote: [], pinned: false, policy, verdicts: {} };
 			},
 		}),
 	);
@@ -121,7 +117,6 @@ class VerdictStore extends Context.Service<
 			policy: string,
 			found: readonly (readonly [string, Verdict])[],
 		) => Effect.Effect<void, StoreFailed>;
-		readonly pin: (session: string, policy: string, pinned: boolean) => Effect.Effect<void, StoreFailed>;
 		readonly wrote: (session: string, policy: string, keys: readonly string[]) => Effect.Effect<void, StoreFailed>;
 	}
 >()("phi-router/router/client/verdict-store/VerdictStore") {
@@ -144,7 +139,6 @@ class VerdictStore extends Context.Service<
 				);
 
 			return VerdictStore.of({
-				pin: (session, policy, pinned) => change(session, policy, (now) => Struct.assign(now, { pinned })),
 				read: (session, policy) =>
 					current(session, policy).pipe(Effect.map(knownOf), Effect.provideContext(services)),
 				record: (session, policy, found) => {

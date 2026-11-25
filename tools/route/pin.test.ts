@@ -1,12 +1,12 @@
 import { Array, Effect, Exit, FileSystem, Layer, Path, Schema, String as Str, Struct, pipe } from "effect";
-import type { Post, Turn } from "./mocked-router.ts";
 import { assert, it } from "@effect/vitest";
-import { bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
+import { autoOf, posted, unreadableLeases } from "./target-models.ts";
+import { fakes, laneLines, routed } from "./mocked-router.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { SessionRequests } from "#router/client/router-port/index.ts";
-import type { VerdictStore } from "#router/client/verdict-store.ts";
-import { unreadableLeases } from "./target-models.ts";
+import type { Turn } from "./mocked-router.ts";
+import { pinnedModel } from "#router/features/lanes/index.ts";
 
 const asked = {
 	first: "PIN-FIRST: list the build steps.",
@@ -29,7 +29,7 @@ const marked = [asked.first, replies.first, asked.second, replies.second, asked.
 
 const none = 0;
 
-const afterUnpin: readonly Turn[] = [
+const afterThePinnedStretch: readonly Turn[] = [
 	user(asked.first),
 	assistant(replies.first),
 	user(asked.second),
@@ -37,14 +37,7 @@ const afterUnpin: readonly Turn[] = [
 	user(asked.last),
 ];
 
-const postedIn = Effect.fnUntraced(function* postedIn(post: Post, session: string, turns: readonly Turn[]) {
-	const body = yield* bodyOf(turns);
-	const response = yield* post({ body, session });
-
-	yield* response.text;
-
-	return response.status;
-});
+const piModels = { auto: autoOf.pi, sealed: "sealed" } as const;
 
 const jsonText = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -73,12 +66,6 @@ const onePart = 1;
 
 const portOf = (url: string): number => Number(new URL(url).port);
 
-const pinnedOn = Effect.fnUntraced(function* pinnedOn(url: string, pinned: boolean) {
-	const requests = yield* SessionRequests;
-
-	yield* requests.pin(portOf(url), { pinned, session });
-});
-
 const statusOn = Effect.fnUntraced(function* statusOn(url: string, of: string) {
 	const requests = yield* SessionRequests;
 	const status = yield* requests.status(portOf(url), of);
@@ -88,19 +75,18 @@ const statusOn = Effect.fnUntraced(function* statusOn(url: string, of: string) {
 
 type Shown = Effect.Success<ReturnType<typeof statusOn>>;
 
-const pinnedThenUnpinned = Effect.gen(function* pinnedThenUnpinned() {
-	const { mocks, post, state, url } = yield* routed({ holdsPhi: () => false });
+const sealedThenAuto = Effect.gen(function* sealedThenAuto() {
+	const { mocks, post, state, url } = yield* routed({ harness: "pi", holdsPhi: () => false });
+	const sealed = { harness: "pi", model: piModels.sealed, session } as const;
 
-	yield* pinnedOn(url, true);
-	yield* Effect.forEach(whilePinned, (turns) => postedIn(post, session, turns), { concurrency: 1 });
+	yield* Effect.forEach(whilePinned, (turns) => posted(post, sealed, turns), { concurrency: 1 });
 
 	const whilePinnedSeen = {
 		judged: yield* mocks.judge.received,
 		status: yield* statusOn(url, session),
 	};
 
-	yield* pinnedOn(url, false);
-	yield* postedIn(post, session, afterUnpin);
+	yield* posted(post, { harness: "pi", model: piModels.auto, session }, afterThePinnedStretch);
 
 	const judged = yield* mocks.judge.received;
 	const lines = yield* laneLines(state);
@@ -122,17 +108,17 @@ const pinnedThenUnpinned = Effect.gen(function* pinnedThenUnpinned() {
 	};
 });
 
-const statusOf = (seen: { readonly cleared: number; readonly pinned: boolean; readonly account: string }): Shown => ({
+const statusOf = (seen: { readonly cleared: number; readonly account: string }): Shown => ({
 	accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 	cleared: seen.cleared,
 	last: { account: seen.account, model: fakes.targetModel, substitute: false },
-	pinned: seen.pinned,
+	pinned: false,
 	sealed: none,
 	session,
 });
 
 const pinnedStretch = Effect.gen(function* pinnedStretch() {
-	const seen = yield* pinnedThenUnpinned;
+	const seen = yield* sealedThenAuto;
 
 	assert.deepStrictEqual(seen, {
 		judged: { asked: marked, calls: marked.length },
@@ -141,8 +127,8 @@ const pinnedStretch = Effect.gen(function* pinnedStretch() {
 			["baa", "sealed", "pinned", false, none],
 			["open", "clean", "clean", true, none],
 		],
-		status: statusOf({ account: "open", cleared: marked.length + emptySystemPart, pinned: false }),
-		whilePinned: { judged: none, status: statusOf({ account: "baa", cleared: none, pinned: true }) },
+		status: statusOf({ account: "open", cleared: marked.length + emptySystemPart }),
+		whilePinned: { judged: none, status: statusOf({ account: "baa", cleared: none }) },
 	});
 });
 
@@ -162,70 +148,25 @@ const unreadableRegistry = Effect.gen(function* unreadableRegistry() {
 	const repo = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-repo-" });
 	const listed = yield* routed({ configExtras: { baaRepos: [repo] }, holdsPhi: () => false });
 	const unlisted = yield* routed({ holdsPhi: () => false });
-	const routers = [listed, unlisted];
 
-	yield* Effect.forEach(routers, ({ state }) => unreadableLeases(state), { concurrency: 1 });
-	yield* pinnedOn(listed.url, true);
+	const routers = [
+		{ model: pinnedModel, run: listed },
+		{ model: autoOf.claude, run: unlisted },
+	];
 
-	const statuses = yield* Effect.forEach(routers, ({ post }) => postedIn(post, session, [user(asked.first)]), {
-		concurrency: 1,
-	});
+	yield* Effect.forEach(routers, ({ run }) => unreadableLeases(run.state), { concurrency: 1 });
 
-	const lines = yield* Effect.forEach(routers, ({ state }) => accountsAndReasons(state), { concurrency: 1 });
+	const statuses = yield* Effect.forEach(
+		routers,
+		({ model, run }) => posted(run.post, { harness: "claude", model, session }, [user(asked.first)]),
+		{ concurrency: 1 },
+	);
+
+	const lines = yield* Effect.forEach(routers, ({ run }) => accountsAndReasons(run.state), { concurrency: 1 });
 
 	assert.deepStrictEqual<unknown>(
 		{ lines, statuses },
 		{ lines: [[["baa", "pinned"]], [["open", "clean"]]], statuses: [ok, ok] },
-	);
-});
-
-const unpinnedBeforeTheSend = (real: VerdictStore["Service"]): VerdictStore["Service"] => {
-	const reads = { arrived: false };
-
-	const read: typeof real.read = (pinned, policy) => {
-		if (reads.arrived) {
-			return Effect.andThen(real.pin(pinned, policy, false), real.read(pinned, policy));
-		}
-
-		reads.arrived = true;
-
-		return real.read(pinned, policy);
-	};
-
-	return Struct.assign(real, { read });
-};
-
-const lateUnpin = Effect.gen(function* lateUnpin() {
-	const { mocks, post, state, url } = yield* routed({ holdsPhi: () => false, store: unpinnedBeforeTheSend });
-
-	yield* pinnedOn(url, true);
-	yield* postedIn(post, session, [user(asked.first)]);
-
-	const inFlight = { baa: (yield* mocks.baa.received).length, judged: (yield* mocks.judge.received).length };
-
-	yield* postedIn(post, session, [user(asked.first), assistant(replies.first), user(asked.second)]);
-
-	const lines = yield* laneLines(state);
-
-	assert.deepStrictEqual<unknown>(
-		{
-			inFlight,
-			lines: pipe(
-				lines,
-				Array.map(({ account, reason }) => [account, reason]),
-			),
-			open: (yield* mocks.open.received).length,
-			pinned: (yield* statusOn(url, session)).pinned,
-		},
-		{
-			inFlight: { baa: 1, judged: none },
-			lines: [
-				["baa", "pinned"],
-				["open", "clean"],
-			],
-			open: 1,
-			pinned: false,
-		},
 	);
 });
 
@@ -237,9 +178,15 @@ const fixtures = Effect.gen(function* fixtures() {
 		holdsPhi: () => false,
 	});
 
-	yield* postedIn(post, "fixture-1", [user(ruleSealedFixture)]);
-	yield* postedIn(post, "fixture-2", [user(`${ruleSealedFixture} `)]);
-	yield* postedIn(post, "fixture-3", [user(Str.uncapitalize(ruleSealedFixture))]);
+	yield* Effect.forEach(
+		[
+			["fixture-1", ruleSealedFixture],
+			["fixture-2", `${ruleSealedFixture} `],
+			["fixture-3", Str.uncapitalize(ruleSealedFixture)],
+		],
+		([of = "", text = ""]) => posted(post, { harness: "claude", model: autoOf.claude, session: of }, [user(text)]),
+		{ concurrency: 1 },
+	);
 
 	const judged = yield* mocks.judge.received;
 	const lines = yield* laneLines(state);
@@ -313,16 +260,12 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 	"pin and fixtures",
 	(test) => {
 		test.effect(
-			"a pinned session runs on the BAA account with nothing judged, and after unpin the next request judges the pinned stretch",
+			"pi: requests on phi/sealed run on the BAA account with nothing judged, and the first on phi/auto after them judges the parts they never judged",
 			() => pinnedStretch,
 		);
 		test.effect(
 			"a listed fixture clears with no rule and no judge call, and the same text with one more space or one letter's case changed seals",
 			() => fixtures,
-		);
-		test.effect(
-			"a request pinned on arrival runs on the BAA account with nothing judged when the unpin lands before its send",
-			() => lateUnpin,
 		);
 		test.effect(
 			"an unreadable lease registry fails no request that is pinned or that comes while no BAA repo is listed",

@@ -87,8 +87,6 @@ class Router extends Context.Service<
 	{
 		readonly start: (session: string, folder: string, port: number) => Effect.Effect<void, CommandFailed>;
 		readonly status: Asking<typeof Status.Type>;
-		readonly pin: Asking<void>;
-		readonly unpin: Asking<void>;
 		readonly models: Effect.Effect<typeof ModelsJson.Type, CommandFailed>;
 		readonly setupStep: (answers: Answers) => Effect.Effect<typeof SetupStepJson.Type, CommandFailed>;
 		readonly setUp: (given: SetUp) => Effect.Effect<void, CommandFailed>;
@@ -142,10 +140,6 @@ class Router extends Context.Service<
 
 				const models = Effect.flatMap(run(spelling.models.name, [spelling.models.name]), decodedModels);
 
-				const pin: Asking<void> = (session, port) => Effect.asVoid(asked(spelling.pin.name, session, port));
-
-				const unpin: Asking<void> = (session, port) => Effect.asVoid(asked(spelling.unpin.name, session, port));
-
 				const setupArgs = Effect.fnUntraced(function* setupArgs(flag: string, answers: Answers) {
 					const { answers: answersFlag, name } = spelling.setup;
 
@@ -173,7 +167,7 @@ class Router extends Context.Service<
 					yield* spawning(printed(spelling.setup.name, { args, env, program, shown: given.shown }));
 				});
 
-				return Router.of({ models, pin, setUp, setupStep, start, status, unpin });
+				return Router.of({ models, setUp, setupStep, start, status });
 			}),
 		);
 }

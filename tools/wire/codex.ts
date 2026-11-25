@@ -219,10 +219,7 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 		{ concurrency: 1 },
 	);
 
-	const [phi, { after, handedOff, handing }] = yield* Effect.all(
-		[phiTurns({ clean: run.clean.text, command: resumed, prompt: resumed }), handingOff],
-		{ concurrency: 1 },
-	);
+	const [phi, { after, handedOff, handing }] = yield* Effect.all([phiTurns(resumed), handingOff], { concurrency: 1 });
 
 	const [models, clean] = turns;
 
@@ -245,12 +242,12 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const checks = yield* withCredentialRule(
 		[
 			...codexChecksOf(Struct.assign(left, listing)),
-			...phiChecksOf({ cleanText: run.clean.text, turns: phi }),
+			...phiChecksOf(phi),
 			...subagentChecksOf({ after, handedOff, harness: "codex" }),
 			{
-				name: "codex blocks /phi, /phi pin and /phi unpin in the prompt hook",
+				name: "codex blocks /phi and /phi pin in the prompt hook",
 				ok: pipe(
-					[phi.status, phi.pin, phi.unpin],
+					phi.inOrder,
 					Array.every((turned) => turned.blocked),
 				),
 			},

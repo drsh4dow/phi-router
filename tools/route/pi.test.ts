@@ -5,6 +5,7 @@ import { fakes, jsonText } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Sent as Received } from "#router/client/mock-upstreams/index.ts";
 import type { Turn } from "./mocked-router.ts";
+import { pinnedModel } from "#router/features/lanes/index.ts";
 import { routed } from "./mocked-router.ts";
 
 const canary = "PATIENT-CANARY-3P9W";
@@ -65,11 +66,12 @@ const viewOf = Effect.fnUntraced(function* viewOf(sent: Received) {
 	};
 });
 
-const pointsAtPin = (text: string): boolean => Str.includes("/phi pin")(text) && !Str.includes("subagent")(text);
+const pointsAtSealedModel = (text: string): boolean =>
+	Str.includes(pinnedModel)(text) && !Str.includes("/phi pin")(text) && !Str.includes("subagent")(text);
 
-const pinPointed = Effect.sync(() => {
-	assert.isTrue(pointsAtPin(bridgesFor.pi), "pi's bridge");
-	assert.isTrue(pointsAtPin(stubsFor.pi), "pi's stub");
+const sealedModelPointed = Effect.sync(() => {
+	assert.isTrue(pointsAtSealedModel(bridgesFor.pi), "pi's bridge");
+	assert.isTrue(pointsAtSealedModel(stubsFor.pi), "pi's stub");
 });
 
 const piConversation = Effect.gen(function* piConversation() {
@@ -141,5 +143,8 @@ it.layer(NodeServices.layer)("pi through the router", (test) => {
 		() => unmarked,
 	);
 
-	test.effect("pi's bridge and stub, which the conversation sends, point at /phi pin", () => pinPointed);
+	test.effect(
+		"pi's bridge and stub, which the conversation sends, point at the model phi/sealed",
+		() => sealedModelPointed,
+	);
 });

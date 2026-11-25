@@ -1,11 +1,11 @@
 import { Array, Effect, FileSystem, Stream, Struct, pipe } from "effect";
-import type { LaneLogLine, Post } from "./mocked-router.ts";
 import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
-import { bodyOf, laneLines, routed } from "./mocked-router.ts";
+import { autoOf, clean, leased, posted } from "./target-models.ts";
+import { laneLines, routed } from "./mocked-router.ts";
+import type { LaneLogLine } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
-import type { VerdictStore } from "#router/client/verdict-store.ts";
-import { leased } from "./target-models.ts";
+import { pinnedModel } from "#router/features/lanes/index.ts";
 import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const once = 1;
@@ -21,38 +21,6 @@ const onlyBaa = {
 	received: { baa: [once, once], open: 0 },
 	status: 200,
 };
-
-interface Unpinning {
-	readonly first: () => Said;
-	readonly store: (real: VerdictStore["Service"]) => VerdictStore["Service"];
-}
-
-const unpinnedAfterTheFirstSend = (): Unpinning => {
-	const answered = { yet: false };
-
-	const first = (): Said => {
-		answered.yet = true;
-
-		return failing();
-	};
-
-	const store = (real: VerdictStore["Service"]): VerdictStore["Service"] =>
-		Struct.assign(real, {
-			read: (session: string, policy: string) =>
-				Effect.andThen(real.pin(session, policy, !answered.yet), real.read(session, policy)),
-		});
-
-	return { first, store };
-};
-
-const asked = Effect.fnUntraced(function* asked(post: Post, session: string) {
-	const body = yield* bodyOf([{ role: "user", text: "List the build steps." }]);
-	const response = yield* post({ body, session });
-
-	yield* response.text;
-
-	return response.status;
-});
 
 interface Seen {
 	readonly lines: readonly (readonly string[])[];
@@ -78,10 +46,8 @@ const seenIn = (received: readonly (readonly Sent[])[], lines: readonly LaneLogL
 };
 
 const pinned = Effect.gen(function* pinned() {
-	const { first, store } = unpinnedAfterTheFirstSend();
-	const run = yield* routed({ baas: [first, ok], holdsPhi: () => false, store });
-
-	const status = yield* asked(run.post, "pinned-walk-1");
+	const run = yield* routed(failingFirst);
+	const status = yield* posted(run.post, { harness: "claude", model: pinnedModel, session: "pinned-walk-1" }, [clean]);
 	const received = yield* run.mocks.accounts;
 	const lines = yield* laneLines(run.state);
 	const [, atFirst = [], atSecond = []] = received;
@@ -106,7 +72,7 @@ const inRepo = Effect.gen(function* inRepo() {
 
 	yield* leased(run.state, session, repo);
 
-	const status = yield* asked(run.post, session);
+	const status = yield* posted(run.post, { harness: "claude", model: autoOf.claude, session }, [clean]);
 	const received = yield* run.mocks.accounts;
 	const lines = yield* laneLines(run.state);
 
@@ -114,9 +80,6 @@ const inRepo = Effect.gen(function* inRepo() {
 });
 
 it.layer(NodeServices.layer)("a held request whose first BAA account fails", (test) => {
-	test.effect(
-		"moves to the next BAA account and never to an open one, with the same pinned body, though an unpin lands between the two sends",
-		() => pinned,
-	);
+	test.effect("moves to the next BAA account and never to an open one, with the same pinned body", () => pinned);
 	test.effect("of a BAA repo moves to the next BAA account and never to an open one", () => inRepo);
 });

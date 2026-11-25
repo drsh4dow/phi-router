@@ -91,14 +91,13 @@ const command = (name: string, url: string): readonly string[] => [
 	new URL(url).port,
 ];
 
-const pinnedAcross = Effect.fn("pinnedAcross")(function* pinnedAcross(
+const statusAcross = Effect.fn("statusAcross")(function* statusAcross(
 	runtime: string,
 	env: Readonly<Record<string, string>>,
 ) {
 	const killed = yield* Effect.scoped(
 		Effect.gen(function* firstRouter() {
 			const router = yield* routerProcess([runtime, bundle], env);
-			const pinned = yield* ran(env, runtime, command("pin", router.url));
 
 			yield* posted(router.url, opening);
 
@@ -109,19 +108,14 @@ const pinnedAcross = Effect.fn("pinnedAcross")(function* pinnedAcross(
 			const unanswered = yield* run(env, runtime, command("status", router.url));
 			const named = Str.includes("no router answers there")(`${unanswered.stdout}${unanswered.stderr}`);
 
-			return { pinned, status, unanswered: { exitCode: unanswered.exitCode, named } };
+			return { status, unanswered: { exitCode: unanswered.exitCode, named } };
 		}),
 	);
 
 	const restartedRouter = yield* Effect.scoped(
-		Effect.gen(function* secondRouter() {
-			const router = yield* routerProcess([runtime, bundle], env);
-			const status = yield* ran(env, runtime, command("status", router.url));
-			const unpinned = yield* ran(env, runtime, command("unpin", router.url));
-			const unpinnedStatus = yield* ran(env, runtime, command("status", router.url));
-
-			return { status, unpinned, unpinnedStatus };
-		}),
+		Effect.flatMap(routerProcess([runtime, bundle], env), (router) =>
+			ran(env, runtime, command("status", router.url)),
+		),
 	);
 
 	return { killed, restartedRouter };
@@ -129,12 +123,11 @@ const pinnedAcross = Effect.fn("pinnedAcross")(function* pinnedAcross(
 
 const accounts = '{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]}';
 
-const statusLine = (pinned: boolean): string =>
-	`{"accounts":${accounts},"cleared":0,"last":{"account":"baa","model":"${fakes.targetModel}","substitute":false},"pinned":${String(pinned)},"sealed":0,"session":"restart-1"}\n`;
+const statusLine = `{"accounts":${accounts},"cleared":2,"last":{"account":"open","model":"${fakes.targetModel}","substitute":false},"pinned":false,"sealed":0,"session":"restart-1"}\n`;
 
-const pinnedAcrossKill = {
-	killed: { pinned: "", status: statusLine(true), unanswered: { exitCode: 1, named: true } },
-	restartedRouter: { status: statusLine(true), unpinned: "", unpinnedStatus: statusLine(false) },
+const statusAcrossKill = {
+	killed: { status: statusLine, unanswered: { exitCode: 1, named: true } },
+	restartedRouter: statusLine,
 };
 
 const beforeKill = Effect.fn("beforeKill")(function* beforeKill(
@@ -175,16 +168,16 @@ const restarted = Effect.fn("restarted")(function* restarted(runtime: string) {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the committed bundle", (test) => {
 	test.effect.each(["bun", "node"])(
-		"started with %s, names its platform layer, and pin and status reach the router across a SIGKILL",
+		"started with %s, names its platform layer, and status reaches the router across a SIGKILL",
 		(runtime) =>
 			Effect.gen(function* entry() {
 				const { env } = yield* mocked({ holdsPhi: () => false });
 				const bare = yield* ran(env, runtime, [bundle]);
-				const seen = yield* pinnedAcross(runtime, env);
+				const seen = yield* statusAcross(runtime, env);
 
 				assert.deepStrictEqual(
 					{ bare, seen },
-					{ bare: `phi-router runs on the ${runtime} platform layer\n`, seen: pinnedAcrossKill },
+					{ bare: `phi-router runs on the ${runtime} platform layer\n`, seen: statusAcrossKill },
 				);
 			}),
 		patient,

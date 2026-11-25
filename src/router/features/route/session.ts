@@ -1,10 +1,10 @@
 import type { Accounts, Served } from "#router/client/accounts/index.ts";
 import { Array, Effect, Option, Schema, pipe } from "effect";
 import type { Outgoing, Path } from "#router/client/router-port/index.ts";
-import { PinRequestJson, sessionPaths } from "#router/client/router-port/index.ts";
 import { SessionId, StatusJson } from "#shared/cli.ts";
 import type { Routing } from "./routing.ts";
 import type { Status } from "#shared/cli.ts";
+import { sessionPaths } from "#router/client/router-port/index.ts";
 
 type LaneAccounts = (typeof Status.Type)["accounts"]["clean"];
 
@@ -41,18 +41,6 @@ const sessionRows = ({
 	readonly routing: Routing;
 	readonly served: () => Effect.Effect<Served>;
 }): readonly Path[] => {
-	const pin: Path["answer"] = (incoming) =>
-		Schema.decodeEffect(PinRequestJson)(incoming.body).pipe(
-			Effect.matchEffect({
-				onFailure: () => Effect.succeed(unreadable),
-				onSuccess: ({ pinned, session }) =>
-					routing.store.pin(session, routing.policy, pinned).pipe(
-						Effect.as(answered(statuses.ok, "{}")),
-						Effect.orElseSucceed(() => failed),
-					),
-			}),
-		);
-
 	const status: Path["answer"] = (incoming) =>
 		Option.match(Schema.decodeUnknownOption(SessionId)(incoming.query["session"]), {
 			onNone: () => Effect.succeed(unreadable),
@@ -66,7 +54,7 @@ const sessionRows = ({
 						accounts,
 						cleared: summary.cleared,
 						last: Option.getOrNull(last),
-						pinned: summary.pinned,
+						pinned: false,
 						sealed: summary.sealed,
 						session,
 					});
@@ -75,10 +63,7 @@ const sessionRows = ({
 				}).pipe(Effect.orElseSucceed(() => failed)),
 		});
 
-	return [
-		{ answer: pin, method: "POST", path: sessionPaths.pin },
-		{ answer: status, method: "GET", path: sessionPaths.status },
-	];
+	return [{ answer: status, method: "GET", path: sessionPaths.status }];
 };
 
 export { sessionRows };

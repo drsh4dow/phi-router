@@ -53,83 +53,76 @@ const blockedWith = Effect.fnUntraced(function* blockedWith(
 	return Str.split(reason, "\n");
 });
 
-const usage = "/phi shows this session's routing, /phi pin pins it to the sealed lane, /phi unpin clears the pin.";
+const usage =
+	"/phi shows this session's routing. To run work on the BAA account, hand it to the phi-sealed subagent or switch the model to phi/sealed.";
 
-const statusLines = (pin: string): readonly string[] => [
+const statusLines = [
 	`phi-router, session ${session}`,
-	`Pin: ${pin}`,
 	"Last request: none yet",
 	"Messages: 0 sealed, 0 cleared",
 	"Clean lane: open",
 	"Sealed lane: baa",
 ];
 
-const pinnedAt = Effect.fnUntraced(function* pinnedAt(url: string) {
-	const requests = yield* SessionRequests;
-	const status = yield* requests.status(Number(new URL(url).port), session);
-
-	return status.pinned;
-});
+const addressOf = (port: number): string => `http://127.0.0.1:${String(port)}`;
 
 interface Spelling {
 	readonly harness: Harness;
 	readonly prompt: string;
-	readonly lines: readonly string[];
-	readonly pinned: boolean;
 }
 
-const pins = { off: "off", on: "on, every request runs on the sealed lane" } as const;
-
-const spelled = (harness: Harness, prompt: string, pin: keyof typeof pins): Spelling => ({
-	harness,
-	lines: statusLines(pins[pin]),
-	pinned: pin === "on",
-	prompt,
-});
-
-const spellings: readonly Spelling[] = [
-	spelled("claude", "/phi", "off"),
-	spelled("claude", "/phi pin", "on"),
-	spelled("claude", "/phi-router:phi unpin", "off"),
-	spelled("claude", "/phi-router:phi pin", "on"),
-	spelled("claude", "/phi  unpin ", "off"),
-	spelled("codex", "phi pin", "on"),
-	spelled("codex", "phi", "on"),
-	spelled("codex", "/phi unpin", "off"),
+const statusSpellings: readonly Spelling[] = [
+	{ harness: "claude", prompt: "/phi" },
+	{ harness: "claude", prompt: "/phi-router:phi" },
+	{ harness: "codex", prompt: "phi" },
+	{ harness: "codex", prompt: "/phi" },
 ];
 
-const answers = Effect.gen(function* answers() {
-	const world = yield* setUp;
+const usageSpellings: readonly Spelling[] = [
+	{ harness: "claude", prompt: "/phi pin" },
+	{ harness: "claude", prompt: "/phi-router:phi pin" },
+	{ harness: "claude", prompt: "/phi  unpin " },
+	{ harness: "claude", prompt: "/phi pinned" },
+	{ harness: "codex", prompt: "phi pin" },
+	{ harness: "codex", prompt: "/phi unpin" },
+];
 
-	const answered = yield* Effect.forEach(
+const answered = Effect.fnUntraced(function* answered(world: World, address: string, spellings: readonly Spelling[]) {
+	return yield* Effect.forEach(
 		spellings,
-		({ harness, prompt }) =>
-			Effect.map(
-				Effect.zip(blockedWith(world, { address: world.routerUrl, harness, prompt }), pinnedAt(world.routerUrl)),
-				([lines, pinned]) => ({
-					harness,
-					lines,
-					pinned,
-					prompt,
-				}),
+		(spelling) =>
+			Effect.map(blockedWith(world, Struct.assign(spelling, { address })), (lines) =>
+				Struct.assign(spelling, { lines }),
 			),
 		{ concurrency: 1 },
 	);
+});
 
-	assert.deepStrictEqual(answered, spellings);
-}).pipe(Effect.scoped);
-
-const unknownWords = Effect.gen(function* unknownWords() {
+const answers = Effect.gen(function* answers() {
 	const world = yield* setUp;
-	const lines = yield* blockedWith(world, { address: world.routerUrl, harness: "claude", prompt: "/phi pinned" });
-	const pinned = yield* pinnedAt(world.routerUrl);
+	const deadPort = yield* freePort;
+	const statuses = yield* answered(world, world.routerUrl, statusSpellings);
+	const usages = yield* answered(world, addressOf(deadPort), usageSpellings);
 
-	assert.deepStrictEqual({ lines, pinned }, { lines: [usage], pinned: false });
+	assert.deepStrictEqual(
+		{ statuses, usages },
+		{
+			statuses: pipe(
+				statusSpellings,
+				Array.map((spelling) => Struct.assign(spelling, { lines: statusLines })),
+			),
+			usages: pipe(
+				usageSpellings,
+				Array.map((spelling) => Struct.assign(spelling, { lines: [usage] })),
+			),
+		},
+	);
 }).pipe(Effect.scoped);
 
 const otherPrompts = [
 	"say hi",
 	"phi is short for protected health information",
+	"phi unpin",
 	"phi pinned",
 	"/phinx",
 	"Explain /phi pin to me.",
@@ -147,17 +140,12 @@ const passes = Effect.fnUntraced(function* passes(harness: Harness) {
 		},
 	);
 
-	const pinned = yield* pinnedAt(world.routerUrl);
-
 	assert.deepStrictEqual(
-		{ hooked, pinned },
-		{
-			hooked: pipe(
-				otherPrompts,
-				Array.map(() => ({ exitCode: 0, stderr: "", stdout: "" })),
-			),
-			pinned: false,
-		},
+		hooked,
+		pipe(
+			otherPrompts,
+			Array.map(() => ({ exitCode: 0, stderr: "", stdout: "" })),
+		),
 	);
 }, Effect.scoped);
 
@@ -171,22 +159,20 @@ const unanswered = (asked: {
 
 const noRouter = "no router answers there";
 
-const addressOf = (port: number): string => `http://127.0.0.1:${String(port)}`;
-
 const down = Effect.gen(function* down() {
 	const world = yield* setUp;
 	const port = yield* freePort;
 	const quiet = yield* silent;
 	const stalledPort = Number(new URL(quiet.endpoint).port);
 	const status = yield* blockedWith(world, { address: addressOf(port), harness: "claude", prompt: "/phi" });
-	const pinned = yield* blockedWith(world, { address: addressOf(port), harness: "codex", prompt: "phi pin" });
+	const bare = yield* blockedWith(world, { address: addressOf(port), harness: "codex", prompt: "phi" });
 	const stalled = yield* blockedWith(world, { address: addressOf(stalledPort), harness: "claude", prompt: "/phi" });
 	const unrouted = yield* blockedWith(world, { harness: "claude", prompt: "/phi" });
 
 	assert.deepStrictEqual(
-		{ pinned, stalled, status, unrouted },
+		{ bare, stalled, status, unrouted },
 		{
-			pinned: unanswered({ command: "pin", port, why: noRouter }),
+			bare: unanswered({ command: "status", port, why: noRouter }),
 			stalled: unanswered({
 				command: "status",
 				port: stalledPort,
@@ -237,11 +223,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, SessionReques
 	"the plugin's /phi hook",
 	(test) => {
 		test.effect(
-			"answers /phi, /phi pin and /phi unpin in each spelling either harness passes, blocks the prompt, and sets the pin",
+			"answers /phi with the status and /phi with words with the usage, in each spelling either harness passes, blocks the prompt, and asks no router for the usage",
 			() => answers,
 			patient,
 		);
-		test.effect("answers unknown words with the usage and changes no pin", () => unknownWords, patient);
 		test.effect.each(["claude", "codex"] as const)(
 			"for %s, lets every other prompt pass and prints nothing",
 			passes,
