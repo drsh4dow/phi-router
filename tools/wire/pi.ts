@@ -110,7 +110,7 @@ const piPlay = Effect.fnUntraced(function* piPlay(run: Run) {
 
 	const played = Struct.assign(Struct.assign(left, install), {
 		clock: yield* stampClockIn(state),
-		overflow: phi.overflow,
+		overflow: Struct.assign(phi.overflow, { session: second }),
 		routerBefore,
 		routerStopped: Option.isSome(stoppedWithin),
 		verdictStoreFiles,
