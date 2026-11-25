@@ -10,16 +10,6 @@ chmod 600 "$CODEX_HOME/auth.json"
 printf '\n[projects."%s"]\ntrust_level = "trusted"\n' "$ROOT/work" >>"$CODEX_HOME/config.toml"
 
 typed() { screen | grep -F '›' | tail -1 | grep -qF -- "$(printf %.30s "$1")"; }
-say() {
-	tm send-keys -t codex -l "$1"
-	sleep 1
-	for _ in 1 2 3 4 5; do
-		tm send-keys -t codex Enter
-		sleep 3
-		typed "$1" || return 0
-	done
-	fail "codex kept $1 in its input box"
-}
 approved() {
 	waits 'Would you like to run the following command?' 60 || return 1
 	shot approval

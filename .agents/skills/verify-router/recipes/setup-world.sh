@@ -73,6 +73,16 @@ applied() {
 	done
 }
 router() { curl -s -o /dev/null -m 1 http://127.0.0.1:47411/; }
+say() {
+	tm send-keys -t "$harness" -l "$1"
+	sleep 1
+	for _ in 1 2 3 4 5; do
+		tm send-keys -t "$harness" Enter
+		sleep 3
+		typed "$1" || return 0
+	done
+	fail "$harness kept $1 in its input box"
+}
 
 readme='Install phi-router for your harness by following its SETUP.md in https://github.com/drsh4dow/phi-router/blob/main/SETUP.md'
 
