@@ -49,7 +49,7 @@ In the `sealed` account, replace `keyFile` with `keyCommand`, a command that pri
 }
 ```
 
-Then delete the key file, `phi-router/keys/anthropic` in your config folder, or `keys/openai` for Codex. The `judge` block takes `keyCommand` in place of `keyFile` the same way.
+The `judge` block takes `keyCommand` in place of `keyFile` the same way. Then delete the key file, `phi-router/keys/anthropic` in your config folder, or `keys/openai` for Codex. On Codex the `judge` block names `keys/openai` too, so change it first.
 
 ## Keep the key in an environment variable
 
