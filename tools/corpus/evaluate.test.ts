@@ -156,16 +156,16 @@ const sealedThenStubbed = Effect.gen(function* sealedThenStubbed() {
 	const shown = pipe(
 		sent,
 		Array.map((each) => ({
-			canary: each.lane === "clean" && Str.includes("canary-sealed")(each.openAccountBody),
-			lane: each.lane,
-			stub: each.lane === "clean" && Str.includes(stubs.sealed)(each.openAccountBody),
+			canary: Str.includes("canary-sealed")(each.openAccountBody),
+			sealing: each.sealing,
+			stub: Str.includes(stubs.sealed)(each.openAccountBody),
 		})),
 	);
 
 	assert.deepStrictEqual(shown, [
-		{ canary: false, lane: "clean", stub: false },
-		{ canary: false, lane: "sealed", stub: false },
-		{ canary: false, lane: "clean", stub: true },
+		{ canary: false, sealing: false, stub: false },
+		{ canary: false, sealing: true, stub: true },
+		{ canary: false, sealing: false, stub: true },
 	]);
 });
 
@@ -180,7 +180,7 @@ const leakAtFirstShowing = Effect.gen(function* leakAtFirstShowing() {
 		overRouted: 0,
 		requests: 2,
 	});
-	assert.deepStrictEqual(report.lanes, { clean: 7, sealed: 1 });
+	assert.deepStrictEqual(report.requests, { clean: 7, sealing: 1 });
 });
 
 const splitApart = Effect.gen(function* splitApart() {
@@ -243,11 +243,11 @@ const syntheticListed = Effect.gen(function* syntheticListed() {
 	const unlisted = yield* played(noSynthetic);
 
 	assert.deepStrictEqual(
-		[exact.lanes, prefixed.lanes, unlisted.lanes],
+		[exact.requests, prefixed.requests, unlisted.requests],
 		[
-			{ clean: 1, sealed: 0 },
-			{ clean: 1, sealed: 0 },
-			{ clean: 0, sealed: 1 },
+			{ clean: 1, sealing: 0 },
+			{ clean: 1, sealing: 0 },
+			{ clean: 0, sealing: 1 },
 		],
 	);
 });
@@ -256,12 +256,12 @@ it.layer(Layer.mergeAll(Layer.succeed(Judge, judge), Digest.layerWebCrypto))("ev
 	test.effect("the leak-rate bound is the exact one-sided Clopper-Pearson 95% upper limit", () => boundsHold);
 
 	test.effect(
-		"a sealed tool result goes to the sealed lane, and play returns to the clean lane without its canary in the guarded view",
+		"a sealed tool result reaches the open account as a stub, on its request and every later one, and never its canary",
 		() => sealedThenStubbed,
 	);
 
 	test.effect(
-		"a canary the judge clears is a leak at the request that first shows it, and a clean case stays on the clean lane",
+		"a canary the judge clears is a leak at the request that first shows it, and a clean case seals nothing",
 		() => leakAtFirstShowing,
 	);
 
@@ -277,7 +277,7 @@ it.layer(Layer.mergeAll(Layer.succeed(Judge, judge), Digest.layerWebCrypto))("ev
 	test.effect("a planted fragment on an open account is reported, never a leak", () => fragmentShown);
 
 	test.effect(
-		"the corpus's exact test identities reach the engine, so a case holding only them stays on the clean lane",
+		"the corpus's exact test identities reach the engine, so a case holding only them seals nothing",
 		() => syntheticListed,
 	);
 });

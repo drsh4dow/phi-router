@@ -1,7 +1,6 @@
 import { Array, Number as Num, Option, Struct, pipe } from "effect";
 import { Carrier, Entry, Identifier, Negative, Transform } from "./manifest.ts";
 import type { Case, PhiCase, PhiStrata } from "./manifest.ts";
-import type { Lane } from "#router/features/lanes/index.ts";
 import type { Seen } from "./seen.ts";
 import type { Tracked } from "./canary-tokens.ts";
 import type { Usage } from "#router/client/judge/index.ts";
@@ -12,9 +11,10 @@ interface Decided {
 	readonly sealedByJudgeFailure: number;
 }
 
-type Sent =
-	| (Decided & { readonly lane: "clean"; readonly openAccountBody: string })
-	| (Decided & { readonly lane: "sealed" });
+interface Sent extends Decided {
+	readonly openAccountBody: string;
+	readonly sealing: boolean;
+}
 
 interface Played {
 	readonly case: Case;
@@ -110,7 +110,7 @@ interface Report {
 		readonly onSealed: number;
 	}[];
 	readonly fragments: { readonly cases: number; readonly shown: number };
-	readonly lanes: Readonly<Record<Lane, number>>;
+	readonly requests: { readonly clean: number; readonly sealing: number };
 	readonly judge: typeof Usage.Type & { readonly failures: number };
 }
 
@@ -122,13 +122,7 @@ const seenOf = ({ sent, tracked }: Played, upTo: number): Seen => {
 	const open = pipe(
 		sent,
 		Array.take(upTo),
-		Array.flatMap((each) => {
-			if (each.lane === "clean") {
-				return [each.openAccountBody];
-			}
-
-			return [];
-		}),
+		Array.map((each) => each.openAccountBody),
 	);
 
 	return seenOn({ baa: [], open, tracked });
@@ -196,7 +190,7 @@ const strataOf = (scored: readonly Shown[]): Report["strata"] =>
 		),
 	);
 
-const isSealed = ({ lane }: Sent): boolean => lane === "sealed";
+const isSealed = ({ sealing }: Sent): boolean => sealing;
 
 const overRoutingOf = (clean: readonly Played[]): Report["overRouting"] =>
 	pipe(
@@ -258,12 +252,12 @@ const reportOf = (played: readonly Played[]): Report => {
 	return {
 		fragments: fragmentsOf(played),
 		judge: judgeOf(sent),
-		lanes: {
+		requests: {
 			clean: pipe(
 				sent,
 				Array.countBy((each) => !isSealed(each)),
 			),
-			sealed: pipe(sent, Array.countBy(isSealed)),
+			sealing: pipe(sent, Array.countBy(isSealed)),
 		},
 		leaks: pipe(phi, Array.flatMap(Struct.get("leak"))),
 		overRouting: overRoutingOf(

@@ -1,15 +1,14 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Stream, Struct, pipe } from "effect";
-import type { LaneLogLine, Post, Turn } from "./mocked-router.ts";
-import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
+import type { LaneLogLine, Post, Received, Said, Turn } from "./mocked-router.ts";
 import { assert, it } from "@effect/vitest";
 import { beta, bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
 import { headersNamed, jsonText } from "./harnesses.ts";
 import { Base64 } from "effect/encoding";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
+import { bodyFor } from "./target-models.ts";
 import { judgeLimits } from "#router/features/policy/index.ts";
 import { stubsFor } from "#router/features/border/index.ts";
-import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-7Q4K";
 
@@ -20,17 +19,17 @@ const none = 0;
 const status = { ok: 200, rateLimited: 429, unreadable: 400 } as const;
 
 const turns = {
+	answered: { role: "assistant", text: "noted" },
 	clean: { role: "user", text: "List the build steps." },
 	cleared: { role: "assistant", text: "ok" },
 	followUp: { role: "user", text: "Go on." },
 	phi: { role: "user", text: `Member ${canary} called.` },
-	sealedReply: { role: "assistant", text: "noted" },
 } as const satisfies Record<string, Turn>;
 
 const conversation: readonly (readonly Turn[])[] = [
 	[turns.clean],
 	[turns.clean, turns.cleared, turns.phi],
-	[turns.clean, turns.cleared, turns.phi, turns.sealedReply, turns.followUp],
+	[turns.clean, turns.cleared, turns.phi, turns.answered, turns.followUp],
 ];
 
 const canaryMessageIndex = 2;
@@ -43,7 +42,7 @@ const Body = Schema.fromJsonString(Schema.Struct({ messages: Schema.Array(Messag
 
 const shown = ["anthropic-beta", "authorization", "b3", "traceparent", "x-api-key", "x-not-carried"];
 
-const viewOf = Effect.fnUntraced(function* viewOf(sent: Sent) {
+const viewOf = Effect.fnUntraced(function* viewOf(sent: Received) {
 	const { messages, model } = yield* Schema.decodeEffect(Body)(sent.body);
 
 	const atPhi = pipe(
@@ -55,17 +54,28 @@ const viewOf = Effect.fnUntraced(function* viewOf(sent: Sent) {
 	return { atPhi, canary: holdsCanary(sent.body), headers: headersNamed(shown)(sent.headers), model };
 });
 
-const noted = (): Said => ({ events: Stream.fromIterable(textEvents([turns.sealedReply.text])), kind: "events" });
-
 const postedIn = Effect.fnUntraced(function* postedIn(
 	post: Post,
-	request: { readonly session: string; readonly turns: readonly Turn[] },
+	request: { readonly session: string; readonly turns: readonly Turn[]; readonly pinnedByLine?: boolean },
 ) {
-	const body = yield* bodyOf(request.turns);
+	const body = yield* bodyFor(
+		{ harness: "claude", model: "phi/auto", pinnedByLine: request.pinnedByLine === true },
+		request.turns,
+	);
+
 	const response = yield* post({ body, session: request.session });
 	const text = yield* response.text;
 
 	return { status: response.status, text };
+});
+
+const stubbedIn = Effect.fnUntraced(function* stubbedIn(opened: readonly Received[], text: string) {
+	const stub = yield* jsonText(stubsFor.claude);
+
+	return pipe(
+		opened,
+		Array.map(({ body }) => ({ stubbed: Str.includes(stub)(body), text: Str.includes(text)(body) })),
+	);
 });
 
 type Line = Omit<LaneLogLine, "judgeCost" | "time">;
@@ -80,40 +90,26 @@ const lineOf = (account: string, lane: Line["lane"], reason: Line["reason"]): Li
 	substitute: false,
 });
 
+const openSent = {
+	canary: false,
+	headers: { "anthropic-beta": beta, authorization: `Bearer ${fakes.harnessToken}` },
+	model: fakes.targetModel,
+};
+
 const expectedConversation = {
-	baa: [
-		{
-			atPhi: Option.some(turns.phi.text),
-			canary: true,
-			headers: { "anthropic-beta": "fine-grained-tool-streaming-2025-05-14", "x-api-key": fakes.baaKey },
-			model: fakes.targetModel,
-		},
-	],
+	baa: [],
 	breaches: [],
-	lines: [
-		lineOf("open", "clean", "clean"),
-		lineOf("baa", "sealed", "sealed new content"),
-		lineOf("open", "clean", "clean"),
-	],
+	lines: [lineOf("open", "clean", "clean"), lineOf("open", "clean", "clean"), lineOf("open", "clean", "clean")],
 	open: [
-		{
-			atPhi: Option.none(),
-			canary: false,
-			headers: { "anthropic-beta": beta, authorization: `Bearer ${fakes.harnessToken}` },
-			model: fakes.targetModel,
-		},
-		{
-			atPhi: Option.some(stubsFor.claude),
-			canary: false,
-			headers: { "anthropic-beta": beta, authorization: `Bearer ${fakes.harnessToken}` },
-			model: fakes.targetModel,
-		},
+		Struct.assign(openSent, { atPhi: Option.none() }),
+		Struct.assign(openSent, { atPhi: Option.some(stubsFor.claude) }),
+		Struct.assign(openSent, { atPhi: Option.some(stubsFor.claude) }),
 	],
 	statuses: [status.ok, status.ok, status.ok],
 };
 
 const lanes = Effect.gen(function* lanes() {
-	const { breaches, mocks, post, state } = yield* routed({ baa: noted, holdsPhi: holdsCanary });
+	const { breaches, mocks, post, state } = yield* routed({ holdsPhi: holdsCanary });
 
 	const statuses = yield* Effect.forEach(
 		conversation,
@@ -149,9 +145,9 @@ const failingJudge = Effect.gen(function* failingJudge() {
 		Array.map((line) => ({ failed: line.judgeFailures > none, lane: line.lane })),
 	);
 
-	assert.deepStrictEqual(
-		{ failures, opened, status: answer.status },
-		{ failures: [{ failed: true, lane: "sealed" }], opened: [], status: status.ok },
+	assert.deepStrictEqual<unknown>(
+		{ failures, opened: yield* stubbedIn(opened, turns.clean.text), status: answer.status },
+		{ failures: [{ failed: true, lane: "clean" }], opened: [{ stubbed: true, text: false }], status: status.ok },
 	);
 });
 
@@ -175,6 +171,7 @@ const sealedUnasked = Effect.fnUntraced(function* sealedUnasked({ text }: (typeo
 	const answer = yield* postedIn(post, { session: "lanes-6", turns: [{ role: "user", text }] });
 	const judged = yield* mocks.judge.received;
 	const lines = yield* laneLines(state);
+	const opened = yield* mocks.open.received;
 
 	assert.deepStrictEqual<unknown>(
 		{
@@ -183,9 +180,15 @@ const sealedUnasked = Effect.fnUntraced(function* sealedUnasked({ text }: (typeo
 				lines,
 				Array.map(({ judgeFailures, lane }) => ({ judgeFailures, lane })),
 			),
+			opened: yield* stubbedIn(opened, text),
 			status: answer.status,
 		},
-		{ judged: none, lines: [{ judgeFailures: none, lane: "sealed" }], status: status.ok },
+		{
+			judged: none,
+			lines: [{ judgeFailures: none, lane: "clean" }],
+			opened: [{ stubbed: true, text: false }],
+			status: status.ok,
+		},
 	);
 });
 
@@ -225,6 +228,12 @@ const replyKeysIn = Effect.fnUntraced(function* replyKeysIn(state: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const folder = path.join(state, "sessions");
+	const stored = yield* fs.exists(folder);
+
+	if (!stored) {
+		return [];
+	}
+
 	const files = yield* fs.readDirectory(folder);
 
 	return yield* Effect.forEach(
@@ -243,7 +252,7 @@ const sealedReplyKeys = Effect.fnUntraced(function* sealedReplyKeys({ block }: O
 	const { mocks, post, state } = yield* routed({ baa: saying(baaReply), holdsPhi: holdsCanary });
 	const phi = { content: [{ text: turns.phi.text, type: "text" }], role: "user" };
 
-	const first = yield* postedIn(post, { session: "lanes-5", turns: [turns.phi] });
+	const first = yield* postedIn(post, { pinnedByLine: true, session: "lanes-5", turns: [turns.phi] });
 	const kept = yield* replyKeysIn(state);
 
 	const echoed = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))({
@@ -274,7 +283,7 @@ const sealedReplyKeys = Effect.fnUntraced(function* sealedReplyKeys({ block }: O
 			),
 			statuses: [first.status, next.status],
 		},
-		{ kept: [[]], opaqueAtJudge: false, opaqueAtOpen: [false], statuses: [status.ok, status.ok] },
+		{ kept: [], opaqueAtJudge: false, opaqueAtOpen: [false], statuses: [status.ok, status.ok] },
 	);
 });
 
@@ -286,7 +295,7 @@ const accountErrors = Effect.gen(function* accountErrors() {
 		holdsPhi: holdsCanary,
 	});
 
-	const answer = yield* postedIn(post, { session: "lanes-3", turns: [turns.phi] });
+	const answer = yield* postedIn(post, { pinnedByLine: true, session: "lanes-3", turns: [turns.phi] });
 	const open = yield* mocks.open.received;
 
 	assert.deepStrictEqual({ answer, open }, { answer: { status: status.rateLimited, text: limited }, open: [] });
@@ -307,18 +316,24 @@ const noSession = Effect.gen(function* noSession() {
 
 it.layer(NodeServices.layer)("the lanes over HTTP", (test) => {
 	test.effect(
-		"clean goes open as the harness sent it, a canary goes to the BAA account, and the follow-up carries the stub",
+		"clean goes open as the harness sent it, and a canary and its follow-up go open with the stub in its place",
 		() => lanes,
 	);
-	test.effect("a judge that fails seals the request and shows in the lane log", () => failingJudge);
+	test.effect(
+		"a judge that fails seals the part, which the open account gets as the stub, and shows in the lane log",
+		() => failingJudge,
+	);
 	test.effect.each(unasked)(
-		"$name seals the request with no judge call and no judge failure on its lane log line",
+		"$name seals the part, which the open account gets as the stub, with no judge call and no judge failure on its lane log line",
 		sealedUnasked,
 	);
 	test.effect.each(opaqueBlocks)(
-		"a completed BAA reply adds no reply key, and its $name reaches neither the judge nor the open account",
+		"a completed BAA reply to a pinned request adds no reply key, and its $name reaches neither the judge nor the open account",
 		sealedReplyKeys,
 	);
-	test.effect("the last BAA account's error answer passes to the harness unchanged", () => accountErrors);
+	test.effect(
+		"the last BAA account's error answer to a pinned request passes to the harness unchanged",
+		() => accountErrors,
+	);
 	test.effect("a request with no session header gets 400, with no upstream call", () => noSession);
 });

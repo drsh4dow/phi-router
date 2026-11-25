@@ -214,8 +214,8 @@ const fixtures = Effect.gen(function* fixtures() {
 			judged: 0,
 			lines: [
 				["open", "clean"],
-				["baa", "sealed new content"],
-				["baa", "sealed new content"],
+				["open", "clean"],
+				["open", "clean"],
 			],
 		},
 	);

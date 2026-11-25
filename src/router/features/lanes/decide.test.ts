@@ -1,14 +1,13 @@
-import { Array, Effect, String as Str, pipe } from "effect";
+import { Array, Effect, Equal, String as Str, pipe } from "effect";
 import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import { assert, it } from "@effect/vitest";
+import type { ToolsNotCleared } from "#router/features/border/index.ts";
 import { guard, stubsFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
-import type { Lane } from "./index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { Verdicts } from "#router/features/verdicts/index.ts";
 import { decide } from "./index.ts";
-import { partsOf } from "#router/features/parts/index.ts";
 
 const patient = "Canary Fakesmith";
 
@@ -67,7 +66,10 @@ const opening = [system, asked("Why does the admissions import drop rows?")];
 
 interface Session {
 	readonly lookup: Lookup;
-	readonly send: (messages: readonly Message[], judge?: Judge["Service"]) => Effect.Effect<Lane, never, Digest.Digest>;
+	readonly send: (
+		messages: readonly Message[],
+		judge?: Judge["Service"],
+	) => Effect.Effect<number, ToolsNotCleared, Digest.Digest>;
 }
 
 const sessionOf = (): Session => {
@@ -77,11 +79,11 @@ const sessionOf = (): Session => {
 	const send = (
 		messages: readonly Message[],
 		judge: Judge["Service"] = answering,
-	): Effect.Effect<Lane, never, Digest.Digest> =>
+	): Effect.Effect<number, ToolsNotCleared, Digest.Digest> =>
 		pipe(
 			decide({ lookup, messages }),
 			Effect.provideService(Judge, judge),
-			Effect.map(({ found, laneAt }) => {
+			Effect.map(({ found }) => {
 				for (const [key, verdict] of found) {
 					const sealed = Verdicts.$is("Sealed")(verdict);
 
@@ -93,9 +95,9 @@ const sessionOf = (): Session => {
 						book.set(key, "cleared");
 					}
 				}
-
-				return laneAt(lookup);
 			}),
+			Effect.flatMap(() => guard({ harness: "claude", lookup, messages })),
+			Effect.map((view) => Array.countBy(Array.zip(view, messages), ([seen, sent]) => !Equal.equals(seen, sent))),
 		);
 
 	return { lookup, send };
@@ -116,7 +118,7 @@ const ssnResult = Effect.gen(function* ssnResult() {
 	const after = yield* session.send(next);
 	const view = yield* guard({ harness: "claude", lookup: session.lookup, messages: next });
 
-	assert.deepStrictEqual([...lanes, after], ["clean", "sealed", "clean"]);
+	assert.deepStrictEqual([...lanes, after], [0, 1, 1]);
 	assert.deepStrictEqual(view, [...opening, ranCat, catOutput(stubsFor.claude), ...done]);
 });
 
@@ -126,7 +128,7 @@ const repeated = Effect.gen(function* repeated() {
 	const after = yield* session.send(next);
 	const reread = yield* session.send([...next, ranCat, catOutput(ssnRecord)]);
 
-	assert.deepStrictEqual([retried, after, reread], ["sealed", "clean", "sealed"]);
+	assert.deepStrictEqual([retried, after, reread], [1, 1, 2]);
 });
 
 const judged = Effect.gen(function* judged() {
@@ -134,14 +136,19 @@ const judged = Effect.gen(function* judged() {
 	const clean = yield* session.send([...opening, ranCat, catOutput("export const x = 1;")]);
 	const flagged = yield* session.send([...opening, ranCat, catOutput(syntheticChart)]);
 
-	assert.deepStrictEqual([clean, flagged], ["clean", "sealed"]);
+	assert.deepStrictEqual([clean, flagged], [0, 1]);
 });
 
 const historySeals = Effect.gen(function* historySeals() {
 	const session = sessionOf();
-	const lane = yield* session.send([system, asked(syntheticChart), reply("other", "Done."), asked("Now add a test.")]);
+	const stubbed = yield* session.send([
+		system,
+		asked(syntheticChart),
+		reply("other", "Done."),
+		asked("Now add a test."),
+	]);
 
-	assert.strictEqual(lane, "sealed");
+	assert.strictEqual(stubbed, 1);
 });
 
 const afterSeal = Effect.gen(function* afterSeal() {
@@ -150,7 +157,7 @@ const afterSeal = Effect.gen(function* afterSeal() {
 	const sealed = yield* session.send(read);
 	const after = yield* session.send([...read, reply("other", "Done."), asked("Now add a test.")]);
 
-	assert.deepStrictEqual([sealed, after], ["sealed", "clean"]);
+	assert.deepStrictEqual([sealed, after], [1, 1]);
 });
 
 const quoted = Effect.gen(function* quoted() {
@@ -163,7 +170,7 @@ const quoted = Effect.gen(function* quoted() {
 	const lanes = [yield* session.send(read), yield* session.send(asking), yield* session.send(later)];
 	const view = yield* guard({ harness: "codex", lookup: session.lookup, messages: later });
 
-	assert.deepStrictEqual(lanes, ["sealed", "sealed", "clean"]);
+	assert.deepStrictEqual(lanes, [1, 2, 2]);
 	assert.deepStrictEqual(view, [
 		...opening,
 		ranCat,
@@ -179,65 +186,21 @@ const judgeFails = Effect.gen(function* judgeFails() {
 	const failed = yield* session.send(opening, failing);
 	const next = yield* session.send([...opening, reply("other", "Sorry, try again."), asked("Thanks.")]);
 
-	assert.deepStrictEqual([failed, next], ["sealed", "clean"]);
-});
-
-const sealing = (message: Message): Effect.Effect<Lookup, never, Digest.Digest> =>
-	Effect.map(partsOf(message), (parts) => (key) => {
-		if (
-			pipe(
-				parts,
-				Array.some((part) => part.key === key),
-			)
-		) {
-			return "sealed";
-		}
-
-		return "cleared";
-	});
-
-const sealedMeanwhile = Effect.gen(function* sealedMeanwhile() {
-	const earlier = asked("Why does the admissions import drop rows?");
-	const latest = asked("Now add a test.");
-	const historySealed = yield* sealing(earlier);
-	const newSealed = yield* sealing(latest);
-
-	const { laneAt } = yield* decide({
-		lookup: () => "unknown",
-		messages: [system, earlier, reply("other", "Done."), latest],
-	}).pipe(Effect.provideService(Judge, answering));
-
-	assert.deepStrictEqual(
-		[laneAt(() => "cleared"), laneAt(historySealed), laneAt(newSealed)],
-		["clean", "clean", "sealed"],
-	);
+	assert.deepStrictEqual([failed, next], [2, 2]);
 });
 
 it.layer(Digest.layerWebCrypto)("decide", (test) => {
 	test.effect(
-		"a tool result with a valid SSN goes sealed, and the next request clean with that result stubbed",
+		"a tool result with a valid SSN seals, and the open account sees it as a stub from then on",
 		() => ssnResult,
 	);
-	test.effect("a retry of a sealed request and a repeated read of the sealed content go sealed", () => repeated);
-	test.effect("a tool result the judge flags goes sealed, and a clean one stays clean", () => judged);
+	test.effect("a repeated read of sealed content seals again and reaches the open account as a stub", () => repeated);
+	test.effect("a tool result the judge flags is stubbed, and a clean one passes", () => judged);
+	test.effect("a never-judged history that seals is stubbed, though the new content is clean", () => historySeals);
+	test.effect("a reply right after sealed content is judged beside its stub and passes", () => afterSeal);
 	test.effect(
-		"a request whose never-judged history seals goes sealed, though its new content is clean",
-		() => historySeals,
-	);
-	test.effect(
-		"a reply right after sealed content is judged beside its stub, so the next request goes clean",
-		() => afterSeal,
-	);
-	test.effect(
-		"a reply that repeats a line of sealed content goes sealed, though the judge clears it alone",
+		"a reply that repeats a line of sealed content is stubbed, though the judge clears it alone",
 		() => quoted,
 	);
-	test.effect(
-		"a failed judgment seals only its piece: the request goes sealed and the next one clean",
-		() => judgeFails,
-	);
-	test.effect(
-		"a request judged clean goes sealed when its new content is stored sealed before the send, and history does not",
-		() => sealedMeanwhile,
-	);
+	test.effect("a failed judgment stubs only its pieces, and later content passes", () => judgeFails);
 });

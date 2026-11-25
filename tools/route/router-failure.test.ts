@@ -36,17 +36,12 @@ const text = (said: string): readonly { readonly text: string; readonly type: "t
 	{ text: said, type: "text" },
 ];
 
-const turns = {
-	asked: { content: text("Which tools do you have?"), role: "user" },
-	followUp: { content: text("Use none of them."), role: "user" },
-	reply: { content: text("ok"), role: "assistant" },
-} as const;
+const asked = { content: text("Which tools do you have?"), role: "user" } as const;
 
 const postedWithTools = Effect.fnUntraced(function* postedWithTools(
 	post: Effect.Success<ReturnType<typeof routed>>["post"],
-	messages: readonly (typeof turns)[keyof typeof turns][],
 ) {
-	const body = yield* jsonText({ max_tokens: 1024, messages, model: "phi/auto", stream: true, tools });
+	const body = yield* jsonText({ max_tokens: 1024, messages: [asked], model: "phi/auto", stream: true, tools });
 	const response = yield* post({ body, session: "tools-1" });
 
 	yield* response.text;
@@ -64,8 +59,7 @@ const unknownCacheControlKey = {
 const toolsSealed = Effect.gen(function* toolsSealed() {
 	const { post, state } = yield* routed({ holdsPhi: Str.includes(canary), judge: namesKind });
 
-	yield* postedWithTools(post, [turns.asked]);
-	yield* postedWithTools(post, [turns.asked, turns.reply, turns.followUp]);
+	yield* postedWithTools(post);
 
 	const stray = yield* post({ body: yield* jsonText(unknownCacheControlKey), session: "cache-1" });
 
@@ -79,7 +73,6 @@ const toolsSealed = Effect.gen(function* toolsSealed() {
 			Array.map(({ account, lane, model, reason }) => [account, lane, model, reason]),
 		),
 		[
-			["baa", "sealed", fakes.targetModel, "sealed new content"],
 			["baa", "sealed", fakes.targetModel, "router failure"],
 			["baa", "sealed", fakes.targetModel, "router failure"],
 		],
@@ -135,7 +128,7 @@ it.layer(NodeServices.layer)("a lane log the router cannot write", (test) => {
 
 it.layer(NodeServices.layer)("a clean body the router cannot build", (test) => {
 	test.effect(
-		"runs sealed and its line says router failure, for a clean follow-up whose sealed tool list cannot be stubbed or a block with a cache_control key the codec does not know",
+		"runs sealed and its line says router failure, for a request whose sealed tool list cannot be stubbed or a block with a cache_control key the codec does not know",
 		() => toolsSealed,
 	);
 });

@@ -38,8 +38,8 @@ const unwalked = (of: { readonly arrival: Arrived; readonly walk: Walk }): Walke
 	const { arrival, walk } = of;
 	const models = modelsAt(of);
 
-	if (arrival.choice.kind === "pinned") {
-		const send = Struct.assign(models.sealed, { reason: arrival.choice.by });
+	if (Option.isSome(arrival.pinned)) {
+		const send = Struct.assign(models.sealed, { reason: arrival.pinned.value });
 
 		return { send, start: current(sealedOnly(walk)), stops: [] };
 	}

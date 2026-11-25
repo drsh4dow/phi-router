@@ -23,12 +23,7 @@ const decide = Effect.fn("decide")(function* decide({
 	readonly messages: readonly Message[];
 	readonly lookup: Lookup;
 }) {
-	const pieces = yield* piecesOf({ messages, sealed: (key) => lookup(key) === "sealed" });
-
-	const judged = pipe(
-		pieces,
-		Array.map(({ piece }) => piece),
-	);
+	const judged = yield* piecesOf({ messages, sealed: (key) => lookup(key) === "sealed" });
 
 	const verdicts = yield* verdictsFor(judged, (key) => lookup(key) !== "unknown");
 
@@ -50,19 +45,7 @@ const decide = Effect.fn("decide")(function* decide({
 		),
 	);
 
-	const laneAt = (now: Lookup): Lane =>
-		laneOf(
-			pipe(
-				found,
-				Array.some(([, verdict]) => isSealed(verdict)),
-			) ||
-				pipe(
-					pieces,
-					Array.some(({ own, piece }) => own && now(piece.key) === "sealed"),
-				),
-		);
-
-	return { found, laneAt, usage: verdicts.usage };
+	return { found, usage: verdicts.usage };
 });
 
 const LaneChoice = Context.Reference<typeof decide>("phi-router/router/features/lanes/LaneChoice", {

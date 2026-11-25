@@ -6,9 +6,9 @@ import { postedIn, routed } from "./mocked-router.ts";
 import { replyMessage, replying, userMessage } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
-import type { VerdictStore } from "#router/client/verdict-store.ts";
+import { pinnedByModel } from "./target-models.ts";
 
-const status = { ok: 200, refused: 502, unauthorized: 401, unreadable: 400 } as const;
+const status = { ok: 200, rateLimited: 429, refused: 502, unauthorized: 401, unreadable: 400 } as const;
 
 const minute = 60_000;
 
@@ -32,9 +32,9 @@ const unreadable = (): Said => ({
 	status: status.unreadable,
 });
 
-const refusedOn = 3;
-
 const refusedFirst = 2;
+
+const limited = (): Said => ({ body: "{}", kind: "status", status: status.rateLimited });
 
 const thinks = (): Said => replying([reasoning, answer]);
 
@@ -62,26 +62,12 @@ const inTurn = (turns: readonly [() => Said, ...(() => Said)[]]): InTurn => {
 	};
 };
 
-const sealedOnce =
-	(sealed: () => boolean): ((real: VerdictStore["Service"]) => VerdictStore["Service"]) =>
-	(real: VerdictStore["Service"]): VerdictStore["Service"] =>
-		Struct.assign(real, {
-			read: (session: string, policy: string) =>
-				Effect.map(real.read(session, policy), (known) => {
-					if (!sealed()) {
-						return known;
-					}
-
-					return Struct.assign(known, { standing: () => "sealed" as const });
-				}),
-		});
-
 const resendsAfterRule7 = Effect.gen(function* resendsAfterRule7() {
 	yield* TestClock.setTime(start);
 
 	const open = yield* loggedIn("codex", dayLong);
 	const baa = yield* loggedIn("codex", { ends: start + thirtyDays, expires: start + minute });
-	const opening = inTurn([thinks, unauthorized, unreadable]);
+	const opening = inTurn([thinks, unauthorized, unreadable, limited]);
 
 	const { mocks, post } = yield* routed({
 		baa: inTurn([unauthorized, answers]).script,
@@ -91,7 +77,6 @@ const resendsAfterRule7 = Effect.gen(function* resendsAfterRule7() {
 		open: opening.script,
 		openFolder: open.folder,
 		routerEnv: { PATH: `${open.bin}:/usr/bin:/bin` },
-		store: sealedOnce(() => opening.asked() >= refusedOn),
 	});
 
 	yield* postedIn(post, "logins-codex", [userMessage("Think.")]);
@@ -109,7 +94,7 @@ const resendsAfterRule7 = Effect.gen(function* resendsAfterRule7() {
 	assert.deepStrictEqual<unknown>(
 		{ opened: bearersOf(opened), ran: yield* open.ran, sealed: bearersOf(sealed), second },
 		{
-			opened: [`Bearer ${first}`, `Bearer ${first}`, `Bearer ${renewed}`],
+			opened: [`Bearer ${first}`, `Bearer ${first}`, `Bearer ${renewed}`, `Bearer ${renewed}`],
 			ran: "run\nrun\nrun\n",
 			sealed: [`Bearer ${renewed}`, `Bearer ${renewed}`],
 			second: status.ok,
@@ -207,11 +192,11 @@ const lastRefusedTwice = Effect.gen(function* lastRefusedTwice() {
 	const { mocks, post } = yield* routed({
 		baa: unauthorized,
 		baaFolder: baa.folder,
-		holdsPhi: () => true,
+		holdsPhi: () => false,
 		routerEnv: { PATH: `${baa.bin}:/usr/bin:/bin` },
 	});
 
-	const response = yield* post({ body: claudeBody, session: "logins-claude" });
+	const response = yield* post({ body: pinnedByModel(claudeBody), session: "logins-claude" });
 	const text = yield* response.text;
 	const [opened = [], sealed = []] = yield* mocks.accounts;
 
@@ -228,7 +213,7 @@ const lastRefusedTwice = Effect.gen(function* lastRefusedTwice() {
 
 it.layer(NodeServices.layer)("a login-folder account", (test) => {
 	test.effect(
-		"reached sealed by the reasoning resend after an open 401, makes its login fit before its first send, and answered 401 resends there once",
+		"reached by overflow when the reasoning resend after an open 401 gets 429, makes its login fit before its first send, and answered 401 resends there once",
 		() => resendsAfterRule7,
 	);
 	test.effect(
@@ -239,5 +224,8 @@ it.layer(NodeServices.layer)("a login-folder account", (test) => {
 		"of codex whose login ends before the reasoning resend sends the request to the next account and warns with the command that fixes it",
 		() => endedBeforeResend,
 	);
-	test.effect("as the last BAA account answered 401 twice, gets 502 naming that account", () => lastRefusedTwice);
+	test.effect(
+		"as the last BAA account answered 401 twice to a pinned request, gets 502 naming that account",
+		() => lastRefusedTwice,
+	);
 });

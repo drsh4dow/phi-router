@@ -19,12 +19,7 @@ const messages: readonly Message[] = [
 const clears = 0.1;
 
 const plainRequest = Effect.gen(function* plainRequest() {
-	const parts = yield* piecesOf({ messages });
-
-	const pieces = pipe(
-		parts,
-		Array.map(({ piece }) => piece),
-	);
+	const pieces = yield* piecesOf({ messages });
 
 	const keys = pipe(
 		pieces,
@@ -56,7 +51,7 @@ const chart = "Patient Canary Fakesmith, SSN 078-05-1120";
 const question = "why does this fail?";
 
 const fixtureBlock = Effect.gen(function* fixtureBlock() {
-	const parts = yield* piecesOf({
+	const pieces = yield* piecesOf({
 		messages: [
 			{
 				content: [
@@ -67,11 +62,6 @@ const fixtureBlock = Effect.gen(function* fixtureBlock() {
 			},
 		],
 	});
-
-	const pieces = pipe(
-		parts,
-		Array.map(({ piece }) => piece),
-	);
 
 	const { judge, asked } = scripted({ score: () => clears });
 

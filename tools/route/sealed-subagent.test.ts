@@ -1,7 +1,17 @@
-import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bridgesFor, stubsFor } from "#router/features/border/index.ts";
-import { clean, harnessNames, holdsCanary, linesIn, modelsIn, phi, posted, sentModels } from "./target-models.ts";
+import {
+	clean,
+	harnessNames,
+	holdsCanary,
+	linesIn,
+	modelsIn,
+	phi,
+	pinnedModelOf,
+	posted,
+	sentModels,
+} from "./target-models.ts";
 import { fakes, laneLines, routed } from "./mocked-router.ts";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import type { HarnessName } from "./target-models.ts";
@@ -15,8 +25,6 @@ const vendorOf: Readonly<Record<HarnessName, keyof typeof fakes.sealedModel>> = 
 	codex: "openai",
 	pi: "anthropic",
 };
-
-const pinnedModelOf: Readonly<Record<HarnessName, string>> = { claude: pinnedModel, codex: pinnedModel, pi: "sealed" };
 
 const ok = 200;
 
@@ -140,6 +148,8 @@ const pinnedByLine = Effect.fnUntraced(function* pinnedByLine(harness: "claude" 
 
 const session = "parent-1";
 
+const beforeTheAnswer = 1;
+
 const callId = "toolu_subagent";
 
 const askedParent: Json = {
@@ -191,12 +201,6 @@ const answerJudged = Effect.gen(function* answerJudged() {
 	const stub = yield* jsonText(stubsFor.claude);
 	const stubbedResult = `{"tool_use_id":"${callId}","type":"tool_result","content":${stub}}`;
 
-	const last = pipe(
-		Array.last(opened),
-		Option.map(Struct.get("body")),
-		Option.getOrElse(() => ""),
-	);
-
 	assert.deepStrictEqual<unknown>(
 		{
 			canaryOpened: pipe(
@@ -207,17 +211,21 @@ const answerJudged = Effect.gen(function* answerJudged() {
 				lines,
 				Array.map(({ account, reason }) => [account, reason]),
 			),
-			stubbed: Str.includes(stubbedResult)(last),
+			stubbed: pipe(
+				opened,
+				Array.drop(beforeTheAnswer),
+				Array.map(({ body }) => Str.includes(stubbedResult)(body)),
+			),
 		},
 		{
 			canaryOpened: false,
 			lines: [
 				["open", "clean"],
 				["baa", "pinned"],
-				["baa", "sealed new content"],
+				["open", "clean"],
 				["open", "clean"],
 			],
-			stubbed: true,
+			stubbed: [true, true],
 		},
 	);
 });
@@ -232,7 +240,7 @@ it.layer(NodeServices.layer)("the pinned subagent", (test) => {
 		pinnedByLine,
 	);
 	test.effect(
-		"the parent asks on the open account and its pinned subagent runs on the BAA account; the subagent's answer that holds a canary, back as a tool result, is sealed in the parent session, and the parent's next open request carries the stub in place of it",
+		"the parent asks on the open account and its pinned subagent runs on the BAA account; the subagent's answer that holds a canary, back as a tool result, is sealed in the parent session, and each later parent request reaches the open account with the stub in place of it",
 		() => answerJudged,
 	);
 });

@@ -148,7 +148,7 @@ const overRoutingTable = (report: Report): string => {
 };
 
 const render = (report: Report): string => {
-	const { judge, lanes, fragments } = report;
+	const { judge, requests, fragments } = report;
 
 	return Array.join(
 		[
@@ -159,12 +159,12 @@ const render = (report: Report): string => {
 			"",
 			splitTable(report),
 			"",
-			"Over-routing: clean cases with any request on the sealed lane, and clean requests on the sealed lane",
+			"Over-sealing: clean cases with any request that sealed a part, and clean requests that sealed one",
 			overRoutingTable(report),
 			"",
 			`in-policy positive cases ${String(inPolicyCases(report))}: leaked ${String(report.leaks.length)}`,
 			`fragments: ${String(fragments.cases)} cases showed an open account ${String(fragments.shown)} fragments or split parts, none a leak`,
-			`requests: clean lane ${String(lanes.clean)}, sealed lane ${String(lanes.sealed)}`,
+			`requests: ${String(requests.clean)} sealed no part, ${String(requests.sealing)} sealed one or more`,
 			`judge calls ${String(judge.calls)}, input tokens ${String(judge.inputTokens)}, cost ${dollars(judge.cost)}, pieces sealed by a judge failure ${String(judge.failures)}`,
 		],
 		"\n",

@@ -1,13 +1,14 @@
-import { Array, Effect, Fiber, FileSystem, Path, Schedule, Schema, String as Str, Stream, Struct, pipe } from "effect";
+import { Array, Effect, Fiber, FileSystem, Path, Schedule, Schema, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, laneLines, routed } from "./mocked-router.ts";
 import type { AccountScript } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { TestClock } from "effect/testing";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
+import { bodyFor } from "./target-models.ts";
+import { harnesses } from "./harnesses.ts";
 import { homeOf } from "#router/features/accounts/index.ts";
 import { silent } from "./resetting.ts";
-import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 const badGateway = 502;
 
@@ -46,7 +47,7 @@ const linesIn = Effect.fnUntraced(function* linesIn(state: string) {
 	);
 });
 
-const answers: AccountScript = () => ({ events: Stream.fromIterable(textEvents(["ok"])), kind: "events" });
+const answers: AccountScript = harnesses.claude.answersOk.open;
 
 const failing: AccountScript = () => ({ body: "{}", kind: "status", status: 500 });
 
@@ -118,7 +119,11 @@ const noneAnswered = Effect.gen(function* noneAnswered() {
 const sealedEnded = Effect.gen(function* sealedEnded() {
 	const baaFolder = yield* endedLogin;
 	const { mocks, post, state } = yield* routed({ baaFolder, holdsPhi: () => true });
-	const body = yield* bodyOf([{ role: "user", text: "Member 4411 called." }]);
+
+	const body = yield* bodyFor({ harness: "claude", model: "phi/auto", pinnedByLine: true }, [
+		{ role: "user", text: "Member 4411 called." },
+	]);
+
 	const response = yield* post({ body, session: "sealed-ended-1" });
 	const text = yield* response.text;
 	const opened = yield* mocks.open.received;
@@ -131,7 +136,7 @@ const sealedEnded = Effect.gen(function* sealedEnded() {
 			opened: opened.length,
 			status: response.status,
 		},
-		{ fix: true, lines: [["baa", "sealed", "sealed new content"]], opened: 0, status: badGateway },
+		{ fix: true, lines: [["baa", "sealed", "pinned"]], opened: 0, status: badGateway },
 	);
 });
 
@@ -167,8 +172,14 @@ const sealedPastEnded = Effect.gen(function* sealedPastEnded() {
 	const lines = yield* linesIn(state);
 
 	assert.deepStrictEqual(
-		{ lines, sealed: sealed.length },
-		{ lines: [["baa", "sealed", "sealed new content"]], sealed: 1 },
+		{
+			lines,
+			raw: pipe(
+				sealed,
+				Array.map(({ body: sent }) => Str.includes("4411")(sent)),
+			),
+		},
+		{ lines: [["baa", "sealed", "overflow"]], raw: [false] },
 	);
 });
 
@@ -233,12 +244,12 @@ it.layer(NodeServices.layer)("a request's one lane log line", (test) => {
 		() => noneAnswered,
 	);
 	test.effect(
-		"names the BAA account whose login ended when a sealed request has no other and fails, and the 502 answer gives its login command",
+		"names the BAA account whose login ended when a pinned request has no other and fails, and the 502 answer gives its login command",
 		() => sealedEnded,
 	);
 	test.effect("says failover when the home account's login ended and the next open account answers", () => homeEnded);
 	test.effect(
-		"names no failover when a sealed request moves past an open account whose login ended without trying it",
+		"names overflow and not failover when a request moves past an open account whose login ended without trying it, and the BAA account gets its clean body",
 		() => sealedPastEnded,
 	);
 	test.effect(

@@ -63,15 +63,14 @@ const sentOf = Effect.fn("sentOf")(function* sentOf(messages: readonly Message[]
 		Array.filter(([, verdict]) => isFailure(verdict)),
 	).length;
 
-	const lane = decision.laneAt(book.lookup);
-
-	if (lane === "sealed") {
-		return { lane, sealedByJudgeFailure: failures, usage: decision.usage } satisfies Sent;
-	}
+	const sealing = pipe(
+		decision.found,
+		Array.some(([, verdict]) => Verdicts.$is("Sealed")(verdict)),
+	);
 
 	const body = yield* guardedBody(messages, book.lookup);
 
-	return { lane, openAccountBody: body, sealedByJudgeFailure: failures, usage: decision.usage } satisfies Sent;
+	return { openAccountBody: body, sealedByJudgeFailure: failures, sealing, usage: decision.usage } satisfies Sent;
 });
 
 const play = Effect.fn("play")(function* play(subject: Case) {

@@ -156,7 +156,7 @@ it.layer(Digest.layerWebCrypto)("piecesOf context", (test) => {
 			assert.deepStrictEqual(
 				pipe(
 					Array.last(pieces),
-					Option.map(({ piece }) => piece.context),
+					Option.map(({ context }) => context),
 				),
 				Option.some(['[tool call] read({"path":"notes/admissions.csv"})']),
 			);
@@ -176,7 +176,7 @@ it.layer(Digest.layerWebCrypto)("piecesOf context", (test) => {
 			assert.deepStrictEqual(
 				pipe(
 					Array.last(pieces),
-					Option.map(({ piece }) => piece.context),
+					Option.map(({ context }) => context),
 				),
 				Option.some([`[tool call] ${stubs.sealed}`, `[assistant] ${stubs.sealed}`, `[user] ${stubs.sealed}`]),
 			);
@@ -198,7 +198,7 @@ it.layer(Digest.layerWebCrypto)("piecesOf context", (test) => {
 				assert.deepStrictEqual(
 					pipe(
 						pieces,
-						Array.map(({ piece }) => piece.seam.text),
+						Array.map(({ seam }) => seam.text),
 					),
 					["", "", "member 4471, ssn 412-56-78", "", "", "", ""],
 				);
@@ -206,23 +206,17 @@ it.layer(Digest.layerWebCrypto)("piecesOf context", (test) => {
 	);
 });
 
-it.layer(Digest.layerWebCrypto)("piecesOf ownership", (test) => {
-	test.effect("own content starts at the last assistant message, and replies are open only from an open account", () =>
-		Effect.gen(function* ownContent() {
+it.layer(Digest.layerWebCrypto)("piecesOf kinds", (test) => {
+	test.effect("replies are open only from an open account", () =>
+		Effect.gen(function* kinds() {
 			const pieces = yield* piecesOf({ messages: twoTurns });
 
 			assert.deepStrictEqual(
 				pipe(
 					pieces,
-					Array.map(({ own, piece }) => [own, piece.kind]),
+					Array.map(({ kind }) => kind),
 				),
-				[
-					[false, "user"],
-					[false, "reply-other"],
-					[false, "user"],
-					[true, "reply-open"],
-					[true, "tool-result"],
-				],
+				["user", "reply-other", "user", "reply-open", "tool-result"],
 			);
 		}),
 	);

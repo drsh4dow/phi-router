@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Logger, Option, Struct, pipe } from "effect";
+import { Array, Effect, Logger, Option, Struct, pipe } from "effect";
 import type { Lifetime, Vendor } from "./login-fixture.ts";
 import { assert, it } from "@effect/vitest";
 import { claudeRequest, routed } from "./mocked-router.ts";
@@ -7,13 +7,13 @@ import { day, dayLong, loggedIn, logins, start, thirtyDays, warnings } from "./l
 import type { AccountScript } from "./harnesses.ts";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
-import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 import { credentialHolders } from "#tools/cli/accounts-run.ts";
+import { pinnedByModel } from "./target-models.ts";
 
 const minute = 60_000;
 
-const status = { badGateway: 502, ok: 200, unauthorized: 401 } as const;
+const status = { badGateway: 502, ok: 200, rateLimited: 429, unauthorized: 401 } as const;
 
 const dayBeforeStart = "2026-05-27";
 
@@ -24,9 +24,9 @@ const bodies = {
 	codex: codexBodyOf([userMessage("Go on.")]),
 };
 
-const sealing = `sed -i 's/"cleared"/"sealed"/g' "$(cat "$(dirname "$0")/state")/sessions/bG9naW5zLWNsYXVkZQ.json"`;
-
-const bearersOf = Array.map(({ headers }: Sent) => headers["authorization"]);
+const bearersOf = Array.map(
+	({ headers }: { readonly headers: Readonly<Record<string, string>> }) => headers["authorization"],
+);
 
 type Answering = (vendor: Vendor) => AccountScript;
 
@@ -172,11 +172,13 @@ const lastEnded = Effect.gen(function* lastEnded() {
 
 	const warned = warnings();
 
-	const { post } = yield* routed({ baaFolder: baa.folder, holdsPhi: () => true }).pipe(
+	const { post } = yield* routed({ baaFolder: baa.folder, holdsPhi: () => false }).pipe(
 		Effect.provideService(Logger.CurrentLoggers, warned.loggers),
 	);
 
-	const response = yield* bodies.claude.pipe(Effect.flatMap((body) => post({ body, session: "logins-last" })));
+	const response = yield* bodies.claude.pipe(
+		Effect.flatMap((body) => post({ body: pinnedByModel(body), session: "logins-last" })),
+	);
 
 	yield* response.text;
 
@@ -248,32 +250,45 @@ const harnessKey = Effect.gen(function* harnessKey() {
 	);
 });
 
-const resendsOnEachAccount = Effect.gen(function* resendsOnEachAccount() {
-	const fs = yield* FileSystem.FileSystem;
+const refusesThenLimits = (): AccountScript => {
+	const asked = { once: false };
 
+	return () => {
+		if (asked.once) {
+			return { body: "{}", kind: "status", status: status.rateLimited };
+		}
+
+		asked.once = true;
+
+		return { body: "{}", kind: "status", status: status.unauthorized };
+	};
+};
+
+const resendsOnEachAccount = Effect.gen(function* resendsOnEachAccount() {
 	yield* TestClock.setTime(start);
 
-	const open = yield* loggedIn("claude", Struct.assign(dayLong, { standInRuns: sealing }));
+	const open = yield* loggedIn("claude", dayLong);
 	const baa = yield* loggedIn("claude", dayLong);
 
-	const { mocks, post, state } = yield* routed({
+	const { mocks, post } = yield* routed({
 		baa: refusesFirst("claude"),
 		baaFolder: baa.folder,
 		holdsPhi: () => false,
-		open: refusesFirst("claude"),
+		open: refusesThenLimits(),
 		openFolder: open.folder,
 		routerEnv: { PATH: `${open.bin}:/usr/bin:/bin` },
 	});
 
-	yield* fs.writeFileString(`${open.bin}/state`, state);
-
 	const response = yield* bodies.claude.pipe(Effect.flatMap((body) => post({ body, session: "logins-claude" })));
 	const [opened = [], sealed = []] = yield* mocks.accounts;
-	const resent = [`Bearer ${baa.tokens.first}`, `Bearer ${baa.tokens.renewed}`];
 
 	assert.deepStrictEqual<unknown>(
 		[response.status, bearersOf(opened), bearersOf(sealed)],
-		[status.ok, [`Bearer ${open.tokens.first}`], resent],
+		[
+			status.ok,
+			[`Bearer ${open.tokens.first}`, `Bearer ${open.tokens.renewed}`],
+			[`Bearer ${baa.tokens.first}`, `Bearer ${baa.tokens.renewed}`],
+		],
 	);
 });
 
@@ -295,7 +310,7 @@ it.layer(NodeServices.layer)("a login-folder account", (test) => {
 		() => ended,
 	);
 	test.effect(
-		"of claude, the last account a sealed request has, whose login ended answers 502 and warns once",
+		"of claude, the last account a pinned request has, whose login ended answers 502 and warns once",
 		() => lastEnded,
 	);
 	test.effect(
@@ -304,7 +319,7 @@ it.layer(NodeServices.layer)("a login-folder account", (test) => {
 	);
 	test.effect("of claude sends its own token and never the harness's x-api-key", () => harnessKey);
 	test.effect(
-		"answered 401 twice, once open and once BAA after the resend went sealed, resends to each once",
+		"answered 401 twice, once open and once BAA after the open resend got 429, resends to each once",
 		() => resendsOnEachAccount,
 	);
 });

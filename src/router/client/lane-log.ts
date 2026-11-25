@@ -16,16 +16,7 @@ import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { appendPrivately } from "./private-file.ts";
 
-const Reasons = Schema.Literals([
-	"clean",
-	"sealed new content",
-	"pinned",
-	"BAA repo",
-	"title",
-	"failover",
-	"overflow",
-	"router failure",
-]);
+const Reasons = Schema.Literals(["clean", "pinned", "BAA repo", "title", "failover", "overflow", "router failure"]);
 
 type Reason = typeof Reasons.Type;
 

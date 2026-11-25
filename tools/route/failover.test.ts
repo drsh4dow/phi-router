@@ -8,6 +8,7 @@ import { NodeServices } from "@effect/platform-node";
 import type { Said } from "#router/client/mock-upstreams/index.ts";
 import { TestClock } from "effect/testing";
 import { homeOf } from "#router/features/accounts/index.ts";
+import { pinnedByModel } from "./target-models.ts";
 import { resetting } from "./resetting.ts";
 import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
@@ -22,8 +23,6 @@ const tags = ["request-1", "request-2", "request-3"] as const;
 const [one, two, three] = tags;
 
 const clean = (tag: string): Turn => ({ role: "user", text: `List the build steps, ${tag}.` });
-
-const phi: Turn = { role: "user", text: `Member ${canary} called, ${one}.` };
 
 const tagsOf = (accounts: readonly (readonly { readonly body: string }[])[]): readonly (readonly string[])[] =>
 	pipe(
@@ -69,6 +68,15 @@ const posted = Effect.fnUntraced(function* posted(post: Post, session: string, t
 	const text = yield* response.text;
 
 	return { status: response.status, text };
+});
+
+const pinnedPosted = Effect.fnUntraced(function* pinnedPosted(post: Post, session: string, turns: readonly Turn[]) {
+	const body = yield* bodyOf(turns);
+	const response = yield* post({ body: pinnedByModel(body), session });
+
+	yield* response.text;
+
+	return response.status;
 });
 
 const stamped = Effect.gen(function* stamped() {
@@ -193,22 +201,22 @@ const afterFirstByte = Effect.gen(function* afterFirstByte() {
 const sealedWalk = Effect.gen(function* sealedWalk() {
 	const fs = yield* FileSystem.FileSystem;
 	const walking = yield* routed({ baas: [limited, ok], holdsPhi: holdsCanary });
-	const walked = yield* posted(walking.post, "failover-4", [phi]);
+	const walked = yield* pinnedPosted(walking.post, "failover-4", [clean(one)]);
 	const walkedTo = yield* walking.mocks.accounts;
 	const stampsWritten = yield* fs.exists(`${walking.state}/accounts.json`);
 	const allFailing = yield* routed({ baas: [failing, failing], holdsPhi: holdsCanary });
-	const failed = yield* posted(allFailing.post, "failover-5", [phi]);
+	const failed = yield* pinnedPosted(allFailing.post, "failover-5", [clean(one)]);
 	const lines = yield* laneLines(allFailing.state);
 	const failedAt = yield* allFailing.mocks.accounts;
 
 	assert.deepStrictEqual<unknown>(
 		{
-			failed: [failed.status, tagsOf(failedAt)],
+			failed: [failed, tagsOf(failedAt)],
 			lines: pipe(
 				lines,
 				Array.map(({ account, reason }) => [account, reason]),
 			),
-			walked: [walked.status, tagsOf(walkedTo), stampsWritten],
+			walked: [walked, tagsOf(walkedTo), stampsWritten],
 		},
 		{
 			failed: [status.failed, [[], [one], [one]]],
@@ -347,7 +355,7 @@ it.layer(NodeServices.layer)("several accounts per lane", (test) => {
 		() => afterFirstByte,
 	);
 	test.effect(
-		"a canary request walks the BAA accounts in order and never an open one: the second answers when the first gives 429, which stamps no BAA account, and when all give 500 the last 500 passes and the one lane log line names the last account, for failover",
+		"a pinned request walks the BAA accounts in order and never an open one: the second answers when the first gives 429, which stamps no BAA account, and when all give 500 the last 500 passes and the one lane log line names the last account, for failover",
 		() => sealedWalk,
 	);
 	test.effect("each session keeps its home account, and the sessions spread over both open accounts", () => homes);

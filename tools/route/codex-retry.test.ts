@@ -1,10 +1,12 @@
 import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
 import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
-import { codexBodyOf, replyMessage, replying, userMessage } from "./harnesses.ts";
+import { codexBodyOf, jsonText, replyMessage, replying, userMessage } from "./harnesses.ts";
 import { laneLines, postedIn, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
+import { pinnedByModel } from "./target-models.ts";
+import { stubsFor } from "#router/features/border/index.ts";
 
 const canary = "PATIENT-CANARY-2W6N";
 
@@ -139,7 +141,7 @@ const sealedRefusal = Effect.gen(function* sealedRefusal() {
 	});
 
 	const body = yield* codexBodyOf([userMessage(`Member ${canary} called.`)]);
-	const response = yield* post({ body, session: "retry-2" });
+	const response = yield* post({ body: pinnedByModel(body), session: "retry-2" });
 	const text = yield* response.text;
 	const sealed = yield* mocks.baa.received;
 
@@ -186,15 +188,31 @@ const resentSealed = Effect.gen(function* resentSealed() {
 
 	yield* response.text;
 
+	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
 	const lines = yield* laneLines(state);
+	const stub = yield* jsonText(stubsFor.codex);
+
 	assert.deepStrictEqual(
 		{
 			last: Array.last(lines).pipe(Option.map(({ account, lane, reason }) => [account, lane, reason])),
+			opened: pipe(
+				opened,
+				Array.map(({ body }) => ({ asked: Str.includes("Go on.")(body), stubbed: Str.includes(stub)(body) })),
+			),
 			sealed: sealed.length,
 			status: response.status,
 		},
-		{ last: Option.some(["baa", "sealed", "failover"]), sealed: 1, status: status.ok },
+		{
+			last: Option.some(["open", "clean", "clean"]),
+			opened: [
+				{ asked: false, stubbed: false },
+				{ asked: true, stubbed: false },
+				{ asked: false, stubbed: true },
+			],
+			sealed: none,
+			status: status.ok,
+		},
 	);
 });
 
@@ -203,9 +221,9 @@ it.layer(NodeServices.layer)("an open account that cannot read the reasoning", (
 	test.effect("refusing twice, the harness gets the second refusal", () => refusedTwice);
 	test.effect("with no reasoning to drop, the refusal passes to the harness with no second send", () => nothingToDrop);
 	test.effect("another 400 passes to the harness as it came, with no second send", () => otherRefusal);
-	test.effect("a BAA account's refusal is never sent again", () => sealedRefusal);
+	test.effect("a BAA account's refusal of a pinned request is never sent again", () => sealedRefusal);
 	test.effect(
-		"gets the second send on the BAA account when the session is sealed meanwhile, and the line names that account",
+		"builds the second send from the session as it stands, so a part sealed meanwhile reaches the open account as the stub",
 		() => resentSealed,
 	);
 });

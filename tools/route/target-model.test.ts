@@ -5,6 +5,7 @@ import { fakes, jsonText } from "./harnesses.ts";
 import type { HarnessName } from "./target-models.ts";
 import { NodeServices } from "@effect/platform-node";
 import { routed } from "./mocked-router.ts";
+import { stubsFor } from "#router/features/border/index.ts";
 
 const ok = 200;
 
@@ -78,20 +79,21 @@ const judgedUnderEach = Effect.fnUntraced(function* judgedUnderEach(harness: Har
 
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
+	const stub = yield* jsonText(stubsFor[harness]);
 
 	assert.deepStrictEqual<unknown>(
 		{
 			each,
-			opened: opened.length,
-			sealed: pipe(
-				sealed,
-				Array.map(({ body }) => holdsCanary(body)),
+			opened: pipe(
+				opened,
+				Array.map(({ body }) => ({ canary: holdsCanary(body), stubbed: Str.includes(stub)(body) })),
 			),
+			sealed: sealed.length,
 		},
 		{
 			each: Array.replicate({ judged: true, status: ok }, asked.length),
-			opened: 0,
-			sealed: Array.replicate(true, asked.length),
+			opened: Array.replicate({ canary: false, stubbed: true }, asked.length),
+			sealed: 0,
 		},
 	);
 });
@@ -102,7 +104,7 @@ it.layer(NodeServices.layer)("a request's target model", (test) => {
 		keptClean,
 	);
 	test.effect.each(harnessNames)(
-		"%s: a canary request under each of five model names adds judge calls that hold the canary, runs sealed, and never reaches the open account",
+		"%s: a canary request under each of five model names adds judge calls that hold the canary, and reaches the open account with the stub in place of the canary and nothing at the BAA account",
 		judgedUnderEach,
 	);
 });

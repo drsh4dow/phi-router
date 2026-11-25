@@ -5,6 +5,7 @@ import type { Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, postedIn, routed } from "./mocked-router.ts";
 import { codexBodyOf, codexCatalog, codexRequest, fakes, harnesses, headersNamed, userMessage } from "./harnesses.ts";
+import { pinnedByModel } from "./target-models.ts";
 import { serveOpenAi } from "#router/client/mock-upstreams/index.ts";
 
 const canary = "PATIENT-CANARY-5T9V";
@@ -42,7 +43,10 @@ const namedHeaders = Effect.gen(function* namedHeaders() {
 	const { mocks, post } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
 
 	yield* postedIn(post, "wire-1", [userMessage("List the build steps.")]);
-	yield* postedIn(post, "wire-1", [userMessage(`Member ${canary} called.`)]);
+	const pinned = yield* codexBodyOf([userMessage(`Member ${canary} called.`)]);
+	const answered = yield* post({ body: pinnedByModel(pinned), session: "wire-1" });
+
+	yield* answered.text;
 
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
@@ -201,7 +205,7 @@ const returnedHeaders = Effect.gen(function* returnedHeaders() {
 
 it.layer(NodeServices.layer)("Codex's wire", (test) => {
 	test.effect(
-		"the open account gets the six named headers and the BAA account its key alone, with no trace header",
+		"the open account gets the six named headers and the BAA account its key alone for a pinned request, with no trace header",
 		() => namedHeaders,
 	);
 	test.effect("the judge gets no trace header", () => judgeUntraced);

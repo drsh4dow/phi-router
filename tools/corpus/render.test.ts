@@ -6,7 +6,7 @@ import { outputOf } from "./render.ts";
 const report: Report = {
 	fragments: { cases: 0, shown: 0 },
 	judge: { calls: 0, cost: 0, failures: 0, inputTokens: 0, ms: 0 },
-	lanes: { clean: 0, sealed: 0 },
+	requests: { clean: 0, sealing: 0 },
 	leaks: [],
 	overRouting: [],
 	splits: [],
