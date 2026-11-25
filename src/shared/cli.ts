@@ -104,13 +104,12 @@ const setupEnded = "Setup ended before it finished. Nothing was saved or changed
 const phiCommand = { name: "phi", pin: "pin", setup: "setup", unpin: "unpin" } as const;
 
 export {
-	ChoiceId,
 	CommandFailed,
 	ModelsJson,
 	Pid,
-	QuestionId,
 	SessionId,
 	SetupAnswersJson,
+	SetupQuestion,
 	SetupStepJson,
 	SetupVendor,
 	Status,
