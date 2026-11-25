@@ -11,7 +11,7 @@ phi-router is a local router. Your harness sends every model request to it, and 
 - Rules catch the unambiguous identifiers, such as an SSN. A judge model under your BAA decides the rest.
 - `/phi` shows the session's accounts and how many messages were sealed and cleared. In Codex, type it without the slash.
 - An agent that must work with the PHI itself starts the pinned subagent `phi-sealed`, which runs on the BAA account. A session on the model `phi/sealed` runs wholly there. pi has no pinned subagent, so in pi that model is the way.
-- You can list several subscriptions. A rate limit on one moves the request to the next, and when all of them fail it runs on the BAA account. A request never moves from the BAA account to a subscription.
+- You can list several subscriptions. A rate limit on one moves the request to the next, and when all of them fail it runs on the BAA account. A request never moves from the BAA account to a subscription. At the end of a turn that ran on the BAA account this way, phi-router says why and how to add another subscription, and `/phi` shows when a rate-limited subscription is back.
 - The router runs only while a session of your harness runs, and installs no system service. When it is down, requests fail instead of leaving unchecked.
 
 ## Get started
