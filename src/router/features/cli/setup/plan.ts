@@ -1,19 +1,15 @@
 import { Array, Option, Predicate, Struct, pipe } from "effect";
-import type { ChoiceId, QuestionId } from "#shared/cli.ts";
 import type { FoundKey, KeyPlace, Named } from "./copy.ts";
 import type { KeySource, Vendor } from "#router/client/configuration/index.ts";
+import type { SetupAnswersJson, SetupQuestion } from "#shared/cli.ts";
 import { keyName, macNote, named, readyMark, roleNames, rows, shown, signInNamed, stops, vendorNames } from "./copy.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
 
-type Choice = typeof ChoiceId.Type;
+type Question = typeof SetupQuestion.Type;
 
-type Answers = Readonly<Partial<Record<typeof QuestionId.Type, Choice>>>;
+type Choice = Question["choices"][number]["id"];
 
-interface Question {
-	readonly id: typeof QuestionId.Type;
-	readonly text: string;
-	readonly choices: readonly { readonly id: Choice; readonly label: string }[];
-}
+type Answers = typeof SetupAnswersJson.Type;
 
 interface KeptRole {
 	readonly label: Named;
