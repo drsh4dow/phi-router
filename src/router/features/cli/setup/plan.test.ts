@@ -75,6 +75,36 @@ it.effect("a setup that keeps the accounts it holds never offers another subscri
 	}),
 );
 
+const enterpriseClaude: Found = {
+	kept: {},
+	keys: [{ place: "env", vendor: "openai" }],
+	mac: false,
+	others: [],
+	own: { account: "doctor@example.com", kind: "enterprise" },
+	signInHow: "claude auth login",
+	title: "Claude Code",
+	vendor: "anthropic",
+};
+
+const signedInEveryday = { enterprise: "yes", everyday: "subscription", judge: "env" } as const;
+
+it.effect(
+	"a first setup on Claude Enterprise asks, after the everyday sign-in is chosen, whether to add another subscription, and a yes adds one",
+	() =>
+		Effect.sync(() => {
+			assert.deepNestedInclude(plan({ answers: signedInEveryday, found: enterpriseClaude }), {
+				kind: "ask",
+				"question.id": "another",
+				"question.text":
+					"Add another subscription? It takes over when the subscription you sign in to hits its rate limit.",
+			});
+			assert.deepNestedInclude(
+				plan({ answers: Struct.assign({ another: "yes" } as const, signedInEveryday), found: enterpriseClaude }),
+				{ another: true, kind: "ready", "roles.open": { kind: "signIn", role: "open" } },
+			);
+		}),
+);
+
 const refusedJudgeWithEnvKey = Struct.assign(refusedJudge, { keys: [{ place: "env", vendor: "openai" }] } as const);
 
 const openaiPrompts = (step: Step): readonly string[] => {

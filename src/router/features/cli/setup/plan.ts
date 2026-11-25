@@ -306,22 +306,33 @@ const judgeOf = (found: Found, answers: Answers, baa: Filler): Filler | Pending 
 	return keptSource(shared) ?? chosen(openaiQuestion(found, "judge"), answers, "openai");
 };
 
-const anotherQuestion = (open: Named): Question => ({
+const anotherQuestion = (open: string): Question => ({
 	choices: yesOrNo,
 	id: "another",
-	text: `Add another subscription? It takes over when ${shown(open)} hits its rate limit.`,
+	text: `Add another subscription? It takes over when ${open} hits its rate limit.`,
 });
 
-const anotherOf = (answers: Answers, open: Filler): boolean | Pending => {
-	if (open.kind !== "forwarded") {
-		return false;
+const subscriptionOf = (open: Filler): Option.Option<string> => {
+	if (open.kind === "forwarded") {
+		return Option.some(shown(open.label));
 	}
 
-	return Option.match(answered(anotherQuestion(open.label), answers), {
-		onNone: () => ask(anotherQuestion(open.label)),
-		onSome: (choice) => choice === "yes",
-	});
+	if (open.kind === "signIn") {
+		return Option.some("the subscription you sign in to");
+	}
+
+	return Option.none();
 };
+
+const anotherOf = (answers: Answers, open: Filler): boolean | Pending =>
+	Option.match(subscriptionOf(open), {
+		onNone: () => false,
+		onSome: (subscription) =>
+			Option.match(answered(anotherQuestion(subscription), answers), {
+				onNone: () => ask(anotherQuestion(subscription)),
+				onSome: (choice) => choice === "yes",
+			}),
+	});
 
 const typedVendors = (roles: Roles): readonly Vendor[] =>
 	pipe(

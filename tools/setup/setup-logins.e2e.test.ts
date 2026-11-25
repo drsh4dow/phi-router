@@ -79,6 +79,7 @@ const enterpriseSetUp = Effect.gen(function* enterpriseSetUp() {
 	const run = yield* setUp(of, "claude", [
 		covered,
 		{ after: questions.everyday, typed: "" },
+		noAnother,
 		judgeKey,
 		loginCode,
 		enter,
@@ -86,6 +87,10 @@ const enterpriseSetUp = Effect.gen(function* enterpriseSetUp() {
 
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assert.include(run.shown, enterpriseFound);
+	assert.include(
+		run.shown,
+		"Add another subscription? It takes over when the subscription you sign in to hits its rate limit.",
+	);
 	assert.deepStrictEqual(firstPick({ question: coveredQuestion, shown: run.shown }), ["❯ Yes", "  No"]);
 	assert.deepStrictEqual(firstPick({ question: questions.everyday, shown: run.shown }), [
 		"❯ Claude Pro or Max",
