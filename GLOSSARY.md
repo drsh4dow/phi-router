@@ -30,6 +30,17 @@ _Avoid_: gateway, proxy, daemon
 The package that installs the router into one harness the way that harness installs extensions.
 _Avoid_: integration, connector
 
+**Release channel**:
+Where the newest release always waits: the `release` branch of the phi-router repository for Claude Code and Codex, and the npm package's latest version for pi. A harness adapter installed from it can take each new release in place.
+_Avoid_: latest, main
+
+**Held install**:
+A harness adapter installed from one release tag or one exact npm version, so it never updates. Setup moves it to the release channel.
+_Avoid_: pinned install
+
+**Installed version**:
+The version of the harness adapter a harness has on disk, by that harness's own records. Setup never lowers it.
+
 **Protected instance**:
 An instance whose model requests go to the router.
 
