@@ -19,6 +19,9 @@ One running process of a harness.
 **Session**:
 One conversation in an instance, named by the session id its harness sends with each request. pi sends none of its own, so the pi package adds a session header. The verdict store and the lane log are kept per session.
 
+**Root agent**:
+The main agent of a session, the one the user talks to. It runs on the clean lane, never reads PHI, and hands work that needs PHI to the pinned subagent.
+
 **Provider `phi`**:
 The provider the pi package adds to pi, at the router's address, with the models `phi/auto` and `phi/sealed`. Only a request of this provider is routed.
 
@@ -92,10 +95,10 @@ An account outside any BAA.
 _Avoid_: personal account, personal provider
 
 **Clean lane**:
-The ordered list of open accounts, where a request with no sealed new content runs.
+The ordered list of open accounts, where every request that is not pinned runs.
 
 **Sealed lane**:
-The ordered list of BAA accounts, where a request with sealed new content runs.
+The ordered list of BAA accounts, where a pinned request runs, and a request no open account took.
 
 **Home account**:
 The open account a session's clean lane tries first.
@@ -107,7 +110,7 @@ The accounts one request may still try, in order: the open accounts from its hom
 A request moving to the next account of its walk on a 429, a 5xx, no answer or an ended login, before the first byte of the answer. It moves from the clean lane to the sealed lane, never back.
 
 **Overflow**:
-A request with no sealed new content that a BAA account answers because no open account took it: each was stamped, did not answer, or its login ended. At the end of a turn with an overflow, the harness says why and how to add a subscription, once per stamp, or once per 30 minutes when no stamp explains it.
+A request, not pinned, that a BAA account answers because no open account took it: each was stamped, did not answer, or its login ended. At the end of a turn with an overflow, the harness says why and how to add a subscription, once per stamp, or once per 30 minutes when no stamp explains it.
 
 **Stamp**:
 The mark a 429 leaves on an open account. The clean lane skips the account for 30 minutes.
@@ -162,7 +165,7 @@ A hash of one part's role and content, the name its verdict is stored under.
 What the router concluded about one part: **sealed**, it holds PHI, or **cleared**, it does not.
 
 **New content**:
-The parts of a request from its last reply on: that reply and every part after it. They decide the request's lane.
+The parts of a request from its last reply on: that reply and every part after it. The router judges them.
 
 **Seam**:
 The end of the previous message of the same role, read in front of a message that goes on from it mid-word.
@@ -188,7 +191,15 @@ The lane the router sends one request on, by the lane rule. The border never rel
 ### The border
 
 **Stub**:
-The constant text an open account receives in place of a part that is sealed or not yet judged.
+The text an open account receives in place of a part that is sealed or not yet judged. A sealed part's stub carries its handle.
+
+**Handle**:
+The id in a sealed part's stub, by which the root agent names that part to the pinned subagent. It reveals nothing of the content, and only a request on the sealed lane can open it.
+_Avoid_: token, reference, pointer
+
+**Sealed store**:
+The content of each sealed part of a session, kept by the router under its handle, so the pinned subagent can read it after compaction or a router restart.
+_Avoid_: sealed DB, vault
 
 **Border**:
 The check on every request bound for an open account, which passes cleared parts and stubs the rest.
@@ -197,7 +208,14 @@ The check on every request bound for an open account, which passes cleared parts
 What runs a request on the sealed lane with nothing judged: the model `phi/sealed`, the pinned line, a BAA repo or a title request.
 
 **Pinned subagent**:
-A subagent started on `phi/sealed`. Claude Code names it `phi-router:phi-sealed` and Codex `phi-sealed`. pi has none.
+A subagent started on `phi/sealed`, to which the root agent hands one scoped task that needs PHI: redacting a sealed part, or the segment of the work that needs its identifiers. Claude Code names it `phi-router:phi-sealed` and Codex `phi-sealed`. In pi-harness it is a delegate on `phi/sealed`. Stock pi has none.
+_Avoid_: sealed subagent
+
+**Answer check**:
+The rules and the judge reading the pinned subagent's last answer before the root agent receives it.
+
+**Rewrite**:
+Sending a sealed answer back to the pinned subagent with what sealed it and why, so it answers again without the identifiers. After five, the root agent receives the answer's handle.
 
 **Pinned line**:
 The first line of the pinned subagent's instructions, `phi-router: pinned subagent.`. A request whose system prompt holds it is pinned whatever model it names.
@@ -209,7 +227,7 @@ A repository whose sessions run wholly on the sealed lane.
 Codex's request that names a thread, marked by `thread_source: "thread_title"` in its turn metadata. It runs sealed with the reason `title`, with no judge call and no bridge.
 
 **Lane log**:
-One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, no sealed new content; `sealed new content`; `pinned`, the model `phi/sealed` or the pinned line; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or no account answered a request with no sealed new content; `overflow`, see Overflow; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
+One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, not pinned; `pinned`, the model `phi/sealed` or the pinned line; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or no account answered a request that is not pinned; `overflow`, see Overflow; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
 
 **Bridge**:
 The constant block the router adds to the system prompt of every request that is neither pinned nor a title request, on both lanes.
