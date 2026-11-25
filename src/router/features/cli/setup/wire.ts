@@ -1,5 +1,5 @@
 import type { Answers, Found, Step } from "./plan.ts";
-import { Array, Console, Effect, Schema, pipe } from "effect";
+import { Array, Console, Effect, Predicate, Schema, pipe } from "effect";
 import type { HarnessName, Target } from "./harnesses.ts";
 import { codexDone, windowDone } from "./copy.ts";
 import { foundScreen, keyPrompt, plan } from "./plan.ts";
@@ -44,7 +44,10 @@ const applied = Effect.fnUntraced(function* applied(
 	const before = yield* harnesses[name].installed;
 
 	yield* apply(name, { roles: ready.roles, typed }, given.target);
-	yield* Effect.when(Console.log(windowDone[`${before.kind !== "absent"}`]), Effect.succeed(name === "claude"));
+	yield* Effect.when(
+		Console.log(windowDone[`${Predicate.isNotUndefined(before.version)}`]),
+		Effect.succeed(name === "claude"),
+	);
 	yield* Effect.when(Console.log(codexDone), Effect.succeed(name === "codex"));
 });
 

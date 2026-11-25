@@ -25,16 +25,19 @@ const channel = { version: "0.10.0" };
 const checkout = Struct.assign(channel, { checkout: "/home/you/phi-router" });
 
 const found: readonly (readonly [string, Installed])[] = [
-	["nothing installed", { kind: "absent" }],
-	["a checkout", { kind: "elsewhere", version: "0.1.0" }],
-	["a release tag", { kind: "held", version: "0.3.0" }],
-	["a release tag at this version", { kind: "held", version: "0.10.0" }],
-	["a release tag at a newer version", { kind: "held", version: "0.10.1" }],
-	["a release tag at a newer prerelease", { kind: "held", version: "0.11.0-rc.1" }],
-	["the channel at an older version", { kind: "channel", version: "0.9.0" }],
-	["the channel at a prerelease of this version", { kind: "channel", version: "0.10.0-rc.1" }],
-	["the channel at this version", { kind: "channel", version: "0.10.0" }],
-	["the channel at a newer version", { kind: "channel", version: "0.10.1" }],
+	["nothing installed", { source: "absent" }],
+	["a checkout", { source: "elsewhere", version: "0.1.0" }],
+	["a checkout's marketplace with no plugin", { source: "elsewhere" }],
+	["a release tag's marketplace with no plugin", { source: "held" }],
+	["the channel's marketplace with no plugin", { source: "channel" }],
+	["a release tag", { source: "held", version: "0.3.0" }],
+	["a release tag at this version", { source: "held", version: "0.10.0" }],
+	["a release tag at a newer version", { source: "held", version: "0.10.1" }],
+	["a release tag at a newer prerelease", { source: "held", version: "0.11.0-rc.1" }],
+	["the channel at an older version", { source: "channel", version: "0.9.0" }],
+	["the channel at a prerelease of this version", { source: "channel", version: "0.10.0-rc.1" }],
+	["the channel at this version", { source: "channel", version: "0.10.0" }],
+	["the channel at a newer version", { source: "channel", version: "0.10.1" }],
 ];
 
 it.effect(
@@ -53,6 +56,9 @@ it.effect(
 			assert.deepStrictEqual(moves, [
 				["nothing installed", "install", "install"],
 				["a checkout", "none", "none"],
+				["a checkout's marketplace with no plugin", "none", "install"],
+				["a release tag's marketplace with no plugin", "move", "install"],
+				["the channel's marketplace with no plugin", "install", "install"],
 				["a release tag", "move", "none"],
 				["a release tag at this version", "move", "none"],
 				["a release tag at a newer version", "none", "none"],

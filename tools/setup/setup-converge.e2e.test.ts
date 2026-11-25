@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Formatter, String as Str, pipe } from "effect";
+import { Array, Effect, FileSystem, Formatter, Option, String as Str, Struct, pipe } from "effect";
 import { argsOf, codexSignedIn, layer, ok, patient, piHolds, piLogin, version, withEnv } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
@@ -36,16 +36,20 @@ const claudeAt =
 	}: {
 		readonly declared: object;
 		readonly fetched: string;
-		readonly installed: string;
+		readonly installed?: string;
 	}): Preset =>
 	(of) =>
 		Effect.gen(function* claudeHeld() {
 			const folder = of.folders.CLAUDE_CONFIG_DIR;
 
-			const plugins = {
-				"other@skills-dir": [{ installPath: of.root, scope: "user" }],
-				"phi-router@phi-router": [{ installPath: of.copies.claudePlugin, scope: "user", version: installed }],
-			};
+			const ours = Option.match(Option.fromUndefinedOr(installed), {
+				onNone: () => ({}),
+				onSome: (at) => ({
+					"phi-router@phi-router": [{ installPath: of.copies.claudePlugin, scope: "user", version: at }],
+				}),
+			});
+
+			const plugins = Struct.assign({ "other@skills-dir": [{ installPath: of.root, scope: "user" }] }, ours);
 
 			yield* written(
 				`${folder}/settings.json`,
@@ -59,7 +63,7 @@ const claudeAt =
 		});
 
 const codexAt =
-	({ config, installed }: { readonly config: string; readonly installed: string }): Preset =>
+	({ config, installed }: { readonly config: string; readonly installed?: string }): Preset =>
 	(of) =>
 		Effect.gen(function* codexHeld() {
 			const fs = yield* FileSystem.FileSystem;
@@ -67,7 +71,11 @@ const codexAt =
 
 			yield* codexSignedIn(of);
 			yield* written(`${home}/config.toml`, config);
-			yield* fs.copy(of.copies.claudePlugin, `${home}/plugins/cache/phi-router/phi-router/${installed}`);
+			yield* Effect.forEach(
+				Option.toArray(Option.fromUndefinedOr(installed)),
+				(at) => fs.copy(of.copies.claudePlugin, `${home}/plugins/cache/phi-router/phi-router/${at}`),
+				{ concurrency: 1, discard: true },
+			);
 		});
 
 const piAt =
@@ -96,14 +104,27 @@ const followed = { autoUpdate: true, source: github("release") };
 
 const claudeUpdate = ["plugin marketplace update phi-router", "plugin update phi-router@phi-router --scope user"];
 
+const claudeMove = [
+	"plugin marketplace update phi-router",
+	"plugin install phi-router@phi-router --scope user",
+	"plugin update phi-router@phi-router --scope user",
+];
+
 const codexInstall = ["plugin marketplace add drsh4dow/phi-router --ref release", "plugin add phi-router@phi-router"];
 
 const converges: readonly Converge[] = [
 	{
 		given: claudeAt({ declared: { source: github("v0.0.1") }, fetched: "v0.0.1", installed: older }),
 		harness: "claude",
-		installs: claudeUpdate,
+		installs: claudeMove,
 		state: "held on a release tag",
+		title: "Claude Code",
+	},
+	{
+		given: claudeAt({ declared: { source: github("v0.0.1") }, fetched: "v0.0.1" }),
+		harness: "claude",
+		installs: claudeMove,
+		state: "whose plugin is gone from a marketplace held on a release tag, as claude plugin uninstall leaves it",
 		title: "Claude Code",
 	},
 	{
@@ -116,7 +137,7 @@ const converges: readonly Converge[] = [
 	{
 		given: claudeAt({ declared: { source: github("release") }, fetched: "release", installed: version }),
 		harness: "claude",
-		installs: claudeUpdate,
+		installs: claudeMove,
 		state: "installed from the channel with auto-update still off, as a crash after the install leaves it",
 		title: "Claude Code",
 	},
@@ -132,6 +153,13 @@ const converges: readonly Converge[] = [
 		harness: "codex",
 		installs: ["plugin marketplace remove phi-router", ...codexInstall],
 		state: "held on a release tag",
+		title: "Codex",
+	},
+	{
+		given: codexAt({ config: codexMarketplace("v0.0.1") }),
+		harness: "codex",
+		installs: ["plugin marketplace remove phi-router", ...codexInstall],
+		state: "whose plugin never arrived from a marketplace held on a release tag, as a crash before plugin add leaves it",
 		title: "Codex",
 	},
 	{
