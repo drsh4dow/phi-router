@@ -245,7 +245,7 @@ const postedIn = Effect.fnUntraced(function* postedIn(post: Post, session: strin
 	return response.status;
 });
 
-export { beta, claudeRequest, fakes } from "./harnesses.ts";
+export { beta, claudeRequest, fakes, harnesses } from "./harnesses.ts";
 
 export { bodyOf, mocked, postedIn, routed };
 

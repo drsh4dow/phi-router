@@ -1,6 +1,7 @@
-import { Array, Effect, Option, Schema, String as Str, Stream, pipe } from "effect";
+import { Array, Effect, Option, Schema, String as Str, pipe } from "effect";
 import type { Check, Played, Run } from "./checks.ts";
 import { commonChecksOf, isAsSent, isBaaOnly } from "./checks.ts";
+import { fakes, harnesses } from "#tools/route/mocked-router.ts";
 import {
 	insideStamp,
 	overflowChecksOf,
@@ -15,11 +16,9 @@ import { Base64Url } from "effect/encoding";
 import type { PhiTurned } from "./phi-checks.ts";
 import type { RpcLine } from "./pi-run.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
-import { fakes } from "#tools/route/mocked-router.ts";
 import { foundIn } from "#tools/corpus/request-bodies.ts";
 import { rpcAnswered } from "./pi-run.ts";
 import { stubsFor } from "#router/features/border/index.ts";
-import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
 interface PiTurned extends PhiTurned {
 	readonly printed: string;
@@ -37,7 +36,7 @@ interface PiPlayed extends Played {
 	readonly routerStopped: boolean;
 	readonly verdictStoreFiles: readonly string[];
 	readonly clock: string;
-	readonly overflow: { readonly after: readonly [PiTurned]; readonly status: PiTurned };
+	readonly overflow: { readonly after: readonly [PiTurned]; readonly session: string; readonly status: PiTurned };
 	readonly turns: readonly [
 		clean: PiTurned,
 		canary: PiTurned,
@@ -112,20 +111,6 @@ const wireChecksOf = (played: PiPlayed): readonly Check[] => {
 	];
 };
 
-const overflowedChecksOf = (played: PiPlayed): readonly Check[] => {
-	const [, second = ""] = played.sessions;
-
-	return overflowChecksOf({
-		after: played.overflow.after,
-		all: played.turns,
-		clock: played.clock,
-		command: "/phi",
-		lines: played.stored.lines,
-		session: second,
-		status: played.overflow.status,
-	});
-};
-
 const piChecksOf = (played: PiPlayed): readonly Check[] => [
 	{
 		name: "pi install with the repository's git address adds the package to a fresh agent folder",
@@ -165,12 +150,18 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 			) && !pipe(played.stored.fileTexts, Array.some(Str.includes(fakes.harnessToken))),
 	},
 	...commonChecksOf("pi")(played),
-	...overflowedChecksOf(played),
+	...overflowChecksOf({
+		after: played.overflow.after,
+		all: played.turns,
+		clock: played.clock,
+		command: "/phi",
+		lines: played.stored.lines,
+		session: played.overflow.session,
+		status: played.overflow.status,
+	}),
 ];
 
-const sayingOk = Stream.fromIterable(textEvents(["ok"]));
-
-const piOpen = refusing(() => ({ events: sayingOk, kind: "events" }));
+const piOpen = refusing(harnesses.pi.answersOk.open);
 
 const FollowUp = Schema.optionalKey(Schema.Literal("followUp"));
 
@@ -234,11 +225,10 @@ const sealedModelChecksOf = (chosen: PhiTurned): readonly Check[] => {
 	];
 };
 
-const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<
-	Turn extends PhiTurned & { readonly printed: string },
-	Failure,
-	Needs,
->(turn: (asked: RpcLine) => Effect.Effect<Turn, Failure, Needs>, run: Run) {
+const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, Failure, Needs>(
+	turn: (asked: RpcLine) => Effect.Effect<Turn, Failure, Needs>,
+	run: Run,
+) {
 	const typed = (message: string, turnEnd: string): Effect.Effect<Turn, Failure | Schema.SchemaError, Needs> =>
 		Effect.flatMap(Schema.encodeEffect(PromptLine)({ message, type: "prompt" }), (line) =>
 			turn({ stdinLine: `${line}\n`, turnEnd }),
