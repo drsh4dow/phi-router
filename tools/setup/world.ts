@@ -97,10 +97,6 @@ const put = (file, value) => {
 	fs.mkdirSync(require("path").dirname(file), { recursive: true });
 	fs.writeFileSync(file, JSON.stringify(value, null, 2));
 };
-const fail = (line) => {
-	console.error(line);
-	process.exit(1);
-};
 if (harness === "claude") {
 	const home = process.env.CLAUDE_CONFIG_DIR;
 	const [knownFile, settingsFile, installsFile] = ["plugins/known_marketplaces.json", "settings.json", "plugins/installed_plugins.json"].map((name) => home + "/" + name);
@@ -110,8 +106,6 @@ if (harness === "claude") {
 	if (verb === "install") {
 		const github = /^([\w.-]+\/[\w.-]+)@(.+)$/.exec(given);
 		const source = github ? { source: "github", repo: github[1], ref: github[2] } : { source: "directory", path: given };
-		const had = known["phi-router"];
-		if (had && ["source", "repo", "ref", "path"].some((key) => had.source[key] !== source[key])) fail("its source doesn't match its extraKnownMarketplaces entry");
 		known["phi-router"] = { source, installLocation: home + "/plugins/marketplaces/phi-router" };
 		settings.extraKnownMarketplaces = Object.assign({}, settings.extraKnownMarketplaces, { "phi-router": { source } });
 		settings.enabledPlugins = Object.assign({}, settings.enabledPlugins, { "phi-router@phi-router": true });
@@ -119,7 +113,6 @@ if (harness === "claude") {
 		put(settingsFile, settings);
 		if (!installed.plugins) at(version);
 	}
-	if (verb === "marketplace" && !known["phi-router"]) fail("Marketplace not found");
 	if (verb === "update") at(version);
 }
 if (harness === "codex") {
@@ -132,14 +125,9 @@ if (harness === "codex") {
 	if (verb === "marketplace" && step === "add") {
 		const from = ref ? 'source_type = "git"\nsource = "https://github.com/' + given + '.git"\nref = "' + ref + '"\n' : 'source_type = "local"\nsource = "' + given + '"\n';
 		const block = "[marketplaces.phi-router]\n" + from;
-		const had = table.exec(config);
-		if (had && had[0].trim() !== block.trim()) fail("marketplace phi-router is already added from a different source");
-		if (!had) fs.writeFileSync(configFile, config + "\n" + block);
+		if (!table.test(config)) fs.writeFileSync(configFile, config + "\n" + block);
 	}
-	if (verb === "marketplace" && step === "remove") {
-		if (!table.test(config)) fail("marketplace phi-router is not configured or installed");
-		fs.writeFileSync(configFile, config.replace(table, "\n"));
-	}
+	if (verb === "marketplace" && step === "remove") fs.writeFileSync(configFile, config.replace(table, "\n"));
 	if (verb === "add") {
 		fs.rmSync(cache, { recursive: true, force: true });
 		fs.mkdirSync(cache, { recursive: true });
