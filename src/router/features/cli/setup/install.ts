@@ -1,11 +1,11 @@
-import { Console, Effect, Option, Predicate, pipe } from "effect";
+import { Array, Console, Effect, Option, Predicate, pipe } from "effect";
 import type { HarnessName, InstallSource } from "./harnesses.ts";
+import { packageOf, versionOf } from "#router/client/own-package.ts";
 import { Platform } from "#router/features/cli/platform.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { harnesses } from "./harnesses.ts";
 import { installRun } from "#router/client/harnesses/index.ts";
 import { stopped } from "./keys.ts";
-import { versionOf } from "#router/client/own-package.ts";
 
 const repository = "drsh4dow/phi-router";
 
@@ -75,4 +75,54 @@ const sourceOf = Effect.fnUntraced(function* sourceOf(checkout: string | undefin
 	} satisfies InstallSource;
 });
 
-export { installFailure, installedIn, sourceOf };
+const tested = Effect.fnUntraced(function* tested(name: HarnessName) {
+	const { canary, title } = harnesses[name];
+
+	const failed = stopped(
+		`The test failed, so ${title} was left as it was. Your key is saved. For details, run: npx phi-router doctor ${name}`,
+	);
+
+	const { entry } = yield* Platform;
+
+	const checks = yield* pipe(
+		packageOf(entry),
+		Effect.flatMap(Effect.fromOption),
+		Effect.flatMap(canary),
+		Effect.mapError(() => failed),
+	);
+
+	const failures = pipe(
+		checks,
+		Array.filter((check) => !check.passed),
+	);
+
+	yield* Effect.forEach(failures, (check) => Console.log(`✗ ${check.name}`), { concurrency: 1, discard: true });
+
+	return yield* Effect.when(failed, Effect.succeed(Array.isReadonlyArrayNonEmpty(failures)));
+});
+
+const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
+	const { switchOn, title } = harnesses[name];
+
+	const writing = Effect.gen(function* writing() {
+		const said = yield* switchOn;
+
+		yield* Effect.forEach(Option.toArray(said), (line) => Console.log(`✓ ${line}`), {
+			concurrency: 1,
+			discard: true,
+		});
+	});
+
+	yield* Effect.mapError(writing, (error) =>
+		stopped(`Setup could not change the settings of ${title}. Your key is saved. ${error.message}`),
+	);
+});
+
+const turnedOn = Effect.fnUntraced(function* turnedOn(name: HarnessName, source: InstallSource, openPlan: string) {
+	yield* tested(name);
+	yield* installedIn(name, source);
+	yield* Console.log(`✓ Test: a fake patient record went to your BAA account, not ${openPlan}`);
+	yield* switched(name);
+});
+
+export { installFailure, sourceOf, turnedOn };

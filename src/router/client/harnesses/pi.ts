@@ -132,12 +132,12 @@ const printPatience = "30 seconds";
 const succeeded = 0;
 
 const printedKey = Effect.fnUntraced(
-	function* printedKey(agent: string) {
+	function* printedKey(agent: string, provider: string) {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const searchPath = yield* Config.String("PATH");
 		const home = yield* Config.String("HOME");
 
-		const command = ChildProcess.make("pi", ["auth", "print-api-key", "--provider", "anthropic"], {
+		const command = ChildProcess.make("pi", ["auth", "print-api-key", "--provider", provider], {
 			env: Struct.assign(offline, { HOME: home, PATH: searchPath, PI_CODING_AGENT_DIR: agent }),
 			extendEnv: false,
 			stderr: "ignore",
@@ -160,7 +160,7 @@ const printedKey = Effect.fnUntraced(
 	Effect.scoped,
 );
 
-const storedAnthropicKey = Effect.fnUntraced(function* storedAnthropicKey() {
+const storedKey = Effect.fnUntraced(function* storedKey(provider: "anthropic" | "openai") {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const agent = yield* agentFolder("");
@@ -170,7 +170,7 @@ const storedAnthropicKey = Effect.fnUntraced(function* storedAnthropicKey() {
 		return Option.none<Redacted.Redacted>();
 	}
 
-	return yield* printedKey(agent);
+	return yield* printedKey(agent, provider);
 });
 
-export { installedPackage, piTurn, storedAnthropicKey };
+export { agentFolder, installedPackage, piTurn, storedKey };

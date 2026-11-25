@@ -1,5 +1,5 @@
 import { Array, Effect, FileSystem, Option, Predicate, Schema, Struct, pipe } from "effect";
-import type { Lane, Vendor } from "./configuration/index.ts";
+import type { KeySource, Lane, Vendor } from "./configuration/index.ts";
 import { LaneFile, configFile } from "./configuration/index.ts";
 import { UserDirectories } from "effect/persistence";
 import { realFolder } from "./processes.ts";
@@ -9,16 +9,20 @@ type NewAccount =
 	| { readonly vendor: Vendor; readonly loginFolder: string }
 	| { readonly vendor: Vendor; readonly keyCommand: string; readonly scheme: "apiKey" | "oauth" }
 	| { readonly vendor: Vendor; readonly forwarded: true }
-	| { readonly vendor: Vendor; readonly keyFile: string; readonly scheme: "apiKey" };
+	| { readonly vendor: Vendor; readonly keyFile: string; readonly scheme: "apiKey" }
+	| { readonly vendor: Vendor; readonly keyEnv: string; readonly scheme: "apiKey" };
 
 interface Wanted {
 	readonly lane: Lane;
 	readonly account: NewAccount;
 }
 
-interface Additions {
-	readonly accounts: Array.NonEmptyReadonlyArray<Wanted>;
+interface Additions<Accounts extends readonly Wanted[]> {
+	readonly accounts: Accounts;
+	readonly judge?: KeySource;
 }
+
+const judgeEndpoint = "https://api.openai.com/v1";
 
 interface Placed {
 	readonly name: string;
@@ -40,6 +44,7 @@ const Listed = Schema.Array(
 	Schema.Struct({
 		forwarded: Schema.optionalKey(Schema.Boolean),
 		keyCommand: Schema.optionalKey(Schema.String),
+		keyEnv: Schema.optionalKey(Schema.String),
 		keyFile: Schema.optionalKey(Schema.String),
 		loginFolder: Schema.optionalKey(Schema.String),
 		name: Schema.String,
@@ -86,6 +91,10 @@ const sameSource = (entry: Entry, account: NewAccount): boolean => {
 
 	if ("keyFile" in account) {
 		return entry.keyFile === account.keyFile;
+	}
+
+	if ("keyEnv" in account) {
+		return entry.keyEnv === account.keyEnv;
 	}
 
 	return entry.keyCommand === account.keyCommand;
@@ -168,7 +177,9 @@ interface Editing {
 	readonly lanesAtRealPaths: Readonly<Partial<Record<Lane, readonly Entry[]>>>;
 }
 
-const addAccounts = Effect.fn("addAccounts")(function* addAccounts(additions: Additions) {
+const addAccounts = Effect.fn("addAccounts")(function* addAccounts<const Accounts extends readonly Wanted[]>(
+	additions: Additions<Accounts>,
+) {
 	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
 	const read = yield* Effect.flatMap(textOf(file), Schema.decodeEffect(Editable));
 	const lanes = yield* Effect.flatMap(Schema.decodeUnknownEffect(Lanes)(read), realLanes);
@@ -203,8 +214,19 @@ const addAccounts = Effect.fn("addAccounts")(function* addAccounts(additions: Ad
 		Array.some(({ isNew }) => isNew),
 	);
 
-	if (anyAdded) {
-		yield* Effect.flatMap(Schema.encodeEffect(Editable)(edited.asWritten), (text) => saved(file, text));
+	const judge = pipe(
+		Option.fromUndefinedOr(additions.judge),
+		Option.filter(() => Predicate.isUndefined(read["judge"])),
+		Option.map((key) => ({ judge: Struct.assign({ endpoint: judgeEndpoint }, key) })),
+	);
+
+	if (anyAdded || Option.isSome(judge)) {
+		const written = Struct.assign(
+			edited.asWritten,
+			Option.getOrElse(judge, () => ({})),
+		);
+
+		yield* Effect.flatMap(Schema.encodeEffect(Editable)(written), (text) => saved(file, text));
 	}
 
 	return placed;

@@ -25,6 +25,12 @@ const writePrivately = Effect.fnUntraced(function* writePrivately(
 	yield* fs.rename(temp, file);
 }, Effect.scoped);
 
+const folderPrivately = Effect.fnUntraced(function* folderPrivately(folder: string) {
+	const fs = yield* FileSystem.FileSystem;
+
+	yield* fs.makeDirectory(folder, { mode: privateModes.folder, recursive: true });
+});
+
 const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string, text: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -84,4 +90,4 @@ const copyPrivately = Effect.fnUntraced(function* copyPrivately(from: string, to
 	);
 });
 
-export { appendPrivately, copyPrivately, rewritePrivately, writePrivately };
+export { appendPrivately, copyPrivately, folderPrivately, rewritePrivately, writePrivately };

@@ -1,4 +1,4 @@
-export { Configuration, configFile, configText } from "./config-file.ts";
+export { Configuration, configFile, configText, configuredJudge } from "./config-file.ts";
 
 export { LaneFile, configuredAccounts, configuredLanes, laneConfiguration } from "./lanes.ts";
 

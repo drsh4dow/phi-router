@@ -1,19 +1,24 @@
-import { Array, Effect, FileSystem, Formatter, Option, Path, String as Str, Struct } from "effect";
+import { Array, Effect, FileSystem, Option, Path, String as Str } from "effect";
 import type { TypedRan, World } from "./world.ts";
 import {
 	argsOf,
+	baaKey,
 	callsOf,
-	claudeAnswers,
-	enter,
-	filesSetupMayChange,
-	keyAnswer,
+	endOfInput,
+	firstPick,
+	judgeKey,
 	keyFiles,
+	keyPicked,
 	keysOutsideKeyFiles,
+	lastLine,
 	layer,
+	maxAnswers,
 	ok,
 	patient,
 	permissionBitsOf,
+	questions,
 	setUp,
+	tracked,
 	version,
 	writeOwnSettings,
 	writtenConfigOf,
@@ -21,28 +26,36 @@ import {
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
-import type { Schema } from "effect";
 
-const step3 = `phi-router keeps patient data off your Claude subscription.
+const foundScreen = `phi-router found
+  Claude Code     Claude Max · you@example.com
 
-  Your Claude subscription   already set up
-  Your BAA account           needs an API key
+  Everyday work   Claude Max · you@example.com   ✓
+  Patient data    needs a BAA account
+  PHI check       needs an OpenAI key
+`;
 
-Paste the Anthropic API key your organization gave you for patient data.
-It starts with sk-ant-api. Nothing shows while you paste. Then press Enter.
-The key is saved only on this computer, in a file only you can read.
-Key: `;
+const lastQuestion = "Press Enter to start Claude Code with phi-router.";
 
-const step4 = `✓ Anthropic accepted the key
+const lastScreen = `✓ Anthropic key works
+✓ OpenAI key works
 ✓ Installed phi-router in Claude Code
-✓ Test passed: a fake patient record went to your BAA account, not your subscription
+✓ Test: a fake patient record went to your BAA account, not Claude Max
 ✓ Claude Code now sends its requests through phi-router
+
+  Everyday work   Claude Max · you@example.com
+  Patient data    Anthropic API key
+  PHI check       OpenAI
 
 Done. Claude Code windows that were already open, including the one you
 started from, stop answering. Close them.
 Undo any time with: npx phi-router off claude
 
-Press Enter to start Claude Code with phi-router.`;
+${lastQuestion}`;
+
+const keptScreen = `  Everyday work   Claude Max · you@example.com   ✓
+  Patient data    Anthropic API key   ✓
+  PHI check       OpenAI   ✓`;
 
 const privateFile = 0o600;
 
@@ -50,29 +63,27 @@ const privateFolder = 0o700;
 
 const installedOnce = 1;
 
-const partsAroundOneQuestion = 2;
-
-const assertClaudeScreens = (run: TypedRan): void => {
+const assertMaxScreens = (run: TypedRan): void => {
 	assert.strictEqual(run.exitCode, ok, run.shown);
-	assert.include(run.shown, step3, "the spec's step 3 screen");
-	assert.strictEqual(Str.split("Key: ")(run.shown).length, partsAroundOneQuestion, "one key question");
-	assert.notInclude(run.shown, "OpenAI", "no question for an OpenAI key");
-	assert.include(run.shown, step4, "the spec's step 4 screen");
+	assert.include(run.shown, foundScreen);
+	assert.deepStrictEqual(firstPick({ question: questions.baa, shown: run.shown }), [
+		"❯ Anthropic API key",
+		"  Claude Enterprise login",
+	]);
+	assert.include(run.shown, lastScreen);
 	assert.include(run.shown, "claude started");
 	assert.notInclude(run.shown, "phi-test", "no key shows as it is typed");
 };
 
-type ConfigFile = Readonly<Record<"clean" | "sealed", readonly Schema.Json[]>>;
-
-const claudeConfig = (of: World): ConfigFile => ({
-	clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }],
-	sealed: [{ keyFile: keyFiles(of).anthropic, name: "claude-2", scheme: "apiKey", vendor: "anthropic" }],
-});
-
 const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World) {
 	const config = yield* writtenConfigOf(of);
+	const { anthropic, openai } = keyFiles(of);
 
-	assert.deepStrictEqual(config, claudeConfig(of), "no judge block: the judge runs on the BAA key");
+	assert.deepStrictEqual(config, {
+		clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }],
+		judge: { endpoint: "https://api.openai.com/v1", keyFile: openai },
+		sealed: [{ keyFile: anthropic, name: "claude-2", scheme: "apiKey", vendor: "anthropic" }],
+	});
 
 	const claudeArgs = yield* argsOf(of, "claude");
 	const calls = yield* callsOf(of, "claude");
@@ -92,53 +103,44 @@ const switchedClaude = Effect.fnUntraced(function* switchedClaude(of: World) {
 const savedKeys = Effect.fnUntraced(function* savedKeys(of: World) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const { anthropic } = keyFiles(of);
-	const anthropicKey = yield* fs.readFileString(anthropic);
+	const { anthropic, openai } = keyFiles(of);
+	const saved = yield* Effect.forEach([anthropic, openai], (file) => fs.readFileString(file), { concurrency: 1 });
 
-	assert.strictEqual(anthropicKey, `${keys.anthropic}\n`);
+	assert.deepStrictEqual(saved, [`${keys.anthropic}\n`, `${keys.openai}\n`]);
 
 	const keyFolder = path.dirname(anthropic);
-	const checked = [anthropic, keyFolder, path.dirname(keyFolder)];
+	const checked = [anthropic, openai, keyFolder, path.dirname(keyFolder)];
 	const modes = yield* Effect.forEach(checked, permissionBitsOf, { concurrency: 1 });
 
-	assert.deepStrictEqual(modes, [privateFile, privateFolder, privateFolder]);
-});
-
-const judged = Effect.fnUntraced(function* judged(of: World) {
-	const fs = yield* FileSystem.FileSystem;
-	const judge = { endpoint: "https://api.openai.com/v1", keyFile: keyFiles(of).openai };
-	const config = Struct.assign(claudeConfig(of), { judge });
-
-	yield* fs.writeFileString(`${of.xdg.XDG_CONFIG_HOME}/phi-router/config.json`, Formatter.formatJson(config));
+	assert.deepStrictEqual(modes, [privateFile, privateFile, privateFolder, privateFolder]);
 });
 
 const rerunClaude = Effect.fnUntraced(function* rerunClaude(of: World) {
-	const before = yield* Effect.andThen(judged(of), filesSetupMayChange(of));
-	const again = yield* setUp(of, "claude", [enter]);
-	const after = yield* filesSetupMayChange(of);
+	const { after, before, run } = yield* tracked(of, ["setup", "claude"], [{ after: lastQuestion, typed: "" }]);
 
-	assert.strictEqual(again.exitCode, ok, again.shown);
-	assert.notInclude(again.shown, "Key:", "a rerun with a saved key that still works asks nothing");
-	assert.include(again.shown, "Your BAA account           already set up");
+	assert.strictEqual(run.exitCode, ok, run.shown);
+	assert.notInclude(run.shown, "❯", "a rerun with every role filled asks no question");
+	assert.notInclude(run.shown, "key (", "a rerun asks for no key");
+	assert.include(run.shown, keptScreen);
 	assert.deepStrictEqual(after, before, "a rerun changes no file");
 
 	const pluginRuns = yield* Effect.map(argsOf(of, "claude"), Array.filter(Str.startsWith("plugin ")));
 
 	assert.strictEqual(pluginRuns.length, installedOnce, "a rerun installs nothing");
 
-	return again;
+	return run;
 });
 
-const claudeSetUp = Effect.gen(function* claudeSetUp() {
+const maxSetUp = Effect.gen(function* maxSetUp() {
 	const of = yield* world;
 
 	yield* writeOwnSettings(of);
 
-	const run = yield* setUp(of, "claude", claudeAnswers);
+	const run = yield* setUp(of, "claude", maxAnswers);
 	const checked = yield* of.checkedKeys();
 
-	assert.deepStrictEqual(checked, [keys.anthropic], "setup asked the vendor about the pasted key alone");
-	assertClaudeScreens(run);
+	assert.deepStrictEqual(checked, [keys.anthropic, keys.openai], "setup asked each vendor about its pasted key");
+	assertMaxScreens(run);
 	yield* configuredClaude(of);
 	yield* switchedClaude(of);
 	yield* savedKeys(of);
@@ -149,16 +151,12 @@ const claudeSetUp = Effect.gen(function* claudeSetUp() {
 	assert.deepStrictEqual(outside, [], "no key outside its key file");
 }).pipe(Effect.scoped);
 
-const endOfInput = "\u0004";
-
-const lastQuestion = "Press Enter to start Claude Code with phi-router.";
-
 const echoedThenEnded = Effect.gen(function* echoedThenEnded() {
 	const of = yield* world;
 
 	yield* writeOwnSettings(of);
 
-	const run = yield* setUp(of, "claude", [keyAnswer, { after: lastQuestion, typed: "go" }]);
+	const run = yield* setUp(of, "claude", [keyPicked, baaKey, judgeKey, { after: lastQuestion, typed: "go" }]);
 
 	yield* setUp(of, "claude", [{ after: lastQuestion, typed: endOfInput }]);
 
@@ -173,15 +171,42 @@ const echoedThenEnded = Effect.gen(function* echoedThenEnded() {
 	);
 }).pipe(Effect.scoped);
 
+const noJudge =
+	"The PHI check needs an OpenAI key covered by your BAA. Run setup again when you have one. Nothing changed.";
+
+const emptyOpenAiKey = Effect.gen(function* emptyOpenAiKey() {
+	const of = yield* world;
+
+	yield* writeOwnSettings(of);
+
+	const { after, before, run } = yield* tracked(
+		of,
+		["setup", "claude"],
+		[keyPicked, baaKey, { after: "OpenAI key (PHI check)", typed: "" }],
+	);
+
+	const checked = yield* of.checkedKeys();
+
+	assert.notStrictEqual(run.exitCode, ok, run.shown);
+	assert.strictEqual(lastLine(run.shown), noJudge);
+	assert.deepStrictEqual(checked, [], "no key was checked");
+	assert.deepStrictEqual(after, before, "no key file, no config.json and no harness setting");
+}).pipe(Effect.scoped);
+
 it.layer(layer)("setup claude", (test) => {
 	test.effect(
-		"setup claude asks one key at a hidden prompt, configures, installs, tests, switches on last and starts claude",
-		() => claudeSetUp,
+		"setup claude on a Max login offers an API key or an Enterprise login, takes both keys at hidden prompts, tests before it installs, switches on last and names the three roles, and a second run asks nothing and changes nothing",
+		() => maxSetUp,
 		patient,
 	);
 	test.effect(
-		"setup claude gives the terminal its echo back after the hidden key, and starts nothing when the input ends at its last question",
+		"setup claude gives the terminal its echo back after the hidden keys, and starts nothing when the input ends at its last question",
 		() => echoedThenEnded,
+		patient,
+	);
+	test.effect(
+		"setup claude stops and changes nothing when Enter leaves the OpenAI key empty",
+		() => emptyOpenAiKey,
 		patient,
 	);
 });

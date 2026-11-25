@@ -1,3 +1,3 @@
 export { KeyChecks } from "./check.ts";
 
-export { keyFileOf, saveKey, savedKey } from "./files.ts";
+export { keyFileOf, loginFolderOf, saveKey, savedKey } from "./files.ts";

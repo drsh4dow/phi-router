@@ -3,7 +3,7 @@ import { ConfigProvider, Effect, Fiber, FileSystem, Layer, Option, Path, Redacte
 import { assert, it } from "@effect/vitest";
 import { ChildProcessSpawner } from "effect/process";
 import { TestClock } from "effect/testing";
-import { storedAnthropicKey } from "./index.ts";
+import { storedKey } from "./index.ts";
 
 const anyPid = 1;
 
@@ -50,7 +50,7 @@ const keyOf = (
 	ending: Ending,
 ): Effect.Effect<string, Config.ConfigError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> =>
 	Effect.gen(function* keyAfterPatience() {
-		const stored = yield* Effect.forkChild(storedAnthropicKey());
+		const stored = yield* Effect.forkChild(storedKey("anthropic"));
 
 		yield* TestClock.adjust("30 seconds");
 

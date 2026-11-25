@@ -2,6 +2,7 @@ import {
 	Array,
 	Effect,
 	FileSystem,
+	Formatter,
 	Layer,
 	Path,
 	Queue,
@@ -75,6 +76,17 @@ interface Copies {
 	readonly piPackage: string;
 }
 
+const signedOut = '{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}';
+
+const claudeStatus = ({ email, plan }: { readonly plan: string; readonly email: string }): string =>
+	Formatter.formatJson({
+		apiProvider: "firstParty",
+		authMethod: "claude.ai",
+		email,
+		loggedIn: true,
+		subscriptionType: plan,
+	});
+
 const fakes = (copies: Copies): Readonly<Record<string, string>> => {
 	const installedPlugins = `{"version":2,"plugins":{"phi-router@phi-router":[{"installPath":"${copies.claudePlugin}","scope":"user"}]}}`;
 	const cache = '"$CODEX_HOME/plugins/cache/phi-router/phi-router"';
@@ -85,12 +97,15 @@ const fakes = (copies: Copies): Readonly<Record<string, string>> => {
 
 	return {
 		claude: `case "$*" in
+"auth status"*) cat "$CLAUDE_CONFIG_DIR/phi-fake-status.json" 2>/dev/null || { echo '${signedOut}'; exit 1; }; exit 0;;
+"auth login"*) printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/logins"; if [ -n "$DISPLAY$BROWSER" ]; then printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/browser-launches"; else printf 'Paste code here if prompted > '; IFS= read -r code || exit 1; fi; cp "$here/next-sign-in.json" "$CLAUDE_CONFIG_DIR/phi-fake-status.json"; exit 0;;
 "plugin "*) mkdir -p "$CLAUDE_CONFIG_DIR/plugins"; printf '%s' '${installedPlugins}' > "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"; PHI_SOURCE="$5" "$here/bun" -e '${enable}'; exit 0;;
 "") echo "claude started"; exit 0;;
 esac
 ${hang}
 exec "$here/bun" '${claudeStandIn}' "$@"`,
 		codex: `case "$*" in
+"login status") cat "$CODEX_HOME/phi-fake-login" 2>/dev/null || { echo "Not logged in" >&2; exit 1; }; exit 0;;
 "plugin marketplace "*) printf '\n[marketplaces.phi-router]\nsource_type = "local"\nsource = "%s"\n' "$4" >> "$CODEX_HOME/config.toml"; exit 0;;
 "plugin add "*) mkdir -p ${cache}; cp -R '${copies.claudePlugin}' ${cache}/0.1.0; printf '%s' '${enabled}' >> "$CODEX_HOME/config.toml"; exit 0;;
 "") echo "codex started"; exit 0;;
@@ -114,6 +129,10 @@ const fakeBin = Effect.fnUntraced(function* fakeBin(copies: Copies) {
 	const { printed: bun } = yield* ran(["bun", "-e", "process.stdout.write(process.execPath)"], {});
 
 	yield* fs.symlink(bun, path.join(bin, "bun"));
+	yield* fs.writeFileString(
+		path.join(bin, "next-sign-in.json"),
+		claudeStatus({ email: "roe@example.com", plan: "max" }),
+	);
 
 	yield* Effect.forEach(
 		Record.toEntries(fakes(copies)),
@@ -145,6 +164,10 @@ const rootFolders = Effect.gen(function* rootFolders() {
 	);
 
 	yield* Effect.forEach(Record.values(folders), (folder) => fs.makeDirectory(folder), { concurrency: 1 });
+	yield* fs.writeFileString(
+		path.join(folders.CLAUDE_CONFIG_DIR, "phi-fake-status.json"),
+		claudeStatus({ email: "you@example.com", plan: "max" }),
+	);
 
 	return { folders, root, xdg };
 });
@@ -154,6 +177,7 @@ interface World {
 	readonly copies: Copies;
 	readonly env: Readonly<Record<string, string>>;
 	readonly fakeHarnessFolder: string;
+	readonly project: string;
 	readonly folders: Readonly<Record<"CLAUDE_CONFIG_DIR" | "CODEX_HOME" | "HOME" | "PI_CODING_AGENT_DIR", string>>;
 	readonly root: string;
 	readonly xdg: Readonly<Record<"XDG_CACHE_HOME" | "XDG_CONFIG_HOME" | "XDG_DATA_HOME" | "XDG_STATE_HOME", string>>;
@@ -166,13 +190,19 @@ const world = Effect.gen(function* world() {
 	const { checkedKeys, endpoint } = yield* keyMock;
 
 	const env = Struct.assign(Struct.assign(folders, xdg), {
+		ANTHROPIC_API_KEY: "",
+		BROWSER: "",
+		DISPLAY: "",
 		NO_PROXY: "",
+		OPENAI_API_KEY: "",
 		PATH: `${fakeHarnessFolder}:/usr/bin:/bin`,
+		PHI_ROUTER_CLAUDE_MANAGED_SETTINGS: `${root}/managed-settings.json`,
 		PHI_ROUTER_KEY_CHECK_ENDPOINT: endpoint,
+		WAYLAND_DISPLAY: "",
 		no_proxy: "",
 	});
 
-	return { checkedKeys, copies, env, fakeHarnessFolder, folders, root, xdg };
+	return { checkedKeys, copies, env, fakeHarnessFolder, folders, project: folders.HOME, root, xdg };
 });
 
 interface TypedRan {
@@ -187,6 +217,13 @@ interface Typed {
 
 const entry = new URL("../../src/router/main.ts", import.meta.url).pathname;
 
+const escapeCode = 27;
+
+const terminalCodes = new RegExp(String.raw`${String.fromCodePoint(escapeCode)}\[[\d;?]*[a-z]`, "giu");
+
+const plain = (shown: string): string =>
+	pipe(shown, Str.replaceAll(terminalCodes, ""), Str.replaceAll("\r", ""), Str.replaceAll("\u0007", ""));
+
 const quotedCommandLine = (args: readonly string[]): string =>
 	pipe(
 		["bun", entry, ...args],
@@ -200,6 +237,7 @@ const typedRun = Effect.fnUntraced(function* typedRun(of: World, args: readonly 
 	const screen = yield* Ref.make({ pending: answers, shown: "", shownSinceLastAnswer: "" });
 
 	const command = ChildProcess.make("script", ["-qefc", quotedCommandLine(args), "/dev/null"], {
+		cwd: of.project,
 		env: of.env,
 		extendEnv: true,
 		stdin: Stream.encodeText(Stream.fromQueue(keyboard)),
@@ -232,7 +270,7 @@ const typedRun = Effect.fnUntraced(function* typedRun(of: World, args: readonly 
 	const exitCode = yield* handle.exitCode;
 	const { shown } = yield* Ref.get(screen);
 
-	return { exitCode: Number(exitCode), shown: Str.replaceAll("\r\n", "\n")(shown) };
+	return { exitCode: Number(exitCode), shown: plain(shown) };
 }, Effect.scoped);
 
 const filesUnder = Effect.fnUntraced(function* filesUnder(folder: string) {
@@ -259,6 +297,6 @@ const filesUnder = Effect.fnUntraced(function* filesUnder(folder: string) {
 	);
 });
 
-export { filesUnder, keys, typedRun, world };
+export { claudeStatus, filesUnder, keys, typedRun, world };
 
 export type { Typed, TypedRan, World };
