@@ -1,4 +1,4 @@
-import { Array, Config, Effect, Option, Path, Predicate, Schema, String as Str, pipe } from "effect";
+import { Array, Config, Effect, Option, Path, Schema, String as Str, pipe } from "effect";
 import { claudeCanary, codexCanary, piCanary } from "#router/features/cli/doctor/index.ts";
 import {
 	claudeMarketplace,
@@ -27,9 +27,10 @@ interface Target {
 	readonly checkout?: string | undefined;
 }
 
-type Installed =
-	| { readonly kind: "absent" }
-	| { readonly kind: "channel" | "held" | "elsewhere"; readonly version: string };
+interface Installed {
+	readonly source: "absent" | "channel" | "held" | "elsewhere";
+	readonly version?: string | undefined;
+}
 
 type Argv = readonly [string, ...string[]];
 
@@ -57,12 +58,17 @@ const marketplace = "phi-router";
 const channel = "release";
 
 interface Source {
+	readonly added: boolean;
 	readonly fromRepository: boolean;
 	readonly onChannel: boolean;
 	readonly version: string | undefined;
 }
 
-const kindOf = ({ fromRepository, onChannel }: Source): Exclude<Installed["kind"], "absent"> => {
+const sourceOf = ({ added, fromRepository, onChannel }: Source): Installed["source"] => {
+	if (!added) {
+		return "absent";
+	}
+
 	if (!fromRepository) {
 		return "elsewhere";
 	}
@@ -70,13 +76,7 @@ const kindOf = ({ fromRepository, onChannel }: Source): Exclude<Installed["kind"
 	return ({ false: "held", true: "channel" } as const)[`${onChannel}`];
 };
 
-const installedAs = (source: Source): Installed => {
-	if (Predicate.isUndefined(source.version)) {
-		return { kind: "absent" };
-	}
-
-	return { kind: kindOf(source), version: source.version };
-};
+const installedAs = (source: Source): Installed => ({ source: sourceOf(source), version: source.version });
 
 const GithubSource = Schema.Struct({
 	ref: Schema.optionalKey(Schema.String),
@@ -97,11 +97,11 @@ const claudeInstalled = Effect.gen(function* claudeInstalled() {
 	const followed = pipe(declared, Option.flatMap(Schema.decodeUnknownOption(Followed)));
 
 	return installedAs({
+		added: Option.isSome(fetched),
 		fromRepository: Option.isSome(fromRepository),
 		onChannel: Option.exists(fromRepository, onChannel) && Option.exists(followed, onChannel),
 		version: pipe(
 			plugin,
-			Option.filter(() => Option.isSome(fetched)),
 			Option.map(({ version }) => version),
 			Option.getOrUndefined,
 		),
@@ -128,11 +128,11 @@ const codexInstalled = Effect.gen(function* codexInstalled() {
 	const added = valueOf("source");
 
 	return installedAs({
+		added: Option.isSome(added),
 		fromRepository: Option.exists(added, (value) => value === codexRepository),
 		onChannel: Option.exists(valueOf("ref"), (ref) => ref === `"${channel}"`),
 		version: pipe(
 			plugin,
-			Option.filter(() => Option.isSome(added)),
 			Option.map((folder) => path.basename(folder)),
 			Option.getOrUndefined,
 		),
@@ -143,6 +143,7 @@ const piChannel = "npm:phi-router";
 
 const piInstalled = Effect.map(installedPackage(""), (found) =>
 	installedAs({
+		added: Option.isSome(found),
 		fromRepository: Option.exists(
 			found,
 			({ source }) => source === piChannel || Str.startsWith(`${piChannel}@`)(source),
@@ -214,13 +215,14 @@ const harnesses = {
 			const followed = followedMarketplace("", marketplace, { ref: channel, repo: repository });
 			const refreshed: Argv = ["claude", "plugin", "marketplace", "update", marketplace];
 			const updated: Argv = ["claude", "plugin", "update", pluginId, "--scope", "user"];
+			const added: Argv = ["claude", "plugin", "install", pluginId, "--scope", "user"];
 
 			return {
 				install: Option.match(Option.fromUndefinedOr(target.checkout), {
 					onNone: () => [install, followed],
 					onSome: () => [install],
 				}),
-				move: [followed, refreshed, updated],
+				move: [followed, refreshed, added, updated],
 				update: [refreshed, updated],
 			};
 		},

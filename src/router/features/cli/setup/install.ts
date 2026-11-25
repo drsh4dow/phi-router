@@ -40,23 +40,37 @@ const moveOf = ({
 	readonly installed: Installed;
 	readonly target: Target;
 }): Option.Option<Move> => {
-	if (installed.kind === "absent") {
-		return Option.some("install");
+	const { source, version } = installed;
+	const install = Option.some<Move>("install");
+
+	if (source === "absent") {
+		return install;
 	}
 
-	const newer = Order.isGreaterThan(releaseOrder)(installed.version, target.version);
+	if (Predicate.isNotUndefined(target.checkout)) {
+		return pipe(
+			install,
+			Option.filter(() => Predicate.isUndefined(version)),
+		);
+	}
 
-	if (Predicate.isNotUndefined(target.checkout) || installed.kind === "elsewhere" || newer) {
+	const newer = Predicate.isNotUndefined(version) && Order.isGreaterThan(releaseOrder)(version, target.version);
+
+	if (source === "elsewhere" || newer) {
 		return Option.none();
 	}
 
-	if (installed.kind === "held") {
+	if (source === "held") {
 		return Option.some("move");
+	}
+
+	if (Predicate.isUndefined(version)) {
+		return install;
 	}
 
 	return pipe(
 		Option.some<Move>("update"),
-		Option.filter(() => Order.isLessThan(releaseOrder)(installed.version, target.version)),
+		Option.filter(() => Order.isLessThan(releaseOrder)(version, target.version)),
 	);
 };
 
@@ -87,7 +101,7 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, t
 
 	const after = yield* installed;
 
-	if (after.kind === "absent") {
+	if (Predicate.isUndefined(after.version)) {
 		return yield* stopped(`${title} did not install phi-router. Your key is saved.`);
 	}
 
