@@ -45,7 +45,7 @@ const setup = Effect.fn("setup")(function* setup(
 	}
 
 	if (given.apply) {
-		return yield* applied(name, found, { answers, source });
+		return yield* applied(name, found, { answers, answersJson: given.answers, source });
 	}
 
 	return yield* asked(name, found, source);

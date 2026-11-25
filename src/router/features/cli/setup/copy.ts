@@ -102,7 +102,21 @@ const windowDone = {
 	true: "Done. This window is protected.",
 } as const;
 
+const codexDone = "Done. In Codex, type `/new`, then `/hooks` and press t to trust phi-router's hooks.";
+
 const shellQuoted = (word: string): string => `'${Str.replaceAll("'", String.raw`'\''`)(word)}'`;
+
+const keyInTerminal = (answersJson: string | undefined): string => {
+	const command = pipe(
+		Option.fromUndefinedOr(answersJson),
+		Option.match({
+			onNone: () => "npx phi-router setup codex --apply",
+			onSome: (json) => `npx phi-router setup codex --apply --answers ${shellQuoted(json)}`,
+		}),
+	);
+
+	return `I need an OpenAI key covered by your BAA. In any terminal, run \`${command}\` and paste it there, not here. Then follow its last line.`;
+};
 
 const signedInThen: Readonly<Record<HarnessName, string>> = {
 	claude: "Say done when it says you're signed in.",
@@ -120,7 +134,9 @@ const enterpriseNote =
 	"! Check that your BAA covers Claude Code through phi-router. Anthropic doesn't cover a custom base URL by default.";
 
 export {
+	codexDone,
 	enterpriseNote,
+	keyInTerminal,
 	keyInputs,
 	keyName,
 	keyVariables,
