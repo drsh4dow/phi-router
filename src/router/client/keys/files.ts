@@ -15,6 +15,17 @@ const keyFileOf = Effect.fnUntraced(
 	Effect.provideService(UserDirectories.UserDirectories, UserDirectories.make()),
 );
 
+const loginFolderOf = Effect.fnUntraced(
+	function* loginFolderOf(name: string) {
+		const directories = yield* UserDirectories.UserDirectories;
+		const path = yield* Path.Path;
+		const folder = yield* directories.config("phi-router");
+
+		return path.join(folder, "logins", name);
+	},
+	Effect.provideService(UserDirectories.UserDirectories, UserDirectories.make()),
+);
+
 const savedKey = Effect.fnUntraced(function* savedKey(vendor: Vendor) {
 	const keyFile = yield* keyFileOf(vendor);
 
@@ -31,4 +42,4 @@ const saveKey = Effect.fnUntraced(function* saveKey(vendor: Vendor, key: Readonl
 	}
 });
 
-export { keyFileOf, saveKey, savedKey };
+export { keyFileOf, loginFolderOf, saveKey, savedKey };

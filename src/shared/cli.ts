@@ -32,6 +32,53 @@ const ModelsJson = Schema.fromJsonString(
 	Schema.Struct({ anthropic: Schema.optionalKey(RoutedModels), openai: Schema.optionalKey(RoutedModels) }),
 );
 
+const SetupVendor = Schema.Literals(["anthropic", "openai"]);
+
+const QuestionId = Schema.Literals(["enterprise", "everyday", "baa", "judge"]);
+
+const ChoiceId = Schema.Literals([
+	"yes",
+	"no",
+	"subscription",
+	"nothing",
+	"key",
+	"signIn",
+	"env",
+	"pi",
+	"saved",
+	"none",
+]);
+
+const Answer = Schema.optionalKey(ChoiceId);
+
+const SetupAnswers = Schema.Struct({ baa: Answer, enterprise: Answer, everyday: Answer, judge: Answer });
+
+const SetupAnswersJson = Schema.fromJsonString(SetupAnswers);
+
+const SetupChoice = Schema.Struct({ id: ChoiceId, label: Schema.String });
+
+const SetupQuestion = Schema.Struct({
+	choices: Schema.Array(SetupChoice),
+	id: QuestionId,
+	text: Schema.String,
+});
+
+const Found = Schema.Array(Schema.String);
+
+const SetupKey = Schema.Struct({ prompt: Schema.String, vendor: SetupVendor });
+
+const SetupStep = Schema.Union([
+	Schema.Struct({ found: Found, kind: Schema.Literal("ask"), question: SetupQuestion }),
+	Schema.Struct({ found: Found, kind: Schema.Literal("stop"), line: Schema.String }),
+	Schema.Struct({
+		found: Found,
+		keys: Schema.Array(SetupKey),
+		kind: Schema.Literal("ready"),
+	}),
+]);
+
+const SetupStepJson = Schema.fromJsonString(SetupStep);
+
 const loopback = "127.0.0.1";
 
 const productPort = 47_411;
@@ -47,4 +94,19 @@ const spelling = {
 
 const phiCommand = { name: "phi", pin: "pin", unpin: "unpin" } as const;
 
-export { CommandFailed, ModelsJson, Pid, SessionId, Status, StatusJson, loopback, phiCommand, productPort, spelling };
+export {
+	ChoiceId,
+	CommandFailed,
+	ModelsJson,
+	Pid,
+	QuestionId,
+	SessionId,
+	SetupAnswersJson,
+	SetupStepJson,
+	Status,
+	StatusJson,
+	loopback,
+	phiCommand,
+	productPort,
+	spelling,
+};

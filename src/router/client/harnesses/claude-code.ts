@@ -97,6 +97,22 @@ const userSettings = Effect.fnUntraced(function* userSettings(named: string) {
 	} satisfies UserSettings;
 });
 
+const managedPlace = (os: string): string => {
+	if (os === "darwin") {
+		return "/Library/Application Support/ClaudeCode/managed-settings.json";
+	}
+
+	return "/etc/claude-code/managed-settings.json";
+};
+
+const managedEnv = Effect.fnUntraced(function* managedEnv(os: string) {
+	const place = managedPlace(os);
+	const file = yield* Config.String("PHI_ROUTER_CLAUDE_MANAGED_SETTINGS").pipe(Config.withDefault(place));
+	const { blocks } = yield* read(file);
+
+	return pipe(blocks.env ?? {}, Record.filter(Predicate.isString));
+});
+
 const claudePlugin = Effect.fnUntraced(function* claudePlugin(named: string, id: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const file = yield* configFile(named, "plugins/installed_plugins.json");
@@ -185,6 +201,6 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 
 const claudeTurn = harnessTurn(commandOf);
 
-export { claudeTurn, claudePlugin, rewriteEnv, userSettings };
+export { claudeTurn, claudePlugin, configFolder as claudeFolder, managedEnv, rewriteEnv, userSettings };
 
 export type { UserSettings };

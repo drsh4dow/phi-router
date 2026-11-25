@@ -14,7 +14,7 @@ const listener = Layer.succeed(
 );
 
 const platform = (name: Platform["Service"]["name"]): Layer.Layer<Platform> =>
-	Layer.succeed(Platform, Platform.of({ entry: import.meta.filename, name }));
+	Layer.succeed(Platform, Platform.of({ entry: import.meta.filename, name, os: globalThis.process.platform }));
 
 const bun = Layer.merge(BunServices.layer, platform("bun"));
 

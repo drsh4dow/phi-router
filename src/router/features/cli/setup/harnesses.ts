@@ -1,9 +1,18 @@
 import { Effect, Option, Path } from "effect";
 import { claudeCanary, codexCanary, piCanary } from "#router/features/cli/doctor/index.ts";
-import { claudePlugin, codexHome, codexPlugin, installedPackage } from "#router/client/harnesses/index.ts";
+import {
+	claudePlugin,
+	claudeSignIn,
+	codexHome,
+	codexPlugin,
+	codexSignIn,
+	installedPackage,
+	piSignIn,
+} from "#router/client/harnesses/index.ts";
 import { pluginId, switchedOn } from "#router/features/cli/claude/index.ts";
 import type { Check } from "#router/features/cli/doctor/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
+import type { SignIn } from "#router/client/harnesses/index.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { codexSwitchedOn } from "#router/features/cli/codex/index.ts";
 
@@ -16,13 +25,14 @@ interface InstallSource {
 type Argv = readonly [string, ...string[]];
 
 interface HarnessSetup {
-	readonly baaVendor: Vendor;
+	readonly vendor: Vendor;
 	readonly canary: (packageRoot: string) => Effect.Effect<readonly Check[], unknown, unknown>;
 	readonly closingLines: (source: InstallSource) => readonly string[];
 	readonly installCommands: (source: InstallSource) => readonly Argv[];
 	readonly installed: Effect.Effect<Option.Option<unknown>, unknown, unknown>;
+	readonly signIn: Effect.Effect<SignIn, unknown, unknown>;
+	readonly signInHow: string;
 	readonly start: Argv;
-	readonly subscription: string;
 	readonly switchOn: Effect.Effect<Option.Option<string>, Error, unknown>;
 	readonly title: string;
 }
@@ -35,7 +45,6 @@ const pluginFolderIn = Effect.fnUntraced(function* pluginFolderIn(packageRoot: s
 
 const harnesses = {
 	claude: {
-		baaVendor: "anthropic",
 		canary: (packageRoot: string) => Effect.flatMap(pluginFolderIn(packageRoot), claudeCanary),
 		closingLines: (): readonly string[] => [
 			"Done. Claude Code windows that were already open, including the one you",
@@ -48,13 +57,14 @@ const harnesses = {
 			["claude", "plugin", "install", "phi-router", "--marketplace", source.claudeMarketplace, "--scope", "user"],
 		],
 		installed: claudePlugin("", pluginId),
+		signIn: claudeSignIn(""),
+		signInHow: "/login",
 		start: ["claude"] satisfies Argv,
-		subscription: "Claude",
 		switchOn: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
 		title: "Claude Code",
+		vendor: "anthropic",
 	},
 	codex: {
-		baaVendor: "openai",
 		canary: Effect.fnUntraced(function* codexCanaryIn(packageRoot: string) {
 			const folder = yield* pluginFolderIn(packageRoot);
 
@@ -77,13 +87,14 @@ const harnesses = {
 
 			return yield* codexPlugin(path.join(home, "plugins", "cache", "phi-router", "phi-router"));
 		}),
+		signIn: codexSignIn,
+		signInHow: "codex login",
 		start: ["codex"] satisfies Argv,
-		subscription: "ChatGPT",
 		switchOn: Effect.as(codexSwitchedOn(""), Option.some("Codex now sends its requests through phi-router")),
 		title: "Codex",
+		vendor: "openai",
 	},
 	pi: {
-		baaVendor: "anthropic",
 		canary: piCanary,
 		closingLines: (source: InstallSource): readonly string[] => [
 			"Done. Close any pi window that was already open, and use the one setup starts.",
@@ -96,10 +107,12 @@ const harnesses = {
 			installedPackage(""),
 			Option.map(({ folder }) => folder),
 		),
+		signIn: piSignIn,
+		signInHow: "/login",
 		start: ["pi", "--model", "phi/auto"] satisfies Argv,
-		subscription: "Claude",
 		switchOn: Effect.succeed(Option.none<string>()),
 		title: "pi",
+		vendor: "anthropic",
 	},
 } as const satisfies Record<Harness, HarnessSetup>;
 
