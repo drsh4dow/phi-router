@@ -1,7 +1,9 @@
-import { Array, Config, Effect, Option, Record, Schema, String as Str, pipe } from "effect";
+import { Array, Config, Effect, Option, Record, Redacted, Schema, String as Str, pipe } from "effect";
 import type { Pid } from "#shared/cli.ts";
 import { SessionId } from "#shared/cli.ts";
+import type { Vendor } from "#router/client/configuration/index.ts";
 import { modelAddressSetting } from "#router/features/cli/claude/index.ts";
+import { savePastedKey } from "#router/client/keys/index.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 import { start } from "#router/features/cli/start.ts";
 import { userSettings } from "#router/client/harnesses/index.ts";
@@ -45,6 +47,25 @@ const providerSwitchOn = Effect.gen(function* providerSwitchOn() {
 	);
 });
 
+const pluginOptions = {
+	anthropic: "CLAUDE_PLUGIN_OPTION_ANTHROPIC_KEY",
+	openai: "CLAUDE_PLUGIN_OPTION_OPENAI_KEY",
+} as const;
+
+const pastedKeySaved = Effect.fnUntraced(function* pastedKeySaved([vendor, option]: readonly [Vendor, string]) {
+	const pasted = yield* Config.Redacted(option).pipe(Config.withDefault(Redacted.make("")));
+	const key = Str.trim(Redacted.value(pasted));
+
+	if (Str.isNonEmpty(key)) {
+		yield* savePastedKey(vendor, Redacted.make(key));
+	}
+});
+
+const pastedKeysSaved = Effect.forEach(Record.toEntries(pluginOptions), pastedKeySaved, {
+	concurrency: 1,
+	discard: true,
+});
+
 class MovedOff extends Schema.TaggedError<MovedOff, { readonly brand: unique symbol }>()("MovedOff", {
 	setting: Schema.String,
 }) {
@@ -84,6 +105,8 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 	readonly claude: boolean;
 }) {
 	if (hook.claude) {
+		yield* pastedKeysSaved;
+
 		const moved = yield* movedBy(hook.address);
 
 		yield* Option.match(moved, {

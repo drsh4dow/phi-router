@@ -1,15 +1,13 @@
-import type { Answers, Found, Ready, Step } from "./plan.ts";
-import { Array, Config, Console, Effect, Option, Record, Schema, pipe } from "effect";
+import type { Answers, Found, Step } from "./plan.ts";
+import { Array, Console, Effect, Option, Schema, pipe } from "effect";
 import type { HarnessName, InstallSource } from "./harnesses.ts";
 import { foundScreen, keyPrompt, plan } from "./plan.ts";
-import { readyOf, typedKey } from "./asked.ts";
 import { SetupStepJson } from "#shared/cli.ts";
-import type { Vendor } from "#router/client/configuration/index.ts";
 import { apply } from "./apply.ts";
-import { isTerminal } from "#router/client/terminal.ts";
-import { stopped } from "./keys.ts";
-
-const keyInputs = { anthropic: "PHI_ROUTER_ANTHROPIC_KEY", openai: "PHI_ROUTER_OPENAI_KEY" } as const;
+import { givenKeys } from "./given-keys.ts";
+import { harnesses } from "./harnesses.ts";
+import { readyOf } from "./asked.ts";
+import { windowDone } from "./copy.ts";
 
 const wired = (found: Found, step: Step): typeof SetupStepJson.Type => {
 	const screen = foundScreen(found);
@@ -36,31 +34,17 @@ const reported = Effect.fnUntraced(function* reported(found: Found, answers: Ans
 	yield* Console.log(text);
 });
 
-const givenKey = Effect.fnUntraced(function* givenKey(vendor: Vendor, roles: Ready["roles"]) {
-	const given = yield* Config.option(Config.Redacted(keyInputs[vendor]));
-
-	if (Option.isSome(given)) {
-		return [vendor, given.value] as const;
-	}
-
-	const terminal = yield* isTerminal;
-
-	if (terminal) {
-		return yield* typedKey(vendor, roles);
-	}
-
-	return yield* stopped(`Setup needs the key in ${keyInputs[vendor]}. Nothing changed.`);
-});
-
 const applied = Effect.fnUntraced(function* applied(
 	name: HarnessName,
 	found: Found,
 	given: { readonly answers: Answers; readonly source: InstallSource },
 ) {
 	const ready = yield* readyOf(plan({ answers: given.answers, found }));
-	const typed = yield* Effect.forEach(ready.typed, (vendor) => givenKey(vendor, ready.roles), { concurrency: 1 });
+	const typed = yield* givenKeys(name, ready, given.source);
+	const before = yield* harnesses[name].installed;
 
-	yield* apply(name, { roles: ready.roles, typed: Record.fromEntries(typed) }, given.source);
+	yield* apply(name, { roles: ready.roles, typed }, given.source);
+	yield* Effect.when(Console.log(windowDone[`${Option.isSome(before)}`]), Effect.succeed(name === "claude"));
 });
 
 export { applied, reported };

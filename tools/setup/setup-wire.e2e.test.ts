@@ -5,6 +5,7 @@ import {
 	holdsKeyPiece,
 	keyFiles,
 	keysOutsideKeyFiles,
+	lastLine,
 	layer,
 	ok,
 	patient,
@@ -51,6 +52,7 @@ const applied = Effect.gen(function* applied() {
 	const outside = yield* keysOutsideKeyFiles(of, [run.stdout, run.stderr]);
 
 	assert.strictEqual(run.exitCode, ok, run.stderr);
+	assert.strictEqual(lastLine(run.stdout), "Done. Type `/reload-plugins` to turn it on.");
 	assert.deepStrictEqual(config, {
 		clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }],
 		judge: { endpoint: "https://api.openai.com/v1", keyFile: openai },

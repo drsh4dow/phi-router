@@ -4,42 +4,56 @@ import type { Vendor } from "#router/client/configuration/index.ts";
 import { readKey } from "#router/client/accounts/index.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
-const keyFileOf = Effect.fnUntraced(
-	function* keyFileOf(vendor: Vendor) {
+const ownPath = Effect.fnUntraced(
+	function* ownPath(names: readonly string[]) {
 		const directories = yield* UserDirectories.UserDirectories;
 		const path = yield* Path.Path;
 		const folder = yield* directories.config("phi-router");
 
-		return path.join(folder, "keys", vendor);
+		return path.join(folder, ...names);
 	},
 	Effect.provideService(UserDirectories.UserDirectories, UserDirectories.make()),
 );
 
-const loginFolderOf = Effect.fnUntraced(
-	function* loginFolderOf(name: string) {
-		const directories = yield* UserDirectories.UserDirectories;
-		const path = yield* Path.Path;
-		const folder = yield* directories.config("phi-router");
+const keyFileOf = Effect.fnUntraced(function* keyFileOf(vendor: Vendor) {
+	return yield* ownPath(["keys", vendor]);
+});
 
-		return path.join(folder, "logins", name);
-	},
-	Effect.provideService(UserDirectories.UserDirectories, UserDirectories.make()),
-);
+const pastedKeyFileOf = Effect.fnUntraced(function* pastedKeyFileOf(vendor: Vendor) {
+	return yield* ownPath(["keys", "pasted", vendor]);
+});
 
-const savedKey = Effect.fnUntraced(function* savedKey(vendor: Vendor) {
-	const keyFile = yield* keyFileOf(vendor);
+const loginFolderOf = Effect.fnUntraced(function* loginFolderOf(name: string) {
+	return yield* ownPath(["logins", name]);
+});
 
+const keyIn = Effect.fnUntraced(function* keyIn(keyFile: string) {
 	return yield* Effect.option(readKey({ keyFile }));
 });
 
-const saveKey = Effect.fnUntraced(function* saveKey(vendor: Vendor, key: Readonly<Redacted.Redacted>) {
-	const saved = yield* savedKey(vendor);
-	const keyFile = yield* keyFileOf(vendor);
-	const same = Option.exists(saved, (held) => Redacted.value(held) === Redacted.value(key));
+const keyWritten = Effect.fnUntraced(function* keyWritten(keyFile: string, key: Readonly<Redacted.Redacted>) {
+	const held = yield* keyIn(keyFile);
+	const same = Option.exists(held, (kept) => Redacted.value(kept) === Redacted.value(key));
 
 	if (!same) {
 		yield* writePrivately(keyFile, `${Redacted.value(key)}\n`);
 	}
 });
 
-export { keyFileOf, loginFolderOf, saveKey, savedKey };
+const savedKey = Effect.fnUntraced(function* savedKey(vendor: Vendor) {
+	return yield* Effect.flatMap(keyFileOf(vendor), keyIn);
+});
+
+const saveKey = Effect.fnUntraced(function* saveKey(vendor: Vendor, key: Readonly<Redacted.Redacted>) {
+	yield* Effect.flatMap(keyFileOf(vendor), (keyFile) => keyWritten(keyFile, key));
+});
+
+const pastedKey = Effect.fnUntraced(function* pastedKey(vendor: Vendor) {
+	return yield* Effect.flatMap(pastedKeyFileOf(vendor), keyIn);
+});
+
+const savePastedKey = Effect.fnUntraced(function* savePastedKey(vendor: Vendor, key: Readonly<Redacted.Redacted>) {
+	yield* Effect.flatMap(pastedKeyFileOf(vendor), (keyFile) => keyWritten(keyFile, key));
+});
+
+export { keyFileOf, loginFolderOf, pastedKey, saveKey, savePastedKey, savedKey };
