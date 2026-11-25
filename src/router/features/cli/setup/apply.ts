@@ -1,5 +1,5 @@
 import { Array, Console, Effect, Option, Struct, pipe } from "effect";
-import type { HarnessName, InstallSource } from "./harnesses.ts";
+import type { HarnessName, Target } from "./harnesses.ts";
 import { checkedKeys, savedKey } from "./held-keys.ts";
 import { enterpriseNote, roleNames, rows, shown } from "./copy.ts";
 import type { NewAccount } from "#router/client/config-writer.ts";
@@ -69,7 +69,7 @@ const written = Effect.fnUntraced(function* written(
 const apply = Effect.fn("setup apply")(function* apply(
 	name: HarnessName,
 	ready: { readonly roles: Ready["roles"]; readonly typed: Typed },
-	source: InstallSource,
+	target: Target,
 ) {
 	const { title, vendor } = harnesses[name];
 	const { roles, typed } = ready;
@@ -83,7 +83,7 @@ const apply = Effect.fn("setup apply")(function* apply(
 	const done = yield* settled(name, roles, typed);
 
 	yield* written(title, vendor, done);
-	yield* turnedOn(name, source, done.open.label.plan);
+	yield* turnedOn(name, target, done.open.label.plan);
 
 	const summary = rows([
 		[roleNames.open, shown(done.open.label)],

@@ -39,7 +39,7 @@ const lastQuestion = "Press Enter to start Claude Code with phi-router.";
 
 const lastScreen = `✓ Anthropic key works
 ✓ OpenAI key works
-✓ Installed phi-router in Claude Code
+✓ Installed phi-router ${version} in Claude Code
 ✓ Test: a fake patient record went to your BAA account, not Claude Max
 ✓ Claude Code now sends its requests through phi-router
 
@@ -88,7 +88,7 @@ const configuredClaude = Effect.fnUntraced(function* configuredClaude(of: World)
 	const claudeArgs = yield* argsOf(of, "claude");
 	const calls = yield* callsOf(of, "claude");
 
-	assert.include(claudeArgs, `plugin install phi-router --marketplace drsh4dow/phi-router@v${version} --scope user`);
+	assert.include(claudeArgs, "plugin install phi-router --marketplace drsh4dow/phi-router@release --scope user");
 	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 });
 
@@ -97,6 +97,7 @@ const switchedClaude = Effect.fnUntraced(function* switchedClaude(of: World) {
 	const settings = yield* fs.readFileString(`${of.folders.CLAUDE_CONFIG_DIR}/settings.json`);
 
 	assert.include(settings, '"ANTHROPIC_BASE_URL": "http://127.0.0.1:47411"');
+	assert.include(settings, '"autoUpdate": true', "Claude Code updates the release channel by itself");
 	assert.include(settings, '"model": "opus"');
 });
 

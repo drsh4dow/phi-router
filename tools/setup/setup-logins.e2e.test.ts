@@ -17,6 +17,7 @@ import {
 	questions,
 	setUp,
 	tracked,
+	version,
 	withStatus,
 	writeOwnSettings,
 	writtenConfigOf,
@@ -39,7 +40,7 @@ const enterpriseFound = `phi-router found
 const enterpriseNote = "! Check that your BAA covers Claude Code through phi-router.";
 
 const enterpriseEnd = `✓ Signed in as Claude Max · roe@example.com
-✓ Installed phi-router in Claude Code
+✓ Installed phi-router ${version} in Claude Code
 ✓ Test: a fake patient record went to your BAA account, not Claude Max
 ✓ Claude Code now sends its requests through phi-router
 

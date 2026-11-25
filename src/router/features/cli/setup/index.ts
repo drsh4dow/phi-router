@@ -6,8 +6,8 @@ import type { HarnessName } from "./harnesses.ts";
 import { KeyChecks } from "#router/client/keys/index.ts";
 import { asked } from "./asked.ts";
 import { find } from "./found.ts";
-import { sourceOf } from "./install.ts";
 import { stopped } from "./keys.ts";
+import { targetOf } from "./install.ts";
 
 const noVersion = stopped(
 	"Setup could not read the version of phi-router, so it cannot tell which release to install. Nothing was changed.",
@@ -18,6 +18,7 @@ const unreadAnswers = stopped("Setup could not read --answers. Nothing was chang
 const flags = {
 	answers: Flag.optional(Flag.String(spelling.setup.answers)).pipe(Flag.map((json) => Option.getOrUndefined(json))),
 	apply: Flag.Boolean(spelling.setup.apply).pipe(Flag.withDefault(false)),
+	channel: Flag.String("channel").pipe(Flag.withDefault("release")),
 	json: Flag.Boolean(spelling.setup.json).pipe(Flag.withDefault(false)),
 	newKey: Flag.Boolean("new-key").pipe(Flag.withDefault(false)),
 	source: Flag.optional(Flag.Directory("source", { mustExist: true })).pipe(
@@ -30,6 +31,7 @@ const setup = Effect.fn("setup")(function* setup(
 	given: {
 		readonly answers: string | undefined;
 		readonly apply: boolean;
+		readonly channel: string;
 		readonly json: boolean;
 		readonly newKey: boolean;
 		readonly source: string | undefined;
@@ -39,7 +41,7 @@ const setup = Effect.fn("setup")(function* setup(
 		Effect.mapError(() => unreadAnswers),
 	);
 
-	const source = yield* Effect.mapError(sourceOf(given.source), () => noVersion);
+	const target = yield* Effect.mapError(targetOf({ channel: given.channel, checkout: given.source }), () => noVersion);
 	const found = yield* find(name, given.newKey);
 
 	if (given.json) {
@@ -47,10 +49,10 @@ const setup = Effect.fn("setup")(function* setup(
 	}
 
 	if (given.apply) {
-		return yield* applied(name, found, { answers, answersJson: given.answers, source });
+		return yield* applied(name, found, { answers, answersJson: given.answers, target });
 	}
 
-	return yield* asked(name, found, source);
+	return yield* asked(name, found, target);
 });
 
 const claude = Command.make("claude", flags, (given) => setup("claude", given));

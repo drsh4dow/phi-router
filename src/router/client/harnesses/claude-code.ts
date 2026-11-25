@@ -15,6 +15,7 @@ import {
 import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 import { rewritePrivately, writePrivately } from "#router/client/private-file.ts";
 import { ChildProcess } from "effect/process";
+import { rewritten } from "./codex.ts";
 
 const SettingsFile = Schema.fromJsonString(Schema.JsonObject, { space: 2 });
 
@@ -46,9 +47,11 @@ interface Asked {
 	readonly env: Readonly<Record<string, string>>;
 }
 
-const Installs = Schema.Array(Schema.Struct({ installPath: Schema.String }));
+const Installs = Schema.Array(Schema.Struct({ installPath: Schema.String, version: Schema.String }));
 
-const InstalledPlugins = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Record(Schema.String, Installs) }));
+const InstalledPlugins = Schema.fromJsonString(
+	Schema.Struct({ plugins: Schema.Record(Schema.String, Schema.Unknown) }),
+);
 
 const fakeLogin = "phi-doctor-login";
 
@@ -62,6 +65,8 @@ const configFile = Effect.fnUntraced(function* configFile(named: string, name: s
 });
 
 const settingsName = "settings.json";
+
+const knownMarketplacesName = "plugins/known_marketplaces.json";
 
 const read = Effect.fnUntraced(function* read(file: string) {
 	const fs = yield* FileSystem.FileSystem;
@@ -119,20 +124,69 @@ const claudePlugin = Effect.fnUntraced(function* claudePlugin(named: string, id:
 	const exists = yield* fs.exists(file);
 
 	if (!exists) {
-		return Option.none<string>();
+		return Option.none<(typeof Installs.Type)[number]>();
 	}
 
 	const text = yield* fs.readFileString(file);
 
-	const { plugins } = yield* Schema.decodeEffect(InstalledPlugins)(text).pipe(
+	const installs = yield* Schema.decodeEffect(InstalledPlugins)(text).pipe(
+		Effect.flatMap(({ plugins }) => Schema.decodeUnknownEffect(Schema.UndefinedOr(Installs))(plugins[id])),
 		Effect.mapError((cause) => SettingsUnread.make({ cause, path: file })),
 	);
 
-	return pipe(
-		Record.get(plugins, id),
-		Option.flatMap(Array.head),
-		Option.map(({ installPath }) => installPath),
+	return pipe(Option.fromUndefinedOr(installs), Option.flatMap(Array.head));
+});
+
+const asObject = Schema.decodeUnknownOption(Schema.JsonObject);
+
+const claudeMarketplace = Effect.fnUntraced(function* claudeMarketplace(named: string, name: string) {
+	const settingsFile = yield* configFile(named, settingsName);
+	const knownFile = yield* configFile(named, knownMarketplacesName);
+	const { settings } = yield* read(settingsFile);
+	const { settings: known } = yield* read(knownFile);
+
+	return {
+		declared: pipe(
+			asObject(settings["extraKnownMarketplaces"]),
+			Option.flatMap((declared) => Option.fromUndefinedOr(declared[name])),
+		),
+		fetched: Option.fromUndefinedOr(known[name]),
+	};
+});
+
+const followedMarketplace = Effect.fnUntraced(function* followedMarketplace(
+	named: string,
+	name: string,
+	github: { readonly repo: string; readonly ref: string },
+) {
+	const settingsFile = yield* configFile(named, settingsName);
+	const knownFile = yield* configFile(named, knownMarketplacesName);
+	const source = { ref: github.ref, repo: github.repo, source: "github" };
+	const encoded = Schema.encodeEffect(SettingsFile);
+	const { settings: known } = yield* read(knownFile);
+	const fetched = asObject(known[name]);
+
+	if (Option.isNone(fetched)) {
+		return;
+	}
+
+	const { settings } = yield* read(settingsFile);
+	const declared = Option.getOrElse(asObject(settings["extraKnownMarketplaces"]), (): Schema.JsonObject => ({}));
+
+	const entry = Struct.assign(
+		Option.getOrElse(asObject(declared[name]), () => ({})),
+		{ autoUpdate: true, source },
 	);
+
+	const followed = Record.set(settings, "extraKnownMarketplaces", Struct.assign(declared, { [name]: entry }));
+	const refetched = Record.set(known, name, Struct.assign(fetched.value, { source }));
+	const settingsBefore = yield* encoded(settings);
+	const settingsAfter = yield* encoded(followed);
+	const knownBefore = yield* encoded(known);
+	const knownAfter = yield* encoded(refetched);
+
+	yield* rewritten(settingsFile, settingsBefore, settingsAfter);
+	yield* rewritten(knownFile, knownBefore, knownAfter);
 });
 
 const rewriteEnv = Effect.fnUntraced(function* rewriteEnv(
@@ -201,6 +255,15 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 
 const claudeTurn = harnessTurn(commandOf);
 
-export { claudeTurn, claudePlugin, configFolder as claudeFolder, managedEnv, rewriteEnv, userSettings };
+export {
+	claudeMarketplace,
+	claudeTurn,
+	claudePlugin,
+	configFolder as claudeFolder,
+	followedMarketplace,
+	managedEnv,
+	rewriteEnv,
+	userSettings,
+};
 
 export type { UserSettings };

@@ -80,7 +80,11 @@ const installed = Effect.fnUntraced(function* installed(dir: string, install: In
 	}
 
 	const copy = yield* pluginCopy;
-	const record = { plugins: { "phi-router@phi-router": [{ installPath: copy, scope: "user" }] }, version: 2 };
+
+	const record = {
+		plugins: { "phi-router@phi-router": [{ installPath: copy, scope: "user", version: "0.1.0" }] },
+		version: 2,
+	};
 
 	yield* fs.makeDirectory(`${dir}/plugins`);
 	yield* fs.writeFileString(`${dir}/plugins/installed_plugins.json`, Formatter.formatJson(record));

@@ -1,13 +1,11 @@
-import { Array, Console, Effect, Option, Predicate, pipe } from "effect";
-import type { HarnessName, InstallSource } from "./harnesses.ts";
+import { Array, Console, Effect, Option, Order, Predicate, String as Str, pipe } from "effect";
+import type { HarnessName, Installed, Move, Target } from "./harnesses.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
 import { Platform } from "#router/features/cli/platform.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { harnesses } from "./harnesses.ts";
 import { installRun } from "#router/client/harnesses/index.ts";
 import { stopped } from "./keys.ts";
-
-const repository = "drsh4dow/phi-router";
 
 const succeeded = 0;
 
@@ -28,51 +26,88 @@ const installFailure = ({ name, turn }: { readonly name: HarnessName; readonly t
 	return Option.liftPredicate(`The install in ${title} failed:\n${turn.printed}`, () => turn.exitCode !== succeeded);
 };
 
-const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, source: InstallSource) {
-	const { installCommands, installed, title } = harnesses[name];
-	const before = yield* installed;
+const releaseOrder = Order.combine(
+	Order.mapInput(Array.makeOrder(Order.Number), (version: string) =>
+		pipe(Str.split(version, "-"), Array.headNonEmpty, Str.split("."), Array.map(Number)),
+	),
+	Order.mapInput(Order.Boolean, (version: string) => !Str.includes("-")(version)),
+);
 
-	const installs = Option.match(before, { onNone: () => installCommands(source), onSome: () => [] });
+const moveOf = ({
+	installed,
+	target,
+}: {
+	readonly installed: Installed;
+	readonly target: Target;
+}): Option.Option<Move> => {
+	if (installed.kind === "absent") {
+		return Option.some("install");
+	}
+
+	if (Predicate.isNotUndefined(target.checkout) || installed.kind === "elsewhere") {
+		return Option.none();
+	}
+
+	if (installed.kind === "held") {
+		return Option.some("move");
+	}
+
+	return pipe(
+		Option.some<Move>("update"),
+		Option.filter(() => Order.isLessThan(releaseOrder)(installed.version, target.version)),
+	);
+};
+
+const versionIn = (installed: Installed): Option.Option<string> => {
+	if (installed.kind === "absent") {
+		return Option.none();
+	}
+
+	return Option.some(installed.version);
+};
+
+const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, target: Target) {
+	const { installed, steps, title } = harnesses[name];
+	const before = yield* installed(target);
+	const move = moveOf({ installed: before, target });
 
 	yield* Effect.forEach(
-		installs,
-		(argv) =>
-			Effect.flatMap(installRun(argv), (turn) =>
-				Option.match(installFailure({ name, turn }), {
+		Option.match(move, { onNone: () => [], onSome: (chosen) => steps(target)[chosen] }),
+		(step) =>
+			Effect.gen(function* ranStep() {
+				if (Effect.isEffect(step)) {
+					return yield* Effect.mapError(step, () =>
+						stopped(`Setup could not change the settings of ${title}. Your key is saved.`),
+					);
+				}
+
+				const turn = yield* installRun(step);
+
+				return yield* Option.match(installFailure({ name, turn }), {
 					onNone: () => Effect.void,
 					onSome: (failure) => stopped(`${failure}\n${title} was left as it was. Your key is saved.`),
-				}),
-			),
+				});
+			}),
 		{ concurrency: 1, discard: true },
 	);
 
-	yield* pipe(
-		installed,
-		Effect.flatMap(Effect.fromOption),
-		Effect.mapError(() => stopped(`${title} did not install phi-router. Your key is saved.`)),
+	const after = yield* installed(target);
+
+	const version = yield* Effect.mapError(Effect.fromOption(versionIn(after)), () =>
+		stopped(`${title} did not install phi-router. Your key is saved.`),
 	);
 
-	yield* Console.log(`✓ Installed phi-router in ${title}`);
+	yield* Console.log(`✓ Installed phi-router ${version} in ${title}`);
 });
 
-const sourceOf = Effect.fnUntraced(function* sourceOf(checkout: string | undefined) {
-	if (Predicate.isNotUndefined(checkout)) {
-		return {
-			claudeMarketplace: checkout,
-			codexMarketplaceArgs: [checkout],
-			piPackage: checkout,
-		} satisfies InstallSource;
-	}
-
+const targetOf = Effect.fnUntraced(function* targetOf(given: {
+	readonly channel: string;
+	readonly checkout: string | undefined;
+}) {
 	const { entry } = yield* Platform;
 	const version = yield* versionOf(entry);
-	const tag = `v${version}`;
 
-	return {
-		claudeMarketplace: `${repository}@${tag}`,
-		codexMarketplaceArgs: [repository, "--ref", tag],
-		piPackage: `npm:phi-router@${version}`,
-	} satisfies InstallSource;
+	return { channel: given.channel, checkout: given.checkout, version } satisfies Target;
 });
 
 const tested = Effect.fnUntraced(function* tested(name: HarnessName) {
@@ -118,11 +153,11 @@ const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
 	);
 });
 
-const turnedOn = Effect.fnUntraced(function* turnedOn(name: HarnessName, source: InstallSource, openPlan: string) {
+const turnedOn = Effect.fnUntraced(function* turnedOn(name: HarnessName, target: Target, openPlan: string) {
 	yield* tested(name);
-	yield* installedIn(name, source);
+	yield* installedIn(name, target);
 	yield* Console.log(`✓ Test: a fake patient record went to your BAA account, not ${openPlan}`);
 	yield* switched(name);
 });
 
-export { installFailure, installedIn, sourceOf, turnedOn };
+export { installFailure, installedIn, moveOf, targetOf, turnedOn };

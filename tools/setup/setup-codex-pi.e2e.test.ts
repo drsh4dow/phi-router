@@ -36,7 +36,7 @@ const codexFound = `phi-router found
 `;
 
 const codexEnd = `✓ OpenAI key works
-✓ Installed phi-router in Codex
+✓ Installed phi-router ${version} in Codex
 ✓ Test: a fake patient record went to your BAA account, not ChatGPT Plus
 ✓ Codex now sends its requests through phi-router
 
@@ -50,7 +50,7 @@ Undo any time with: npx phi-router off codex
 Press Enter to start Codex. It asks once to review phi-router's hooks.
 Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.`;
 
-const piEnd = `✓ Installed phi-router in pi
+const piEnd = `✓ Installed phi-router ${version} in pi
 ✓ Test: a fake patient record went to your BAA account, not Claude
 
   Everyday work   Claude
@@ -58,7 +58,7 @@ const piEnd = `✓ Installed phi-router in pi
   PHI check       OpenAI
 
 Done. Close any pi window that was already open, and use the one setup starts.
-Undo any time with: pi remove npm:phi-router@${version}
+Undo any time with: pi remove npm:phi-router
 
 Press Enter to start pi on phi/auto. Models outside phi skip phi-router.`;
 
@@ -88,7 +88,7 @@ const configuredCodex = Effect.fnUntraced(function* configuredCodex(of: World) {
 	const installs = pipe(codexArgs, Array.filter(Str.startsWith("plugin ")));
 
 	assert.deepStrictEqual(installs, [
-		`plugin marketplace add drsh4dow/phi-router --ref v${version}`,
+		"plugin marketplace add drsh4dow/phi-router --ref release",
 		"plugin add phi-router@phi-router",
 	]);
 	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
@@ -155,7 +155,7 @@ const piSetUp = Effect.gen(function* piSetUp() {
 	const piArgs = yield* argsOf(of, "pi");
 	const calls = yield* callsOf(of, "pi");
 
-	assert.include(piArgs, `install npm:phi-router@${version}`);
+	assert.include(piArgs, "install npm:phi-router");
 	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 }).pipe(Effect.scoped);
 

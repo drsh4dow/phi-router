@@ -18,6 +18,7 @@ import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { packageCopy, piCli, pluginCopy } from "#tools/plugin/copied.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { enabled } from "#tools/codex/configured.ts";
+import manifest from "#package.json" with { type: "json" };
 import { ran } from "#tools/lifecycle/launched.ts";
 
 const keys = {
@@ -87,39 +88,105 @@ const claudeStatus = ({ email, plan }: { readonly plan: string; readonly email: 
 		subscriptionType: plan,
 	});
 
-const fakes = (copies: Copies): Readonly<Record<string, string>> => {
-	const installedPlugins = `{"version":2,"plugins":{"phi-router@phi-router":[{"installPath":"${copies.claudePlugin}","scope":"user"}]}}`;
-	const cache = '"$CODEX_HOME/plugins/cache/phi-router/phi-router"';
-	const hang = '[ -e "$here/hang" ] && { : > "$here/canary-ran"; exec sleep 30; }; [ -e "$here/fail" ] && exit 1';
+const installs = (copies: Copies): string => String.raw`const fs = require("fs");
+const [harness, ...args] = process.argv.slice(2);
+const version = ${Formatter.formatJson(manifest.version)};
+const plugin = ${Formatter.formatJson(copies.claudePlugin)};
+const json = (file) => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {});
+const put = (file, value) => {
+	fs.mkdirSync(require("path").dirname(file), { recursive: true });
+	fs.writeFileSync(file, JSON.stringify(value, null, 2));
+};
+const fail = (line) => {
+	console.error(line);
+	process.exit(1);
+};
+if (harness === "claude") {
+	const home = process.env.CLAUDE_CONFIG_DIR;
+	const [knownFile, settingsFile, installsFile] = ["plugins/known_marketplaces.json", "settings.json", "plugins/installed_plugins.json"].map((name) => home + "/" + name);
+	const [known, settings, installed] = [knownFile, settingsFile, installsFile].map(json);
+	const at = (found) => put(installsFile, { version: 2, plugins: { "phi-router@phi-router": [{ installPath: plugin, scope: "user", version: found }] } });
+	const [, verb, , , given] = args;
+	if (verb === "install") {
+		const github = /^([\w.-]+\/[\w.-]+)@(.+)$/.exec(given);
+		const source = github ? { source: "github", repo: github[1], ref: github[2] } : { source: "directory", path: given };
+		const had = known["phi-router"];
+		if (had && ["source", "repo", "ref", "path"].some((key) => had.source[key] !== source[key])) fail("its source doesn't match its extraKnownMarketplaces entry");
+		known["phi-router"] = { source, installLocation: home + "/plugins/marketplaces/phi-router" };
+		settings.extraKnownMarketplaces = Object.assign({}, settings.extraKnownMarketplaces, { "phi-router": { source } });
+		settings.enabledPlugins = Object.assign({}, settings.enabledPlugins, { "phi-router@phi-router": true });
+		put(knownFile, known);
+		put(settingsFile, settings);
+		if (!installed.plugins) at(version);
+	}
+	if (verb === "marketplace" && !known["phi-router"]) fail("Marketplace not found");
+	if (verb === "update") at(version);
+}
+if (harness === "codex") {
+	const home = process.env.CODEX_HOME;
+	const configFile = home + "/config.toml";
+	const cache = home + "/plugins/cache/phi-router/phi-router";
+	const config = fs.existsSync(configFile) ? fs.readFileSync(configFile, "utf8") : "";
+	const table = /\n*\[marketplaces\.phi-router\]\n([^[\n].*\n?)*/;
+	const [, verb, step, given, , ref] = args;
+	if (verb === "marketplace" && step === "add") {
+		const from = ref ? 'source_type = "git"\nsource = "https://github.com/' + given + '.git"\nref = "' + ref + '"\n' : 'source_type = "local"\nsource = "' + given + '"\n';
+		const block = "[marketplaces.phi-router]\n" + from;
+		const had = table.exec(config);
+		if (had && had[0].trim() !== block.trim()) fail("marketplace phi-router is already added from a different source");
+		if (!had) fs.writeFileSync(configFile, config + "\n" + block);
+	}
+	if (verb === "marketplace" && step === "remove") {
+		if (!table.test(config)) fail("marketplace phi-router is not configured or installed");
+		fs.writeFileSync(configFile, config.replace(table, "\n"));
+	}
+	if (verb === "add") {
+		fs.rmSync(cache, { recursive: true, force: true });
+		fs.mkdirSync(cache, { recursive: true });
+		fs.cpSync(plugin, cache + "/" + version, { recursive: true });
+		if (!config.includes('[plugins."phi-router@phi-router"]')) fs.appendFileSync(configFile, ${Formatter.formatJson(enabled)});
+	}
+}
+if (harness === "pi") {
+	const home = process.env.PI_CODING_AGENT_DIR;
+	const settingsFile = home + "/settings.json";
+	const manifest = home + "/npm/node_modules/phi-router/package.json";
+	const [verb, spec] = args;
+	if (verb === "install") {
+		const settings = json(settingsFile);
+		settings.packages = (settings.packages || []).filter((entry) => !String(entry).startsWith("npm:phi-router")).concat([spec]);
+		put(settingsFile, settings);
+		if (!fs.existsSync(manifest)) put(manifest, { name: "phi-router", version });
+	}
+	if (verb === "update") put(manifest, { name: "phi-router", version });
+}
+`;
 
-	const enable =
-		'const f = process.env.CLAUDE_CONFIG_DIR + "/settings.json"; const fs = require("fs"); const s = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {}; s.extraKnownMarketplaces = { "phi-router": { source: { source: "directory", path: process.env.PHI_SOURCE } } }; s.enabledPlugins = Object.assign({}, s.enabledPlugins, { "phi-router@phi-router": true }); fs.writeFileSync(f, JSON.stringify(s, null, 2))';
+const hang = '[ -e "$here/hang" ] && { : > "$here/canary-ran"; exec sleep 30; }; [ -e "$here/fail" ] && exit 1';
 
-	return {
-		claude: `case "$*" in
+const fakes: Readonly<Record<string, string>> = {
+	claude: `case "$*" in
 "auth status"*) cat "$CLAUDE_CONFIG_DIR/phi-fake-status.json" 2>/dev/null || { echo '${signedOut}'; exit 1; }; exit 0;;
 "auth login"*) printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/logins"; if [ -n "$DISPLAY$BROWSER" ]; then printf '%s\n' "$CLAUDE_CONFIG_DIR" >> "$here/browser-launches"; else printf 'Paste code here if prompted > '; IFS= read -r code || exit 1; fi; cp "$here/next-sign-in.json" "$CLAUDE_CONFIG_DIR/phi-fake-status.json"; exit 0;;
-"plugin "*) mkdir -p "$CLAUDE_CONFIG_DIR/plugins"; printf '%s' '${installedPlugins}' > "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"; PHI_SOURCE="$5" "$here/bun" -e '${enable}'; exit 0;;
+"plugin "*) exec "$here/bun" "$here/installs.cjs" claude "$@";;
 "") echo "claude started"; exit 0;;
 esac
 ${hang}
 exec "$here/bun" '${claudeStandIn}' "$@"`,
-		codex: `case "$*" in
+	codex: `case "$*" in
 "login status") cat "$CODEX_HOME/phi-fake-login" 2>/dev/null || { echo "Not logged in" >&2; exit 1; }; exit 0;;
-"plugin marketplace "*) printf '\n[marketplaces.phi-router]\nsource_type = "local"\nsource = "%s"\n' "$4" >> "$CODEX_HOME/config.toml"; exit 0;;
-"plugin add "*) mkdir -p ${cache}; cp -R '${copies.claudePlugin}' ${cache}/0.1.0; printf '%s' '${enabled}' >> "$CODEX_HOME/config.toml"; exit 0;;
+"plugin "*) exec "$here/bun" "$here/installs.cjs" codex "$@";;
 "") echo "codex started"; exit 0;;
 esac
 ${hang}
 if [ -f "$CODEX_HOME/.env" ]; then set -a; . "$CODEX_HOME/.env"; set +a; fi; no_proxy=\${NO_PROXY-$no_proxy}
 exec "$here/bun" '${codexStandIn}' "$@"`,
-		pi: `case "$*" in
+	pi: `case "$*" in
 "--model phi/auto") echo "pi started"; exit 0;;
 "-p "*) ${hang};;
-"install npm:"*) exec "$here/bun" '${piCli}' install '${copies.piPackage}';;
+"install npm:"*|"update npm:"*) exec "$here/bun" "$here/installs.cjs" pi "$@";;
 esac
 exec "$here/bun" '${piCli}' "$@"`,
-	};
 };
 
 const fakeBin = Effect.fnUntraced(function* fakeBin(copies: Copies) {
@@ -129,13 +196,14 @@ const fakeBin = Effect.fnUntraced(function* fakeBin(copies: Copies) {
 	const { printed: bun } = yield* ran(["bun", "-e", "process.stdout.write(process.execPath)"], {});
 
 	yield* fs.symlink(bun, path.join(bin, "bun"));
+	yield* fs.writeFileString(path.join(bin, "installs.cjs"), installs(copies));
 	yield* fs.writeFileString(
 		path.join(bin, "next-sign-in.json"),
 		claudeStatus({ email: "roe@example.com", plan: "max" }),
 	);
 
 	yield* Effect.forEach(
-		Record.toEntries(fakes(copies)),
+		Record.toEntries(fakes),
 		([name, body]) =>
 			fs.writeFileString(
 				path.join(bin, name),
