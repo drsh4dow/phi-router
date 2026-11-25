@@ -1,9 +1,9 @@
-import { Array, Effect, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, String as Str, Struct } from "effect";
 import type { Check } from "./checks.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
-import { fakes } from "#tools/route/fake-credentials.ts";
-import { isClaudeJudgeCall } from "#router/client/mock-upstreams/index.ts";
 import { shownIn } from "./phi-checks.ts";
+
+type Received = readonly [open: readonly Sent[], baa: readonly Sent[], judged: readonly unknown[]];
 
 const printedTailLength = 400;
 
@@ -36,39 +36,4 @@ const withCredentialRule = Effect.fnUntraced(function* withCredentialRule(
 	return [...checks, { name: rule, ok: !Array.isReadonlyArrayNonEmpty(found) }];
 });
 
-type Received = readonly [open: readonly Sent[], baa: readonly Sent[], judged: readonly unknown[]];
-
-const judgeCallsApart = ([open, baa, judged]: Received): Received => [
-	open,
-	pipe(
-		baa,
-		Array.filter((sent) => !isClaudeJudgeCall(sent)),
-	),
-	[
-		...pipe(
-			baa,
-			Array.filter((sent) => isClaudeJudgeCall(sent)),
-		),
-		...judged,
-	],
-];
-
-const claudeJudgeCheck = ([, baa, decided]: Received): Check => {
-	const calls = pipe(
-		baa,
-		Array.filter((sent) => isClaudeJudgeCall(sent)),
-	);
-
-	return {
-		name: "with no judge block, every judge call reaches the BAA mock with its key, and none the Decisions mock",
-		ok:
-			Array.isReadonlyArrayNonEmpty(calls) &&
-			pipe(
-				calls,
-				Array.every(({ headers }) => headers["x-api-key"] === fakes.baaKey),
-			) &&
-			!Array.isReadonlyArrayNonEmpty(decided),
-	};
-};
-
-export { claudeJudgeCheck, during, followUp, judgeCallsApart, withCredentialRule };
+export { during, followUp, withCredentialRule };

@@ -10,11 +10,11 @@ const costDigits = 3;
 
 const probe = Effect.gen(function* probe() {
 	const judge = yield* Judge;
-	const { sealAtOrAbove } = thresholds[judge.name];
+	const { sealAtOrAbove } = thresholds;
 	const asked = judge.identifier({ context: [], images: [], piece: canarySsnSentence }, identifierQuestion);
 	const { score, usage } = yield* Effect.timeout(asked, judgeLimits.timeoutMs);
 
-	yield* Console.log(`${judge.name} judge on ${judge.model}`);
+	yield* Console.log(`decisions judge on ${judge.model}`);
 	yield* Console.log(`score ${String(score)}, seals at ${String(sealAtOrAbove)}`);
 	yield* Console.log(
 		`${String(usage.inputTokens)} input tokens, $${usage.cost.toPrecision(costDigits)}, ${String(Math.round(usage.ms))} ms`,

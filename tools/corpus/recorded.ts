@@ -11,18 +11,13 @@ import {
 	String as Str,
 	pipe,
 } from "effect";
-import type { ChoiceQuestion, JudgeInput, JudgeName, Usage } from "#router/client/judge/index.ts";
-import { Judge, JudgeFailed, defaultJudgeModels } from "#router/client/judge/index.ts";
+import type { ChoiceQuestion, JudgeInput, Usage } from "#router/client/judge/index.ts";
+import { Judge, JudgeFailed, decisionsModel } from "#router/client/judge/index.ts";
 import { Digest } from "effect/crypto";
 import { decodeJsonLines } from "./jsonl.ts";
 import { policyVersion } from "#router/features/policy/index.ts";
 
-const recordingsPaths = {
-	claude: `${import.meta.dirname}/recordings-claude.jsonl`,
-	decisions: `${import.meta.dirname}/recordings.jsonl`,
-} as const satisfies Record<JudgeName, string>;
-
-type Recorded = Pick<Judge["Service"], "model" | "name">;
+const recordingsPath = `${import.meta.dirname}/recordings.jsonl`;
 
 const digestChars = 32;
 
@@ -78,9 +73,9 @@ const lengthPrefixed = (fields: readonly string[]): string =>
 		Array.join(""),
 	);
 
-const askerOf = Effect.fnUntraced(function* askerOf(name: JudgeName) {
+const asker = Effect.gen(function* asker() {
 	const digest = yield* Digest.Digest;
-	const version = yield* policyVersion({ model: defaultJudgeModels[name], name });
+	const version = yield* policyVersion({ model: decisionsModel });
 	const policy = Str.takeLeft(version, digestChars);
 
 	const digestOf = (fields: readonly string[]): Effect.Effect<string> => {
@@ -126,10 +121,7 @@ const choiceOf = <Choice extends string>(question: ChoiceQuestion<Choice>, answe
 
 const judgeError = (): Effect.Effect<never, JudgeFailed> => Effect.fail(JudgeFailed.make({ why: "judge-error" }));
 
-const replayingJudge = (
-	judge: Recorded,
-	recorded: (question: typeof Question.Type, input: JudgeInput) => Replayed,
-): Judge["Service"] =>
+const replayingJudge = (recorded: (question: typeof Question.Type, input: JudgeInput) => Replayed): Judge["Service"] =>
 	Judge.of({
 		identifier: (input) =>
 			pipe(
@@ -156,12 +148,10 @@ const replayingJudge = (
 					});
 				}),
 			),
-		model: judge.model,
-		name: judge.name,
+		model: decisionsModel,
 	});
 
-const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(contents: string, name: JudgeName) {
-	const judge = { model: defaultJudgeModels[name], name };
+const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(contents: string) {
 	const lines = yield* decodeJsonLines({ schema: RecordingLine, source: "recordings.jsonl", text: contents });
 
 	const answers = new Map(
@@ -172,7 +162,7 @@ const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(content
 	);
 
 	const unrecorded = yield* Ref.make(noCalls);
-	const askedOf = yield* askerOf(name);
+	const askedOf = yield* asker;
 
 	const recorded = Effect.fnUntraced(function* recorded(question: typeof Question.Type, input: JudgeInput) {
 		const asked = yield* askedOf(question, input);
@@ -194,7 +184,7 @@ const recordedJudge = Effect.fn("recordedJudge")(function* recordedJudge(content
 		return { answer, usage };
 	});
 
-	return { judge: replayingJudge(judge, recorded), unrecorded: Ref.get(unrecorded) };
+	return { judge: replayingJudge(recorded), unrecorded: Ref.get(unrecorded) };
 });
 
 const failureKept = (keep: Keep, { why, usage }: Pick<JudgeFailed, "why" | "usage">): Effect.Effect<void> => {
@@ -236,12 +226,11 @@ const keepingJudge = (
 			);
 		},
 		model: live.model,
-		name: live.name,
 	});
 
 const recording = Effect.fn("recording")(function* recording(live: Judge["Service"]) {
 	const kept = new Map<string, typeof Recording.Type>();
-	const askedOf = yield* askerOf(live.name);
+	const askedOf = yield* asker;
 
 	const keeper =
 		(question: typeof Question.Type, input: JudgeInput): Keep =>
@@ -273,4 +262,4 @@ const recording = Effect.fn("recording")(function* recording(live: Judge["Servic
 	return { contents, judge: keepingJudge(live, keeper) };
 });
 
-export { recordedJudge, recording, recordingsPaths };
+export { recordedJudge, recording, recordingsPath };

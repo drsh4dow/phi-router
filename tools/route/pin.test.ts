@@ -296,8 +296,7 @@ const modes = Effect.gen(function* modes() {
 			{ judge: { endpoint: judgeEndpoint, keyFile } },
 			{},
 		],
-		(configExtras) =>
-			Effect.exit(Effect.scoped(routed({ configExtras, holdsPhi: () => false, judgeName: "claude" }))),
+		(configExtras) => Effect.exit(Effect.scoped(routed({ configExtras, holdsPhi: () => false }))),
 		{ concurrency: 1 },
 	);
 

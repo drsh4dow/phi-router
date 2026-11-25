@@ -2,7 +2,7 @@ import { Array, Effect, FileSystem, Layer, Option, Record, Schema, String as Str
 import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
 import { assert, it } from "@effect/vitest";
 import { identifierKind, identifierQuestion, kindQuestion } from "#router/features/policy/index.ts";
-import { recordedJudge, recording, recordingsPaths } from "./recorded.ts";
+import { recordedJudge, recording, recordingsPath } from "./recorded.ts";
 import { Digest } from "effect/crypto";
 import { NodeServices } from "@effect/platform-node";
 
@@ -26,14 +26,12 @@ const live = Judge.of({
 			}),
 		),
 	model: "scripted",
-	name: "decisions",
 });
 
 const billedFailures = Judge.of({
 	identifier: () => Effect.fail(JudgeFailed.make({ usage, why: "judge-refused" })),
 	kind: () => Effect.fail(JudgeFailed.make({ usage, why: "judge-timeout" })),
 	model: "scripted",
-	name: "decisions",
 });
 
 const decodeLine = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)));
@@ -48,7 +46,7 @@ const replay = Effect.gen(function* replay() {
 
 	const contents = yield* recorder.contents;
 
-	return yield* recordedJudge(contents, "decisions");
+	return yield* recordedJudge(contents);
 });
 
 const replaysAnswers = Effect.gen(function* replaysAnswers() {
@@ -81,7 +79,7 @@ const otherPolicyVersion = Effect.gen(function* otherPolicyVersion() {
 	yield* recorder.judge.identifier(asked, identifierQuestion);
 
 	const contents = yield* recorder.contents;
-	const replayed = yield* recordedJudge(contents, "claude");
+	const replayed = yield* recordedJudge(Str.replace(/"policy":"[0-9a-f]+"/u, '"policy":"another"')(contents));
 	const failure = yield* Effect.flip(replayed.judge.identifier(asked, identifierQuestion));
 	const unrecorded = yield* replayed.unrecorded;
 
@@ -96,7 +94,7 @@ const keepsBilledFailures = Effect.gen(function* keepsBilledFailures() {
 	yield* Effect.flip(recorder.judge.kind(asked, kindQuestion));
 
 	const contents = yield* recorder.contents;
-	const replayed = yield* recordedJudge(contents, "decisions");
+	const replayed = yield* recordedJudge(contents);
 	const refused = yield* Effect.flip(replayed.judge.identifier(asked, identifierQuestion));
 	const timedOut = yield* Effect.flip(replayed.judge.kind(asked, kindQuestion));
 	const unrecorded = yield* replayed.unrecorded;
@@ -118,13 +116,9 @@ const committedFieldOrder = Effect.gen(function* committedFieldOrder() {
 	const contents = yield* recorder.contents;
 	const written = yield* fieldsOfFirstLine(contents);
 
-	const committed = yield* Effect.forEach(
-		Record.values(recordingsPaths),
-		(path) => pipe(fs.readFileString(path), Effect.flatMap(fieldsOfFirstLine)),
-		{ concurrency: 1 },
-	);
+	const committed = yield* pipe(fs.readFileString(recordingsPath), Effect.flatMap(fieldsOfFirstLine));
 
-	assert.deepStrictEqual(committed, [written, written]);
+	assert.deepStrictEqual(committed, written);
 });
 
 it.layer(Layer.mergeAll(Digest.layerWebCrypto, NodeServices.layer))("the recorded judge", (test) => {
@@ -146,7 +140,7 @@ it.layer(Layer.mergeAll(Digest.layerWebCrypto, NodeServices.layer))("the recorde
 	);
 
 	test.effect(
-		"a recording writes its fields in the order the committed recordings files hold",
+		"a recording writes its fields in the order the committed recordings file holds",
 		() => committedFieldOrder,
 	);
 });

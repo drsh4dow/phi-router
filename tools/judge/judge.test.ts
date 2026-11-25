@@ -7,7 +7,7 @@ import type { Named } from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams/index.ts";
 
-const fromEnv: Named = { keyEnv: "PHI_TEST_KEY", model: "judge-under-test" };
+const fromEnv: Named = { keyEnv: "PHI_TEST_KEY" };
 
 const scoreQuestion: ScoreQuestion = { criteria: { false: "F", true: "T" }, instructions: "Is it so?", type: "bool" };
 
@@ -65,7 +65,7 @@ const eachQuestion = Effect.gen(function* eachQuestion() {
 		Struct.assign(sent, {
 			body: {
 				input: '{"piece":"p","context":["c"]}',
-				model: "judge-under-test",
+				model: "gpt-6-luna",
 				questions: [
 					{ instructions: "Is it so?\n\nTrue means: T\nFalse means: F", name: "identifier", type: "predicate" },
 				],
@@ -74,7 +74,7 @@ const eachQuestion = Effect.gen(function* eachQuestion() {
 		Struct.assign(sent, {
 			body: {
 				input: '{"piece":"p","context":["c"]}',
-				model: "judge-under-test",
+				model: "gpt-6-luna",
 				questions: [
 					{
 						choices: [
@@ -115,38 +115,19 @@ const laterAnswer = Effect.gen(function* laterAnswer() {
 	assert.strictEqual(score, later.probability);
 });
 
-const configurations = [
-	{
-		field: "[0].body.model",
-		name: "a file with no model sends the default",
-		named: { keyEnv: "PHI_TEST_KEY" },
-		value: "gpt-6-luna",
-	},
-	{
-		field: "[0].bearer",
-		name: "the key comes from the command the file names",
-		named: { keyCommand: "printf command-key" },
-		value: "command-key",
-	},
-] as const;
-
-const configuration = Effect.fnUntraced(function* configuration({
-	named,
-	field,
-	value,
-}: (typeof configurations)[number]) {
-	const { judge, mock } = yield* mockedJudge(() => halfway, named);
+const commandKeyed = Effect.gen(function* commandKeyed() {
+	const { judge, mock } = yield* mockedJudge(() => halfway, { keyCommand: "printf command-key" });
 
 	yield* judge.identifier(input, scoreQuestion);
 
 	const received = yield* mock.received;
 
-	assert.nestedPropertyVal(received, field, value);
+	assert.nestedPropertyVal(received, "[0].bearer", "command-key");
 });
 
 const sourceless = [
 	{ name: "both key sources", named: { keyCommand: "printf command-key", keyEnv: "PHI_TEST_KEY" } },
-	{ name: "neither key source", named: { model: "judge-under-test" } },
+	{ name: "neither key source", named: {} },
 ] as const;
 
 const keyless = [
@@ -301,7 +282,7 @@ const badKinds: readonly { readonly answer: Schema.Json; readonly name: string }
 it.layer(NodeServices.layer)("the Decisions judge", (test) => {
 	test.effect("each question goes to the configured endpoint in its own call", () => eachQuestion);
 	test.effect("of two answers to the question, the later one counts", () => laterAnswer);
-	test.effect.each(configurations)("$name", configuration);
+	test.effect("the key comes from the command the file names", () => commandKeyed);
 	test.effect.each(sourceless)("a file that names $name builds no judge", ({ named }) =>
 		Effect.map(Effect.flip(configuredJudge(nowhere, named)), (failed) => {
 			assert.instanceOf(failed, Schema.SchemaError);

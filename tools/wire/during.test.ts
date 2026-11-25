@@ -1,6 +1,6 @@
 import { Array, Effect, Ref, String as Str } from "effect";
 import { assert, describe, it } from "@effect/vitest";
-import { claudeJudgeCheck, during, judgeCallsApart, withCredentialRule } from "./during.ts";
+import { during, withCredentialRule } from "./during.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { fakes } from "#tools/route/fake-credentials.ts";
 
@@ -14,12 +14,6 @@ const posted = (body: string, key: string): Sent => ({
 
 const modelRequest = (prompt: string): Sent =>
 	posted(`{"model":"target-under-test","messages":[{"role":"user","content":"${prompt}"}]}`, fakes.baaKey);
-
-const judgeCall = (piece: string, key: string): Sent =>
-	posted(
-		`{"messages":[{"role":"user","content":[{"type":"text","text":"{\\"piece\\":\\"${piece}\\"}"}]}],"tool_choice":{"name":"identifier","type":"tool"}}`,
-		key,
-	);
 
 const printedTailLength = 400;
 
@@ -70,44 +64,10 @@ const credentialRule = Effect.gen(function* credentialRule() {
 	);
 });
 
-const judgeCallsMoved = Effect.sync(() => {
-	const open = modelRequest("open");
-	const [first, second] = [modelRequest("first"), modelRequest("second")];
-	const [asked, askedAgain] = [judgeCall("Jane Roe", fakes.baaKey), judgeCall("p-17", fakes.baaKey)];
-
-	assert.deepStrictEqual(judgeCallsApart([[open], [first, asked, second, askedAgain], ["decided"]]), [
-		[open],
-		[first, second],
-		[asked, askedAgain, "decided"],
-	]);
-});
-
-const claudeJudgeChecked = Effect.sync(() => {
-	const asked = judgeCall("Jane Roe", fakes.baaKey);
-	const model = modelRequest("prompt");
-
-	const checks = [
-		claudeJudgeCheck([[], [model, asked], []]),
-		claudeJudgeCheck([[], [model], []]),
-		claudeJudgeCheck([[], [asked, judgeCall("p-17", fakes.judgeKey)], []]),
-		claudeJudgeCheck([[], [asked], ["decided"]]),
-	];
-
-	assert.deepStrictEqual(verdicts(checks), [true, false, false, false]);
-});
-
 describe("what a wire run's mocks received", () => {
 	it.effect("a turn holds only what the mocks received while it ran, and the end of what it printed", () => oneRun);
 	it.effect(
 		"the credential rule added to a play's checks fails only when a mock received another's credential",
 		() => credentialRule,
-	);
-	it.effect(
-		"each Claude judge call on the BAA mock counts as the judge's, ahead of what the judge mock received",
-		() => judgeCallsMoved,
-	);
-	it.effect(
-		"the Claude judge check fails without a judge call on the BAA mock, with another key, or with a Decisions call",
-		() => claudeJudgeChecked,
 	);
 });

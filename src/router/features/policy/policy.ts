@@ -122,12 +122,7 @@ const kindQuestion = {
 	type: "choice",
 } as const;
 
-const thresholds = {
-	claude: { clearBelow: 0.05, sealAtOrAbove: 0.5 },
-	decisions: { clearBelow: 0.2, sealAtOrAbove: 0.5 },
-} as const;
-
-type JudgeName = keyof typeof thresholds;
+const thresholds = { clearBelow: 0.2, sealAtOrAbove: 0.5 } as const;
 
 const quoteMinChars = 16;
 
@@ -161,4 +156,4 @@ export {
 	window,
 };
 
-export type { IdentifierKind, JudgeName, SyntheticIdentities };
+export type { IdentifierKind, SyntheticIdentities };

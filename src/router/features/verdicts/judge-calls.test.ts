@@ -108,7 +108,6 @@ const interrupted = Effect.gen(function* interrupted() {
 		identifier: () => Effect.interrupt,
 		kind: () => Effect.interrupt,
 		model: "scripted",
-		name: "decisions",
 	});
 
 	const piece = yield* pieceOf("a message");

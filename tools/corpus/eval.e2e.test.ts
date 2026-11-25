@@ -15,14 +15,6 @@ const clears = Judge.of({
 	identifier: () => Effect.succeed({ score: 0, usage }),
 	kind: () => Effect.die("a score of 0 asks no kind"),
 	model: "scripted",
-	name: "decisions",
-});
-
-const claudeClears = Judge.of({
-	identifier: () => Effect.succeed({ score: 0, usage }),
-	kind: () => Effect.die("a score of 0 asks no kind"),
-	model: "scripted",
-	name: "claude",
 });
 
 const apart = {
@@ -122,22 +114,6 @@ const unrecordedFails = Effect.gen(function* unrecordedFails() {
 	assert.match(stdout, /unrecorded judge calls [1-9]/u);
 }).pipe(Effect.scoped);
 
-const claudeReplayed = Effect.gen(function* claudeReplayed() {
-	const path = yield* Path.Path;
-	const folder = yield* corpusOf(apart, claudeClears);
-
-	const { exitCode, stdout } = yield* evalOf([
-		"--claude",
-		"--corpus",
-		path.join(folder, "manifest.jsonl"),
-		"--recordings",
-		path.join(folder, "recordings.jsonl"),
-	]);
-
-	assert.strictEqual(exitCode, clean, stdout);
-	assert.include(stdout, "unrecorded judge calls 0");
-}).pipe(Effect.scoped);
-
 const refused = Effect.gen(function* refused() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -188,8 +164,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, Digest.layerWebCrypto))("bun run eva
 		() => unrecordedFails,
 		{ timeout: 60_000 },
 	);
-
-	test.effect("--claude answers from the Claude judge's recordings", () => claudeReplayed, { timeout: 60_000 });
 
 	test.effect("refuses --record without --judge live, and a manifest line that does not decode", () => refused, {
 		timeout: 60_000,

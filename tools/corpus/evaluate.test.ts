@@ -45,7 +45,6 @@ const judge = Judge.of({
 			}),
 		),
 	model: "scripted",
-	name: "decisions",
 });
 
 const strata = {

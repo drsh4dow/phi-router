@@ -16,16 +16,7 @@ import { FetchHttpClient, HttpClient, HttpServer } from "effect/http";
 import type { Harness, Json, LaneAccount, Scripts, Sent } from "./harnesses.ts";
 import type { HttpClientError, HttpClientResponse } from "effect/http";
 import { LaneChoice, decide } from "#router/features/lanes/index.ts";
-import {
-	baaScriptsOf,
-	codexBodyOf,
-	credentialBreaches,
-	fakes,
-	harnesses,
-	jsonText,
-	judgeOf,
-	lacksOf,
-} from "./harnesses.ts";
+import { codexBodyOf, credentialBreaches, fakes, harnesses, jsonText, judgeOf, lacksOf } from "./harnesses.ts";
 import { Callers } from "#router/client/router-port/index.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import { Router } from "#router/features/route/index.ts";
@@ -113,7 +104,7 @@ const configured = Effect.fnUntraced(function* configured(
 	lanes: {
 		readonly clean: readonly Json[];
 		readonly sealed: readonly Json[];
-		readonly judge: { readonly name: NonNullable<Scripts["judgeName"]>; readonly endpoint: string };
+		readonly judgeEndpoint: string;
 	},
 	beside: Scripts["configExtras"],
 ) {
@@ -122,17 +113,15 @@ const configured = Effect.fnUntraced(function* configured(
 	const config = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-config-" });
 	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-state-" });
 
-	const judged: Readonly<Record<NonNullable<Scripts["judgeName"]>, Readonly<Record<string, Json>>>> = {
-		claude: {},
-		decisions: { judge: { endpoint: lanes.judge.endpoint, keyEnv: "PHI_TEST_JUDGE_KEY" } },
-	};
-
 	const file = yield* jsonText(
-		Struct.assign(Struct.assign(beside ?? {}, judged[lanes.judge.name]), {
-			clean: lanes.clean,
-			sealed: lanes.sealed,
-			targetModel: { [vendor]: fakes.targetModel },
-		}),
+		Struct.assign(
+			Struct.assign({ judge: { endpoint: lanes.judgeEndpoint, keyEnv: "PHI_TEST_JUDGE_KEY" } }, beside ?? {}),
+			{
+				clean: lanes.clean,
+				sealed: lanes.sealed,
+				targetModel: { [vendor]: fakes.targetModel },
+			},
+		),
 	);
 
 	yield* fs.makeDirectory(path.join(config, "phi-router"), { mode: privateModes.folder });
@@ -151,7 +140,7 @@ const configured = Effect.fnUntraced(function* configured(
 const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 	const harness = harnesses[scripts.harness ?? "claude"];
 	const opens = yield* laneOn(harness, scripts, "open");
-	const baas = yield* laneOn(harness, baaScriptsOf({ harness, scripts }), "baa");
+	const baas = yield* laneOn(harness, scripts, "baa");
 	const judge = yield* mockOn(judgeOf(scripts));
 	const [open] = opens.mocks;
 	const [baa] = baas.mocks;
@@ -160,7 +149,7 @@ const mocked = Effect.fnUntraced(function* mocked(scripts: Scripts) {
 		harness.vendor,
 		{
 			clean: opens.entries,
-			judge: { endpoint: judge.endpoint, name: scripts.judgeName ?? "decisions" },
+			judgeEndpoint: judge.endpoint,
 			sealed: baas.entries,
 		},
 		scripts.configExtras,

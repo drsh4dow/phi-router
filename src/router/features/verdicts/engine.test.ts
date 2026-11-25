@@ -27,8 +27,6 @@ const failureSealed = (why: "judge-error" | "judge-refused" | "too-large"): read
 	Verdicts.Sealed({ finding: Findings.Failure({ why }) }),
 ];
 
-const { decisions } = thresholds;
-
 type Case = readonly [name: string, script: Script, verdicts: readonly Verdict[], questions: readonly Question[]];
 
 const userCases: readonly Case[] = [
@@ -66,14 +64,14 @@ const userCases: readonly Case[] = [
 	],
 	[
 		"a score at clearBelow asks the kind question",
-		{ kind: () => "none", score: () => decisions.clearBelow },
+		{ kind: () => "none", score: () => thresholds.clearBelow },
 		cleared,
 		["identifier", "kind"],
 	],
 	[
 		"a score at sealAtOrAbove seals whatever the kind call answers",
-		{ kind: () => "none", score: () => decisions.sealAtOrAbove },
-		judgeSealed("unlabelled", decisions.sealAtOrAbove),
+		{ kind: () => "none", score: () => thresholds.sealAtOrAbove },
+		judgeSealed("unlabelled", thresholds.sealAtOrAbove),
 		["identifier", "kind"],
 	],
 ];

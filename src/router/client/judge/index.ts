@@ -1,10 +1,8 @@
 import { Context, Effect, Layer, Struct } from "effect";
 import type { JudgeFailed, Usage } from "./failed.ts";
-import { chosenJudge, claudeOnSealed } from "./choice.ts";
-import type { ChosenJudge } from "./choice.ts";
+import { decisions, decisionsModel } from "./decisions.ts";
 import { UserDirectories } from "effect/persistence";
-import { claude } from "./claude.ts";
-import { decisions } from "./decisions.ts";
+import { chosenJudge } from "./choice.ts";
 import { upstreamHttp } from "#router/client/accounts/index.ts";
 
 interface JudgeInput {
@@ -25,8 +23,6 @@ interface ChoiceQuestion<Choice extends string> {
 	readonly criteria: readonly (readonly [Choice, string])[];
 }
 
-type JudgeName = "claude" | "decisions";
-
 interface Asking {
 	readonly identifier: (
 		input: JudgeInput,
@@ -38,39 +34,25 @@ interface Asking {
 	) => Effect.Effect<{ readonly kind: Choice; readonly usage: typeof Usage.Type }, JudgeFailed>;
 }
 
-const askingOf = Effect.fnUntraced(function* askingOf(chosen: ChosenJudge) {
-	const named = { model: chosen.model, name: chosen.name };
-
-	if (chosen.name === "claude") {
-		const asking = yield* claude(chosen);
-
-		return Struct.assign(asking, named);
-	}
-
-	const asking = yield* decisions(chosen);
-
-	return Struct.assign(asking, named);
-});
-
 const judgeHttp = Layer.merge(upstreamHttp, UserDirectories.layer);
 
-class Judge extends Context.Service<Judge, Asking & { readonly name: JudgeName; readonly model: string }>()(
+class Judge extends Context.Service<Judge, Asking & { readonly model: string }>()(
 	"phi-router/router/client/judge/Judge",
 ) {
-	public static readonly layer = Layer.effect(Judge, chosenJudge.pipe(Effect.flatMap(askingOf))).pipe(
-		Layer.provide(judgeHttp),
-	);
-
-	public static readonly claudeLayer = Layer.effect(Judge, claudeOnSealed.pipe(Effect.flatMap(askingOf))).pipe(
-		Layer.provide(judgeHttp),
-	);
+	public static readonly layer = Layer.effect(
+		Judge,
+		chosenJudge.pipe(
+			Effect.flatMap(decisions),
+			Effect.map((asking) => Struct.assign(asking, { model: decisionsModel })),
+		),
+	).pipe(Layer.provide(judgeHttp));
 }
 
 export { Judge };
 
-export type { Asking, ChoiceQuestion, JudgeInput, JudgeName, ScoreQuestion };
+export type { Asking, ChoiceQuestion, JudgeInput, ScoreQuestion };
 
-export { defaultJudgeModels } from "./choice.ts";
+export { decisionsModel } from "./decisions.ts";
 
 export { JudgeFailed } from "./failed.ts";
 

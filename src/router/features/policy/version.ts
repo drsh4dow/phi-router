@@ -15,14 +15,12 @@ import {
 	window,
 } from "./policy.ts";
 import { Digest } from "effect/crypto";
-import type { JudgeName } from "./policy.ts";
 import type { Rule } from "./rules.ts";
 import { rules } from "./rules.ts";
 
 const PolicyVersion = Schema.String.pipe(Schema.brand("PolicyVersion"));
 
 interface VersionedJudge {
-	readonly name: JudgeName;
 	readonly model: string;
 }
 
@@ -69,7 +67,7 @@ const manifestOf = ({ judge, rules: versionedRules }: Versioned): Record<string,
 		["stubs", stubs],
 		["identifierQuestion", identifierQuestionJson],
 		["kindQuestion", kindQuestionJson],
-		["thresholds", thresholds[judge.name]],
+		["thresholds", thresholds],
 		["quoteMinChars", quoteMinChars],
 		["seamChars", seamChars],
 		["window", window],
