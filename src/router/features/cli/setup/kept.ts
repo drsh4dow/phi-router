@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Struct, pipe } from "effect";
+import { Array, Effect, Option, Schema, Struct, pipe } from "effect";
 import type { Kept, KeptRole } from "./plan.ts";
 import { KeyChecks, keyFileOf } from "#router/client/keys/index.ts";
 import type { KeySource, Lane, NamedAccount, Vendor } from "#router/client/configuration/index.ts";
@@ -9,9 +9,17 @@ import type { SignIn } from "#router/client/harnesses/index.ts";
 import { claudeSignIn } from "#router/client/harnesses/index.ts";
 import { readKey } from "#router/client/accounts/index.ts";
 
+const KeyOnly = Schema.Union([
+	Schema.Struct({ keyFile: Schema.String }),
+	Schema.Struct({ keyEnv: Schema.String }),
+	Schema.Struct({ keyCommand: Schema.String }),
+]);
+
+const keyOnly = Schema.decodeUnknownOption(KeyOnly);
+
 const sourceOf = (account: NamedAccount): Option.Option<KeySource> => {
 	if (account.credential.kind === "key") {
-		return Option.some(account.credential.source);
+		return keyOnly(account.credential.source);
 	}
 
 	return Option.none();
@@ -114,6 +122,7 @@ const keptRoles = Effect.fnUntraced(function* keptRoles(vendor: Vendor, own: Sig
 
 	const judgeRole = pipe(
 		judgeKey,
+		Option.flatMap(keyOnly),
 		Option.map((key) => checkedRole("openai", { key, label: named("OpenAI"), rekey: false }, false)),
 	);
 
