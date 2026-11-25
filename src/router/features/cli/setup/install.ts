@@ -44,7 +44,9 @@ const moveOf = ({
 		return Option.some("install");
 	}
 
-	if (Predicate.isNotUndefined(target.checkout) || installed.kind === "elsewhere") {
+	const newer = Order.isGreaterThan(releaseOrder)(installed.version, target.version);
+
+	if (Predicate.isNotUndefined(target.checkout) || installed.kind === "elsewhere" || newer) {
 		return Option.none();
 	}
 

@@ -28,6 +28,9 @@ const found: readonly (readonly [string, Installed])[] = [
 	["nothing installed", { kind: "absent" }],
 	["a checkout", { kind: "elsewhere", version: "0.1.0" }],
 	["a release tag", { kind: "held", version: "0.3.0" }],
+	["a release tag at this version", { kind: "held", version: "0.10.0" }],
+	["a release tag at a newer version", { kind: "held", version: "0.10.1" }],
+	["a release tag at a newer prerelease", { kind: "held", version: "0.11.0-rc.1" }],
 	["the channel at an older version", { kind: "channel", version: "0.9.0" }],
 	["the channel at a prerelease of this version", { kind: "channel", version: "0.10.0-rc.1" }],
 	["the channel at this version", { kind: "channel", version: "0.10.0" }],
@@ -35,7 +38,7 @@ const found: readonly (readonly [string, Installed])[] = [
 ];
 
 it.effect(
-	"setup installs what is absent, moves a held install to the channel, updates an older one, and never moves an install backwards or off a checkout",
+	"setup installs what is absent, moves a held install at its version or older to the channel, updates an older one, and never moves an install backwards or off a checkout",
 	() =>
 		Effect.sync(() => {
 			const moves = pipe(
@@ -51,6 +54,9 @@ it.effect(
 				["nothing installed", "install", "install"],
 				["a checkout", "none", "none"],
 				["a release tag", "move", "none"],
+				["a release tag at this version", "move", "none"],
+				["a release tag at a newer version", "none", "none"],
+				["a release tag at a newer prerelease", "none", "none"],
 				["the channel at an older version", "update", "none"],
 				["the channel at a prerelease of this version", "update", "none"],
 				["the channel at this version", "none", "none"],
