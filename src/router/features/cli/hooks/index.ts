@@ -1,7 +1,7 @@
 import { Command } from "effect/cli";
 import { Layer } from "effect";
-import { SealNotices } from "#router/client/seal-notices.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
+import { TurnNotices } from "#router/client/turn-notices.ts";
 import { modelAddress } from "#router/features/cli/adapters.ts";
 import { promptSubmit } from "./prompt-submit.ts";
 import { turnEnd } from "./turn-end.ts";
@@ -12,7 +12,7 @@ const hookCommands = [
 		Command.unlisted,
 	),
 	Command.make("turn-end", { address: modelAddress }, (flags) => turnEnd(flags)).pipe(
-		Command.provide(Layer.merge(SessionRequests.layer, SealNotices.layer)),
+		Command.provide(Layer.merge(SessionRequests.layer, TurnNotices.layer)),
 		Command.unlisted,
 	),
 ] as const;

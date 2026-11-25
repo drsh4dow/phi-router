@@ -17,7 +17,7 @@ import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest } from "#tools/route/mocked-router.ts";
 import { canary, hook, session, setUp } from "./hooked.ts";
 import { NodeServices } from "@effect/platform-node";
-import { SealNotices } from "#router/client/seal-notices.ts";
+import { TurnNotices } from "#router/client/turn-notices.ts";
 import { freePort } from "#tools/lifecycle/launched.ts";
 import { privacyUnder } from "#tools/route/private.ts";
 
@@ -110,8 +110,8 @@ const swapped = Effect.gen(function* swapped() {
 	const fs = yield* FileSystem.FileSystem;
 	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-notices-" });
 	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: { XDG_STATE_HOME: state } }));
-	const built = yield* Layer.build(Layer.provide(SealNotices.layer, env));
-	const notices = Context.get(built, SealNotices);
+	const built = yield* Layer.build(Layer.provide(TurnNotices.layer, env));
+	const notices = Context.get(built, TurnNotices);
 	const first = yield* notices.swap(session, sealedCounts.first);
 	const second = yield* notices.swap(session, sealedCounts.next);
 

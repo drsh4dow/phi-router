@@ -6,24 +6,24 @@ import { writePrivately } from "./private-file.ts";
 
 const SealedAtLastNoticeJson = Schema.fromJsonString(Schema.Struct({ sealed: Schema.Int }));
 
-class SealNotices extends Context.Service<
-	SealNotices,
+class TurnNotices extends Context.Service<
+	TurnNotices,
 	{
 		readonly swap: (
 			session: string,
 			sealed: number,
 		) => Effect.Effect<Option.Option<number>, PlatformError.PlatformError | Schema.SchemaError>;
 	}
->()("phi-router/router/client/seal-notices/SealNotices") {
+>()("phi-router/router/client/turn-notices/TurnNotices") {
 	public static readonly layer = Layer.effect(
-		SealNotices,
+		TurnNotices,
 		Effect.gen(function* make() {
 			const directories = yield* UserDirectories.UserDirectories;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
 			const state = yield* directories.state("phi-router");
 
-			const swap = Effect.fn("SealNotices.swap")(function* swap(session: string, sealed: number) {
+			const swap = Effect.fn("TurnNotices.swap")(function* swap(session: string, sealed: number) {
 				const file = path.join(state, "notices", `${Base64Url.encode(session)}.json`);
 				const exists = yield* fs.exists(file);
 
@@ -45,9 +45,9 @@ class SealNotices extends Context.Service<
 				);
 			});
 
-			return SealNotices.of({ swap });
+			return TurnNotices.of({ swap });
 		}),
 	).pipe(Layer.provide(UserDirectories.layer));
 }
 
-export { SealNotices };
+export { TurnNotices };
