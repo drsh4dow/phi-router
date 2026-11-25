@@ -98,6 +98,11 @@ const windowDone = {
 	true: "Done. This window is protected.",
 } as const;
 
+const shellQuoted = (word: string): string => `'${Str.replaceAll("'", String.raw`'\''`)(word)}'`;
+
+const signInElsewhere = (folder: string): string =>
+	`This machine has no browser. In any terminal, run \`CLAUDE_CONFIG_DIR=${shellQuoted(folder)} claude auth login\` and follow the steps. Say done when it says you're signed in.`;
+
 const macNote =
 	"Claude Enterprise sign-in isn't available on macOS yet: Claude Code keeps sign-ins in the Keychain, and phi-router reads only a file.";
 
@@ -115,6 +120,7 @@ export {
 	roleNames,
 	rows,
 	shown,
+	signInElsewhere,
 	signInNamed,
 	stops,
 	vendorNames,

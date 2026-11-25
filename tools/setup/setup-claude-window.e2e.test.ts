@@ -1,11 +1,13 @@
-import { Effect, FileSystem } from "effect";
+import { Array, Effect, FileSystem, Option, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import {
 	callsOf,
+	enterpriseStatus,
 	keyFiles,
 	keysOutsideKeyFiles,
 	lastLine,
 	layer,
+	loginFolders,
 	ok,
 	patient,
 	withEnv,
@@ -13,6 +15,7 @@ import {
 } from "./set-up.ts";
 import { keys, world } from "./world.ts";
 import { phiRouter } from "#tools/cli/accounts-run.ts";
+import { ran } from "#tools/lifecycle/launched.ts";
 
 const applyWith = (answers: string): readonly string[] => ["setup", "claude", "--apply", "--answers", answers];
 
@@ -56,10 +59,57 @@ const pastedInOptions = Effect.gen(function* pastedInOptions() {
 	assert.deepStrictEqual(outside, [], "no key outside its key file");
 }).pipe(Effect.scoped);
 
+const quoted = 1;
+
+const commandIn = (line: string): string =>
+	pipe(
+		Str.split(line, "`"),
+		Array.get(quoted),
+		Option.getOrElse(() => ""),
+	);
+
+const signedInElsewhere = Effect.gen(function* signedInElsewhere() {
+	const fs = yield* FileSystem.FileSystem;
+	const base = yield* world;
+	const of = withEnv({ PHI_ROUTER_OPENAI_KEY: keys.openai })(base);
+
+	yield* fs.writeFileString(`${of.fakeHarnessFolder}/next-sign-in.json`, enterpriseStatus);
+
+	const stoppedRun = yield* phiRouter(of.env, applyWith('{"baa":"signIn"}'));
+	const loginsBefore = yield* fs.exists(`${of.fakeHarnessFolder}/logins`);
+	const line = lastLine(stoppedRun.stderr);
+	const command = commandIn(line);
+
+	assert.notStrictEqual(stoppedRun.exitCode, ok);
+	assert.strictEqual(
+		line,
+		`This machine has no browser. In any terminal, run \`CLAUDE_CONFIG_DIR='${loginFolders(of).baa}' claude auth login\` and follow the steps. Say done when it says you're signed in.`,
+	);
+	assert.isFalse(loginsBefore, "setup started no login it could not finish");
+
+	const terminal = yield* ran(["sh", "-c", `printf 'CODE-123\\n' | ${command}`], of.env);
+	const applied = yield* phiRouter(of.env, applyWith('{"baa":"signIn"}'));
+
+	assert.strictEqual(terminal.exitCode, ok, terminal.printed);
+	assert.strictEqual(applied.exitCode, ok, applied.stderr);
+
+	const config = yield* writtenConfigOf(of);
+	assert.deepStrictEqual(config, {
+		clean: [{ forwarded: true, name: "claude-1", vendor: "anthropic" }],
+		judge: { endpoint: "https://api.openai.com/v1", keyFile: keyFiles(of).openai },
+		sealed: [{ loginFolder: loginFolders(of).baa, name: "claude-2", vendor: "anthropic" }],
+	});
+}).pipe(Effect.scoped);
+
 it.layer(layer)("setup inside Claude Code", (test) => {
 	test.effect(
 		"with no key, setup installs the plugin and asks for both keys in its options, then reads what its hook saved",
 		() => pastedInOptions,
+		patient,
+	);
+	test.effect(
+		"with no browser and no terminal, setup names the one command that signs in, and finishes after it",
+		() => signedInElsewhere,
 		patient,
 	);
 });

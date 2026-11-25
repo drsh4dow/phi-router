@@ -1,8 +1,8 @@
 import { Effect, Option, Path, Redacted } from "effect";
+import { folderPrivately, writePrivately } from "#router/client/private-file.ts";
 import { UserDirectories } from "effect/persistence";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { readKey } from "#router/client/accounts/index.ts";
-import { writePrivately } from "#router/client/private-file.ts";
 
 const ownPath = Effect.fnUntraced(
 	function* ownPath(names: readonly string[]) {
@@ -24,7 +24,11 @@ const pastedKeyFileOf = Effect.fnUntraced(function* pastedKeyFileOf(vendor: Vend
 });
 
 const loginFolderOf = Effect.fnUntraced(function* loginFolderOf(name: string) {
-	return yield* ownPath(["logins", name]);
+	const folder = yield* ownPath(["logins", name]);
+
+	yield* folderPrivately(folder);
+
+	return folder;
 });
 
 const keyIn = Effect.fnUntraced(function* keyIn(keyFile: string) {
