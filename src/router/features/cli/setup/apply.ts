@@ -1,12 +1,12 @@
-import { Array, Console, Effect, Option, pipe } from "effect";
+import { Array, Console, Effect, Option, Struct, pipe } from "effect";
 import type { HarnessName, InstallSource } from "./harnesses.ts";
-import type { KeySource, Vendor } from "#router/client/configuration/index.ts";
 import { checkedKeys, savedKey } from "./held-keys.ts";
 import { enterpriseNote, roleNames, rows, shown } from "./copy.ts";
 import type { NewAccount } from "#router/client/config-writer.ts";
 import type { Ready } from "./plan.ts";
 import type { Signed } from "./sign-ins.ts";
 import type { Typed } from "./held-keys.ts";
+import type { Vendor } from "#router/client/configuration/index.ts";
 import { addAccounts } from "#router/client/config-writer.ts";
 import { harnesses } from "./harnesses.ts";
 import { signedIn } from "./sign-ins.ts";
@@ -14,18 +14,6 @@ import { stopped } from "./keys.ts";
 import { turnedOn } from "./install.ts";
 
 type Settled = Exclude<Signed, { kind: "key" }>;
-
-const keyAccount = (vendor: Vendor, source: KeySource): NewAccount => {
-	if ("keyFile" in source) {
-		return { keyFile: source.keyFile, scheme: "apiKey", vendor };
-	}
-
-	if ("keyEnv" in source) {
-		return { keyEnv: source.keyEnv, scheme: "apiKey", vendor };
-	}
-
-	return { keyCommand: source.keyCommand, scheme: "apiKey", vendor };
-};
 
 const accountOf = (filler: Settled, vendor: Vendor): Option.Option<NewAccount> => {
 	if (filler.kind === "kept") {
@@ -40,7 +28,7 @@ const accountOf = (filler: Settled, vendor: Vendor): Option.Option<NewAccount> =
 		return Option.some({ loginFolder: filler.folder, vendor });
 	}
 
-	return Option.some(keyAccount(filler.vendor, filler.source));
+	return Option.some(Struct.assign(filler.source, { scheme: "apiKey", vendor: filler.vendor } as const));
 };
 
 const settled = Effect.fnUntraced(function* settled(roles: Ready["roles"], typed: Typed) {
