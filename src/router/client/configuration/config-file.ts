@@ -73,19 +73,12 @@ const configText = Effect.gen(function* configText() {
 		.pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.fail(NoConfigFile.make({ file }))));
 });
 
-const configuredJudge = Effect.gen(function* configuredJudge() {
-	const fs = yield* FileSystem.FileSystem;
-	const file = yield* Effect.provideService(configFile, UserDirectories.UserDirectories, UserDirectories.make());
-	const exists = yield* fs.exists(file);
-
-	if (!exists) {
-		return Option.none<KeySource>();
-	}
-
-	const { judge } = yield* Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(File));
-
-	return Option.map(Option.fromUndefinedOr(judge), (named): KeySource => named);
-});
+const configuredJudge = configText.pipe(
+	Effect.flatMap(Schema.decodeEffect(File)),
+	Effect.map(({ judge }): Option.Option<KeySource> => Option.fromUndefinedOr(judge)),
+	Effect.catchTag("NoConfigFile", () => Effect.succeed(Option.none<KeySource>())),
+	Effect.provideService(UserDirectories.UserDirectories, UserDirectories.make()),
+);
 
 class Configuration extends Context.Service<Configuration, SettingsBesideLanes>()(
 	"phi-router/router/client/configuration/config-file/Configuration",
