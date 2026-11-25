@@ -4,6 +4,7 @@ import { KeyChecks } from "#router/client/keys/index.ts";
 import type { Redacted } from "effect";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { tokenKindOf } from "#router/features/cli/accounts/index.ts";
+import { vendorNames } from "./copy.ts";
 
 class SetupStopped extends Schema.TaggedError<SetupStopped, { readonly brand: unique symbol }>()("SetupStopped", {
 	copy: Schema.String,
@@ -15,38 +16,32 @@ class SetupStopped extends Schema.TaggedError<SetupStopped, { readonly brand: un
 
 const stopped = (copy: string): SetupStopped => SetupStopped.make({ copy });
 
-const vendorWords = {
-	anthropic: { name: "Anthropic", prefix: "sk-ant-api" },
-	openai: { name: "OpenAI", prefix: "sk-" },
-} as const;
+const keyPrefixes = { anthropic: "sk-ant-api", openai: "sk-" } as const;
 
 interface KeyAsk {
 	readonly vendor: Vendor;
 	readonly harnessTitle: string;
 }
 
-const misfitOf = ({ ask, key }: { readonly ask: KeyAsk; readonly key: string }): Option.Option<string> => {
-	const wanted = vendorWords[ask.vendor];
-
-	return pipe(
+const misfitOf = ({ ask, key }: { readonly ask: KeyAsk; readonly key: string }): Option.Option<string> =>
+	pipe(
 		tokenKindOf(key),
 		Option.flatMap(({ scheme, vendor }) => {
 			if (vendor !== ask.vendor) {
 				return Option.some(
-					`That is an ${vendorWords[vendor].name} key. ${ask.harnessTitle} needs an ${wanted.name} key, which starts with ${wanted.prefix}. Nothing was saved.`,
+					`That is an ${vendorNames[vendor]} key. ${ask.harnessTitle} needs an ${vendorNames[ask.vendor]} key, which starts with ${keyPrefixes[ask.vendor]}. Nothing was saved.`,
 				);
 			}
 
 			if (scheme === "oauth") {
 				return Option.some(
-					`That is a Claude subscription token, not an API key. Setup needs the API key your organization gave you for patient data. Nothing was saved. Paste a key that starts with ${wanted.prefix}.`,
+					`That is a Claude subscription token, not an API key. Setup needs the API key your organization gave you for patient data. Nothing was saved. Paste a key that starts with ${keyPrefixes[ask.vendor]}.`,
 				);
 			}
 
 			return Option.none();
 		}),
 	);
-};
 
 const unaccepted = {
 	refused: (name: string) =>
@@ -63,7 +58,7 @@ const refusalOf = Effect.fnUntraced(function* refusalOf(vendor: Vendor, key: Rea
 		return Option.none<string>();
 	}
 
-	return Option.some(unaccepted[answer](vendorWords[vendor].name));
+	return Option.some(unaccepted[answer](vendorNames[vendor]));
 });
 
 export { misfitOf, refusalOf, stopped };
