@@ -1,7 +1,7 @@
 import { Effect, Struct } from "effect";
+import type { Found, Step } from "./plan.ts";
 import { assert, it } from "@effect/vitest";
-import type { Found } from "./plan.ts";
-import { plan } from "./plan.ts";
+import { keyPrompt, plan } from "./plan.ts";
 import { stops } from "./copy.ts";
 
 const codex: Found = {
@@ -42,14 +42,25 @@ it.effect(
 
 const refusedJudgeWithEnvKey = Struct.assign(refusedJudge, { keys: [{ place: "env", vendor: "openai" }] } as const);
 
+const openaiPrompts = (step: Step): readonly string[] => {
+	if (step.kind !== "ready") {
+		return [];
+	}
+
+	return [keyPrompt({ roles: step.roles, vendor: "openai" })];
+};
+
 it.effect(
 	"a refused PHI check key on Codex is asked again when patient data takes OPENAI_API_KEY, which no key file holds",
 	() =>
 		Effect.sync(() => {
-			assert.deepNestedInclude(plan({ answers: { baa: "env" }, found: refusedJudgeWithEnvKey }), {
+			const step = plan({ answers: { baa: "env" }, found: refusedJudgeWithEnvKey });
+
+			assert.deepNestedInclude(step, {
 				kind: "ready",
 				"roles.baa": { kind: "key", place: "env", vendor: "openai" },
 				"roles.judge": { kind: "key", place: "typed", vendor: "openai" },
 			});
+			assert.deepStrictEqual(openaiPrompts(step), ["OpenAI key (PHI check):"]);
 		}),
 );

@@ -448,7 +448,7 @@ const foundScreen = (found: Found): readonly string[] => {
 };
 
 const keyPrompt = ({ roles, vendor }: { readonly vendor: Vendor; readonly roles: Roles }): string => {
-	if (roles.baa.kind === "key" && roles.baa.vendor === vendor) {
+	if (roles.baa.kind === "key" && roles.baa.place === "typed" && roles.baa.vendor === vendor) {
 		return `${vendorNames[vendor]} key (BAA):`;
 	}
 
