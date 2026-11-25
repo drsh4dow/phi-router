@@ -55,7 +55,7 @@ recipes/iso.sh pi-failed-start pi-failed-start.sh
 
 ```
 pi with no config.json exited 0
-phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup pi
+phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup pi
 lines holding the login: 0
 ```
 
@@ -73,9 +73,9 @@ recipes/iso.sh refusals-pi refusals.sh pi
 
 ```
 == no config.json
-[".../plugins/claude/bin/phi-router" session-start --claude --pid "$PPID" --address "$ANTHROPIC_BASE_URL" 1>&2 || exit 2]: phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup claude
+[".../plugins/claude/bin/phi-router" session-start --claude --pid "$PPID" --address "$ANTHROPIC_BASE_URL" 1>&2 || exit 2]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
 == a config.json whose key file is missing
-[...]: phi-router stopped this message. It has no BAA key, so it has nowhere safe to send patient data. Nothing left your computer. Run in a terminal: npx phi-router setup claude
+[...]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
 == a router that cannot start
 [...]: phi-router could not start, so this message was not sent. Nothing left your computer. Send it again. If it repeats, run: npx phi-router doctor claude
 == a BAA account that answers 401
