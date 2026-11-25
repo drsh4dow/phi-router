@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Layer, Option, Schema, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Layer, Option, Schema, String as Str, Struct, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { Harness, World } from "./hooked.ts";
 import { assert, it } from "@effect/vitest";
@@ -8,6 +8,7 @@ import type { AccountScript } from "#tools/route/harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import { freePort } from "#tools/lifecycle/launched.ts";
 import { privacyUnder } from "#tools/route/private.ts";
+import { stampClockIn } from "#tools/wire/stored.ts";
 
 const patient = { timeout: 120_000 };
 
@@ -42,14 +43,11 @@ const turnOn = Effect.fnUntraced(function* turnOn(url: string, text: string) {
 	yield* response.text;
 }, Effect.scoped);
 
-const sealedTurn = (url: string): ReturnType<typeof turnOn> =>
-	turnOn(url, `Patient Fakesmith ${canary} called about her refill.`);
-
 const announced = Effect.fnUntraced(function* announced(harness: Harness) {
 	const world = yield* setUp;
 	const before = yield* turnEnd(world, harness, { address: world.routerUrl });
 
-	yield* sealedTurn(world.routerUrl);
+	yield* turnOn(world.routerUrl, `Patient Fakesmith ${canary} called about her refill.`);
 
 	const sealed = yield* noticed(world, harness, world.routerUrl);
 	const after = yield* turnEnd(world, harness, { address: world.routerUrl });
@@ -99,10 +97,6 @@ const limited: AccountScript = () => ({ body: "{}", kind: "status", status: 429 
 
 const Blocked = Schema.fromJsonString(Schema.Struct({ reason: Schema.String }));
 
-const Stamps = Schema.fromJsonString(Schema.Struct({ rateLimited: Schema.Struct({ open: Schema.String }) }));
-
-const clockInIso = { end: 16, start: 11 } as const;
-
 const overflowed = Effect.fnUntraced(function* overflowed(harness: Harness) {
 	const world = yield* setUpWith({ open: limited });
 
@@ -121,11 +115,8 @@ const overflowed = Effect.fnUntraced(function* overflowed(harness: Harness) {
 		input: `{"session_id":"${session}","prompt":"/phi"}`,
 	});
 
-	const fs = yield* FileSystem.FileSystem;
 	const { reason } = yield* Schema.decodeEffect(Blocked)(phi.stdout);
-	const stamps = yield* fs.readFileString(`${world.folders.XDG_STATE_HOME}/phi-router/accounts.json`);
-	const { rateLimited } = yield* Schema.decodeEffect(Stamps)(stamps);
-	const back = Str.slice(clockInIso.start, clockInIso.end)(rateLimited.open);
+	const back = yield* stampClockIn(`${world.folders.XDG_STATE_HOME}/phi-router`);
 
 	assert.deepStrictEqual(
 		{ clean: Array.findFirst(Str.split(reason, "\n"), Str.startsWith("Clean lane")), quietTurn, told },
