@@ -1,12 +1,11 @@
 import { Array, Data, Option, Predicate, Record, Result, String as Str, pipe } from "effect";
 import type { Case, Message } from "./manifest.ts";
-import { isSteering, isText, playedOf, walk } from "./wire-turns.ts";
+import { isSteering, isText, walk, walkedOf } from "./wire-turns.ts";
 import { stepsOf, summaryOf } from "./wire-steps.ts";
 import type { At } from "./wire-turns.ts";
 import { Base64 } from "effect/encoding";
 import type { Schema } from "effect";
 import type { Step } from "./wire-steps.ts";
-import { textsOf } from "./default-corpus.ts";
 
 type MockReply = Data.TaggedEnum<{
 	Text: { readonly text: string };
@@ -200,7 +199,7 @@ const replyOf = (subject: Case, at: At): readonly MockReply[] => {
 };
 
 const planOf = (subject: Case): Plan => {
-	const { leadingReply, walked } = playedOf(subject);
+	const walked = walkedOf(subject);
 
 	return {
 		files: pipe(
@@ -208,16 +207,10 @@ const planOf = (subject: Case): Plan => {
 			Array.filter(({ message }) => message.role === "tool"),
 			Array.map((at) => ({ bytes: bytesOf(at.message), path: pathOf(at) })),
 		),
-		replies: [
-			...pipe(
-				textsOf(leadingReply),
-				Array.map((text) => MockReplies.Text({ text })),
-			),
-			...pipe(
-				walked,
-				Array.flatMap((at) => replyOf(subject, at)),
-			),
-		],
+		replies: pipe(
+			walked,
+			Array.flatMap((at) => replyOf(subject, at)),
+		),
 		steps: stepsOf(subject),
 	};
 };

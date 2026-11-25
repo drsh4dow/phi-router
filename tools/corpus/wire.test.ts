@@ -25,12 +25,6 @@ const phiCase = (entry: PhiStrata["entry"], messages: readonly [Message, ...Mess
 
 const opening = Steps.Turn({ prompt: "Go on with the task.", steer: Option.none() });
 
-const pinned = [
-	Steps.Turn({ prompt: "/phi pin", steer: Option.none() }),
-	opening,
-	Steps.Turn({ prompt: "/phi unpin", steer: Option.none() }),
-];
-
 const compactionIndex = 2;
 
 const piOutputLimitBytes = 51_200;
@@ -131,31 +125,6 @@ it.effect(
 
 			assert.deepStrictEqual(plan.replies, [
 				MockReplies.ToolUse({ input: { command: "cat files/0.txt" }, name: "bash", textBefore: Option.none() }),
-			]);
-		}),
-);
-
-it.effect(
-	"a case that opens with a reply gets it from the BAA account in a pinned stretch, then plays on unpinned",
-	() =>
-		Effect.sync(() => {
-			const plan = planOf(
-				phiCase("ent-reply", [
-					{ role: "assistant", text: record },
-					{ role: "tool", text: "FAIL mapper" },
-					{ role: "user", text: "Fix it." },
-				]),
-			);
-
-			assert.deepStrictEqual(plan.steps, [
-				...pinned,
-				opening,
-				Steps.Turn({ prompt: "Fix it.", steer: Option.none() }),
-			]);
-
-			assert.deepStrictEqual(plan.replies, [
-				MockReplies.Text({ text: record }),
-				MockReplies.ToolUse({ input: { path: "files/0.txt" }, name: "read", textBefore: Option.none() }),
 			]);
 		}),
 );
