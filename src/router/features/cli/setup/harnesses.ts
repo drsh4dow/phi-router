@@ -14,6 +14,7 @@ import type { Check } from "#router/features/cli/doctor/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
+import { claudeInstanceLeased } from "./instance-lease.ts";
 import { codexSwitchedOn } from "#router/features/cli/codex/index.ts";
 
 interface InstallSource {
@@ -60,7 +61,10 @@ const harnesses = {
 		signIn: claudeSignIn(""),
 		signInHow: "/login",
 		start: ["claude"] satisfies Argv,
-		switchOn: Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
+		switchOn: Effect.andThen(
+			claudeInstanceLeased,
+			Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
+		),
 		title: "Claude Code",
 		vendor: "anthropic",
 	},

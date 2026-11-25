@@ -3,6 +3,7 @@ import { Pid, spelling } from "#shared/cli.ts";
 import { codexPrompt, offCodex, onCodex } from "./codex/index.ts";
 import { doctorClaude, doctorCodex, doctorPi } from "./doctor/index.ts";
 import { off, on } from "./claude/index.ts";
+import { Proofs } from "#router/client/router-port/index.ts";
 import { setupCommand } from "./setup/index.ts";
 
 const modelAddress = Flag.String("address");
@@ -34,7 +35,7 @@ const adapterCommands = [
 	Command.make("on").pipe(Command.withSubcommands([claudeOn, codexOn])),
 	Command.make("off").pipe(Command.withSubcommands([claudeOff, codexOff])),
 	Command.make("doctor").pipe(Command.withSubcommands([claudeDoctor, codexDoctor, piDoctor])),
-	setupCommand,
+	setupCommand.pipe(Command.provide(Proofs.layer)),
 ] as const;
 
 export { adapterCommands, modelAddress, pid };

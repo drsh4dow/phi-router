@@ -192,6 +192,7 @@ const world = Effect.gen(function* world() {
 	const env = Struct.assign(Struct.assign(folders, xdg), {
 		ANTHROPIC_API_KEY: "",
 		BROWSER: "",
+		CLAUDE_PID: "0",
 		DISPLAY: "",
 		NO_PROXY: "",
 		OPENAI_API_KEY: "",
