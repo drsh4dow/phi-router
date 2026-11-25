@@ -107,6 +107,8 @@ const routerOf = (printed: { readonly models?: typeof ModelsJson.Type }): Router
 			CommandFailed.make({ cause: "refused", command: "models" }),
 		),
 		pin: () => Effect.void,
+		setUp: () => Effect.die("registering sets nothing up"),
+		setupStep: () => Effect.die("registering sets nothing up"),
 		start: () => Effect.void,
 		status: () => Effect.die("registering asks no status"),
 		unpin: () => Effect.void,
@@ -131,6 +133,7 @@ const registeredOn = Effect.fnUntraced(function* registeredOn(environment: Reado
 			hooks.push(`command ${name}`);
 		},
 		registerProvider,
+		setModel: (): Promise<boolean> => Promise.resolve(false),
 	};
 
 	yield* Effect.provideService(registered(pi), ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(environment));

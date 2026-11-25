@@ -2,10 +2,11 @@ import { Array, Effect, Option, Record, Ref, String as Str, pipe } from "effect"
 import type { CommandFailed, Status } from "#shared/cli.ts";
 import { SessionId, phiCommand } from "#shared/cli.ts";
 import { Router } from "#pi/client/router.ts";
+import { piWire } from "#shared/pi.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
-const routedProvider = "phi";
+const routedProvider = piWire.provider;
 
 const unrouted = `phi-router: this session's model is not a ${routedProvider} model, so phi-router does not route it.`;
 
@@ -17,7 +18,7 @@ const noneSealed = 0;
 
 const oneMessage = 1;
 
-const usage = `/${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
+const usage = `/${phiCommand.name} ${phiCommand.setup} sets up phi-router, /${phiCommand.name} shows this session's routing, /${phiCommand.name} ${phiCommand.pin} pins it to the sealed lane, /${phiCommand.name} ${phiCommand.unpin} clears the pin.`;
 
 type Shows = (status: Reported) => string;
 

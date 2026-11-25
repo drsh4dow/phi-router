@@ -24,6 +24,7 @@ const piPackagesImported = Effect.gen(function* piPackagesImported() {
 	assert.deepStrictEqual(Array.sort(imported, Order.String), [
 		"@earendil-works/pi-ai/providers/all",
 		"@earendil-works/pi-coding-agent",
+		"@earendil-works/pi-tui",
 	]);
 });
 

@@ -101,7 +101,7 @@ const spelling = {
 
 const setupEnded = "Setup ended before it finished. Nothing was saved or changed.";
 
-const phiCommand = { name: "phi", pin: "pin", unpin: "unpin" } as const;
+const phiCommand = { name: "phi", pin: "pin", setup: "setup", unpin: "unpin" } as const;
 
 export {
 	ChoiceId,
@@ -112,6 +112,7 @@ export {
 	SessionId,
 	SetupAnswersJson,
 	SetupStepJson,
+	SetupVendor,
 	Status,
 	StatusJson,
 	loopback,
