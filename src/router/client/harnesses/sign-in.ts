@@ -46,6 +46,10 @@ const claudeSignInOf = (status: typeof ClaudeStatus.Type): SignIn => {
 		return signedOut;
 	}
 
+	if (authMethod === "oauth_token") {
+		return { kind: "plan", plan: "Claude subscription" };
+	}
+
 	if (authMethod !== "claude.ai") {
 		return { kind: "apiKey" };
 	}
@@ -88,7 +92,10 @@ const claudeSignIn = Effect.fnUntraced(function* claudeSignIn(folder: string) {
 		Option.liftPredicate(folder, Str.isNonEmpty),
 		Option.match({
 			onNone: () => ({}),
-			onSome: (named): Readonly<Record<string, string>> => ({ CLAUDE_CONFIG_DIR: named }),
+			onSome: (named): Readonly<Record<string, string>> => ({
+				CLAUDE_CODE_OAUTH_TOKEN: "",
+				CLAUDE_CONFIG_DIR: named,
+			}),
 		}),
 	);
 

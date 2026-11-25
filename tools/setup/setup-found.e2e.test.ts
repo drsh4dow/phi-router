@@ -14,6 +14,7 @@ import {
 	keyPicked,
 	keysOutsideKeyFiles,
 	layer,
+	maxAnswers,
 	ok,
 	patient,
 	piHolds,
@@ -21,6 +22,8 @@ import {
 	questions,
 	setUp,
 	withEnv,
+	withStatus,
+	writtenConfigOf,
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
@@ -158,7 +161,28 @@ const onMac = Effect.gen(function* onMac() {
 	assert.notInclude(run.shown, "Claude Enterprise login");
 }).pipe(Effect.scoped);
 
+const tokenStatus = '{"loggedIn":true,"authMethod":"oauth_token","apiProvider":"firstParty","subscriptionType":null}';
+
+const tokenSubscriber = Effect.gen(function* tokenSubscriber() {
+	const of = yield* world;
+
+	yield* withStatus(of, tokenStatus);
+
+	const run = yield* setUp(of, "claude", maxAnswers);
+	const config = yield* writtenConfigOf(of);
+
+	assert.strictEqual(run.exitCode, ok, run.shown);
+	assert.include(run.shown, "  Claude Code     Claude subscription\n");
+	assert.include(run.shown, "  Everyday work   Claude subscription\n  Patient data    Anthropic API key\n");
+	assert.deepNestedInclude(config, { "clean[0].forwarded": true });
+}).pipe(Effect.scoped);
+
 it.layer(layer)("setup finds what the machine has", (test) => {
+	test.effect(
+		"a Claude subscription signed in through CLAUDE_CODE_OAUTH_TOKEN is the everyday account Claude Code forwards",
+		() => tokenSubscriber,
+		patient,
+	);
 	test.effect(
 		"the first screen names each signed-in harness with its plan and account and each key found, and no key or piece of one shows anywhere",
 		() => everythingFound,
