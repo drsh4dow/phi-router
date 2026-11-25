@@ -231,8 +231,6 @@ const holding =
 	({ body }: Sent): boolean =>
 		Str.includes(prompt)(body);
 
-const isOverflow = (line: LaneLogLine): boolean => line.reason === "overflow";
-
 const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 	const [overflowed, ...later] = played.after;
 
@@ -240,7 +238,7 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 		played.lines,
 		Array.filter((line) => line.session === played.session),
 		Array.takeRight(overflowPrompts.length),
-		Array.map(isOverflow),
+		Array.map(({ reason }) => reason === "overflow"),
 	);
 
 	const afterOpen = pipe(
