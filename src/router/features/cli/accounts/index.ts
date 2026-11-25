@@ -215,7 +215,7 @@ const accounts = Command.make("accounts", {}, () => listed).pipe(
 	Command.withSubcommands([add]),
 );
 
-export { accounts };
+export { accounts, localTimeOf };
 
 export { opensBrowser, subscriptionLogin } from "./login.ts";
 
