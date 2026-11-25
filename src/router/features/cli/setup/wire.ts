@@ -1,13 +1,13 @@
 import type { Answers, Found, Step } from "./plan.ts";
 import { Array, Console, Effect, Option, Schema, pipe } from "effect";
 import type { HarnessName, InstallSource } from "./harnesses.ts";
+import { codexDone, windowDone } from "./copy.ts";
 import { foundScreen, keyPrompt, plan } from "./plan.ts";
 import { SetupStepJson } from "#shared/cli.ts";
 import { apply } from "./apply.ts";
 import { givenKeys } from "./given-keys.ts";
 import { harnesses } from "./harnesses.ts";
 import { readyOf } from "./asked.ts";
-import { windowDone } from "./copy.ts";
 
 const wired = (found: Found, step: Step): typeof SetupStepJson.Type => {
 	const screen = foundScreen(found);
@@ -37,14 +37,15 @@ const reported = Effect.fnUntraced(function* reported(found: Found, answers: Ans
 const applied = Effect.fnUntraced(function* applied(
 	name: HarnessName,
 	found: Found,
-	given: { readonly answers: Answers; readonly source: InstallSource },
+	given: { readonly answers: Answers; readonly answersJson: string | undefined; readonly source: InstallSource },
 ) {
 	const ready = yield* readyOf(plan({ answers: given.answers, found }));
-	const typed = yield* givenKeys(name, ready, given.source);
+	const typed = yield* givenKeys(name, ready, given);
 	const before = yield* harnesses[name].installed;
 
 	yield* apply(name, { roles: ready.roles, typed }, given.source);
 	yield* Effect.when(Console.log(windowDone[`${Option.isSome(before)}`]), Effect.succeed(name === "claude"));
+	yield* Effect.when(Console.log(codexDone), Effect.succeed(name === "codex"));
 });
 
 export { applied, reported };

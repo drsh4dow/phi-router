@@ -1,6 +1,6 @@
 import { Array, Config, Effect, Option, Record, pipe } from "effect";
 import type { HarnessName, InstallSource } from "./harnesses.ts";
-import { keyInputs, pasteAsked } from "./copy.ts";
+import { keyInTerminal, keyInputs, pasteAsked } from "./copy.ts";
 import type { Ready } from "./plan.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { installedIn } from "./install.ts";
@@ -31,21 +31,30 @@ const givenKey = Effect.fnUntraced(function* givenKey(name: HarnessName, vendor:
 	return Option.none();
 });
 
+interface Given {
+	readonly answersJson: string | undefined;
+	readonly source: InstallSource;
+}
+
 const keysAsked = Effect.fnUntraced(function* keysAsked(
 	name: HarnessName,
 	missing: Array.NonEmptyReadonlyArray<Vendor>,
-	source: InstallSource,
+	given: Given,
 ) {
+	if (name === "codex") {
+		return yield* stopped(keyInTerminal(given.answersJson));
+	}
+
 	if (name !== "claude") {
 		return yield* stopped(`Setup needs the key in ${keyInputs[Array.headNonEmpty(missing)]}. Nothing changed.`);
 	}
 
-	yield* installedIn(name, source);
+	yield* installedIn(name, given.source);
 
 	return yield* stopped(pasteAsked(missing));
 });
 
-const givenKeys = Effect.fnUntraced(function* givenKeys(name: HarnessName, ready: Ready, source: InstallSource) {
+const givenKeys = Effect.fnUntraced(function* givenKeys(name: HarnessName, ready: Ready, given: Given) {
 	const held = yield* Effect.forEach(
 		ready.typed,
 		(vendor) =>
@@ -67,7 +76,7 @@ const givenKeys = Effect.fnUntraced(function* givenKeys(name: HarnessName, ready
 	);
 
 	if (Array.isReadonlyArrayNonEmpty(missing)) {
-		return yield* keysAsked(name, missing, source);
+		return yield* keysAsked(name, missing, given);
 	}
 
 	return Record.fromEntries(typed);
