@@ -118,22 +118,16 @@ class Router extends Context.Service<
 					);
 				});
 
-				const asked = (
-					command: string,
-					session: typeof SessionId.Type,
-					port: number,
-				): Effect.Effect<string, CommandFailed> =>
-					run(command, [
+				const status = Effect.fn("Router.status")(function* status(session: typeof SessionId.Type, port: number) {
+					const command = spelling.status.name;
+
+					const output = yield* run(command, [
 						command,
 						`--${spelling.status.session}`,
 						session,
 						`--${spelling.start.port}`,
 						String(port),
 					]);
-
-				const status = Effect.fn("Router.status")(function* status(session: typeof SessionId.Type, port: number) {
-					const command = spelling.status.name;
-					const output = yield* asked(command, session, port);
 
 					return yield* decodedAs(command, Schema.decodeEffect(StatusJson))(output);
 				});
