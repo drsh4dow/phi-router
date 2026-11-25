@@ -2,6 +2,7 @@ import { Array, Config, Console, Effect, String as Str, pipe } from "effect";
 import { claudeFolder, claudeLogin, claudeSignIn } from "#router/client/harnesses/index.ts";
 import { shown, signInElsewhere, signInNamed } from "./copy.ts";
 import type { Filler } from "./plan.ts";
+import type { HarnessName } from "./harnesses.ts";
 import type { Named } from "./copy.ts";
 import { Platform } from "#router/features/cli/platform.ts";
 import { isTerminal } from "#router/client/terminal.ts";
@@ -37,7 +38,7 @@ const opensBrowser = Effect.gen(function* opensBrowser() {
 	return os === "darwin" || pipe(values, Array.some(Str.isNonEmpty));
 });
 
-const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole) {
+const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole, harness: HarnessName) {
 	const folder = yield* loginFolderOf(`claude-${role}`);
 	const before = yield* claudeSignIn(folder);
 
@@ -49,7 +50,7 @@ const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole) {
 	const browser = yield* opensBrowser;
 
 	if (!terminal && !browser) {
-		return yield* stopped(signInElsewhere(folder));
+		return yield* stopped(signInElsewhere({ folder, harness }));
 	}
 
 	const code = yield* claudeLogin(folder);
@@ -70,9 +71,9 @@ const loggedIn = Effect.fnUntraced(function* loggedIn(role: SignInRole) {
 	return { folder, kind: "loginFolder", label: signInNamed(after) } satisfies Folder;
 });
 
-const signedIn = Effect.fnUntraced(function* signedIn(filler: Filler) {
+const signedIn = Effect.fnUntraced(function* signedIn(filler: Filler, harness: HarnessName) {
 	if (filler.kind === "signIn") {
-		return yield* loggedIn(filler.role);
+		return yield* loggedIn(filler.role, harness);
 	}
 
 	if (filler.kind === "harnessFolder") {

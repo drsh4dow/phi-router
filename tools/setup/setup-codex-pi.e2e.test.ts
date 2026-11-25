@@ -10,6 +10,7 @@ import {
 	keysOutsideKeyFiles,
 	lastLine,
 	layer,
+	loginFolders,
 	maxAnswers,
 	ok,
 	patient,
@@ -23,6 +24,7 @@ import {
 } from "./set-up.ts";
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
+import { phiRouter } from "#tools/cli/accounts-run.ts";
 
 const codexFound = `phi-router found
   Codex           ChatGPT Plus · you@example.com
@@ -157,6 +159,21 @@ const piSetUp = Effect.gen(function* piSetUp() {
 	assert.deepStrictEqual(calls, ["test", "install", "start"], "the test runs before anything is installed");
 }).pipe(Effect.scoped);
 
+const piSignInElsewhere = Effect.gen(function* piSignInElsewhere() {
+	const base = yield* world;
+	const of = withEnv({ PHI_ROUTER_OPENAI_KEY: keys.openai })(base);
+
+	yield* piHolds(of, { anthropic: piLogin });
+
+	const stoppedRun = yield* phiRouter(of.env, ["setup", "pi", "--apply", "--answers", '{"baa":"signIn"}']);
+
+	assert.notStrictEqual(stoppedRun.exitCode, ok);
+	assert.strictEqual(
+		lastLine(stoppedRun.stderr),
+		`This machine has no browser. In any terminal, run \`CLAUDE_CONFIG_DIR='${loginFolders(of).baa}' claude auth login\` and follow the steps. When it says you're signed in, type /phi setup again.`,
+	);
+}).pipe(Effect.scoped);
+
 interface SignedOut {
 	readonly harness: "codex" | "pi";
 	readonly line: string;
@@ -190,6 +207,11 @@ it.layer(layer)("setup codex and setup pi", (test) => {
 	test.effect(
 		"setup pi on pi's Claude login takes both keys, installs with pi install, and starts pi on phi/auto",
 		() => piSetUp,
+		patient,
+	);
+	test.effect(
+		"setup pi with no browser and no terminal names the one command that signs in, then /phi setup",
+		() => piSignInElsewhere,
 		patient,
 	);
 	test.effect.each(signedOut)(
