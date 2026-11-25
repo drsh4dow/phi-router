@@ -75,6 +75,29 @@ const stops = {
 	signedOut: (title: string, how: string) => `Sign in to ${title} first with ${how}. Nothing changed.`,
 } as const;
 
+const keyWanted = {
+	anthropic: "your Anthropic key covered by your BAA. Paste it",
+	openai: "an OpenAI key covered by your BAA for the PHI check. Paste it",
+} as const;
+
+const bothKeysWanted = "two keys covered by your BAA: Anthropic for patient data, OpenAI for the PHI check. Paste them";
+
+const wantedOf = ([first, ...rest]: Array.NonEmptyReadonlyArray<Vendor>): string => {
+	if (Array.isReadonlyArrayNonEmpty(rest)) {
+		return bothKeysWanted;
+	}
+
+	return keyWanted[first];
+};
+
+const pasteAsked = (missing: Array.NonEmptyReadonlyArray<Vendor>): string =>
+	`I need ${wantedOf(missing)} in \`/plugin configure phi-router\`. I can't see that field. Say done when saved.`;
+
+const windowDone = {
+	false: "Done. Type `/reload-plugins` to turn it on.",
+	true: "Done. This window is protected.",
+} as const;
+
 const macNote =
 	"Claude Enterprise sign-in isn't available on macOS yet: Claude Code keeps sign-ins in the Keychain, and phi-router reads only a file.";
 
@@ -87,6 +110,7 @@ export {
 	keyVariables,
 	macNote,
 	named,
+	pasteAsked,
 	readyMark,
 	roleNames,
 	rows,
@@ -94,6 +118,7 @@ export {
 	signInNamed,
 	stops,
 	vendorNames,
+	windowDone,
 };
 
 export type { FoundKey, KeyPlace, Named };

@@ -125,4 +125,4 @@ const turnedOn = Effect.fnUntraced(function* turnedOn(name: HarnessName, source:
 	yield* switched(name);
 });
 
-export { installFailure, sourceOf, turnedOn };
+export { installFailure, installedIn, sourceOf, turnedOn };
