@@ -1,10 +1,11 @@
 import type { Answered, LeaseRequest } from "#router/client/router-port/index.ts";
-import { Effect, Option, Schedule, Schema } from "effect";
+import { Effect, Option, Ref, Schedule, Schema } from "effect";
 import { LeaseRequests, Proofs } from "#router/client/router-port/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
 import { Pid } from "#shared/cli.ts";
 import { Platform } from "./platform.ts";
 import { Processes } from "#router/client/processes.ts";
+import { newerPlugin } from "./newer-plugin.ts";
 import { noBaaKeyExit } from "./no-baa-key.ts";
 import { stopLines } from "#router/features/route/index.ts";
 
@@ -47,6 +48,7 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 	const requests = yield* LeaseRequests;
 	const processes = yield* Processes;
 	const proofs = yield* Proofs;
+	const router = yield* Ref.make<Option.Option<string>>(Option.none());
 
 	const failed = (reason: typeof Reason.Type): StartFailed =>
 		StartFailed.make({ harness, pid: request.pid, port, reason });
@@ -73,6 +75,8 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 		}
 
 		if (proven.kind === "proved") {
+			yield* Ref.set(router, proven.version);
+
 			return yield* requests.post(port, request);
 		}
 
@@ -89,6 +93,10 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 	);
 
 	yield* Effect.when(Effect.fail(failed("notRunning")), Effect.succeed(answered === "ended"));
+
+	const running = yield* Ref.get(router);
+
+	return yield* newerPlugin(Option.getOrUndefined(running));
 }, Effect.scoped);
 
 export { start };

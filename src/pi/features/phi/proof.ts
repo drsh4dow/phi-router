@@ -1,4 +1,4 @@
-import { Console, Effect } from "effect";
+import { Console, Effect, String as Str } from "effect";
 import type {
 	ExtensionUIContext,
 	InputEventResult,
@@ -18,7 +18,7 @@ interface HeldRequestContext {
 	readonly ui: Pick<ExtensionUIContext, "notify">;
 }
 
-const leaseLeft = (port: number, ctx: HeldRequestContext): Effect.Effect<void, CommandFailed, Router> =>
+const leaseLeft = (port: number, ctx: HeldRequestContext): Effect.Effect<string, CommandFailed, Router> =>
 	Router.use((client) => client.start(ctx.sessionManager.getSessionId(), ctx.cwd, port));
 
 const cleared = (port: number, ctx: HeldRequestContext): Effect.Effect<boolean, never, Router> => {
@@ -59,10 +59,25 @@ const compactionSent =
 	(ctx: HeldRequestContext): Effect.Effect<SessionBeforeCompactResult, never, Router> =>
 		Effect.map(cleared(port, ctx), (may) => ({ cancel: !may }));
 
+const shownOnce = (line: string, ctx: HeldRequestContext): Effect.Effect<void> => {
+	if (Str.isEmpty(line)) {
+		return Effect.void;
+	}
+
+	if (ctx.hasUI) {
+		return Effect.sync(() => {
+			ctx.ui.notify(line, "info");
+		});
+	}
+
+	return Console.error(line);
+};
+
 const sessionLeased =
 	(port: number) =>
 	(atStart: Observe, ctx: HeldRequestContext & ShownContext): Effect.Effect<void, never, Router> =>
 		leaseLeft(port, ctx).pipe(
+			Effect.flatMap((line) => shownOnce(Str.trim(line), ctx)),
 			Effect.andThen(atStart(ctx)),
 			Effect.catchTag("CommandFailed", () => Effect.void),
 		);

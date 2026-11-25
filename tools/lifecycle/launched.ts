@@ -7,6 +7,7 @@ import {
 	Layer,
 	Option,
 	Path,
+	Predicate,
 	Schedule,
 	Schema,
 	String as Str,
@@ -32,7 +33,7 @@ const ran = Effect.fnUntraced(function* ran(
 	return { exitCode: Number(exitCode), printed };
 }, Effect.scoped);
 
-const bundled = Effect.fnUntraced(function* bundled() {
+const bundled = Effect.fnUntraced(function* bundled(version?: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-bundle-" });
@@ -40,6 +41,11 @@ const bundled = Effect.fnUntraced(function* bundled() {
 	const source = path.resolve(import.meta.dirname, "../../src/router/main.ts");
 
 	yield* ran(["bun", "build", source, "--target", "node", "--outfile", entry], {});
+
+	if (Predicate.isNotUndefined(version)) {
+		yield* fs.makeDirectory(path.join(folder, ".claude-plugin"));
+		yield* fs.writeFileString(path.join(folder, ".claude-plugin", "plugin.json"), `{"version":"${version}"}`);
+	}
 
 	return entry;
 });
@@ -135,13 +141,13 @@ const world = Effect.fnUntraced(function* world(entry: string, more: Readonly<Re
 
 	yield* Effect.addFinalizer(() => ran(["pkill", "-9", "-f", serving(entry, port)], {}).pipe(Effect.orDie));
 
-	const start = (pid: number): ReturnType<typeof ran> =>
+	const start = (pid: number, from = entry): ReturnType<typeof ran> =>
 		ran(
-			["node", entry, "start", "--pid", String(pid), "--session", "s1", "--folder", "/work", "--port", String(port)],
+			["node", from, "start", "--pid", String(pid), "--session", "s1", "--folder", "/work", "--port", String(port)],
 			env,
 		);
 
-	return { home, mocks, port, routers: routersOn(entry, port), start, state };
+	return { env, home, mocks, port, routers: routersOn(entry, port), start, state };
 });
 
 export {

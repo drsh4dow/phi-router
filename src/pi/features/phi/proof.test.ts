@@ -12,7 +12,7 @@ const refusal = "phi-router: no BAA key is saved for anthropic. Run phi-router s
 
 const leaseLine = `start pi-session-1 /work ${String(routerPort)}`;
 
-const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean) {
+const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean, printed = "") {
 	const asked = yield* Ref.make<readonly string[]>([]);
 
 	const refused = Effect.fail(
@@ -21,15 +21,14 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean) {
 
 	const recorded = (line: string): Effect.Effect<void> => Ref.update(asked, Array.append(line));
 
+	const answered = Effect.as(Effect.when(refused, Effect.succeed(refuses)), printed);
+
 	const service = Router.of({
 		models: Effect.succeed({}),
 		setUp: () => Effect.die("the proof sets nothing up"),
 		setupStep: () => Effect.die("the proof sets nothing up"),
 		start: (session, folder, port) =>
-			Effect.andThen(
-				recorded(`start ${session} ${folder} ${String(port)}`),
-				Effect.when(refused, Effect.succeed(refuses)),
-			),
+			Effect.andThen(recorded(`start ${session} ${folder} ${String(port)}`), answered),
 		status: () => Effect.die("the proof asks no status"),
 	});
 
@@ -122,5 +121,20 @@ it.effect("a session the router refuses at start shows nothing, and one it lease
 		yield* Effect.provideService(started, Router, leasing.service);
 
 		assert.deepStrictEqual(shown, ["status: leased"]);
+	}),
+);
+
+const waiting = "phi-router 0.5.0 is installed. Your open windows still run 0.4.0 until you close them all.";
+
+it.effect("shows the line start printed for a newer plugin once, at the session's start, and not before a prompt", () =>
+	Effect.gen(function* newerPlugin() {
+		const router = yield* routerOf(false, `${waiting}\n`);
+		const { ctx, shown } = contextOf("phi");
+		const started = sessionLeased(routerPort)(showLeased, ctx);
+
+		yield* Effect.provideService(started, Router, router.service);
+		yield* Effect.provideService(promptSent(routerPort)(ctx), Router, router.service);
+
+		assert.deepStrictEqual(shown, [`info: ${waiting}`, "status: leased"]);
 	}),
 );

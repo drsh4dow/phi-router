@@ -85,7 +85,7 @@ interface SetUp {
 class Router extends Context.Service<
 	Router,
 	{
-		readonly start: (session: string, folder: string, port: number) => Effect.Effect<void, CommandFailed>;
+		readonly start: (session: string, folder: string, port: number) => Effect.Effect<string, CommandFailed>;
 		readonly status: Asking<typeof Status.Type>;
 		readonly models: Effect.Effect<typeof ModelsJson.Type, CommandFailed>;
 		readonly setupStep: (answers: Answers) => Effect.Effect<typeof SetupStepJson.Type, CommandFailed>;
@@ -108,7 +108,7 @@ class Router extends Context.Service<
 					const { folder: folderFlag, name, port: portFlag, session: sessionFlag } = spelling.start;
 					const lease = [`--${sessionFlag}`, session, `--${folderFlag}`, folder, `--${portFlag}`, String(port)];
 
-					yield* spawning(
+					return yield* spawning(
 						printed(name, {
 							args: ["-c", onParentPid, program, name, ...lease],
 							env: {},
