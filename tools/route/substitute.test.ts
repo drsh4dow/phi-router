@@ -9,7 +9,6 @@ import {
 	modelsIn,
 	phi,
 	posted,
-	postedPinnedByLine,
 	sentModels,
 } from "./target-models.ts";
 import type { AccountScript } from "./harnesses.ts";
@@ -166,13 +165,11 @@ const unsent = Effect.gen(function* unsent() {
 
 		yield* Effect.when(stamping, Effect.succeed(of.stamp));
 
-		const unsentPost = Effect.suspend(() => {
-			if (of.pinned) {
-				return postedPinnedByLine(run.post, { model: sentModels.claudeHaiku, session: unsentSession }, clean);
-			}
-
-			return posted(run.post, { harness: "claude", model: sentModels.claudeHaiku, session: unsentSession }, [clean]);
-		});
+		const unsentPost = posted(
+			run.post,
+			{ harness: "claude", model: sentModels.claudeHaiku, pinnedByLine: of.pinned, session: unsentSession },
+			[clean],
+		);
 
 		const before = yield* run.mocks.accounts;
 		const status = yield* unsentPost;
