@@ -1,7 +1,7 @@
 import { Array, Data, Option, Predicate, Record, String as Str, pipe } from "effect";
 import type { Case, Message } from "./manifest.ts";
-import { isSteering, isText, playedOf } from "./wire-turns.ts";
-import type { Played } from "./wire-turns.ts";
+import { isSteering, isText, walkedOf } from "./wire-turns.ts";
+import type { At } from "./wire-turns.ts";
 
 const narrativeCap = 12_000;
 
@@ -59,8 +59,6 @@ const withImage = (sent: SentPrompt, image: Image): SentPrompt => {
 
 const neutralOpening = opened("Go on with the task.");
 
-const pinnedReply = [opened("/phi pin"), neutralOpening, opened("/phi unpin")];
-
 const addedSteps = (message: Message): readonly Step[] => {
 	if (!isText(message)) {
 		return [opened(withImage("See the attached image.", message.image))];
@@ -72,26 +70,20 @@ const addedSteps = (message: Message): readonly Step[] => {
 	});
 };
 
-const openingOf = ({ leadingReply, walked }: Played): Step[] => {
-	const opening: Step[] = [];
-
-	if (Array.isReadonlyArrayNonEmpty(leadingReply)) {
-		opening.push(...pinnedReply);
-	}
-
+const openingOf = (walked: readonly At[]): Step[] => {
 	if (Option.exists(Array.head(walked), ({ message }) => message.role !== "user")) {
-		opening.push(neutralOpening);
+		return [neutralOpening];
 	}
 
-	return opening;
+	return [];
 };
 
 const stepsOf = (subject: Case): Step[] => {
-	const played = playedOf(subject);
-	const steps = openingOf(played);
+	const walked = walkedOf(subject);
+	const steps = openingOf(walked);
 
 	const userTurns = pipe(
-		played.walked,
+		walked,
 		Array.filter(({ message }) => message.role === "user"),
 	);
 
