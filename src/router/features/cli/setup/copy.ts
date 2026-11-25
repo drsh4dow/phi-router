@@ -1,5 +1,6 @@
 import { Array, Option, String as Str, pipe } from "effect";
-import { setupEnded, spelling } from "#shared/cli.ts";
+import { phiCommand, setupEnded, spelling } from "#shared/cli.ts";
+import type { HarnessName } from "./harnesses.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 
@@ -103,8 +104,14 @@ const windowDone = {
 
 const shellQuoted = (word: string): string => `'${Str.replaceAll("'", String.raw`'\''`)(word)}'`;
 
-const signInElsewhere = (folder: string): string =>
-	`This machine has no browser. In any terminal, run \`CLAUDE_CONFIG_DIR=${shellQuoted(folder)} claude auth login\` and follow the steps. Say done when it says you're signed in.`;
+const signedInThen: Readonly<Record<HarnessName, string>> = {
+	claude: "Say done when it says you're signed in.",
+	codex: "Run setup again when it says you're signed in.",
+	pi: `When it says you're signed in, type /${phiCommand.name} ${phiCommand.setup} again.`,
+};
+
+const signInElsewhere = ({ folder, harness }: { readonly folder: string; readonly harness: HarnessName }): string =>
+	`This machine has no browser. In any terminal, run \`CLAUDE_CONFIG_DIR=${shellQuoted(folder)} claude auth login\` and follow the steps. ${signedInThen[harness]}`;
 
 const macNote =
 	"Claude Enterprise sign-in isn't available on macOS yet: Claude Code keeps sign-ins in the Keychain, and phi-router reads only a file.";
@@ -113,8 +120,8 @@ const enterpriseNote =
 	"! Check that your BAA covers Claude Code through phi-router. Anthropic doesn't cover a custom base URL by default.";
 
 export {
-	keyInputs,
 	enterpriseNote,
+	keyInputs,
 	keyName,
 	keyVariables,
 	macNote,

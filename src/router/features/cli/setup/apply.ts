@@ -31,10 +31,10 @@ const accountOf = (filler: Settled, vendor: Vendor): Option.Option<NewAccount> =
 	return Option.some(Struct.assign(filler.source, { scheme: "apiKey", vendor: filler.vendor } as const));
 };
 
-const settled = Effect.fnUntraced(function* settled(roles: Ready["roles"], typed: Typed) {
-	const open = yield* Effect.flatMap(signedIn(roles.open), (filler) => savedKey(filler, typed));
-	const baa = yield* Effect.flatMap(signedIn(roles.baa), (filler) => savedKey(filler, typed));
-	const judge = yield* Effect.flatMap(signedIn(roles.judge), (filler) => savedKey(filler, typed));
+const settled = Effect.fnUntraced(function* settled(name: HarnessName, roles: Ready["roles"], typed: Typed) {
+	const open = yield* Effect.flatMap(signedIn(roles.open, name), (filler) => savedKey(filler, typed));
+	const baa = yield* Effect.flatMap(signedIn(roles.baa, name), (filler) => savedKey(filler, typed));
+	const judge = yield* Effect.flatMap(signedIn(roles.judge, name), (filler) => savedKey(filler, typed));
 
 	return { baa, judge, open };
 });
@@ -80,7 +80,7 @@ const apply = Effect.fn("setup apply")(function* apply(
 
 	yield* checkedKeys(title, roles, typed);
 
-	const done = yield* settled(roles, typed);
+	const done = yield* settled(name, roles, typed);
 
 	yield* written(title, vendor, done);
 	yield* turnedOn(name, source, done.open.label.plan);
