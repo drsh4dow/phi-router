@@ -1,18 +1,26 @@
-import { Context, Effect, FileSystem, Layer, Option, Path, Schema, pipe } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import type { Option, PlatformError } from "effect";
 import { Base64Url } from "effect/encoding";
-import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "./private-file.ts";
 
-const SealedAtLastNoticeJson = Schema.fromJsonString(Schema.Struct({ sealed: Schema.Int }));
+const NoticedJson = Schema.fromJsonString(
+	Schema.Struct({
+		overflowed: Schema.optionalKey(Schema.Int),
+		quietUntil: Schema.optionalKey(Schema.Int),
+		sealed: Schema.Int,
+	}),
+);
+
+type Noticed = typeof NoticedJson.Type;
+
+type Failed = PlatformError.PlatformError | Schema.SchemaError;
 
 class TurnNotices extends Context.Service<
 	TurnNotices,
 	{
-		readonly swap: (
-			session: string,
-			sealed: number,
-		) => Effect.Effect<Option.Option<number>, PlatformError.PlatformError | Schema.SchemaError>;
+		readonly read: (session: string) => Effect.Effect<Option.Option<Noticed>, Failed>;
+		readonly write: (session: string, noticed: Noticed) => Effect.Effect<void, Failed>;
 	}
 >()("phi-router/router/client/turn-notices/TurnNotices") {
 	public static readonly layer = Layer.effect(
@@ -22,32 +30,32 @@ class TurnNotices extends Context.Service<
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
 			const state = yield* directories.state("phi-router");
+			const fileOf = (session: string): string => path.join(state, "notices", `${Base64Url.encode(session)}.json`);
 
-			const swap = Effect.fn("TurnNotices.swap")(function* swap(session: string, sealed: number) {
-				const file = path.join(state, "notices", `${Base64Url.encode(session)}.json`);
+			const read = Effect.fn("TurnNotices.read")(function* read(session: string) {
+				const file = fileOf(session);
 				const exists = yield* fs.exists(file);
 
-				const before = yield* Effect.when(
-					Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(SealedAtLastNoticeJson)),
+				return yield* Effect.when(
+					Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(NoticedJson)),
 					Effect.succeed(exists),
-				);
-
-				const written = yield* Schema.encodeEffect(SealedAtLastNoticeJson)({ sealed });
-
-				yield* writePrivately(file, written).pipe(
-					Effect.provideService(FileSystem.FileSystem, fs),
-					Effect.provideService(Path.Path, path),
-				);
-
-				return pipe(
-					before,
-					Option.map((seen) => seen.sealed),
 				);
 			});
 
-			return TurnNotices.of({ swap });
+			const write = Effect.fn("TurnNotices.write")(function* write(session: string, noticed: Noticed) {
+				const written = yield* Schema.encodeEffect(NoticedJson)(noticed);
+
+				yield* writePrivately(fileOf(session), written).pipe(
+					Effect.provideService(FileSystem.FileSystem, fs),
+					Effect.provideService(Path.Path, path),
+				);
+			});
+
+			return TurnNotices.of({ read, write });
 		}),
 	).pipe(Layer.provide(UserDirectories.layer));
 }
 
 export { TurnNotices };
+
+export type { Noticed };

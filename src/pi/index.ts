@@ -1,4 +1,4 @@
-import { Array, Config, Effect, Layer, Option, Record, String as Str, pipe } from "effect";
+import { Array, Config, DateTime, Effect, Layer, Option, Record, String as Str, pipe } from "effect";
 import type {
 	BeforeProviderHeadersEvent,
 	ExtensionAPI,
@@ -39,12 +39,12 @@ const loginProvider = "anthropic";
 
 const placeholderKey = "sk-ant-oat-phi-router";
 
-const router = (): Layer.Layer<Router> => {
+const router = (): Layer.Layer<Router | DateTime.CurrentTimeZone> => {
 	if ("Bun" in globalThis) {
-		return Layer.provide(Router.layer(launcher), BunServices.layer);
+		return Layer.merge(Layer.provide(Router.layer(launcher), BunServices.layer), DateTime.layerCurrentZoneLocal);
 	}
 
-	return Layer.provide(Router.layer(launcher), NodeServices.layer);
+	return Layer.merge(Layer.provide(Router.layer(launcher), NodeServices.layer), DateTime.layerCurrentZoneLocal);
 };
 
 const provider = (served: { readonly port: number; readonly models: typeof ModelsJson.Type }): ProviderConfig => ({

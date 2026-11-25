@@ -1,11 +1,21 @@
-import { Array, Option, String as Str, pipe } from "effect";
+import { Array, DateTime, Effect, Option, String as Str, flow, pipe } from "effect";
 import type { Status } from "#shared/cli.ts";
 import { phiCommand } from "#shared/cli.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
-const oneMessage = 1;
+type OpenAccount = Reported["accounts"]["clean"][number];
+
+interface Overflow {
+	readonly count: number;
+	readonly subscriptions: number;
+	readonly back?: number;
+}
+
+const one = 1;
+
+const clockDigits = 2;
 
 const usage = `/${phiCommand.name} shows this session's routing. To run work on the BAA account, hand it to the phi-sealed subagent or switch the model to ${pinnedModel}.`;
 
@@ -24,36 +34,85 @@ const ranOn = (last: NonNullable<Reported["last"]>): string => {
 const lastOf: Shows = (status) =>
 	pipe(Option.fromNullishOr(status.last), Option.match({ onNone: () => "none yet", onSome: ranOn }));
 
-const namesOf = (accounts: Reported["accounts"]["clean"]): string =>
+const twoDigits = (part: number): string => Str.padStart(clockDigits, "0")(String(part));
+
+const clockOf = (at: string | number): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
+	Option.match(DateTime.make(at), {
+		onNone: () => Effect.succeed(String(at)),
+		onSome: flow(
+			DateTime.setZoneCurrent,
+			Effect.map(DateTime.toParts),
+			Effect.map(({ hour, minute }) => `${twoDigits(hour)}:${twoDigits(minute)}`),
+		),
+	});
+
+const listOf = (names: readonly string[]): string =>
 	pipe(
-		accounts,
-		Array.map(({ name }) => name),
+		names,
 		Array.join(", "),
 		Option.liftPredicate(Str.isNonEmpty),
 		Option.getOrElse(() => "none"),
 	);
 
-const statusText: Shows = (status) =>
-	Array.join(
+const openNameOf = (account: OpenAccount): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
+	Option.match(Option.fromUndefinedOr(account.rateLimitedUntil), {
+		onNone: () => Effect.succeed(account.name),
+		onSome: flow(
+			clockOf,
+			Effect.map((clock) => `${account.name} (rate-limited until ${clock})`),
+		),
+	});
+
+const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
+	const clean = yield* Effect.forEach(status.accounts.clean, openNameOf, { concurrency: 1 });
+
+	const sealed = pipe(
+		status.accounts.sealed,
+		Array.map(({ name }) => name),
+	);
+
+	return Array.join(
 		[
 			`phi-router, session ${status.session}`,
 			`Last request: ${lastOf(status)}`,
 			`Messages: ${String(status.sealed)} sealed, ${String(status.cleared)} cleared`,
-			`Clean lane: ${namesOf(status.accounts.clean)}`,
-			`Sealed lane: ${namesOf(status.accounts.sealed)}`,
+			`Clean lane: ${listOf(clean)}`,
+			`Sealed lane: ${listOf(sealed)}`,
 		],
 		"\n",
 	);
+});
 
-const messagesIn = (count: number): string => {
-	if (count === oneMessage) {
-		return "1 message";
+const countOf = (count: number, noun: string): string => {
+	if (count === one) {
+		return `1 ${noun}`;
 	}
 
-	return `${String(count)} messages`;
+	return `${String(count)} ${noun}s`;
 };
 
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
-	`phi-router: ${messagesIn(sealed.count)} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
+	`phi-router: ${countOf(sealed.count, "message")} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
 
-export { sealNotice, statusText, usage };
+const subscriptions = {
+	false: { are: "is", yours: "your subscription" },
+	true: { are: "are", yours: "your subscriptions" },
+} as const;
+
+const overflowNotice = Effect.fnUntraced(function* overflowNotice(overflow: Overflow) {
+	const { are, yours } = subscriptions[`${overflow.subscriptions > one}`];
+
+	const why = yield* Option.match(Option.fromUndefinedOr(overflow.back), {
+		onNone: () => Effect.succeed(`${yours} did not answer`),
+		onSome: flow(
+			clockOf,
+			Effect.map((clock) => `${yours} ${are} rate-limited until ${clock}`),
+		),
+	});
+
+	return `phi-router: ${why}, so ${countOf(overflow.count, "request")} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
+});
+
+export { overflowNotice, sealNotice, statusText, usage };
+
+export type { OpenAccount, Overflow, Reported };

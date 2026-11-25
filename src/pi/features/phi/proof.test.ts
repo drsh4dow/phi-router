@@ -1,4 +1,4 @@
-import { Array, Effect, Ref } from "effect";
+import { Array, DateTime, Effect, Ref } from "effect";
 import type { Observe, ShownContext } from "./phi.ts";
 import { assert, it } from "@effect/vitest";
 import { compactionSent, promptSent, sessionLeased } from "./proof.ts";
@@ -7,6 +7,8 @@ import type { HeldRequestContext } from "./proof.ts";
 import { Router } from "#pi/client/router.ts";
 
 const routerPort = 47_496;
+
+const utc = DateTime.zoneMakeNamedUnsafe("UTC");
 
 const refusal = "phi-router: no BAA key is saved for anthropic. Run phi-router setup.";
 
@@ -117,8 +119,12 @@ it.effect("a session the router refuses at start shows nothing, and one it lease
 		const { ctx, shown } = contextOf("phi");
 		const started = sessionLeased(routerPort)(showLeased, ctx);
 
-		yield* Effect.provideService(started, Router, refusing.service);
-		yield* Effect.provideService(started, Router, leasing.service);
+		yield* Effect.provideService(started, Router, refusing.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
+		yield* Effect.provideService(started, Router, leasing.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		assert.deepStrictEqual(shown, ["status: leased"]);
 	}),

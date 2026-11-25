@@ -1,24 +1,43 @@
-import { Array, Effect, Ref, pipe } from "effect";
+import { Array, DateTime, Effect, Option, Ref, String as Str, Struct, flow, pipe } from "effect";
 import { CommandFailed, SessionId } from "#shared/cli.ts";
 import { answered, observerOn } from "#pi/features/phi/phi.ts";
 import { assert, it } from "@effect/vitest";
 import { Router } from "#pi/client/router.ts";
 import type { ShownContext } from "#pi/features/phi/phi.ts";
 import type { Status } from "#shared/cli.ts";
+import { TestClock } from "effect/testing";
 
 const session = "pi-session-1";
+
+const utc = DateTime.zoneMakeNamedUnsafe("UTC");
 
 const routerPort = 47_498;
 
 const cleared = 2;
 
+interface Pool {
+	readonly overflowed: number;
+	readonly back?: string;
+}
+
+const open = { name: "open", vendor: "anthropic" } as const;
+
 const reported =
 	(substitute: boolean) =>
-	(sealed: number): typeof Status.Type => ({
-		accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
+	(now: { readonly pool: Pool; readonly sealed: number }): typeof Status.Type => ({
+		accounts: {
+			clean: [
+				Option.match(Option.fromUndefinedOr(now.pool.back), {
+					onNone: () => open,
+					onSome: (rateLimitedUntil) => Struct.assign(open, { rateLimitedUntil }),
+				}),
+			],
+			sealed: [{ name: "baa", vendor: "anthropic" }],
+		},
 		cleared,
 		last: { account: "baa", model: "claude-baa", substitute },
-		sealed,
+		overflowed: now.pool.overflowed,
+		sealed: now.sealed,
 		session: SessionId.make(session),
 	});
 
@@ -32,6 +51,7 @@ const one = 1;
 const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?: boolean) {
 	const asked = yield* Ref.make<readonly string[]>([]);
 	const sealed = yield* Ref.make(none);
+	const pool = yield* Ref.make<Pool>({ overflowed: none });
 
 	const ask = (command: string, port: number): Effect.Effect<void, CommandFailed> => {
 		const failed = Effect.fail(
@@ -49,10 +69,15 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 		setupStep: () => Effect.die("/phi sets nothing up"),
 		start: () => Effect.succeed(""),
 		status: (_session, port) =>
-			Effect.andThen(ask("status", port), Effect.map(Ref.get(sealed), reported(substitute === true))),
+			Effect.andThen(
+				ask("status", port),
+				Effect.gen(function* statusNow() {
+					return reported(substitute === true)({ pool: yield* Ref.get(pool), sealed: yield* Ref.get(sealed) });
+				}),
+			),
 	});
 
-	return { asked, sealed, service };
+	return { asked, pool, sealed, service };
 });
 
 const noEntry = "no entry";
@@ -95,7 +120,9 @@ it.effect("/phi shows the session's last request, counts and accounts, and asks 
 		const router = yield* routerOf(false);
 		const { ctx, shown } = contextOf(true);
 
-		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service);
+		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		const asked = yield* Ref.get(router.asked);
 
@@ -115,7 +142,9 @@ it.effect("/phi and the status bar say the last request's model was a substitute
 		const router = yield* routerOf(false, true);
 		const { ctx, shown } = contextOf(true);
 
-		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service);
+		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		assert.deepStrictEqual(shown, [
 			["status", "phi · baa, model claude-baa, a substitute for the requested model · 0 sealed · 2 cleared"],
@@ -133,7 +162,9 @@ it.effect("/phi with no router answering shows why as an error, from the CLI's R
 		const { ctx, shown } = contextOf(true);
 		const phi = answered(routerPort);
 
-		yield* Effect.provideService(phi("", ctx), Router, router.service);
+		yield* Effect.provideService(phi("", ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		assert.deepStrictEqual(shown, [["error", `phi-router status failed: ${unanswered}`]]);
 	}),
@@ -146,7 +177,9 @@ it.effect(
 			const router = yield* routerOf(false);
 			const { ctx, shown } = contextOf(true);
 
-			yield* Effect.provideService(answered(routerPort)(" pin ", ctx), Router, router.service);
+			yield* Effect.provideService(answered(routerPort)(" pin ", ctx), Router, router.service).pipe(
+				Effect.provideService(DateTime.CurrentTimeZone, utc),
+			);
 
 			const asked = yield* Ref.get(router.asked);
 
@@ -177,7 +210,9 @@ it.effect(
 			const { afterTurn, atStart } = yield* observerOn(routerPort);
 			const all = Effect.all([phi("pin", ctx), phi("", ctx), atStart(ctx), afterTurn(ctx)], { concurrency: 1 });
 
-			yield* Effect.provideService(all, Router, router.service);
+			yield* Effect.provideService(all, Router, router.service).pipe(
+				Effect.provideService(DateTime.CurrentTimeZone, utc),
+			);
 
 			const asked = yield* Ref.get(router.asked);
 
@@ -206,9 +241,13 @@ it.effect("after each turn the status bar shows the last request, and a turn tha
 		const turn = afterTurn(ctx);
 
 		yield* Ref.set(router.sealed, sealedBefore);
-		yield* Effect.provideService(Effect.andThen(atStart(ctx), turn), Router, router.service);
+		yield* Effect.provideService(Effect.andThen(atStart(ctx), turn), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 		yield* Ref.set(router.sealed, sealedBefore + one);
-		yield* Effect.provideService(Effect.andThen(turn, turn), Router, router.service);
+		yield* Effect.provideService(Effect.andThen(turn, turn), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		assert.deepStrictEqual(noticesIn(shown), [
 			[
@@ -226,7 +265,9 @@ it.effect("a turn that sealed in a session pi has not shown yet is announced fro
 		const { afterTurn } = yield* observerOn(routerPort);
 
 		yield* Ref.set(router.sealed, cleared);
-		yield* Effect.provideService(afterTurn(ctx), Router, router.service);
+		yield* Effect.provideService(afterTurn(ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		assert.deepStrictEqual(noticesIn(shown), [
 			[
@@ -243,7 +284,9 @@ it.effect("with no UI, as in print mode, a turn asks the router nothing", () =>
 		const { ctx } = contextOf(false);
 		const { afterTurn } = yield* observerOn(routerPort);
 
-		yield* Effect.provideService(afterTurn(ctx), Router, router.service);
+		yield* Effect.provideService(afterTurn(ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		const asked = yield* Ref.get(router.asked);
 
@@ -257,8 +300,73 @@ it.effect("with no router answering after a turn, the status bar says why", () =
 		const { ctx, shown } = contextOf(true);
 		const { afterTurn } = yield* observerOn(routerPort);
 
-		yield* Effect.provideService(afterTurn(ctx), Router, router.service);
+		yield* Effect.provideService(afterTurn(ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
 
 		assert.deepStrictEqual(shown, [["status", `phi-router status failed: ${unanswered}`]]);
 	}),
+);
+
+const at = (time: string): string => `2026-05-28T${time}:00.000Z`;
+
+const millisAt = flow(at, DateTime.makeUnsafe, DateTime.toEpochMillis);
+
+it.effect("/phi shows an open account the clean lane skips with the time its rate limit ends", () =>
+	Effect.gen(function* stamped() {
+		const router = yield* routerOf(false);
+		const { ctx, shown } = contextOf(true);
+
+		yield* Ref.set(router.pool, { back: at("14:30"), overflowed: none });
+		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
+
+		assert.deepStrictEqual(
+			pipe(
+				noticesIn(shown),
+				Array.map(([, text]) => Array.findFirst(Str.split(text, "\n"), Str.startsWith("Clean lane"))),
+			),
+			[Option.some("Clean lane: open (rate-limited until 14:30)")],
+		);
+	}),
+);
+
+const overflowNotice = (why: string, requests: string): string =>
+	`phi-router: your subscription ${why}, so ${requests} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
+
+it.effect(
+	"a turn whose requests overflowed to the BAA account says why once per rate-limit window, and once per 30 minutes when the subscription did not answer",
+	() =>
+		Effect.gen(function* overflow() {
+			const router = yield* routerOf(false);
+			const { ctx, shown } = contextOf(true);
+			const { afterTurn, atStart } = yield* observerOn(routerPort);
+
+			const turn = (time: string, pool: Pool): Effect.Effect<void> =>
+				Effect.gen(function* turned() {
+					yield* TestClock.setTime(millisAt(time));
+					yield* Ref.set(router.pool, pool);
+					yield* Effect.provideService(afterTurn(ctx), Router, router.service).pipe(
+						Effect.provideService(DateTime.CurrentTimeZone, utc),
+					);
+				});
+
+			yield* Effect.provideService(atStart(ctx), Router, router.service).pipe(
+				Effect.provideService(DateTime.CurrentTimeZone, utc),
+			);
+			yield* turn("14:00", { back: at("14:30"), overflowed: 2 });
+			yield* turn("14:10", { back: at("14:30"), overflowed: 5 });
+			yield* turn("14:31", { back: at("15:01"), overflowed: 6 });
+			yield* turn("15:30", { overflowed: 7 });
+			yield* turn("15:50", { overflowed: 8 });
+			yield* turn("16:01", { overflowed: 9 });
+
+			assert.deepStrictEqual(noticesIn(shown), [
+				["warning", overflowNotice("is rate-limited until 14:30", "2 requests")],
+				["warning", overflowNotice("is rate-limited until 15:01", "1 request")],
+				["warning", overflowNotice("did not answer", "1 request")],
+				["warning", overflowNotice("did not answer", "1 request")],
+			]);
+		}),
 );

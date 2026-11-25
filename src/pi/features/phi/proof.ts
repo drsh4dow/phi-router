@@ -75,7 +75,10 @@ const shownOnce = (line: string, ctx: HeldRequestContext): Effect.Effect<void> =
 
 const sessionLeased =
 	(port: number) =>
-	(atStart: Observe, ctx: HeldRequestContext & ShownContext): Effect.Effect<void, never, Router> =>
+	(
+		atStart: Observe,
+		ctx: HeldRequestContext & ShownContext,
+	): Effect.Effect<void, never, Effect.Services<ReturnType<Observe>>> =>
 		leaseLeft(port, ctx).pipe(
 			Effect.flatMap((line) => shownOnce(Str.trim(line), ctx)),
 			Effect.andThen(atStart(ctx)),
