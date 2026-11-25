@@ -1,4 +1,5 @@
 import { Array, Option, String as Str, pipe } from "effect";
+import { setupEnded, spelling } from "#shared/cli.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 
@@ -17,6 +18,8 @@ interface Named {
 const vendorNames = { anthropic: "Anthropic", openai: "OpenAI" } as const;
 
 const keyVariables = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY" } as const;
+
+const keyInputs = spelling.setup.keys;
 
 const roleNames = { baa: "Patient data", judge: "PHI check", open: "Everyday work" } as const;
 
@@ -64,7 +67,7 @@ const readyMark = (value: string): string => `${value}   ✓`;
 const stops = {
 	apiKey:
 		"You don't need phi-router. It keeps patient data off a subscription with no BAA, and you're on an API key. Nothing changed.",
-	ended: "Setup ended before it finished. Nothing was saved or changed.",
+	ended: setupEnded,
 	gateway: (host: string, whose: string) =>
 		`phi-router doesn't work with your ${whose}gateway (${host}) yet. Nothing changed.`,
 	mac: "On macOS, phi-router can't add a second Claude sign-in yet: Claude Code keeps sign-ins in the Keychain, and phi-router reads only a file. Nothing changed.",
@@ -110,6 +113,7 @@ const enterpriseNote =
 	"! Check that your BAA covers Claude Code through phi-router. Anthropic doesn't cover a custom base URL by default.";
 
 export {
+	keyInputs,
 	enterpriseNote,
 	keyName,
 	keyVariables,

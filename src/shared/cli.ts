@@ -87,10 +87,19 @@ const spelling = {
 	models: { name: "models" },
 	pin: { name: "pin", session: "session" },
 	program: "phi-router",
+	setup: {
+		answers: "answers",
+		apply: "apply",
+		json: "json",
+		keys: { anthropic: "PHI_ROUTER_ANTHROPIC_KEY", openai: "PHI_ROUTER_OPENAI_KEY" },
+		name: "setup",
+	},
 	start: { folder: "folder", name: "start", pid: "pid", port: "port", session: "session" },
 	status: { name: "status", session: "session" },
 	unpin: { name: "unpin", session: "session" },
 };
+
+const setupEnded = "Setup ended before it finished. Nothing was saved or changed.";
 
 const phiCommand = { name: "phi", pin: "pin", unpin: "unpin" } as const;
 
@@ -108,5 +117,6 @@ export {
 	loopback,
 	phiCommand,
 	productPort,
+	setupEnded,
 	spelling,
 };

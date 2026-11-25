@@ -1,15 +1,13 @@
 import { Array, Config, Effect, Option, Record, pipe } from "effect";
 import type { HarnessName, InstallSource } from "./harnesses.ts";
+import { keyInputs, pasteAsked } from "./copy.ts";
 import type { Ready } from "./plan.ts";
 import type { Vendor } from "#router/client/configuration/index.ts";
 import { installedIn } from "./install.ts";
 import { isTerminal } from "#router/client/terminal.ts";
-import { pasteAsked } from "./copy.ts";
 import { pastedKey } from "#router/client/keys/index.ts";
 import { stopped } from "./keys.ts";
 import { typedKey } from "./asked.ts";
-
-const keyInputs = { anthropic: "PHI_ROUTER_ANTHROPIC_KEY", openai: "PHI_ROUTER_OPENAI_KEY" } as const;
 
 const givenKey = Effect.fnUntraced(function* givenKey(name: HarnessName, vendor: Vendor, roles: Ready["roles"]) {
 	const given = yield* Config.option(Config.Redacted(keyInputs[vendor]));
