@@ -79,7 +79,8 @@ On macOS, setup does not offer a login it would have to create. Claude Code keep
 A driver with no terminal, such as an agent or pi's `/phi setup`, runs setup in two steps. Neither takes a key as an argument.
 
 - `npx phi-router setup claude --json --answers '<picks>'` prints, as JSON, what setup found and the next question, a stop line, or the keys it still needs. It changes nothing. `<picks>` maps a question's `id` to a choice's `id`, such as `{"baa":"key"}`.
-- `npx phi-router setup claude --apply --answers '<picks>'` sets up with those picks. It reads each key it needs from `PHI_ROUTER_ANTHROPIC_KEY` or `PHI_ROUTER_OPENAI_KEY`, else from a hidden prompt when standard input is a terminal.
+- `npx phi-router setup claude --apply --answers '<picks>'` sets up with those picks. It reads each key it needs from `PHI_ROUTER_ANTHROPIC_KEY` or `PHI_ROUTER_OPENAI_KEY`, else from a hidden prompt when standard input is a terminal. For Claude Code it then reads a key saved in `/plugin configure phi-router`: the plugin's hook copies it into `keys/pasted/` under phi-router's config folder at the next prompt. With no key anywhere, it installs the plugin and asks for the key there.
+- A sign-in with no browser and no terminal stops with the one `claude auth login` command to run in a terminal. Run `--apply` again once it says you're signed in.
 
 ## Run from a clone
 
