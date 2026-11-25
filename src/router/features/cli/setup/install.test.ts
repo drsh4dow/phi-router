@@ -20,7 +20,7 @@ it.effect("an installer that exits non-zero stops setup with its output, and one
 	}),
 );
 
-const channel = { channel: "release", version: "0.10.0" };
+const channel = { version: "0.10.0" };
 
 const checkout = Struct.assign(channel, { checkout: "/home/you/phi-router" });
 

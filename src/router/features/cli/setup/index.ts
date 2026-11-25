@@ -18,7 +18,6 @@ const unreadAnswers = stopped("Setup could not read --answers. Nothing was chang
 const flags = {
 	answers: Flag.optional(Flag.String(spelling.setup.answers)).pipe(Flag.map((json) => Option.getOrUndefined(json))),
 	apply: Flag.Boolean(spelling.setup.apply).pipe(Flag.withDefault(false)),
-	channel: Flag.String("channel").pipe(Flag.withDefault("release")),
 	json: Flag.Boolean(spelling.setup.json).pipe(Flag.withDefault(false)),
 	newKey: Flag.Boolean("new-key").pipe(Flag.withDefault(false)),
 	source: Flag.optional(Flag.Directory("source", { mustExist: true })).pipe(
@@ -31,7 +30,6 @@ const setup = Effect.fn("setup")(function* setup(
 	given: {
 		readonly answers: string | undefined;
 		readonly apply: boolean;
-		readonly channel: string;
 		readonly json: boolean;
 		readonly newKey: boolean;
 		readonly source: string | undefined;
@@ -41,7 +39,7 @@ const setup = Effect.fn("setup")(function* setup(
 		Effect.mapError(() => unreadAnswers),
 	);
 
-	const target = yield* Effect.mapError(targetOf({ channel: given.channel, checkout: given.source }), () => noVersion);
+	const target = yield* Effect.mapError(targetOf(given.source), () => noVersion);
 	const found = yield* find(name, given.newKey);
 
 	if (given.json) {

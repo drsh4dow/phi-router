@@ -41,7 +41,7 @@ const applied = Effect.fnUntraced(function* applied(
 ) {
 	const ready = yield* readyOf(plan({ answers: given.answers, found }));
 	const typed = yield* givenKeys(name, ready, given);
-	const before = yield* harnesses[name].installed(given.target);
+	const before = yield* harnesses[name].installed;
 
 	yield* apply(name, { roles: ready.roles, typed }, given.target);
 	yield* Effect.when(Console.log(windowDone[`${before.kind !== "absent"}`]), Effect.succeed(name === "claude"));
