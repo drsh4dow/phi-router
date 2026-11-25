@@ -1,25 +1,99 @@
-import { Console, Effect, Option, Schema } from "effect";
+import { Array, Clock, Console, DateTime, Duration, Effect, Option, Order, Schema, Struct, flow, pipe } from "effect";
+import type { OpenAccount, Overflow, Reported } from "./phi-text.ts";
+import { overflowNotice, sealNotice } from "./phi-text.ts";
+import type { Noticed } from "#router/client/turn-notices.ts";
 import { SessionId } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
 import { TurnNotices } from "#router/client/turn-notices.ts";
 import { failedAs } from "#router/features/cli/sessions/index.ts";
 import { portOf } from "./session-start.ts";
-import { sealNotice } from "./phi-text.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 
 const HookInput = Schema.fromJsonString(Schema.Struct({ session_id: SessionId }));
 
 const Notice = Schema.fromJsonString(Schema.Struct({ systemMessage: Schema.String }));
 
-const noneSealed = 0;
+const none = 0;
 
-const sealedSince = Effect.fnUntraced(function* sealedSince(session: typeof SessionId.Type, port: number) {
+const quietWithoutStamp = Duration.toMillis("30 minutes");
+
+interface Told {
+	readonly sealed: number;
+	readonly overflow: Option.Option<Overflow>;
+}
+
+const openOf = (status: Reported): readonly OpenAccount[] => {
+	const { clean, sealed } = status.accounts;
+
+	const vendor = pipe(
+		Option.fromNullishOr(status.last),
+		Option.flatMap((last) =>
+			pipe(
+				[...clean, ...sealed],
+				Array.findFirst(({ name }) => name === last.account),
+			),
+		),
+		Option.map((account) => account.vendor),
+	);
+
+	const ofVendor = (account: OpenAccount): boolean =>
+		Option.match(vendor, { onNone: () => true, onSome: (named) => named === account.vendor });
+
+	return pipe(clean, Array.filter(ofVendor));
+};
+
+const millisOf = (account: OpenAccount): Option.Option<number> =>
+	pipe(
+		Option.fromUndefinedOr(account.rateLimitedUntil),
+		Option.flatMap((back) => DateTime.make(back)),
+		Option.map(DateTime.toEpochMillis),
+	);
+
+const earliest = flow(Array.min(Order.Number), Option.some);
+
+const backOf = (open: readonly OpenAccount[]): Option.Option<number> =>
+	pipe(open, Array.map(millisOf), Array.getSomes, Array.match({ onEmpty: Option.none, onNonEmpty: earliest }));
+
+const toldAt = (status: Reported, now: number, seen: Noticed): readonly [Told, Noticed] => {
+	const open = openOf(status);
+	const back = backOf(open);
+	const overflowed = status.overflowed ?? none;
+	const count = overflowed - (seen.overflowed ?? none);
+	const sealed = status.sealed - seen.sealed;
+	const counts = { overflowed, sealed: status.sealed };
+
+	if (count <= none || now < (seen.quietUntil ?? none)) {
+		return [{ overflow: Option.none(), sealed }, Struct.assign(counts, Struct.pick(seen, ["quietUntil"]))];
+	}
+
+	const counted = { count, subscriptions: open.length };
+
+	const overflow: Overflow = Option.match(back, {
+		onNone: () => counted,
+		onSome: (at) => Struct.assign(counted, { back: at }),
+	});
+
+	const quietUntil = Option.getOrElse(back, () => now + quietWithoutStamp);
+
+	return [{ overflow: Option.some(overflow), sealed }, Struct.assign(counts, { quietUntil })];
+};
+
+const toldSince = Effect.fnUntraced(function* toldSince(session: typeof SessionId.Type, port: number) {
 	const requests = yield* SessionRequests;
 	const notices = yield* TurnNotices;
 	const status = yield* Effect.mapError(requests.status(port, session), failedAs({ command: "status", port }));
-	const before = yield* notices.swap(session, status.sealed);
+	const now = yield* Clock.currentTimeMillis;
 
-	return { count: status.sealed - Option.getOrElse(before, () => noneSealed), status };
+	const before = yield* Effect.map(
+		notices.read(session),
+		Option.getOrElse(() => ({ sealed: none })),
+	);
+
+	const [told, after] = toldAt(status, now, before);
+
+	yield* notices.write(session, after);
+
+	return { status, told };
 });
 
 const turnEnd = Effect.fn("turn-end")(function* turnEnd(hook: { readonly address: string }) {
@@ -32,18 +106,23 @@ const turnEnd = Effect.fn("turn-end")(function* turnEnd(hook: { readonly address
 	const text = yield* standardInput;
 	const input = yield* Schema.decodeEffect(HookInput)(text);
 
-	const notice = yield* sealedSince(input.session_id, port.value).pipe(
-		Effect.map((sealed) =>
-			Option.liftPredicate(sealed, ({ count }) => count > noneSealed).pipe(Option.map(sealNotice)),
-		),
-		Effect.catchTag("RouterUnanswered", (failed) => Effect.succeedSome(failed.message)),
-	);
+	const lines = yield* Effect.gen(function* noticed() {
+		const { status, told } = yield* toldSince(input.session_id, port.value);
+		const overflow = yield* Effect.transposeOption(pipe(told.overflow, Option.map(overflowNotice)));
 
-	if (Option.isSome(notice)) {
-		const printed = yield* Schema.encodeEffect(Notice)({ systemMessage: notice.value });
+		const sealed = pipe(
+			Option.liftPredicate(told.sealed, (count) => count > none),
+			Option.map((count) => sealNotice({ count, status })),
+		);
+
+		return Array.getSomes([sealed, overflow]);
+	}).pipe(Effect.catchTag("RouterUnanswered", (failed) => Effect.succeed([failed.message])));
+
+	if (Array.isReadonlyArrayNonEmpty(lines)) {
+		const printed = yield* Schema.encodeEffect(Notice)({ systemMessage: Array.join(lines, "\n") });
 
 		yield* Console.log(printed);
 	}
-});
+}, DateTime.withCurrentZoneLocal);
 
-export { sealedSince, turnEnd };
+export { toldSince, turnEnd };

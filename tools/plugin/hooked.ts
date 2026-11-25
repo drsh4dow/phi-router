@@ -1,5 +1,6 @@
 import { Array, Config, Effect, FileSystem, Option, Record, Schema, String as Str, Stream, Struct } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import type { AccountScript } from "#tools/route/harnesses.ts";
 import type { Harness } from "./session-hook.ts";
 import { harnesses } from "./session-hook.ts";
 import { mocked } from "#tools/route/mocked-router.ts";
@@ -32,16 +33,18 @@ interface World {
 	readonly routerUrl: string;
 }
 
-const setUp = Effect.gen(function* setUp() {
+const setUpWith = Effect.fnUntraced(function* setUpWith(open: { readonly open?: AccountScript }) {
 	const fs = yield* FileSystem.FileSystem;
 	const copy = yield* pluginCopy;
 	const home = yield* fs.makeTempDirectoryScoped({ prefix: "phi-hooks-home-" });
-	const { env } = yield* mocked({ holdsPhi: Str.includes(canary) });
+	const { env } = yield* mocked(Struct.assign({ holdsPhi: Str.includes(canary) }, open));
 	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 	const folders = { XDG_CONFIG_HOME: env.XDG_CONFIG_HOME, XDG_STATE_HOME: env.XDG_STATE_HOME };
 
 	return { folders, home, pluginCopy: copy, routerUrl: router.url } satisfies World;
 });
+
+const setUp = setUpWith({});
 
 const subcommandBesideRouterCheck = { Stop: "turn-end", UserPromptSubmit: "prompt-submit" } as const;
 
@@ -68,6 +71,7 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	const base = Struct.assign(world.folders, {
 		HOME: world.home,
 		PATH: searchPath,
+		TZ: "UTC",
 		[named.pluginFolderVariable]: world.pluginCopy,
 	});
 
@@ -92,7 +96,7 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	return Struct.assign(printed, { exitCode: Number(exitCode) });
 }, Effect.scoped);
 
-export { canary, hook, session, setUp };
+export { canary, hook, session, setUp, setUpWith };
 
 export type { World };
 

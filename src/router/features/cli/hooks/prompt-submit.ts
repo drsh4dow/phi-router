@@ -1,4 +1,4 @@
-import { Console, Effect, Option, Schema, String as Str, pipe } from "effect";
+import { Console, DateTime, Effect, Option, Schema, String as Str, pipe } from "effect";
 import { SessionId, phiCommand } from "#shared/cli.ts";
 import { statusText, usage } from "./phi-text.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
@@ -35,8 +35,8 @@ const answerOf = Effect.fnUntraced(function* answerOf(words: string, session: ty
 	const requests = yield* SessionRequests;
 	const status = yield* Effect.mapError(requests.status(port, session), failedAs({ command: "status", port }));
 
-	return statusText(status);
-});
+	return yield* statusText(status);
+}, DateTime.withCurrentZoneLocal);
 
 const unprotected = "phi-router: this instance's model address names no router, so phi-router does not route it.";
 

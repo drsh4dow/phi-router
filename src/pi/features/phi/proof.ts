@@ -61,7 +61,10 @@ const compactionSent =
 
 const sessionLeased =
 	(port: number) =>
-	(atStart: Observe, ctx: HeldRequestContext & ShownContext): Effect.Effect<void, never, Router> =>
+	(
+		atStart: Observe,
+		ctx: HeldRequestContext & ShownContext,
+	): Effect.Effect<void, never, Effect.Services<ReturnType<Observe>>> =>
 		leaseLeft(port, ctx).pipe(
 			Effect.andThen(atStart(ctx)),
 			Effect.catchTag("CommandFailed", () => Effect.void),

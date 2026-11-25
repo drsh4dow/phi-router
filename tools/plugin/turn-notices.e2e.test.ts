@@ -1,23 +1,11 @@
-import {
-	Array,
-	ConfigProvider,
-	Context,
-	Effect,
-	FileSystem,
-	Layer,
-	Option,
-	Schema,
-	String as Str,
-	Struct,
-	pipe,
-} from "effect";
+import { Array, Effect, FileSystem, Layer, Option, Schema, String as Str, Struct, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { Harness, World } from "./hooked.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest } from "#tools/route/mocked-router.ts";
-import { canary, hook, session, setUp } from "./hooked.ts";
+import { canary, hook, session, setUp, setUpWith } from "./hooked.ts";
+import type { AccountScript } from "#tools/route/harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
-import { TurnNotices } from "#router/client/turn-notices.ts";
 import { freePort } from "#tools/lifecycle/launched.ts";
 import { privacyUnder } from "#tools/route/private.ts";
 
@@ -46,13 +34,16 @@ const noticed = Effect.fnUntraced(function* noticed(world: World, harness: Harne
 	return Struct.assign(hooked, { stdout: systemMessage });
 });
 
-const sealedTurn = Effect.fnUntraced(function* sealedTurn(url: string) {
+const turnOn = Effect.fnUntraced(function* turnOn(url: string, text: string) {
 	const client = yield* HttpClient.HttpClient;
-	const body = yield* bodyOf([{ role: "user", text: `Patient Fakesmith ${canary} called about her refill.` }]);
+	const body = yield* bodyOf([{ role: "user", text }]);
 	const response = yield* client.execute(HttpClientRequest.prependUrl(claudeRequest({ body, session }), url));
 
 	yield* response.text;
 }, Effect.scoped);
+
+const sealedTurn = (url: string): ReturnType<typeof turnOn> =>
+	turnOn(url, `Patient Fakesmith ${canary} called about her refill.`);
 
 const announced = Effect.fnUntraced(function* announced(harness: Harness) {
 	const world = yield* setUp;
@@ -104,19 +95,51 @@ const down = Effect.gen(function* down() {
 	);
 }).pipe(Effect.scoped);
 
-const sealedCounts = { first: 2, next: 5 } as const;
+const limited: AccountScript = () => ({ body: "{}", kind: "status", status: 429 });
 
-const swapped = Effect.gen(function* swapped() {
+const Blocked = Schema.fromJsonString(Schema.Struct({ reason: Schema.String }));
+
+const Stamps = Schema.fromJsonString(Schema.Struct({ rateLimited: Schema.Struct({ open: Schema.String }) }));
+
+const clockInIso = { end: 16, start: 11 } as const;
+
+const overflowed = Effect.fnUntraced(function* overflowed(harness: Harness) {
+	const world = yield* setUpWith({ open: limited });
+
+	yield* turnOn(world.routerUrl, "List the build steps.");
+
+	const told = yield* noticed(world, harness, world.routerUrl);
+
+	yield* turnOn(world.routerUrl, "And the test steps.");
+
+	const quietTurn = yield* turnEnd(world, harness, { address: world.routerUrl });
+
+	const phi = yield* hook(world, {
+		address: world.routerUrl,
+		event: "UserPromptSubmit",
+		harness,
+		input: `{"session_id":"${session}","prompt":"/phi"}`,
+	});
+
 	const fs = yield* FileSystem.FileSystem;
-	const state = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-notices-" });
-	const env = ConfigProvider.layer(ConfigProvider.fromEnv({ env: { XDG_STATE_HOME: state } }));
-	const built = yield* Layer.build(Layer.provide(TurnNotices.layer, env));
-	const notices = Context.get(built, TurnNotices);
-	const first = yield* notices.swap(session, sealedCounts.first);
-	const second = yield* notices.swap(session, sealedCounts.next);
+	const { reason } = yield* Schema.decodeEffect(Blocked)(phi.stdout);
+	const stamps = yield* fs.readFileString(`${world.folders.XDG_STATE_HOME}/phi-router/accounts.json`);
+	const { rateLimited } = yield* Schema.decodeEffect(Stamps)(stamps);
+	const back = Str.slice(clockInIso.start, clockInIso.end)(rateLimited.open);
 
-	assert.deepStrictEqual([first, second], [Option.none(), Option.some(sealedCounts.first)]);
-}).pipe(Effect.scoped);
+	assert.deepStrictEqual(
+		{ clean: Array.findFirst(Str.split(reason, "\n"), Str.startsWith("Clean lane")), quietTurn, told },
+		{
+			clean: Option.some(`Clean lane: open (rate-limited until ${back})`),
+			quietTurn: quiet,
+			told: {
+				exitCode: 0,
+				stderr: "",
+				stdout: `phi-router: your subscription is rate-limited until ${back}, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add`,
+			},
+		},
+	);
+}, Effect.scoped);
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's turn-end hook", (test) => {
 	test.effect.each(["claude", "codex"] as const)(
@@ -129,5 +152,9 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's t
 		() => down,
 		patient,
 	);
-	test.effect("the first count stored for a session swaps out none, and the next the count before it", () => swapped);
+	test.effect.each(["claude", "codex"] as const)(
+		"for %s, tells once that a rate-limited subscription sent a request to the BAA account, and /phi shows when it is back",
+		overflowed,
+		patient,
+	);
 });
