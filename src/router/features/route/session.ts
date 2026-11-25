@@ -54,7 +54,6 @@ const sessionRows = ({
 						accounts,
 						cleared: summary.cleared,
 						last: Option.getOrNull(last),
-						pinned: false,
 						sealed: summary.sealed,
 						session,
 					});

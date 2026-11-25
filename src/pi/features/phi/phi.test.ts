@@ -18,7 +18,6 @@ const reported =
 		accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 		cleared,
 		last: { account: "baa", model: "claude-baa", substitute },
-		pinned: false,
 		sealed,
 		session: SessionId.make(session),
 	});

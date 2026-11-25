@@ -13,7 +13,6 @@ interface Summary {
 
 const Stored = Schema.Struct({
 	openWrote: Schema.Array(Schema.String),
-	pinned: Schema.Boolean,
 	policy: Schema.String,
 	verdicts: Schema.Record(Schema.String, Schema.Literals(["sealed", "cleared"])),
 });
@@ -89,13 +88,13 @@ const current = (session: string, policy: string): Effect.Effect<StoredFile, Sto
 	Effect.map(
 		Effect.flatMap(fileOf(session), storedIn),
 		Option.match({
-			onNone: () => ({ openWrote: [], pinned: false, policy, verdicts: {} }),
+			onNone: () => ({ openWrote: [], policy, verdicts: {} }),
 			onSome: (old) => {
 				if (old.policy === policy) {
-					return Struct.assign(old, { pinned: false });
+					return old;
 				}
 
-				return { openWrote: [], pinned: false, policy, verdicts: {} };
+				return { openWrote: [], policy, verdicts: {} };
 			},
 		}),
 	);
