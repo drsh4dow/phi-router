@@ -217,4 +217,4 @@ const accounts = Command.make("accounts", {}, () => listed).pipe(
 
 export { accounts };
 
-export { tokenKindOf } from "./add.ts";
+export { tokenKindOf } from "./found.ts";
