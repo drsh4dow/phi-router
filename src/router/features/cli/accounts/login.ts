@@ -225,7 +225,13 @@ const subscriptionNames = { anthropic: "Claude", openai: "ChatGPT" } as const;
 
 const bothVendors = ["anthropic", "openai"] as const;
 
-const pickedVendor = Effect.fnUntraced(function* pickedVendor() {
+const pickedVendor = Effect.fnUntraced(function* pickedVendor(vendors: Array.NonEmptyReadonlyArray<Vendor>) {
+	const [first, ...others] = vendors;
+
+	if (!Array.isReadonlyArrayNonEmpty(others)) {
+		return first;
+	}
+
 	const terminal = yield* isTerminal;
 
 	if (!terminal) {
@@ -235,7 +241,7 @@ const pickedVendor = Effect.fnUntraced(function* pickedVendor() {
 	}
 
 	const names = pipe(
-		bothVendors,
+		vendors,
 		Array.map((vendor) => subscriptionNames[vendor]),
 	);
 
@@ -243,21 +249,11 @@ const pickedVendor = Effect.fnUntraced(function* pickedVendor() {
 
 	const vendor = pipe(
 		at,
-		Option.flatMap((index) => pipe(bothVendors, Array.get(index))),
+		Option.flatMap((index) => pipe(vendors, Array.get(index))),
 	);
 
 	return yield* Effect.mapError(Effect.fromOption(vendor), () => refused("Nothing was picked."));
 });
-
-const vendorOf = (vendors: Array.NonEmptyReadonlyArray<Vendor>): ReturnType<typeof pickedVendor> => {
-	const [first, ...others] = vendors;
-
-	if (Array.isReadonlyArrayNonEmpty(others)) {
-		return pickedVendor();
-	}
-
-	return Effect.succeed(first);
-};
 
 const fromLogin = Effect.fnUntraced(function* fromLogin() {
 	const configured = yield* Effect.mapError(configuredAccounts, (error) =>
@@ -283,7 +279,7 @@ const fromLogin = Effect.fnUntraced(function* fromLogin() {
 		return yield* refused("config.json holds no accounts yet. Run `npx phi-router setup <harness>` first.");
 	}
 
-	const vendor = yield* vendorOf(vendors);
+	const vendor = yield* pickedVendor(vendors);
 
 	const taken = yield* Effect.forEach(
 		pipe(
