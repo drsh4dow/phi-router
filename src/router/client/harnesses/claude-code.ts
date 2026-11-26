@@ -255,7 +255,13 @@ type PickerRow = typeof Row.Type;
 
 const modelPickerStatement = "modelPicker";
 
-const rowsOf = Schema.decodeUnknownOption(Schema.Struct({ options: Schema.Array(Schema.JsonObject) }));
+const Options = Schema.optionalKey(Schema.Array(Schema.Json));
+
+const rowsOf = Schema.decodeUnknownOption(Schema.Struct({ options: Options }));
+
+const ModelRow = Schema.Struct({ model: Schema.String });
+
+const modelOf = Schema.decodeUnknownOption(ModelRow);
 
 const pickModels = Effect.fnUntraced(function* pickModels(
 	named: string,
@@ -266,21 +272,16 @@ const pickModels = Effect.fnUntraced(function* pickModels(
 	const { settings } = yield* read(file);
 	const picker = Option.getOrElse(asObject(settings[modelPickerStatement]), () => Record.empty<string, Schema.Json>());
 
-	const options = pipe(
-		rowsOf(picker),
-		Option.match({ onNone: (): readonly Schema.JsonObject[] => [], onSome: (decoded) => decoded.options }),
-	);
+	const decoded = rowsOf(picker);
+
+	if (Option.isNone(decoded)) {
+		return false;
+	}
 
 	const left = [
 		...pipe(
-			options,
-			Array.filter(
-				(row) =>
-					!pipe(
-						models,
-						Array.some((model) => model === row["model"]),
-					),
-			),
+			decoded.value.options ?? [],
+			Array.filter((row) => !Option.exists(modelOf(row), ({ model }) => Array.contains(models, model))),
 		),
 		...rows,
 	];
