@@ -44,6 +44,7 @@ const turnsOf = Effect.fnUntraced(function* turnsOf(turns: readonly (readonly [t
 	const file = yield* Ref.make(Option.none<Noticed>());
 
 	const requests = SessionRequests.of({
+		answerCheck: () => Effect.die("the turn-end hook checks no answer"),
 		status: () => Effect.map(Ref.get(routed), statusOf),
 	});
 

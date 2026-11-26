@@ -23,16 +23,35 @@ const OpenAccount = Schema.Struct({
 	vendor: AccountVendor,
 });
 
+const PinnedCounts = Schema.Struct({ gaveUp: Count, rewrites: Count, runs: Count });
+
 const Status = Schema.Struct({
 	accounts: Schema.Struct({ clean: Schema.Array(OpenAccount), sealed: Schema.Array(ConfiguredAccount) }),
 	cleared: Count,
 	last: Schema.NullOr(Schema.Struct({ account: Schema.String, model: Schema.String, substitute: Schema.Boolean })),
 	overflowed: Schema.optionalKey(Count),
+	pinned: Schema.optionalKey(PinnedCounts),
 	sealed: Count,
 	session: SessionId,
 });
 
 const StatusJson = Schema.fromJsonString(Status);
+
+const AnswerCheck = Schema.Struct({
+	answer: Schema.String,
+	session: Schema.NonEmptyString,
+	subagent: Schema.NonEmptyString,
+});
+
+const AnswerCheckJson = Schema.fromJsonString(AnswerCheck);
+
+const AnswerChecked = Schema.Union([
+	Schema.Struct({ outcome: Schema.Literal("cleared") }),
+	Schema.Struct({ attempt: Count, limit: Count, message: Schema.String, outcome: Schema.Literal("rewrite") }),
+	Schema.Struct({ handle: Schema.String, outcome: Schema.Literal("gave-up"), reply: Schema.String }),
+]);
+
+const AnswerCheckedJson = Schema.fromJsonString(AnswerChecked);
 
 const RoutedModels = Schema.Struct({ auto: Schema.NonEmptyString, sealed: Schema.NonEmptyString });
 
@@ -116,6 +135,10 @@ const setupEnded = "Setup ended before it finished. Nothing was saved or changed
 const phiCommand = { name: "phi", setup: "setup" } as const;
 
 export {
+	AnswerCheck,
+	AnswerCheckJson,
+	AnswerChecked,
+	AnswerCheckedJson,
 	CommandFailed,
 	ModelsJson,
 	Pid,

@@ -1,4 +1,4 @@
-export { verdictsFor } from "./engine.ts";
+export { verdictOfPiece, verdictsFor } from "./engine.ts";
 
 export { Findings, Verdicts, standingOf } from "./verdict.ts";
 

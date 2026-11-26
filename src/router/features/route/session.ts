@@ -1,9 +1,11 @@
 import type { AccountState, Accounts, Served } from "#router/client/accounts/index.ts";
+import { AnswerCheckJson, AnswerCheckedJson, SessionId, StatusJson } from "#shared/cli.ts";
 import { Array, DateTime, Effect, Option, Schema, Struct, pipe } from "effect";
-import type { Outgoing, Path } from "#router/client/router-port/index.ts";
-import { SessionId, StatusJson } from "#shared/cli.ts";
-import type { Routing } from "./routing.ts";
+import type { Incoming, Outgoing, Path } from "#router/client/router-port/index.ts";
+import type { Judging, Routing } from "./routing.ts";
+import { Fixtures } from "#router/features/verdicts/index.ts";
 import type { Status } from "#shared/cli.ts";
+import { checkAnswer } from "#router/features/answer-check/index.ts";
 import { sessionPaths } from "#router/client/router-port/index.ts";
 
 type LaneAccounts = (typeof Status.Type)["accounts"]["sealed"];
@@ -57,6 +59,20 @@ const unreadable = answered(statuses.unreadable, '{"error":"unreadable"}');
 
 const failed = answered(statuses.failed, '{"error":"phi-router could not use its state"}');
 
+const answerCheck =
+	(routing: Routing) =>
+	(incoming: Incoming): Effect.Effect<Outgoing, never, Judging> =>
+		Option.match(Schema.decodeOption(AnswerCheckJson)(incoming.body), {
+			onNone: () => Effect.succeed(unreadable),
+			onSome: (asked) =>
+				checkAnswer(asked, routing.sealedStore).pipe(
+					Effect.flatMap(Schema.encodeEffect(AnswerCheckedJson)),
+					Effect.map((body) => answered(statuses.ok, body)),
+					Effect.provideService(Fixtures, routing.fixtures),
+					Effect.orElseSucceed(() => failed),
+				),
+		});
+
 const sessionRows = ({
 	routing,
 	served,
@@ -71,6 +87,7 @@ const sessionRows = ({
 				Effect.gen(function* reported() {
 					const summary = yield* routing.store.summary(session, routing.policy);
 					const { last, overflowed } = yield* routing.laneLog.summary(session);
+					const pinned = yield* routing.sealedStore.summary(session);
 					const accounts = yield* listed(served, routing.accountState);
 
 					const body = yield* Schema.encodeEffect(StatusJson)({
@@ -78,6 +95,7 @@ const sessionRows = ({
 						cleared: summary.cleared,
 						last: Option.getOrNull(last),
 						overflowed,
+						pinned,
 						sealed: summary.sealed,
 						session,
 					});
@@ -89,4 +107,4 @@ const sessionRows = ({
 	return [{ answer: status, method: "GET", path: sessionPaths.status }];
 };
 
-export { sessionRows };
+export { answerCheck, sessionRows };
