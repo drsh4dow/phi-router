@@ -37,6 +37,15 @@ const resultOf = (id: string): string => `"tool_use_id":"${id}"`;
 
 const rewritten = (body: string): boolean => Str.includes("This is rewrite attempt")(body);
 
+const lastHandle = /\[sealed (?<handle>h\d+)\](?![\s\S]*\[sealed h\d+\])/u;
+
+const handleIn = (text: string): Option.Option<string> =>
+	pipe(
+		Str.match(lastHandle)(text),
+		Option.flatMapNullishOr(({ groups }) => groups),
+		Option.flatMapNullishOr(({ handle }) => handle),
+	);
+
 const filesFolder = /(?<=new file in )\/\S+(?= with mode 0600)/u;
 
 const listedPath = /\/\S+\/phi-router\/files\/[\w-]+\/member\.txt/u;
@@ -449,6 +458,7 @@ export {
 	baaScriptOf,
 	calling,
 	chart,
+	handleIn,
 	judgeOf,
 	listedIn,
 	openScriptOf,

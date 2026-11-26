@@ -1,6 +1,6 @@
-import { Array, Option, Record, String as Str, pipe } from "effect";
+import { Array, Option, String as Str, pipe } from "effect";
 import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
-import { calling, resultOf, said } from "#tools/wire/answer-checks.ts";
+import { calling, handleIn, resultOf, said } from "#tools/wire/answer-checks.ts";
 import { isSubagent } from "#tools/wire/phi-checks.ts";
 
 const memberPrefix = "ZQX-";
@@ -249,15 +249,7 @@ const next = 1;
 
 const neverSkipped = (): boolean => false;
 
-const lastHandle = /\[sealed (?<handle>h\d+)\](?![\s\S]*\[sealed h\d+\])/u;
-
-const handleOf = (body: string): string =>
-	pipe(
-		Str.match(lastHandle)(body),
-		Option.flatMap(({ groups }) => Option.fromNullishOr(groups)),
-		Option.flatMap(Record.get("handle")),
-		Option.getOrElse(() => "the sealed part"),
-	);
+const handleOf = (body: string): string => Option.getOrElse(handleIn(body), () => "the sealed part");
 
 const seesRows = Str.includes(memberPrefix);
 
