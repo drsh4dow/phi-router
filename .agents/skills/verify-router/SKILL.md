@@ -61,9 +61,17 @@ To show a guard is load-bearing, break it in a scratch worktree (`git worktree a
 1. `bun tools/corpus/eval.ts --judge live`, the judge eval on the default seed against the live judge.
 2. `bun run wire pi`, `wire claude`, `wire codex`, offline.
 3. The border tests, offline.
-4. `bun run wire:accounts pi`, `claude`, `codex`: per harness, one fresh session with the clean prompt `Reply with the single word ok.` and then the same prompt with the voided SSN, on the real accounts. It checks that the session's lane log holds two lines, both on the clean lane, and that no state file but the sealed store holds the canary.
+4. `bun run wire:accounts pi`, `claude`, `codex`, `pi-harness`, on the real accounts. Each step is a fresh session. The router's account endpoints point at a loopback relay, which forwards each request to the real account and records its lane, whether it held the canary, and the tokens the account billed.
+   - `prompts` (pi, claude, codex): the clean prompt `Reply with the single word ok.`, then the same prompt with the voided SSN. The lane log holds two lines, both on the clean lane.
+   - `tool result` (claude): the root agent `cat`s `overdue.txt`, which holds the voided SSN, and must name the overdue patient_id. It sees `[sealed hN]` and hands the record to `phi-router:phi-sealed`. Every request but the pinned subagent's ran on an open account, the pinned subagent ran on a BAA account, and the root's answer names `p-4821` and holds no canary.
+   - `sealed answer` (claude): the root asks the pinned subagent to quote the claim reference, which is the SSN. The answer check rewrites it at least once (`phi-router status` pinned rewrites ≥ 1), and the root's answer holds no canary.
+   - `sealed answer in auto mode` (claude): the same with `--permission-mode auto`, where the subagent hands back through `SubagentHandback`. The step sets `CLAUDE_CODE_AUTO_MODE_SERVER=0`, so Claude Code's safety classifier runs through the router on the open account, not on Anthropic's server, which the fake login cannot reach. It passes when no root answer holds the canary, and prints the rewrite count and what the root received: the cleared answer, phi-router's withheld reply, or Claude Code's own fallback.
+   - `tool result through pi-harness`: the `tool result` task through pi-harness, whose root hands the record to a `phi/sealed` delegate. Set `PHI_PI_HARNESS` to a pi-harness checkout; the step fails without it.
+   - Every step: no request to an open account held the canary, the relay carried every request the lane log holds, no state file but the sealed store holds the canary, and `tools/wire/spent.ts` prices every request a BAA account answered.
 
-It ends with the leaks, the wall time and the cost, and `verify-router live: pass` only when every step exits 0, nothing leaked, and the run took under 10 minutes and under $2.
+It ends with the leaks, the wall time and the cost, and `verify-router live: pass` only when every step exits 0, nothing leaked, and the run took under 20 minutes and under $2.
+
+`bun tools/wire/accounts.ts <harness> --mocked` runs the same steps against scripted mocks, at no cost, inside `unshare -rn`. Auto mode gets as far as the mock allows: the mock answers Claude Code's classifier as harmless, so the hand-back runs through the router's checks, but the classifier's real verdict needs the live run.
 
 ```sh
 XDG_CONFIG_HOME=<folder with phi-router/config.json> sh .agents/skills/verify-router/live.sh <evidence folder>
@@ -96,9 +104,9 @@ The account config names the developer's own accounts. The router reads each cre
 }
 ```
 
-Run it with an allowlisted environment, so nothing of the caller's reaches the router: `env -i HOME=<scratch> PATH=<bun, node, claude, codex, pi, jq> XDG_CONFIG_HOME=<config> XDG_STATE_HOME=<scratch> PHI_BUN=<bun> sh .agents/skills/verify-router/live.sh <evidence>`.
+Run it with an allowlisted environment, so nothing of the caller's reaches the router: `env -i HOME=<scratch> PATH=<bun, node, claude, codex, pi, jq> XDG_CONFIG_HOME=<config> XDG_STATE_HOME=<scratch> XDG_RUNTIME_DIR=<runtime folder> PHI_BUN=<bun> PHI_PI_HARNESS=<pi-harness checkout> sh .agents/skills/verify-router/live.sh <evidence>`. The pinned subagent runs on the config's `sealedModel`, or on `targetModel` when it names none, so `tools/wire/spent.ts` must price that model.
 
-Cost. The judge cost is the router's own, from the lane log and the eval's report. The BAA cost is each sealed request's tokens, as its harness reports them, at the prices in `tools/wire/spent.ts`. A subscription or login-folder request on the open lane counts as $0. A BAA model with no price there fails the run; add its price from pi's model catalog.
+Cost. The judge cost is the router's own, from the lane log and the eval's report. The BAA cost is each request's tokens, as the BAA account reported them to the relay, at the prices in `tools/wire/spent.ts`. A subscription or login-folder request on the open lane counts as $0. A BAA model with no price there fails the run; add its price from pi's model catalog.
 
 A login folder whose token is near its end gets refreshed by its vendor's CLI, in place. For `~/.claude` that CLI run writes `~/.claude/.credentials.json` and can create `~/.claude/.claude.json` and a file under `~/.claude/backups`.
 
