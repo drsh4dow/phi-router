@@ -444,4 +444,16 @@ const answerChecksOf = (played: Rewritten): readonly Check[] => {
 	];
 };
 
-export { answerChecksOf, baaScriptOf, chart, judgeOf, listedIn, openScriptOf, readChart, tasksFor };
+export {
+	answerChecksOf,
+	baaScriptOf,
+	calling,
+	chart,
+	judgeOf,
+	listedIn,
+	openScriptOf,
+	readChart,
+	resultOf,
+	said,
+	tasksFor,
+};

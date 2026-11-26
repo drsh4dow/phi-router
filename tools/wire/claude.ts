@@ -60,7 +60,7 @@ const claudeTurn = Effect.fnUntraced(
 			"--model",
 			"phi/auto",
 			"--allowedTools",
-			"Read,Bash",
+			"Read,Bash,Edit",
 			"--plugin-dir",
 			turn.place.plugin,
 		];

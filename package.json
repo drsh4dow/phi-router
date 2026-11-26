@@ -45,6 +45,7 @@
 		"judge:probe": "bun tools/judge/probe.ts",
 		"wire": "bun run build && bun tools/wire/run.ts",
 		"wire:accounts": "bun run build && bun tools/wire/accounts.ts",
+		"cost": "bun run build && bun tools/cost/run.ts",
 		"check": "oxfmt --check && bun run lint && bun run boundaries && bun run comments && bun run width && bun run suppressions && bun run unused && bun run test"
 	},
 	"devDependencies": {
