@@ -2,10 +2,14 @@ export {
 	claudeFolder,
 	claudeMarketplace,
 	claudePlugin,
+	claudePluginData,
 	claudeTurn,
 	followedMarketplace,
 	managedEnv,
+	placeStatusLine,
+	removeStatusLine,
 	rewriteEnv,
+	statusLineStatement,
 	userSettings,
 } from "./claude-code.ts";
 
