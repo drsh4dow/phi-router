@@ -27,6 +27,7 @@ import type { Usage } from "./spent.ts";
 import type { VendorLanes } from "#router/client/configuration/index.ts";
 import { laneConfiguration } from "#router/client/configuration/index.ts";
 import { usageIn } from "./spent.ts";
+import { writePrivately } from "#router/client/private-file.ts";
 
 type Lane = "open" | "baa";
 
@@ -157,8 +158,6 @@ const upstreamsOf = (lanes: readonly VendorLanes[]): readonly Upstream[] =>
 		]),
 	);
 
-const privateModes = { file: 0o600, folder: 0o700 } as const;
-
 const relayedConfig = Effect.fnUntraced(function* relayedConfig(configHome: string, canaries: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -187,8 +186,7 @@ const relayedConfig = Effect.fnUntraced(function* relayedConfig(configHome: stri
 	const rewritten = yield* Schema.encodeEffect(RawConfig)(Struct.assign(raw, lanesPointed));
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-accounts-config-" });
 
-	yield* fs.makeDirectory(path.join(folder, "phi-router"), { mode: privateModes.folder });
-	yield* fs.writeFileString(path.join(folder, "phi-router", "config.json"), rewritten, { mode: privateModes.file });
+	yield* writePrivately(path.join(folder, "phi-router", "config.json"), rewritten);
 
 	return { configHome: folder, relayed: Ref.get(records) };
 });
