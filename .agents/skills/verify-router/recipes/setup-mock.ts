@@ -390,9 +390,10 @@ const server = Bun.serve({
 			Bun.write(`${env("MOCK_BODIES")}/${String(Date.now())}-${who}.json`, raw);
 		const [response, did] = answer(host, url.pathname, who, request, body);
 		const holdsKey = Object.values(fakes).some((fake) => fake !== "" && raw.includes(fake));
+		const holdsHandle = /\[sealed h\d+\]/.test(raw);
 		appendFileSync(
 			env("MOCK_LOG"),
-			`${JSON.stringify({ did, holdsCanary: raw.includes(canary), holdsKey, host, method: request.method, path: url.pathname, status: response.status, t: Date.now(), who })}\n`,
+			`${JSON.stringify({ did, holdsCanary: raw.includes(canary), holdsHandle, holdsKey, host, method: request.method, path: url.pathname, status: response.status, t: Date.now(), who })}\n`,
 		);
 		return response;
 	},

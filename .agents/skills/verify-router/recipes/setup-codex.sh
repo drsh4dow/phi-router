@@ -49,6 +49,7 @@ no-key)
 	applies=2 snapshots='^$'
 	start() { :; }
 	drive() {
+		spoken "Add another subscription?" 120 && say 2 || fail "the agent did not ask: Add another subscription?"
 		applied 1 || fail "the agent never ran apply"
 		spoken "I need an OpenAI key" 60 && shot key-asked || fail "the agent did not name a terminal command"
 		echo "the agent said: $(tail -1 "$ROOT/apply.out")"

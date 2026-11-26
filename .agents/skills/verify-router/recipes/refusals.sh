@@ -29,13 +29,13 @@ esac
 prompted() {
 	case $harness in
 	claude)
-		ANTHROPIC_AUTH_TOKEN=phi-test-harness-token timeout 120 claude -p "Reply ok. $CANARY" --model phi/auto 2>&1
+		ANTHROPIC_AUTH_TOKEN=phi-test-harness-token timeout 120 claude -p "Reply ok. $CANARY" --model "${MODEL:-phi/auto}" 2>&1
 		;;
 	pi)
-		timeout 120 pi -p "Reply ok. $CANARY" --model phi/auto 2>&1
+		timeout 120 pi -p "Reply ok. $CANARY" --model "${MODEL:-phi/auto}" 2>&1
 		;;
 	codex)
-		tm new-session -d -s codex -x 200 -y 50 codex --no-daemon --dangerously-bypass-hook-trust
+		tm new-session -d -s codex -x 200 -y 50 codex --no-daemon --dangerously-bypass-hook-trust ${MODEL:+-m "$MODEL"}
 		sleep 4
 		tm send-keys -t codex -l "Reply ok. $CANARY"
 		sleep 1
@@ -80,7 +80,7 @@ rm -rf "$config"
 
 mocks 401
 eval "$(head -1 world.out | jq -r '.env | to_entries[] | "export \(.key)=\(.value | @sh)"')"
-shown "a BAA account that answers 401"
+MODEL=phi/sealed shown "a BAA account that answers 401"
 kill "$world"
 wait "$world" 2>/dev/null
 tail -1 world.out

@@ -67,6 +67,7 @@ pasted-keys)
 	start() { :; }
 	drive() {
 		pick "Anthropic API key"
+		pick "No"
 		applied 1 || fail "the agent never ran apply"
 		waits "I need two keys" 60 && shot paste-asked || fail "the agent did not ask for the keys"
 		configure "$baa_key" "$openai_key"
