@@ -1,12 +1,13 @@
-import { AnswerCheckJson, AnswerCheckedJson, StatusJson } from "#shared/cli.ts";
-import { Array, Effect, Match, Schema, String as Str, pipe } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/http";
+import { Array, Effect, Layer, Match, String as Str, pipe } from "effect";
+import { FetchHttpClient, HttpClientRequest } from "effect/http";
+import { SessionRequests, sessionPaths } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams/index.ts";
+import type { Unanswered } from "#router/client/router-port/index.ts";
+import { identifierKind } from "#router/features/policy/index.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
-import { sessionPaths } from "#router/client/router-port/index.ts";
 
 const session = "answers-1";
 
@@ -43,13 +44,13 @@ const judgeNaming = (piece: string): Reply => {
 	const holds = Str.includes(canary)(piece);
 
 	if (holds) {
-		return kindReply(holds, "patient-name");
+		return kindReply(holds, identifierKind.patientName);
 	}
 
 	return kindReply(holds, "none");
 };
 
-type Checked = typeof AnswerCheckedJson.Type;
+type Checked = Effect.Success<ReturnType<typeof SessionRequests.Service.answerCheck>>;
 
 const attemptOf = Match.type<Checked>().pipe(
 	Match.discriminator("outcome")("rewrite", ({ attempt }) => attempt),
@@ -74,29 +75,14 @@ const gaveUpOf = Match.type<Checked>().pipe(
 );
 
 const checker = Effect.gen(function* checker() {
-	const { client, mocks, post, state } = yield* routed({ holdsPhi: Str.includes(canary), judge: judgeNaming });
+	const { client, mocks, post, state, url } = yield* routed({ holdsPhi: Str.includes(canary), judge: judgeNaming });
+	const requests = yield* SessionRequests;
+	const port = Number(new URL(url).port);
 
-	const checked = Effect.fnUntraced(function* checked(subagent: string, answer: string) {
-		const body = yield* Schema.encodeEffect(AnswerCheckJson)({ answer, session, subagent });
+	const checked = (subagent: string, answer: string): Effect.Effect<Checked, Unanswered> =>
+		requests.answerCheck(port, { answer, session, subagent });
 
-		const response = yield* client.execute(
-			HttpClientRequest.post(sessionPaths.answerCheck).pipe(HttpClientRequest.bodyText(body, "application/json")),
-		);
-
-		const text = yield* response.text;
-
-		return yield* Schema.decodeEffect(AnswerCheckedJson)(text);
-	});
-
-	const status = Effect.gen(function* status() {
-		const response = yield* HttpClient.get(sessionPaths.status, { urlParams: { session } }).pipe(
-			Effect.provideService(HttpClient.HttpClient, client),
-		);
-
-		const text = yield* response.text;
-
-		return yield* Schema.decodeEffect(StatusJson)(text);
-	});
+	const status = requests.status(port, session);
 
 	return { checked, client, mocks, post, state, status };
 });
@@ -191,14 +177,17 @@ const unreadable = Effect.gen(function* unreadable() {
 	assert.strictEqual(response.status, unreadableStatus);
 });
 
-it.layer(NodeServices.layer)("the answer check", (test) => {
-	test.effect(
-		"clears an answer with internal ids only, and asks for rewrite 1 of 5 naming the rule's kind and value or the judge's kind and score, with the way out, counted per subagent",
-		() => outcomes,
-	);
-	test.effect(
-		"gives up after the fifth rewrite, seals the answer under a handle the pinned subagent can open, keeps giving up until a clean answer, and counts it all in status",
-		() => gaveUp,
-	);
-	test.effect("refuses a request that is not the contract's", () => unreadable);
-});
+it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClient.layer))(
+	"the answer check",
+	(test) => {
+		test.effect(
+			"clears an answer with internal ids only, and asks for rewrite 1 of 5 naming the rule's kind and value or the judge's kind and score, with the way out, counted per subagent",
+			() => outcomes,
+		);
+		test.effect(
+			"gives up after the fifth rewrite, seals the answer under a handle the pinned subagent can open, keeps giving up until a clean answer, and counts it all in status",
+			() => gaveUp,
+		);
+		test.effect("refuses a request that is not the contract's", () => unreadable);
+	},
+);
