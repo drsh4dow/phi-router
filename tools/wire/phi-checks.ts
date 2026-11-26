@@ -197,15 +197,39 @@ const isRootLine = ({ reason }: LaneLogLine): boolean => reason === "clean";
 
 const isPinnedLine = ({ reason }: LaneLogLine): boolean => reason === "pinned";
 
+const startedBy = {
+	claude: "Agent call starts phi-router:phi-sealed",
+	codex: "spawn_agent call starts phi-sealed",
+} as const;
+
+const opensFirstHandle =
+	(canaries: readonly string[]) =>
+	(sent: Sent): boolean =>
+		isSubagent(sent) &&
+		holds(["[content of h1]", "[end of h1]"])(sent) &&
+		holds(["phi-router: you are the pinned subagent."])(sent) &&
+		holds(canaries)(sent);
+
+const handleOpenedCheckOf = ({
+	canaries,
+	handedOff,
+	harness,
+}: {
+	readonly canaries: readonly string[];
+	readonly handedOff: Turned;
+	readonly harness: keyof typeof startedBy;
+}): Check => ({
+	name: `AC3: the open mock's ${startedBy[harness]} with a task naming h1, the BAA mock receives it with the canary in place of h1 and the pinned instructions, and the open mock never does`,
+	ok:
+		pipe(handedOff.baa, Array.some(opensFirstHandle(canaries))) && !pipe(handedOff.open, Array.some(holds(canaries))),
+});
+
 const handleChecksOf = (played: Handled): readonly Check[] => {
 	const [, ...afterRead] = postsTo("open")(played.read);
 	const later = [...afterRead, ...pipe(played.untilCompaction, Array.flatMap(postsTo("open")))];
 	const baaBefore = pipe(played.beforeOverflow, Array.flatMap(postsTo("baa")));
 	const tookBefore = pipe(played.beforeOverflow, Array.flatMap(tookOf), Array.filter(isModelPost));
 	const linesBefore = Array.take(played.lines, tookBefore.length);
-	const opened = holds(["[content of h1]", "[end of h1]"]);
-
-	const opensFirstHandle = (sent: Sent): boolean => isSubagent(sent) && opened(sent) && holds(played.canaries)(sent);
 
 	return [
 		{
@@ -219,17 +243,12 @@ const handleChecksOf = (played: Handled): readonly Check[] => {
 				pipe(linesBefore, Array.every(Predicate.or(isRootLine, isPinnedLine))) &&
 				Array.countBy(linesBefore, isPinnedLine) === baaBefore.length,
 		},
-		{
-			name: "AC3: the open mock's Agent call starts phi-router:phi-sealed with a task naming h1, the BAA mock receives it with the canary in place of h1, and the open mock never does",
-			ok:
-				pipe(played.handedOff.baa, Array.some(opensFirstHandle)) &&
-				!pipe(played.handedOff.open, Array.some(holds(played.canaries))),
-		},
+		handleOpenedCheckOf({ canaries: played.canaries, handedOff: played.handedOff, harness: "claude" }),
 		{
 			name: "AC6: after /compact and a router restart on the same state folder, the pinned subagent's task naming h1 reaches the BAA mock with the canary in place of h1",
 			ok:
 				Array.isReadonlyArrayNonEmpty(postsTo("open")(played.compacted)) &&
-				pipe(played.reopened.baa, Array.some(opensFirstHandle)),
+				pipe(played.reopened.baa, Array.some(opensFirstHandle(played.canaries))),
 		},
 	];
 };
@@ -352,6 +371,7 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 
 export {
 	handleChecksOf,
+	handleOpenedCheckOf,
 	handOff,
 	insideStamp,
 	isSubagent,
