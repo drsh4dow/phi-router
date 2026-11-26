@@ -8,6 +8,8 @@ import { setupCommand } from "./setup/index.ts";
 
 const modelAddress = Flag.String("address");
 
+const claude = Flag.Boolean("claude").pipe(Flag.withDefault(false));
+
 const pid = Flag.Int(spelling.start.pid).pipe(Flag.withSchema(Pid));
 
 const configDir = Flag.String("config-dir").pipe(Flag.withDefault(""));
@@ -38,4 +40,4 @@ const adapterCommands = [
 	setupCommand.pipe(Command.provide(Proofs.layer)),
 ] as const;
 
-export { adapterCommands, modelAddress, pid };
+export { adapterCommands, claude, modelAddress, pid };

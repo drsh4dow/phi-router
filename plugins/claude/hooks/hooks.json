@@ -1,12 +1,9 @@
 {
+	"modules": ["./mod.js"],
 	"hooks": {
 		"SessionStart": [
 			{
 				"hooks": [
-					{
-						"type": "command",
-						"command": "if [ -n \"${CLAUDE_PLUGIN_DATA-}\" ]; then ln -sfn \"$CLAUDE_PLUGIN_ROOT/bin/phi-router\" \"$CLAUDE_PLUGIN_DATA/phi-router\"; fi"
-					},
 					{
 						"type": "command",
 						"command": "out=$(\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\") || { code=$?; printf '%s\\n' \"$out\" >&2; exit $code; }; printf '%s' \"$out\""
@@ -24,7 +21,7 @@
 					},
 					{
 						"type": "command",
-						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" prompt-submit --address \"$ANTHROPIC_BASE_URL\"",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" prompt-submit --claude --address \"$ANTHROPIC_BASE_URL\"",
 						"timeout": 10,
 						"onFailure": "block"
 					},
