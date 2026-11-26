@@ -280,6 +280,9 @@ A loopback test server that stands for the open account, the BAA account or the 
 **Wire run**:
 `bun run wire <harness>`, which drives the real harness binary through the router against mock upstreams and checks what each mock received.
 
+**Cost run**:
+`bun run cost <checkout>...`, which plays one scripted Claude Code session through each router checkout given and counts the requests and bytes each mock upstream received, so two routers can be compared on what the BAA account receives.
+
 **Leak**:
 A complete canary in any one message sent to an open account.
 
