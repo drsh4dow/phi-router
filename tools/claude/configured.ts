@@ -4,8 +4,7 @@ import { ran } from "#tools/lifecycle/launched.ts";
 const routed = {
 	ANTHROPIC_BASE_URL: "http://127.0.0.1:47411",
 	ANTHROPIC_CUSTOM_MODEL_OPTION: "phi/auto",
-	ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION:
-		"An open account when a request is clean, a BAA account when it holds PHI",
+	ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION: "Your subscription, with PHI withheld behind handles",
 	ANTHROPIC_CUSTOM_MODEL_OPTION_NAME: "PHI auto",
 	CLAUDE_CODE_GATEWAY_HINT_HEADERS: "1",
 	DISABLE_ERROR_REPORTING: "1",

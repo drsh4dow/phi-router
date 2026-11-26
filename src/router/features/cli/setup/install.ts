@@ -152,7 +152,7 @@ const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
 const turnedOn = Effect.fnUntraced(function* turnedOn(name: HarnessName, target: Target, openPlan: string) {
 	yield* tested(name);
 	yield* installedIn(name, target);
-	yield* Console.log(`✓ Test: a fake patient record went to your BAA account, not ${openPlan}`);
+	yield* Console.log(`✓ Test: a fake patient record reached ${openPlan} only as a handle`);
 	yield* switched(name);
 });
 

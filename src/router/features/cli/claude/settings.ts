@@ -29,7 +29,7 @@ const claudeSettings: readonly Setting[] = [
 	{
 		name: "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION",
 		reason: "Describes phi/auto in the picker.",
-		value: "An open account when a request is clean, a BAA account when it holds PHI",
+		value: "Your subscription, with PHI withheld behind handles",
 	},
 	{
 		name: "CLAUDE_CODE_GATEWAY_HINT_HEADERS",

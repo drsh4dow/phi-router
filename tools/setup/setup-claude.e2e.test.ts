@@ -42,7 +42,7 @@ const lastQuestion = "Press Enter to start Claude Code with phi-router.";
 const lastScreen = `✓ Anthropic key works
 ✓ OpenAI key works
 ✓ Installed phi-router ${version} in Claude Code
-✓ Test: a fake patient record went to your BAA account, not Claude Max
+✓ Test: a fake patient record reached Claude Max only as a handle
 ✓ Claude Code now sends its requests through phi-router
 ✓ Claude Code's status line shows this session's sealed and cleared counts while the model is phi/auto or phi/sealed
 

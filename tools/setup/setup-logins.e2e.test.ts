@@ -42,7 +42,7 @@ const enterpriseNote = "! Check that your BAA covers Claude Code through phi-rou
 
 const enterpriseEnd = `✓ Signed in as Claude Max · roe@example.com
 ✓ Installed phi-router ${version} in Claude Code
-✓ Test: a fake patient record went to your BAA account, not Claude Max
+✓ Test: a fake patient record reached Claude Max only as a handle
 ✓ Claude Code now sends its requests through phi-router
 ✓ Claude Code's status line shows this session's sealed and cleared counts while the model is phi/auto or phi/sealed
 
