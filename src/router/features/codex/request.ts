@@ -1,7 +1,8 @@
 import { Array, Effect, Option, Record, Schema, String as Str, Struct, pipe } from "effect";
-import { Body, Raw } from "./wire.ts";
+import { Body, InputText, Raw } from "./wire.ts";
 import { CleanLaneRefused, bridgesFor } from "#router/features/border/index.ts";
 import type { Sealed, Target } from "#router/features/border/index.ts";
+import type { ContentEntry } from "./groups.ts";
 import type { Digest } from "effect/crypto";
 import type { IsReplyKey } from "./clean-lane.ts";
 import type { Message } from "#router/features/parts/index.ts";
@@ -124,8 +125,59 @@ const cleanBody =
 			return rawText(Record.fromEntries([["model", model], ["instructions", bridgesFor.codex], ...fields]));
 		});
 
-const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { added, upstreamModel }: Sealed) {
+const readInputText = Schema.decodeUnknownOption(InputText);
+
+const promptTextsOf = ({ item }: ContentEntry): readonly string[] => {
+	if (item.type !== "message" || item.role !== "user") {
+		return [];
+	}
+
+	return pipe(
+		item.content,
+		Array.flatMap((part) => Array.fromOption(readInputText(part))),
+		Array.map(({ text }) => text),
+	);
+};
+
+const promptTexts = (wireParts: readonly WirePart[]): readonly string[] =>
+	pipe(
+		wireParts,
+		Array.flatMap((wirePart) => {
+			if (wirePart.kind !== "content") {
+				return [];
+			}
+
+			return wirePart.entries;
+		}),
+		Array.flatMap(promptTextsOf),
+		Array.dedupe,
+	);
+
+const swapOf = Effect.fnUntraced(function* swapOf([text, shown]: readonly [string, string]) {
+	const written = yield* quote(text);
+	const opened = yield* quote(shown);
+
+	return [written, opened] as const;
+}, Effect.orDie);
+
+const openedIn = Effect.fnUntraced(function* openedIn(
+	{ afterModel, wireParts }: Encoding,
+	open: (text: string) => string,
+) {
+	const opening = pipe(
+		promptTexts(wireParts),
+		Array.map((text) => [text, open(text)] as const),
+		Array.filter(([text, shown]) => shown !== text),
+	);
+
+	const swaps = yield* Effect.forEach(opening, swapOf, { concurrency: 1 });
+
+	return Array.reduce(swaps, afterModel, (body, [written, opened]) => Array.join(Str.split(body, written), opened));
+});
+
+const sealedBody = Effect.fnUntraced(function* sealedBody(encoding: Encoding, { added, open, upstreamModel }: Sealed) {
 	const head = yield* modelField(upstreamModel);
+	const afterModel = yield* openedIn(encoding, open);
 
 	if (Array.isReadonlyArrayEmpty(added)) {
 		return head + afterModel;
