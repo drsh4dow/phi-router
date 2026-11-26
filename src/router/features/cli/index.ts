@@ -37,4 +37,6 @@ export { Platform } from "./platform.ts";
 
 export { noBaaKeyExit } from "./no-baa-key.ts";
 
+export { rewriteExit } from "./hooks/index.ts";
+
 export { pinnedRoleFile, sealedRole } from "./codex/index.ts";
