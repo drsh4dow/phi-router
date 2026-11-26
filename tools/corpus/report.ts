@@ -6,12 +6,9 @@ import type { Tracked } from "./canary-tokens.ts";
 import type { Usage } from "#router/client/judge/index.ts";
 import { seenOn } from "./seen.ts";
 
-interface Decided {
+interface Sent {
 	readonly usage: typeof Usage.Type;
 	readonly sealedByJudgeFailure: number;
-}
-
-interface Sent extends Decided {
 	readonly openAccountBody: string;
 	readonly sealing: boolean;
 }
