@@ -1,4 +1,4 @@
-import { Array, Effect, Number, Predicate, String as Str, pipe } from "effect";
+import { Array, Effect, Number, Option, Predicate, String as Str, pipe } from "effect";
 import type { Asked, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import type { Check, Turned } from "./checks.ts";
 import { bridgesFor, sealedStub } from "#router/features/border/index.ts";
@@ -195,6 +195,7 @@ interface Handled {
 	readonly untilCompaction: readonly Turned[];
 	readonly handedOff: Turned;
 	readonly compacted: Turned;
+	readonly afterCompaction: string;
 	readonly reopened: Turned;
 	readonly beforeOverflow: readonly Turned[];
 	readonly lines: readonly LaneLogLine[];
@@ -242,6 +243,7 @@ const handleChecksOf = (played: Handled): readonly Check[] => {
 	const baaBefore = pipe(played.beforeOverflow, Array.flatMap(postsTo("baa")));
 	const tookBefore = pipe(played.beforeOverflow, Array.flatMap(tookOf), Array.filter(isModelPost));
 	const linesBefore = Array.take(played.lines, tookBefore.length);
+	const restored = Array.head(postsTo("open")(played.reopened));
 
 	return [
 		{
@@ -261,6 +263,16 @@ const handleChecksOf = (played: Handled): readonly Check[] => {
 			ok:
 				Array.isReadonlyArrayNonEmpty(postsTo("open")(played.compacted)) &&
 				pipe(played.reopened.baa, Array.some(opensFirstHandle(played.canaries))),
+		},
+		{
+			name: "after /compact, the root agent's next request reaches the open mock with the user's prompt readable and the restored file as the stub of h3, never the canary",
+			ok: Option.exists(
+				restored,
+				(sent) =>
+					holds([played.afterCompaction])(sent) &&
+					holds([stubOf("claude")("h3")])(sent) &&
+					!holds(played.canaries)(sent),
+			),
 		},
 	];
 };
