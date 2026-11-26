@@ -117,6 +117,7 @@ const loopback = "127.0.0.1";
 const productPort = 47_411;
 
 const spelling = {
+	answerCheck: { name: "answer-check" },
 	models: { name: "models" },
 	program: "phi-router",
 	setup: {
