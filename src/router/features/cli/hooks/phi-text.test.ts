@@ -102,7 +102,7 @@ it.effect("the status line names the last request's account, and the pinned suba
 	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
 );
 
-const ranLast = { account: "claude-2", model: "claude-opus", substitute: false };
+const ranLast = { account: "claude-2", model: "claude-opus", overflow: true, substitute: false };
 
 const noticed: Reported = {
 	accounts: {
@@ -122,7 +122,7 @@ const waiting = { installed: "0.6.0", running: "0.5.1" };
 const columns = 80;
 
 it.effect(
-	"the status line marks the overflow until the stamp's HH:MM, or while the last request overflowed with no stamp, and no longer, the withheld answers and the version wait in 80 columns whatever the account's name and the version, and /phi says each in full",
+	"the status line marks the overflow while the last request overflowed, till the stamp's HH:MM when one exists, and no longer, the withheld answers and the version wait in 80 columns whatever the account's name and the version, and /phi says each in full",
 	() =>
 		Effect.gen(function* marked() {
 			const line = yield* statusLine(noticed, waiting);
@@ -162,7 +162,21 @@ it.effect(
 				clean: [{ name: "claude-1", vendor: "anthropic" as const }],
 			});
 
-			const backAgain = yield* statusLine(Struct.assign(noticed, { accounts: unstamped }));
+			const backAgain = yield* statusLine(
+				Struct.assign(noticed, {
+					accounts: unstamped,
+					last: Struct.assign(ranLast, { account: "claude-1", overflow: false }),
+				}),
+			);
+
+			const servedElsewhere = yield* statusLine(
+				Struct.assign(noticed, {
+					accounts: Struct.assign(noticed.accounts, {
+						clean: [...noticed.accounts.clean, { name: "claude-3", vendor: "anthropic" as const }],
+					}),
+					last: Struct.assign(ranLast, { account: "claude-3", overflow: false }),
+				}),
+			);
 
 			const unanswered = yield* statusLine(
 				Struct.assign(noticed, {
@@ -181,11 +195,12 @@ it.effect(
 					longVersion,
 					reply,
 					roomy,
+					servedElsewhere,
 					unanswered,
 					wideNamed,
 				},
 				{
-					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
+					backAgain: "phi · claude-1 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
 					emojiNamed: "phi · 🚀 anthropi… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					fits: [true, true, true],
 					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
@@ -202,6 +217,7 @@ it.effect(
 						"phi-router 0.6.0 is installed. Your open windows still run 0.5.1 until you close them all.",
 					],
 					roomy: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
+					servedElsewhere: "phi · claude-3 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
 					unanswered: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld · overflow",
 					wideNamed: "phi · 東京診療所… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 				},

@@ -185,15 +185,16 @@ const overflowMark = (
 	overflow: Overflow,
 	last: Reported["last"],
 ): Option.Option<Effect.Effect<string, never, DateTime.CurrentTimeZone>> =>
-	Option.match(Option.fromUndefinedOr(overflow.back), {
-		onNone: () =>
-			pipe(
-				Option.fromNullishOr(last),
-				Option.filter((ran) => ran.overflow === true),
-				Option.map(() => Effect.succeed("overflow")),
-			),
-		onSome: flow(markOf, Option.some),
-	});
+	pipe(
+		Option.fromNullishOr(last),
+		Option.filter((ran) => ran.overflow === true),
+		Option.map(() =>
+			Option.match(Option.fromUndefinedOr(overflow.back), {
+				onNone: () => Effect.succeed("overflow"),
+				onSome: markOf,
+			}),
+		),
+	);
 
 const firstWide = "\u1100";
 
