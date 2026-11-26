@@ -81,6 +81,21 @@ const countOf = (count: number, noun: string): string => {
 	return `${String(count)} ${noun}s`;
 };
 
+type Counted = Reported & { readonly pinned?: { readonly runs: number } };
+
+const statusLine = (status: Counted): string => {
+	const runs = pipe(
+		Option.fromUndefinedOr(status.pinned),
+		Option.map(({ runs: count }) => countOf(count, "pinned run")),
+		Option.toArray,
+	);
+
+	return Array.join(
+		["phi", lastOf(status), `${String(status.sealed)} sealed`, `${String(status.cleared)} cleared`, ...runs],
+		" · ",
+	);
+};
+
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
 	`phi-router: ${countOf(sealed.count, "message")} held patient identifiers. The open account sees a handle in place of each. Last request: ${lastOf(sealed.status)}.`;
 
@@ -103,6 +118,6 @@ const overflowNotice = Effect.fnUntraced(function* overflowNotice(overflow: Over
 	return `phi-router: ${why}, so ${countOf(overflow.count, "request")} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
 });
 
-export { overflowNotice, sealNotice, statusText, usage };
+export { overflowNotice, sealNotice, statusLine, statusText, usage };
 
 export type { OpenAccount, Overflow, Reported };

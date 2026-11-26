@@ -1,6 +1,6 @@
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
-import { overflowNotice, sealNotice, statusText } from "./phi-text.ts";
+import { overflowNotice, sealNotice, statusLine, statusText } from "./phi-text.ts";
 import type { Reported } from "./phi-text.ts";
 
 const back = "2026-05-28T14:30:00.000Z";
@@ -76,4 +76,25 @@ it.effect("the overflow notice says why the requests ran on the BAA account and 
 			"phi-router: your subscription did not answer, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add",
 		]);
 	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
+);
+
+it.effect(
+	"the status line shows pi's status bar entry, and the pinned subagent's runs once the status counts them",
+	() =>
+		Effect.sync(() => {
+			const status = statusOf(false);
+
+			assert.deepStrictEqual(
+				[
+					statusLine(status),
+					statusLine(Struct.assign(status, { pinned: { runs: 1 } })),
+					statusLine(Struct.assign(status, { pinned: { runs: 3 } })),
+				],
+				[
+					"phi · baa, model claude-sealed · 1 sealed · 2 cleared",
+					"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 1 pinned run",
+					"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 3 pinned runs",
+				],
+			);
+		}),
 );
