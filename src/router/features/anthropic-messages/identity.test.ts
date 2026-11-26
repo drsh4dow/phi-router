@@ -9,11 +9,6 @@ const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "
 
 const bridge = bridgesFor.claude;
 
-const added = `{"type":"text","text":"${bridgesFor.claude}"}`;
-
-const withoutAdded = (sent: string): string =>
-	Str.replace(`,${added}`, "")(Str.replace(`,"system":[${added}]`, "")(sent));
-
 const systemThenTools = '}],"tools":[';
 
 const piecesAroundOneEnd = 2;
@@ -41,9 +36,9 @@ const sealedAddsOnlyTheBridge = Effect.gen(function* sealedAddsOnlyTheBridge() {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
 
 		const sent = yield* request.encode({
+			added: [bridgesFor.claude],
 			lane: "sealed",
 			open: Function.identity,
-			system: bridgesFor.claude,
 			upstreamModel: request.model,
 		});
 
@@ -61,9 +56,9 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 
 	const lanes = [
 		yield* request.encode({
+			added: [bridgesFor.claude],
 			lane: "sealed",
 			open: Function.identity,
-			system: bridgesFor.claude,
 			upstreamModel: target,
 		}),
 		yield* request.encode({ lane: "clean", messages: request.messages, upstreamModel: target }),
@@ -108,13 +103,13 @@ const sealedKeepsSpacing = Effect.gen(function* sealedKeepsSpacing() {
 	const request = yield* decodeRequest(spaced, nobodyWrote, "claude");
 
 	const sent = yield* request.encode({
+		added: [],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: target,
 	});
 
-	assert.strictEqual(withoutAdded(sent), Str.replace('"model": "phi/auto"', `"model": "${target}"`)(spaced));
+	assert.strictEqual(sent, Str.replace('"model": "phi/auto"', `"model": "${target}"`)(spaced));
 });
 
 it.layer(Digest.layerWebCrypto)("decode then encode", (test) => {
@@ -126,7 +121,7 @@ it.layer(Digest.layerWebCrypto)("decode then encode", (test) => {
 	);
 
 	test.effect(
-		"changes only the model and adds one system block on the sealed lane, whatever the spacing and key order",
+		"changes only the model of a sealed body with nothing to add, whatever its spacing and key order",
 		() => sealedKeepsSpacing,
 	);
 });

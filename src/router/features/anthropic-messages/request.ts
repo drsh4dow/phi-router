@@ -50,11 +50,17 @@ type MessagesHarness = Exclude<Harness, "codex">;
 
 const bridgeEdit = Effect.fnUntraced(function* bridgeEdit(
 	{ system: { bridge: slot } }: Decoded,
-	bridge: string,
+	blocks: readonly string[],
 ): Effect.fn.Return<Edit> {
-	const text = yield* quoted(bridge);
+	const texts = yield* Effect.forEach(blocks, quoted, { concurrency: 1 });
 
-	return { end: slot.end, start: slot.start, text: `${slot.before}{"type":"text","text":${text}}${slot.after}` };
+	const written = pipe(
+		texts,
+		Array.map((text) => `{"type":"text","text":${text}}`),
+		Array.join(","),
+	);
+
+	return { end: slot.end, start: slot.start, text: `${slot.before}${written}${slot.after}` };
 });
 
 const firstMessage = 0;
@@ -118,7 +124,7 @@ const cleanEdits = Effect.fnUntraced(function* cleanEdits(
 		{ concurrency: 1 },
 	);
 
-	const bridged = yield* bridgeEdit(decoded, bridge);
+	const bridged = yield* bridgeEdit(decoded, [bridge]);
 
 	return [bridged, ...Array.getSomes(sections), ...Array.getSomes(turns)];
 });
@@ -200,7 +206,12 @@ const encoded = Effect.fnUntraced(function* encoded(
 	}
 
 	const opened = yield* Effect.forEach(decoded.turns, (turn) => openedTurn(turn, upstream.open), { concurrency: 1 });
-	const added = yield* bridgeEdit(decoded, upstream.system);
+
+	if (Array.isReadonlyArrayEmpty(upstream.added)) {
+		return edited(decoded.sentBody, [model, ...Array.getSomes(opened)]);
+	}
+
+	const added = yield* bridgeEdit(decoded, upstream.added);
 
 	return edited(decoded.sentBody, [model, added, ...Array.getSomes(opened)]);
 });

@@ -73,9 +73,9 @@ const sealedIdentity = (text: string): Effect.Effect<void, CodexRequestRejected 
 		const request = yield* decoded(text);
 
 		const bridged = yield* request.encode({
+			added: [bridgesFor.codex],
 			lane: "sealed",
 			open: Function.identity,
-			system: bridgesFor.codex,
 			upstreamModel: request.model,
 		});
 
@@ -86,9 +86,9 @@ const sealedModel = Effect.gen(function* sealedModel() {
 	const request = yield* decoded(requests.customToolCall);
 
 	const sent = yield* request.encode({
+		added: [bridgesFor.codex],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.codex,
 		upstreamModel: realModel,
 	});
 

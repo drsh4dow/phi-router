@@ -17,4 +17,5 @@ We chose this because the earlier lane rule, sealed new content runs on the seal
 - The verdict store still never holds content. The sealed store does, and is deleted with it.
 - The root agent goes blind on a sealed tool result and must delegate to read it. A whole part seals, so one name in a long output hides all of it.
 - The border is still the safety: an answer that passes the answer check is judged again as new content before it reaches an open account.
+- The harness reaches the answer check at `POST /phi-router/answer-check` with the session, the subagent id and the last answer. The router answers `cleared`, `rewrite` with the attempt and the message, or `gave-up` with the answer's handle and the reply the root agent receives. It counts rewrites per session and subagent in the sealed store, and `status` reports the pinned runs, rewrites and gave-ups.
 - The BAA account still runs a whole session on `phi/sealed`, in a BAA repo, for a Codex title request, and on overflow, where it receives the same body with handles.

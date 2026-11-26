@@ -75,9 +75,9 @@ const baaThinking = Effect.gen(function* baaThinking() {
 	const toOpen = yield* sent(request, clean(request.messages));
 
 	const toBaa = yield* sent(request, {
+		added: [bridgesFor.claude],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: target,
 	});
 
@@ -152,9 +152,9 @@ const unreadableWithheld = Effect.gen(function* unreadableWithheld() {
 	const toOpen = yield* request.encode(clean(request.messages));
 
 	const toBaa = yield* request.encode({
+		added: [bridgesFor.claude],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: target,
 	});
 
@@ -256,9 +256,9 @@ const unchangedAsSent = Effect.gen(function* unchangedAsSent() {
 		const toOpen = yield* request.encode(clean(request.messages));
 
 		const toBaa = yield* request.encode({
+			added: [bridgesFor.claude],
 			lane: "sealed",
 			open: Function.identity,
-			system: bridgesFor.claude,
 			upstreamModel: target,
 		});
 

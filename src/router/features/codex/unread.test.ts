@@ -4,7 +4,6 @@ import { Effect, Function, Predicate, String as Str } from "effect";
 import { allCleared, cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
-import { bridgesFor } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
@@ -25,13 +24,13 @@ const sealedAsSent = (
 		const request = yield* decodeRequest(text, nothingWritten);
 
 		const sealed = yield* request.encode({
+			added: [],
 			lane: "sealed",
 			open: Function.identity,
-			system: bridgesFor.codex,
 			upstreamModel: request.model,
 		});
 
-		assert.strictEqual(Str.replace(`,"instructions":"${bridgesFor.codex}"`, "")(sealed), text);
+		assert.strictEqual(sealed, text);
 
 		return request;
 	});
@@ -112,12 +111,6 @@ const refused = [
 ] as const;
 
 it.layer(Digest.layerWebCrypto)("what the codec cannot read", (test) => {
-	test.effect.each(stubbed)(
-		"%s decodes, goes sealed as sent with the instructions added, and clean as the stub",
-		stubbedCase,
-	);
-	test.effect.each(refused)(
-		"%s decodes, goes sealed as sent with the instructions added, and refuses the clean lane",
-		refusedCase,
-	);
+	test.effect.each(stubbed)("%s decodes, goes sealed as sent, and clean as the stub", stubbedCase);
+	test.effect.each(refused)("%s decodes, goes sealed as sent, and refuses the clean lane", refusedCase);
 });

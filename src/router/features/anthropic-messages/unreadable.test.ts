@@ -1,4 +1,4 @@
-import { Array, Effect, Function, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Function, Schema, pipe } from "effect";
 import { CleanLaneRefused, bridgesFor } from "#router/features/border/index.ts";
 import { UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
 import { assert, it } from "@effect/vitest";
@@ -13,11 +13,6 @@ import { stubs } from "#router/features/policy/index.ts";
 const target = "claude-target";
 
 const bridge = bridgesFor.claude;
-
-const added = `{"type":"text","text":"${bridgesFor.claude}"}`;
-
-const withoutAdded = (sent: string): string =>
-	Str.replace(`,${added}`, "")(Str.replace(`,"system":[${added}]`, "")(sent));
 
 const unknownStub = { text: stubs.unknown, type: "text" } as const;
 
@@ -54,7 +49,7 @@ const clean = (request: MessagesRequest): Target => ({
 	upstreamModel: target,
 });
 
-const sealed: Target = { lane: "sealed", open: Function.identity, system: bridgesFor.claude, upstreamModel: target };
+const sealed: Target = { added: [bridgesFor.claude], lane: "sealed", open: Function.identity, upstreamModel: target };
 
 const redactedFromBaa = Effect.gen(function* redactedFromBaa() {
 	const request = yield* decodeRequest(redacted, nobodyWrote, "claude");
@@ -127,13 +122,13 @@ const vendorPinned = Effect.gen(function* vendorPinned() {
 	const request = yield* decodeRequest(vendorKeys, nobodyWrote, "claude");
 
 	const sent = yield* request.encode({
+		added: [],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: request.model,
 	});
 
-	assert.strictEqual(withoutAdded(sent), vendorKeys);
+	assert.strictEqual(sent, vendorKeys);
 });
 
 const repeatedKey = Effect.gen(function* repeatedKey() {
@@ -151,15 +146,15 @@ const refused = Effect.gen(function* refused() {
 	const failure = yield* Effect.flip(request.encode(clean(request)));
 
 	const toBaa = yield* request.encode({
+		added: [],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: request.model,
 	});
 
 	assert.instanceOf(failure, CleanLaneRefused);
 	assert.strictEqual(failure.reason, "messages[0].content[0].cache_control");
-	assert.strictEqual(withoutAdded(toBaa), strayCacheControl);
+	assert.strictEqual(toBaa, strayCacheControl);
 });
 
 const toolReference = Effect.gen(function* toolReference() {
@@ -226,7 +221,7 @@ it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	);
 
 	test.effect(
-		"a sealed request with unknown keys below the top leaves as it came, with one system block added",
+		"a sealed request with unknown keys below the top and nothing to add leaves as it came",
 		() => vendorPinned,
 	);
 
