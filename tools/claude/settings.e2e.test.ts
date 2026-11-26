@@ -8,6 +8,7 @@ import {
 	routed,
 	settingsFile,
 	settingsIn,
+	statusLineIn,
 	writeSettings,
 	written,
 } from "./configured.ts";
@@ -48,20 +49,25 @@ const fresh = Effect.gen(function* fresh() {
 		Array.filter((line) => !line.test(on.printed)),
 	);
 
+	const statusLine = statusLineIn(dir);
+
 	const unreasoned = pipe(
-		reasons,
+		[
+			...reasons,
+			`statusLine=${statusLine.command}\n  Shows this session's sealed and cleared counts while the model is phi/auto or phi/sealed.\n`,
+		],
 		Array.filter((reason) => !Str.includes(reason)(on.printed)),
 	);
 
 	assert.deepStrictEqual(
 		{
 			exitCode: on.exitCode,
-			named: Str.startsWith(`phi-router wrote 10 settings to ${settingsFile(dir)}\n`)(on.printed),
+			named: Str.startsWith(`phi-router wrote 11 settings to ${settingsFile(dir)}\n`)(on.printed),
 			settings,
 			unprinted,
 			unreasoned,
 		},
-		{ exitCode: ok, named: true, settings: { env: written }, unprinted: [], unreasoned: [] },
+		{ exitCode: ok, named: true, settings: { env: written, statusLine }, unprinted: [], unreasoned: [] },
 	);
 }).pipe(Effect.scoped);
 
@@ -76,8 +82,48 @@ const kept = Effect.gen(function* kept() {
 	const twice = yield* phiRouter(claudeIn(dir).on, env).pipe(Effect.andThen(bytes));
 	const settings = yield* settingsIn(dir);
 
-	assert.deepStrictEqual(settings, Struct.assign(others, { env: Struct.assign({ FOO: "bar" }, written) }));
+	assert.deepStrictEqual(
+		settings,
+		Struct.assign(others, { env: Struct.assign({ FOO: "bar" }, written), statusLine: statusLineIn(dir) }),
+	);
 	assert.strictEqual(twice, once);
+}).pipe(Effect.scoped);
+
+const theirs = { statusLine: { command: "~/.claude/statusline.sh", type: "command" } } as const;
+
+const keptStatusLine = Effect.gen(function* keptStatusLine() {
+	const { dir, env } = yield* claudeFolders;
+
+	yield* writeSettings(dir, theirs);
+
+	const on = yield* phiRouter(claudeIn(dir).on, env);
+	const afterOn = yield* settingsIn(dir);
+	const off = yield* phiRouter(claudeIn(dir).off, env);
+	const afterOff = yield* settingsIn(dir);
+
+	const told = [
+		"Claude Code already has a status line, so phi-router left it as it was. To show phi-router's counts in it, add this line to its script, where $input holds the JSON the script read from stdin:",
+		`  printf '%s' "$input" | ${statusLineIn(dir).command}`,
+	];
+
+	assert.deepStrictEqual(
+		{
+			afterOff,
+			afterOn,
+			named: Str.startsWith(`phi-router wrote 10 settings to ${settingsFile(dir)}\n`)(on.printed),
+			offExit: off.exitCode,
+			onExit: on.exitCode,
+			told: Str.includes(Array.join(told, "\n"))(on.printed),
+		},
+		{
+			afterOff: theirs,
+			afterOn: Struct.assign(theirs, { env: written }),
+			named: true,
+			offExit: ok,
+			onExit: ok,
+			told: true,
+		},
+	);
 }).pipe(Effect.scoped);
 
 const holdsSettings = Effect.fnUntraced(function* holdsSettings(dirs: readonly string[]) {
@@ -144,7 +190,11 @@ const linked = Effect.gen(function* linked() {
 
 	assert.deepStrictEqual(
 		{ link, mode: mode % permissions, settings },
-		{ link: managed, mode: sharedFile, settings: Struct.assign(others, { env: written }) },
+		{
+			link: managed,
+			mode: sharedFile,
+			settings: Struct.assign(others, { env: written, statusLine: statusLineIn(dir) }),
+		},
 	);
 }).pipe(Effect.scoped);
 
@@ -220,13 +270,18 @@ const untouched = Effect.gen(function* untouched() {
 
 it.layer(NodeServices.layer)("on claude and off claude", (test) => {
 	test.effect(
-		"on writes exactly the ten settings into an empty folder and prints each with a reason, no_proxy's the exemption's and its record's the one off reads",
+		"on writes exactly the ten settings and the status line into an empty folder and prints each with a reason, no_proxy's the exemption's and its record's the one off reads",
 		() => fresh,
 		patient,
 	);
 	test.effect(
 		"on keeps every other key and replaces an old address, and a second on leaves the same bytes",
 		() => kept,
+		patient,
+	);
+	test.effect(
+		"on leaves a status line the user set and prints the one line to add to its script, and off leaves it too",
+		() => keptStatusLine,
 		patient,
 	);
 	test.effect("the folder is the flag's, else CLAUDE_CONFIG_DIR, else .claude under HOME", () => precedence, patient);

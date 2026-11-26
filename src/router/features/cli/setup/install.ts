@@ -141,10 +141,7 @@ const switched = Effect.fnUntraced(function* switched(name: HarnessName) {
 	const writing = Effect.gen(function* writing() {
 		const said = yield* switchOn;
 
-		yield* Effect.forEach(Option.toArray(said), (line) => Console.log(`✓ ${line}`), {
-			concurrency: 1,
-			discard: true,
-		});
+		yield* Effect.forEach(said, (line) => Console.log(line), { concurrency: 1, discard: true });
 	});
 
 	yield* Effect.mapError(writing, (error) =>

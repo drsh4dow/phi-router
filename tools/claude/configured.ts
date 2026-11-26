@@ -27,7 +27,13 @@ interface ClaudeSettings {
 	readonly env?: Readonly<Record<string, string>>;
 	readonly model?: string;
 	readonly permissions?: { readonly allow: readonly string[] };
+	readonly statusLine?: { readonly command: string; readonly type: "command" };
 }
+
+const statusLineIn = (dir: string): NonNullable<ClaudeSettings["statusLine"]> => ({
+	command: `'${dir}/plugins/data/phi-router-phi-router/phi-router' statusline`,
+	type: "command",
+});
 
 const phiRouter = Effect.fnUntraced(function* phiRouter(
 	args: readonly string[],
@@ -65,6 +71,17 @@ const settingsIn = Effect.fnUntraced(function* settingsIn(dir: string) {
 	return yield* Schema.decodeEffect(SettingsJson)(text);
 });
 
+const StatusLine = Schema.Struct({ command: Schema.String, type: Schema.Literal("command") });
+
+const StatusLineSetting = Schema.Struct({ statusLine: Schema.optionalKey(StatusLine) });
+
+const statusLineOf = Effect.fnUntraced(function* statusLineOf(dir: string) {
+	const settings = yield* settingsIn(dir);
+	const { statusLine } = yield* Schema.decodeUnknownEffect(StatusLineSetting)(settings);
+
+	return statusLine;
+});
+
 const writeSettings = Effect.fnUntraced(function* writeSettings(dir: string, settings: ClaudeSettings) {
 	const fs = yield* FileSystem.FileSystem;
 	const text = yield* Schema.encodeUnknownEffect(SettingsJson)(settings);
@@ -74,4 +91,16 @@ const writeSettings = Effect.fnUntraced(function* writeSettings(dir: string, set
 
 export type { ClaudeSettings };
 
-export { claudeFolders, claudeIn, folder, phiRouter, routed, settingsFile, settingsIn, writeSettings, written };
+export {
+	claudeFolders,
+	claudeIn,
+	folder,
+	phiRouter,
+	routed,
+	settingsFile,
+	settingsIn,
+	statusLineIn,
+	statusLineOf,
+	writeSettings,
+	written,
+};

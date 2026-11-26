@@ -12,7 +12,7 @@ import {
 	piSignIn,
 	textOrEmpty,
 } from "#router/client/harnesses/index.ts";
-import { pluginId, switchedOn } from "#router/features/cli/claude/index.ts";
+import { keptStatusLine, pluginId, shownStatusLine, switchedOn } from "#router/features/cli/claude/index.ts";
 import type { Check } from "#router/features/cli/doctor/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
@@ -47,7 +47,7 @@ interface HarnessSetup {
 	readonly signIn: Effect.Effect<SignIn, unknown, unknown>;
 	readonly signInHow: string;
 	readonly start: Argv;
-	readonly switchOn: Effect.Effect<Option.Option<string>, Error, unknown>;
+	readonly switchOn: Effect.Effect<readonly string[], Error, unknown>;
 	readonly title: string;
 }
 
@@ -228,7 +228,10 @@ const harnesses = {
 		},
 		switchOn: Effect.andThen(
 			claudeInstanceLeased,
-			Effect.as(switchedOn(""), Option.some("Claude Code now sends its requests through phi-router")),
+			Effect.map(switchedOn(""), ({ command, statusLine }) => [
+				"✓ Claude Code now sends its requests through phi-router",
+				...{ ours: [shownStatusLine], theirs: keptStatusLine(command) }[statusLine],
+			]),
 		),
 		title: "Claude Code",
 		vendor: "anthropic",
@@ -265,7 +268,7 @@ const harnesses = {
 				update: [["codex", "plugin", "marketplace", "upgrade", marketplace], add],
 			};
 		},
-		switchOn: Effect.as(codexSwitchedOn(""), Option.some("Codex now sends its requests through phi-router")),
+		switchOn: Effect.as(codexSwitchedOn(""), ["✓ Codex now sends its requests through phi-router"]),
 		title: "Codex",
 		vendor: "openai",
 	},
@@ -287,7 +290,7 @@ const harnesses = {
 
 			return { install, move: [...install, ...update], update };
 		},
-		switchOn: Effect.succeed(Option.none<string>()),
+		switchOn: Effect.succeed([]),
 		title: "pi",
 		vendor: "anthropic",
 	},
