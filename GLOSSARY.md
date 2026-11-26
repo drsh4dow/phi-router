@@ -153,7 +153,7 @@ The System One model that scores whether a piece holds PHI when no rule sealed i
 _Avoid_: classifier, scanner
 
 **Part**:
-One unit of a request that the border can replace on its own: a message, a system section or the tool list.
+One unit of a request that the border can replace on its own: a message, a system section or the tool list. On the Anthropic wire each block of a user's prompt is a part of its own, because after compaction Claude Code sends the files it restores, the summary and the next prompt as blocks of one message.
 
 **Piece**:
 A part as the policy reads it: its kind, its text and its images.

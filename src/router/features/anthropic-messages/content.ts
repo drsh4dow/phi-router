@@ -177,22 +177,12 @@ const userBlockOf = Effect.fnUntraced(function* userBlockOf({
 	return { block: { span, wire }, kind: "prompt" };
 });
 
-const promptOf = (block: UserBlock): readonly Located<PromptBlock>[] => {
-	if (block.kind === "prompt") {
-		return [block.block];
+const blockRun = (block: UserBlock): Run => {
+	if (block.kind === "result") {
+		return block.run;
 	}
 
-	return [];
-};
-
-const groupRun = (group: Array.NonEmptyReadonlyArray<UserBlock>): Run => {
-	const first = Array.headNonEmpty(group);
-
-	if (first.kind === "result") {
-		return first.run;
-	}
-
-	return promptRun(pipe(group, Array.flatMap(promptOf)));
+	return promptRun([block.block]);
 };
 
 const userRuns = Effect.fnUntraced(function* userRuns({
@@ -209,12 +199,7 @@ const userRuns = Effect.fnUntraced(function* userRuns({
 
 	return Array.match(blocks, {
 		onEmpty: () => [promptRun([])],
-		onNonEmpty: (all) =>
-			pipe(
-				all,
-				Array.groupWith((one, other) => one.kind === "prompt" && other.kind === "prompt"),
-				Array.map(groupRun),
-			),
+		onNonEmpty: Array.map(blockRun),
 	});
 });
 
