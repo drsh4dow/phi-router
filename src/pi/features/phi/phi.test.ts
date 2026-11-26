@@ -13,7 +13,7 @@ const routerPort = 47_498;
 const marked = "phi · baa · 1 sealed · 2 cleared · 1 pinned run · 1 withheld · overflow till 14:30 · 0.6.0 pending";
 
 const reply =
-	"session pi-session-1\nLast request: baa, model claude-baa\nMessages: 1 sealed, 2 cleared\nPinned subagent: 1 run, 5 rewrites, 1 answer withheld\nClean lane: open (rate-limited until 14:30)\nSealed lane: baa\nOverflow: your subscription is rate-limited until 14:30, so 2 requests ran on your BAA account. Add another subscription: npx phi-router accounts add\nphi-router 0.6.0 is installed. Your open windows still run 0.5.1 until you close them all.";
+	"session pi-session-1\nLast request: baa, model claude-baa\nMessages: 1 sealed, 2 cleared\nPinned subagent: 1 run, 5 rewrites, 1 answer withheld\nClean lane: open (rate-limited, tried again at 14:30)\nSealed lane: baa\nOverflow: your subscription hit its rate limit, so 2 requests ran on your BAA account. phi-router tries it again at 14:30. Add another subscription: npx phi-router accounts add\nphi-router 0.6.0 is installed. Your open windows still run 0.5.1 until you close them all.";
 
 const unanswered =
 	"[09:28:38.975] ERROR (#2): RouterUnanswered: phi-router statusline: no router answers there. A protected session starts the router.";

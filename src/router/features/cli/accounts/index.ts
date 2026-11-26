@@ -71,7 +71,7 @@ const stampOf = Effect.fnUntraced(function* stampOf(name: string) {
 
 	return pipe(
 		clock,
-		Option.map((at) => `rate-limited. Back at ${at}.`),
+		Option.map((at) => `rate-limited. Tried again at ${at}.`),
 	);
 });
 

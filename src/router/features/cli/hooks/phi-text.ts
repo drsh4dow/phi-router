@@ -54,7 +54,7 @@ const openNameOf = (account: OpenAccount): Effect.Effect<string, never, DateTime
 		onNone: () => Effect.succeed(account.name),
 		onSome: flow(
 			clockOf,
-			Effect.map((clock) => `${account.name} (rate-limited until ${clock})`),
+			Effect.map((clock) => `${account.name} (rate-limited, tried again at ${clock})`),
 		),
 	});
 
@@ -114,22 +114,23 @@ const overflowOf = (status: Reported): Option.Option<Overflow> => {
 };
 
 const subscriptions = {
-	false: { are: "is", yours: "your subscription" },
-	true: { are: "are", yours: "your subscriptions" },
+	false: { limits: "its rate limit", them: "it", yours: "your subscription" },
+	true: { limits: "their rate limits", them: "them", yours: "your subscriptions" },
 } as const;
 
 const overflowWords = Effect.fnUntraced(function* overflowWords(overflow: Overflow) {
-	const { are, yours } = subscriptions[`${overflow.subscriptions > one}`];
+	const { limits, them, yours } = subscriptions[`${overflow.subscriptions > one}`];
+	const ran = `${countOf(overflow.count, "request")} ran on your BAA account`;
 
 	const why = yield* Option.match(Option.fromUndefinedOr(overflow.back), {
-		onNone: () => Effect.succeed(`${yours} did not answer`),
+		onNone: () => Effect.succeed(`${ran} because ${yours} hit a rate limit or did not answer.`),
 		onSome: flow(
 			clockOf,
-			Effect.map((clock) => `${yours} ${are} rate-limited until ${clock}`),
+			Effect.map((clock) => `${yours} hit ${limits}, so ${ran}. phi-router tries ${them} again at ${clock}.`),
 		),
 	});
 
-	return `${why}, so ${countOf(overflow.count, "request")} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
+	return `${why} Add another subscription: npx phi-router accounts add`;
 });
 
 const overflowNotice = (overflow: Overflow): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
@@ -175,14 +176,13 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported, wait
 
 const columns = 80;
 
-const overflowMark = (overflow: Overflow): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
-	Option.match(Option.fromUndefinedOr(overflow.back), {
-		onNone: () => Effect.succeed("overflow"),
-		onSome: flow(
-			clockOf,
-			Effect.map((clock) => `overflow till ${clock}`),
-		),
-	});
+const markOf = flow(
+	clockOf,
+	Effect.map((clock) => `overflow till ${clock}`),
+);
+
+const overflowMark = (overflow: Overflow): Option.Option<Effect.Effect<string, never, DateTime.CurrentTimeZone>> =>
+	Option.map(Option.fromUndefinedOr(overflow.back), markOf);
 
 const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait?: VersionWait) {
 	const pinned = Option.fromUndefinedOr(status.pinned);
@@ -199,7 +199,7 @@ const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait
 		Option.map(({ gaveUp }) => `${String(gaveUp)} withheld`),
 	);
 
-	const overflow = yield* Effect.transposeOption(Option.map(overflowOf(status), overflowMark));
+	const overflow = yield* Effect.transposeOption(Option.flatMap(overflowOf(status), overflowMark));
 
 	const pending = pipe(
 		Option.fromUndefinedOr(wait),

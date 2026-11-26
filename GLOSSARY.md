@@ -110,7 +110,7 @@ The accounts one request may still try, in order: the open accounts from its hom
 A request moving to the next account of its walk on a 429, a 5xx, no answer or an ended login, before the first byte of the answer. It moves from the clean lane to the sealed lane, never back.
 
 **Overflow**:
-A request, not pinned, that a BAA account answers because no open account took it: each was stamped, did not answer, or its login ended. It carries the same stubs and handles the open account would have received. The status line counts a session's overflows with the time the stamp ends, and `/phi` says why they ran on the BAA account and how to add a subscription. Codex has no status line, so at the end of a turn with an overflow its Stop hook says the same, once per stamp, or once per 30 minutes when no stamp explains it.
+A request, not pinned, that a BAA account answers because no open account took it: each was stamped, did not answer, or its login ended. It carries the same stubs and handles the open account would have received. While the stamp holds, the status line marks `overflow till HH:MM`, the time the clean lane tries the account again, and `/phi` says why they ran on the BAA account and how to add a subscription. Codex has no status line, so at the end of a turn with an overflow its Stop hook says the same, once per stamp, or once per 30 minutes when no stamp explains it.
 
 **Stamp**:
 The mark a 429 leaves on an open account. The clean lane skips the account for 30 minutes.
