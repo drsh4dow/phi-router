@@ -12,7 +12,7 @@ import {
 	piSignIn,
 	textOrEmpty,
 } from "#router/client/harnesses/index.ts";
-import { keptStatusLine, pluginId, shownStatusLine, switchedOn } from "#router/features/cli/claude/index.ts";
+import { pluginId, switchedOn } from "#router/features/cli/claude/index.ts";
 import type { Check } from "#router/features/cli/doctor/index.ts";
 import type { Harness } from "#router/features/border/index.ts";
 import type { SignIn } from "#router/client/harnesses/index.ts";
@@ -228,9 +228,9 @@ const harnesses = {
 		},
 		switchOn: Effect.andThen(
 			claudeInstanceLeased,
-			Effect.map(switchedOn(""), ({ command, statusLine }) => [
+			Effect.map(switchedOn(""), ({ statusLineLines }) => [
 				"✓ Claude Code now sends its requests through phi-router",
-				...{ ours: [shownStatusLine], theirs: keptStatusLine(command) }[statusLine],
+				...statusLineLines,
 			]),
 		),
 		title: "Claude Code",

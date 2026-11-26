@@ -230,27 +230,6 @@ const statusLineStatement = "statusLine";
 
 const commandOfStatusLine = Schema.decodeUnknownOption(Schema.Struct({ command: Schema.String }));
 
-const placeStatusLine = Effect.fnUntraced(function* placeStatusLine(named: string, command: string) {
-	const file = yield* configFile(named, settingsName);
-	const { settings } = yield* read(file);
-
-	const ours = Option.exists(commandOfStatusLine(settings[statusLineStatement]), (line) => line.command === command);
-
-	if (ours) {
-		return "ours" as const;
-	}
-
-	if (Record.has(settings, statusLineStatement)) {
-		return "theirs" as const;
-	}
-
-	yield* Schema.encodeEffect(SettingsFile)(
-		Record.set(settings, statusLineStatement, { command, type: "command" }),
-	).pipe(Effect.flatMap((text) => rewritePrivately(file, `${text}\n`)));
-
-	return "ours" as const;
-});
-
 const removeStatusLine = Effect.fnUntraced(function* removeStatusLine(named: string, command: string) {
 	const file = yield* configFile(named, settingsName);
 	const { settings } = yield* read(file);
@@ -307,7 +286,6 @@ export {
 	configFolder as claudeFolder,
 	followedMarketplace,
 	managedEnv,
-	placeStatusLine,
 	removeStatusLine,
 	rewriteEnv,
 	statusLineStatement,

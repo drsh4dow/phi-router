@@ -6,14 +6,13 @@ import {
 	exemptionName,
 	exemptionReason,
 	keptReason,
-	keptStatusLine,
 	recordReason,
+	removedStatusLine,
 	routerAddress,
 	shellLists,
 	statusLineCommand,
-	statusLineReason,
 } from "./settings.ts";
-import { placeStatusLine, rewriteEnv, statusLineStatement, userSettings } from "#router/client/harnesses/index.ts";
+import { removeStatusLine, rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
 
 const reasonOf = (name: string): string => {
 	if (name === exemptionName) {
@@ -31,13 +30,13 @@ const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 	yield* rewriteEnv(configDir, Struct.assign(claudeEnv, exempt.set), exempt.unset);
 
 	const command = yield* statusLineCommand(configDir);
-	const statusLine = yield* placeStatusLine(configDir, command);
+	const statusLineRemoved = yield* removeStatusLine(configDir, command);
 
-	return { command, exempt, path: settings.path, statusLine };
+	return { exempt, path: settings.path, statusLineLines: Array.filter([removedStatusLine], () => statusLineRemoved) };
 });
 
 const on = Effect.fn("on claude")(function* on(configDir: string) {
-	const { command, exempt, path, statusLine } = yield* switchedOn(configDir);
+	const { exempt, path, statusLineLines } = yield* switchedOn(configDir);
 
 	const lines = pipe(
 		claudeSettings,
@@ -50,12 +49,7 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 		Array.match({ onEmpty: () => [keptReason], onNonEmpty: (written) => written }),
 	);
 
-	const statusLineLines = {
-		ours: [`${statusLineStatement}=${command}`, `  ${statusLineReason}`],
-		theirs: keptStatusLine(command),
-	}[statusLine];
-
-	const count = claudeSettings.length + Record.size(exempt.set) + Number(statusLine === "ours");
+	const count = claudeSettings.length + Record.size(exempt.set);
 	const wrote = `phi-router wrote ${String(count)} settings to ${path}`;
 
 	const restart =

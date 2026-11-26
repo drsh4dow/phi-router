@@ -6,7 +6,6 @@ export {
 	claudeTurn,
 	followedMarketplace,
 	managedEnv,
-	placeStatusLine,
 	removeStatusLine,
 	rewriteEnv,
 	statusLineStatement,
