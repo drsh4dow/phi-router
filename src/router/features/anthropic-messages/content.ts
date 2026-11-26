@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate, Schema, pipe } from "effect";
+import { Array, Effect, Option, Predicate, Record, Schema, pipe } from "effect";
 import type { Located, Span } from "./spans.ts";
 import type { Run, Spelling } from "./runs.ts";
 import type {
@@ -219,14 +219,36 @@ const toolLineOf = (
 		return Option.some(tool.name);
 	}
 
-	const { description, name } = tool.definition;
+	const { description, input_schema: parsed, name } = tool.definition;
+	const strings: string[] = [];
+	const pending: unknown[] = [parsed];
+	let next = Option.fromUndefinedOr(pending.pop());
+
+	while (Option.isSome(next)) {
+		const node = next.value;
+
+		if (Predicate.isString(node)) {
+			strings.push(node);
+		} else if (Array.isArray(node)) {
+			for (const item of node) {
+				pending.push(item);
+			}
+		} else if (Predicate.isObject(node)) {
+			for (const [key, value] of Record.toEntries(node)) {
+				strings.push(key);
+				pending.push(value);
+			}
+		}
+
+		next = Option.fromUndefinedOr(pending.pop());
+	}
 
 	return pipe(
 		span,
 		valueOf("tool"),
 		Option.flatMap(valueOf("definition")),
 		Option.flatMap(valueOf("input_schema")),
-		Option.map((schema) => Array.join([name, description, textOf(schema)], "\n")),
+		Option.map((schema) => Array.join([name, description, textOf(schema), ...strings], "\n")),
 	);
 };
 
