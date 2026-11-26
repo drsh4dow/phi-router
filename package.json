@@ -1,7 +1,7 @@
 {
 	"name": "phi-router",
 	"version": "0.1.0",
-	"description": "Sends each model request from Claude Code, Codex or pi to an open account or a BAA account, by whether it holds PHI.",
+	"description": "Runs Claude Code, Codex or pi on a subscription, with each message that holds PHI replaced by a handle only a BAA account opens.",
 	"keywords": [
 		"pi-package"
 	],

@@ -38,7 +38,7 @@ const codexFound = `phi-router found
 
 const codexEnd = `✓ OpenAI key works
 ✓ Installed phi-router ${version} in Codex
-✓ Test: a fake patient record went to your BAA account, not ChatGPT Plus
+✓ Test: a fake patient record reached ChatGPT Plus only as a handle
 ✓ Codex now sends its requests through phi-router
 
   Everyday work   ChatGPT Plus · you@example.com
@@ -52,7 +52,7 @@ Press Enter to start Codex. It asks once to review phi-router's hooks.
 Pick "Trust all and continue". Until you do, prompts fail and nothing is sent.`;
 
 const piEnd = `✓ Installed phi-router ${version} in pi
-✓ Test: a fake patient record went to your BAA account, not Claude
+✓ Test: a fake patient record reached Claude only as a handle
 
   Everyday work   Claude
   Patient data    Anthropic API key

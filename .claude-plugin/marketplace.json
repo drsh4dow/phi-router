@@ -5,7 +5,7 @@
 		{
 			"name": "phi-router",
 			"source": "./plugins/claude",
-			"description": "Sends each model request to an open account or a BAA account, by whether it holds PHI."
+			"description": "Keeps each model request on your subscription, with each message that holds PHI replaced by a handle only your BAA account opens."
 		}
 	]
 }
