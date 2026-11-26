@@ -49,7 +49,7 @@ const inventory = Effect.gen(function* inventory() {
 			request.messages,
 			Array.map((message) => message.role),
 		),
-		["system", "user", "system", "assistant", "user", "system", "assistant", "toolResult", "system"],
+		["system", "user", "user", "system", "assistant", "user", "system", "assistant", "toolResult", "system"],
 	);
 
 	assert.deepStrictEqual(
@@ -62,6 +62,7 @@ const inventory = Effect.gen(function* inventory() {
 			"SystemSection",
 			"SystemSection",
 			"SystemTools",
+			"Message",
 			"Message",
 			"SystemContent",
 			"Message",
@@ -108,7 +109,10 @@ const joinedNote = Effect.gen(function* joinedNote() {
 });
 
 it.layer(Digest.layerWebCrypto)("content keys of a captured request", (test) => {
-	test.effect("each message, system section and the tool list is a part", () => inventory);
+	test.effect(
+		"each block of a prompt, each other message, system section and the tool list is a part",
+		() => inventory,
+	);
 
 	test.effect(
 		"a tool result keeps its key under another call id, and one changed character changes it",

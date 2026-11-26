@@ -164,7 +164,7 @@ const unreadableWithheld = Effect.gen(function* unreadableWithheld() {
 	const unknownStub = { text: stubs.unknown, type: "text" } as const;
 
 	assert.deepStrictEqual(received.messages, [
-		{ content: [unknownStub], role: "user" },
+		{ content: [{ text: "Summarize the file.", type: "text" }, unknownStub], role: "user" },
 		{ content: [unknownStub, { id: "toolu_1", input: {}, name: "Read", type: "tool_use" }], role: "assistant" },
 		{ content: [{ content: [unknownStub], tool_use_id: "toolu_1", type: "tool_result" }], role: "user" },
 	]);
@@ -197,7 +197,7 @@ const stubKeepsForwarded = Effect.gen(function* stubKeepsForwarded() {
 	} as const;
 
 	assert.deepStrictEqual(toOpen.messages, [
-		{ content: [{ cache_control: ephemeral, text: sealedStub, type: "text" }], role: "user" },
+		{ content: [stubText, { cache_control: ephemeral, text: sealedStub, type: "text" }], role: "user" },
 		{ content: [stubText, call], role: "assistant" },
 		{ content: [result], role: "user" },
 	]);
@@ -216,12 +216,12 @@ it.layer(Digest.layerWebCrypto)("the rewrite rules", (test) => {
 	test.effect("a stubbed reply keeps its last text block's cache_control", () => replyStubKeepsCache);
 
 	test.effect(
-		"a block the codec cannot name reaches an open account as the unknown stub, even when every part cleared",
+		"a block the codec cannot name reaches an open account as the unknown stub, even when every part cleared, and the prompt's other blocks stay readable",
 		() => unreadableWithheld,
 	);
 
 	test.effect(
-		"a stub keeps the cache_control of a prompt's last block, a tool call's caller and cache_control, and a tool result's is_error and cache_control",
+		"a stub keeps the cache_control of its prompt block, a tool call's caller and cache_control, and a tool result's is_error and cache_control",
 		() => stubKeepsForwarded,
 	);
 });
