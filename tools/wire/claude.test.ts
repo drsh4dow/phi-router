@@ -1,6 +1,6 @@
 import { Array, ConfigProvider, Effect, FileSystem, Path, String as Str, pipe } from "effect";
 import { assert, it, vi } from "@effect/vitest";
-import { claudeTurn, place } from "./claude.ts";
+import { claudeTurn, place } from "./claude-turn.ts";
 import { NodeServices } from "@effect/platform-node";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { succeeded } from "./checks.ts";
