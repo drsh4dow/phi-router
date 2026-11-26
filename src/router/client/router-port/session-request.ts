@@ -1,10 +1,10 @@
+import type { AnswerCheck, AnswerChecked, Status } from "#shared/cli.ts";
+import { AnswerCheckJson, AnswerCheckedJson, StatusJson } from "#shared/cli.ts";
 import { Context, Effect, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import type { Status } from "#shared/cli.ts";
-import { StatusJson } from "#shared/cli.ts";
 import { loopback } from "./server.ts";
 
-const sessionPaths = { status: "/phi-router/status" } as const;
+const sessionPaths = { answerCheck: "/phi-router/answer-check", status: "/phi-router/status" } as const;
 
 const ok = 200;
 
@@ -15,7 +15,8 @@ interface Unanswered {
 		| "no router answers there"
 		| `it answered ${number}`
 		| `it took a request and gave no answer within ${typeof patience}`
-		| "its status is not the contract's";
+		| "its status is not the contract's"
+		| "its answer check is not the contract's";
 }
 
 const unanswered = (reason: Unanswered["reason"]): Unanswered => ({ reason });
@@ -28,6 +29,10 @@ class SessionRequests extends Context.Service<
 	SessionRequests,
 	{
 		readonly status: (port: number, session: string) => Effect.Effect<typeof Status.Type, Unanswered>;
+		readonly answerCheck: (
+			port: number,
+			asked: typeof AnswerCheck.Type,
+		) => Effect.Effect<typeof AnswerChecked.Type, Unanswered>;
 	}
 >()("phi-router/router/client/router-port/session-request/SessionRequests") {
 	public static readonly layer = Layer.effect(
@@ -61,7 +66,24 @@ class SessionRequests extends Context.Service<
 				);
 			});
 
-			return SessionRequests.of({ status });
+			const answerCheck = Effect.fn("SessionRequests.answerCheck")(function* answerCheck(
+				port: number,
+				asked: typeof AnswerCheck.Type,
+			) {
+				const body = yield* Effect.orDie(Schema.encodeEffect(AnswerCheckJson)(asked));
+
+				const text = yield* answerTo(port, (origin) =>
+					HttpClientRequest.post(`${origin}${sessionPaths.answerCheck}`).pipe(
+						HttpClientRequest.bodyText(body, "application/json"),
+					),
+				);
+
+				return yield* Effect.mapError(Schema.decodeEffect(AnswerCheckedJson)(text), () =>
+					unanswered("its answer check is not the contract's"),
+				);
+			});
+
+			return SessionRequests.of({ answerCheck, status });
 		}),
 	).pipe(Layer.provide(FetchHttpClient.layer));
 }

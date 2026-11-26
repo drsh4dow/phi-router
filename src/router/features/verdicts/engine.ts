@@ -240,4 +240,8 @@ const verdictsFor = Effect.fn("verdictsFor")(function* verdictsFor<Key extends s
 	return { found, usage: yield* Ref.get(spent) };
 });
 
-export { verdictsFor };
+const noSpend: Spend = () => Effect.void;
+
+const verdictOfPiece = (piece: Piece<string>): Effect.Effect<Verdict, never, Judge> => verdictOf(piece, noSpend);
+
+export { verdictOfPiece, verdictsFor };
