@@ -12,7 +12,17 @@ import { silent } from "#tools/route/resetting.ts";
 
 const patient = { timeout: 120_000 };
 
-const Blocked = Schema.fromJsonString(Schema.Struct({ decision: Schema.Literal("block"), reason: Schema.String }));
+const blockedFields = { decision: Schema.Literal("block"), reason: Schema.String };
+
+const Suppressed = Schema.Struct({
+	hookEventName: Schema.Literal("UserPromptSubmit"),
+	suppressOriginalPrompt: Schema.Literal(true),
+});
+
+const Blocked = {
+	claude: Schema.fromJsonString(Schema.Struct(Struct.assign(blockedFields, { hookSpecificOutput: Suppressed }))),
+	codex: Schema.fromJsonString(Schema.Struct(blockedFields)),
+} as const;
 
 const PromptInput = Schema.fromJsonString(
 	Schema.Struct({
@@ -42,7 +52,7 @@ const blockedWith = Effect.fnUntraced(function* blockedWith(
 ) {
 	const hooked = yield* submitted(world, typed);
 
-	const { reason } = yield* Schema.decodeEffect(Blocked)(hooked.stdout);
+	const { reason } = yield* Schema.decodeEffect(Blocked[typed.harness])(hooked.stdout, { onExcessProperty: "error" });
 
 	assert.deepStrictEqual(
 		{ exitCode: hooked.exitCode, stderr: hooked.stderr },

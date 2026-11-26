@@ -1,6 +1,6 @@
 import { Command, Flag } from "effect/cli";
 import { Console, Effect, Option } from "effect";
-import { modelAddress, pid } from "./adapters.ts";
+import { claude, modelAddress, pid } from "./adapters.ts";
 import { port, session } from "./sessions/index.ts";
 import { Proofs } from "#router/client/router-port/index.ts";
 import { serve } from "./serve.ts";
@@ -9,8 +9,6 @@ import { spelling } from "#shared/cli.ts";
 import { start } from "./start.ts";
 
 const folder = Flag.String(spelling.start.folder);
-
-const claude = Flag.Boolean("claude").pipe(Flag.withDefault(false));
 
 const routerCommands = [
 	Command.make(spelling.start.name, { folder, pid, port, session }, (flags) =>

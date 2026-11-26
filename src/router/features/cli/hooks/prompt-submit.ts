@@ -1,14 +1,23 @@
-import { Console, DateTime, Effect, Option, Schema, String as Str, pipe } from "effect";
+import { Console, DateTime, Effect, Option, Schema, String as Str, Struct, pipe } from "effect";
 import { SessionId, phiCommand } from "#shared/cli.ts";
+import { asksUsage, statusOf } from "./statusline.ts";
 import { statusText, usage } from "./phi-text.ts";
-import { SessionRequests } from "#router/client/router-port/index.ts";
-import { failedAs } from "#router/features/cli/sessions/index.ts";
-import { portOf } from "./session-start.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 
 const HookInput = Schema.fromJsonString(Schema.Struct({ prompt: Schema.String, session_id: SessionId }));
 
-const Blocked = Schema.fromJsonString(Schema.Struct({ decision: Schema.Literal("block"), reason: Schema.String }));
+const Suppressed = Schema.Struct({
+	hookEventName: Schema.Literal("UserPromptSubmit"),
+	suppressOriginalPrompt: Schema.Literal(true),
+});
+
+const Blocked = Schema.fromJsonString(
+	Schema.Struct({
+		decision: Schema.Literal("block"),
+		hookSpecificOutput: Schema.optionalKey(Suppressed),
+		reason: Schema.String,
+	}),
+);
 
 const slashed = /^\/(?:phi-router:)?phi(?:\s+(?<words>[\s\S]*))?$/u;
 
@@ -27,20 +36,32 @@ const wordsOf = (prompt: string): Option.Option<string> => {
 	);
 };
 
-const answerOf = Effect.fnUntraced(function* answerOf(words: string, session: typeof SessionId.Type, port: number) {
-	if (Str.isNonEmpty(Str.trim(words))) {
+const answerOf = Effect.fnUntraced(function* answerOf(words: string, address: string, session: typeof SessionId.Type) {
+	if (asksUsage(words)) {
 		return usage;
 	}
 
-	const requests = yield* SessionRequests;
-	const status = yield* Effect.mapError(requests.status(port, session), failedAs({ command: "status", port }));
+	const status = yield* statusOf(address, session);
 
-	return yield* statusText(status);
+	return `phi-router, ${yield* statusText(status)}`;
 }, DateTime.withCurrentZoneLocal);
 
-const unprotected = "phi-router: this instance's model address names no router, so phi-router does not route it.";
+const suppressed = { hookEventName: "UserPromptSubmit", suppressOriginalPrompt: true } as const;
 
-const promptSubmit = Effect.fn("prompt-submit")(function* promptSubmit(hook: { readonly address: string }) {
+const blockedOf = (reason: string, claude: boolean): typeof Blocked.Type => {
+	const blocked = { decision: "block", reason } as const;
+
+	if (!claude) {
+		return blocked;
+	}
+
+	return Struct.assign(blocked, { hookSpecificOutput: suppressed });
+};
+
+const promptSubmit = Effect.fn("prompt-submit")(function* promptSubmit(hook: {
+	readonly address: string;
+	readonly claude: boolean;
+}) {
 	const text = yield* standardInput;
 	const input = yield* Schema.decodeEffect(HookInput)(text);
 	const words = wordsOf(input.prompt);
@@ -49,17 +70,11 @@ const promptSubmit = Effect.fn("prompt-submit")(function* promptSubmit(hook: { r
 		return;
 	}
 
-	const reason = yield* Option.match(portOf(hook.address), {
-		onNone: () => Effect.succeed(unprotected),
-		onSome: (port) =>
-			answerOf(words.value, input.session_id, port).pipe(
-				Effect.catchTag("RouterUnanswered", (failed) => Effect.succeed(failed.message)),
-			),
-	});
+	const reason = yield* answerOf(words.value, hook.address, input.session_id).pipe(Effect.catch(Effect.succeed));
 
-	const blocked = yield* Schema.encodeEffect(Blocked)({ decision: "block", reason });
+	const shown = yield* Schema.encodeEffect(Blocked)(blockedOf(reason, hook.claude));
 
-	yield* Console.log(blocked);
+	yield* Console.log(shown);
 });
 
 export { promptSubmit };

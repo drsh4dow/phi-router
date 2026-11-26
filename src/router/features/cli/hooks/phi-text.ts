@@ -81,7 +81,7 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 
 	return Array.join(
 		[
-			`phi-router, session ${status.session}`,
+			`session ${status.session}`,
 			`Last request: ${lastOf(status)}`,
 			`Messages: ${String(status.sealed)} sealed, ${String(status.cleared)} cleared`,
 			...pinned,
