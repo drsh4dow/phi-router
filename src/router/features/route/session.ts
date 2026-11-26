@@ -87,14 +87,7 @@ const sessionRows = ({
 				Effect.gen(function* reported() {
 					const summary = yield* routing.store.summary(session, routing.policy);
 					const { last, overflowed } = yield* routing.laneLog.summary(session);
-					const work = yield* routing.sealedStore.summary(session);
-
-					const withheld = pipe(
-						work.withheld,
-						Array.map(({ handle, subagent }) => ({ reply: withheldReply(handle), subagent })),
-					);
-
-					const pinned = { gaveUp: work.gaveUp, rewrites: work.rewrites, runs: work.runs, withheld };
+					const pinned = yield* routing.sealedStore.summary(session, withheldReply);
 					const accounts = yield* listed(served, routing.accountState);
 
 					const body = yield* Schema.encodeEffect(StatusJson)({
