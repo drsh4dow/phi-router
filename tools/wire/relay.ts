@@ -82,7 +82,7 @@ const requestOf = Effect.fnUntraced(function* requestOf(endpoint: string) {
 		return { body, outgoing };
 	}
 
-	return { body, outgoing: HttpClientRequest.bodyText(outgoing, body) };
+	return { body, outgoing: HttpClientRequest.bodyText(outgoing, body, request.headers["content-type"]) };
 });
 
 const relayed = Effect.fnUntraced(function* relayed(upstream: Upstream, relay: Relay) {
