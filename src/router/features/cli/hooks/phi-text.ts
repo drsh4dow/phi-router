@@ -3,6 +3,7 @@ import type { Status } from "#shared/cli.ts";
 import { localTimeOf } from "#router/features/cli/accounts/index.ts";
 import { phiCommand } from "#shared/cli.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
+import { rewriteLimit } from "#router/features/policy/index.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
@@ -98,6 +99,17 @@ const statusLine = (status: Reported): string => {
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
 	`phi-router: ${countOf(sealed.count, "message")} held patient identifiers. The open account sees a handle in place of each. Last request: ${lastOf(sealed.status)}.`;
 
+const withheldWords = {
+	false: { answers: "answer", got: "its handle", them: "it" },
+	true: { answers: "answers", got: "their handles", them: "them" },
+} as const;
+
+const withheldNotice = (count: number): string => {
+	const { answers, got, them } = withheldWords[`${count > one}`];
+
+	return `phi-router: ${String(count)} pinned subagent ${answers} still held patient identifiers after ${String(rewriteLimit)} rewrites, so phi-router withheld ${them}, and the agent got ${got} instead.`;
+};
+
 const subscriptions = {
 	false: { are: "is", yours: "your subscription" },
 	true: { are: "are", yours: "your subscriptions" },
@@ -117,6 +129,6 @@ const overflowNotice = Effect.fnUntraced(function* overflowNotice(overflow: Over
 	return `phi-router: ${why}, so ${countOf(overflow.count, "request")} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
 });
 
-export { overflowNotice, sealNotice, statusLine, statusText, usage };
+export { overflowNotice, sealNotice, statusLine, statusText, usage, withheldNotice };
 
 export type { OpenAccount, Overflow, Reported };
