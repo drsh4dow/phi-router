@@ -295,19 +295,17 @@ That is `no-key`. Its chat cannot go on after the terminal's apply: Codex 0.166 
 
 ## 10. The Claude Code status line
 
-The real claude TUI in tmux with the plugin installed from this checkout and `phi-router on claude`, which writes the same status line as `setup claude`. The script wraps the written command in `tee`, so `$ROOT/statusline.in` holds each JSON Claude Code sent and `$ROOT/statusline.out` each line the command printed. It types a clean and a canary prompt on `phi/auto` and `/phi`, then reopens the same session with `--continue --model claude-sonnet-4-5` and types a clean prompt. `/model` in the session cannot switch: it validates the model with a request the mock answers without usage.
+The real claude TUI in tmux with the plugin installed from this checkout and `phi-router on claude`, which must write no `statusLine`. The script sets a status line of the user's, `echo user-status-line`, types a clean and a canary prompt on `phi/auto` and `/phi`, then reopens the same session with `--continue --model claude-sonnet-4-5`, and last on `phi/auto` with the user's status line removed. Each check reads the rows under the last `❯` line. `/model` in the session cannot switch: it validates the model with a request the mock answers without usage.
 
 ```sh
 recipes/iso.sh statusline statusline.sh
 ```
 
 ```
-statusLine: '…/claude/plugins/data/phi-router-phi-router/phi-router' statusline
-on phi/auto: phi · baa, model target-under-test · 2 sealed · 11 cleared
-/phi: 2 sealed · 11 cleared
-link: …/plugins/claude/bin/phi-router
-on claude-sonnet-4-5: nothing
-stdin:  3 {"session_id":"…","model":{"id":"claude-sonnet-4-5","display_name":"Sonnet 4.5"}} 3 {"session_id":"…","model":{"id":"phi/auto","display_name":"phi/auto"}}
+on phi/auto: user-status-line|phi · open, model target-under-test · 2 sealed · 12 cleared|⏵⏵ auto mode on (shift+tab to cycle)|
+/phi: 2 sealed · 12 cleared
+on claude-sonnet-4-5: user-status-line|⏸ manual mode on · ← for agents|
+alone: phi · open, model target-under-test · 2 sealed · 12 cleared
 ```
 
-The command runs the link the plugin's SessionStart hook keeps in its data folder, `plugins/data/phi-router-phi-router` in the Claude Code folder, because Claude Code puts a plugin's `bin/` on the Bash tool's `PATH` and not on the status line's. The link names the plugin of the session that started last, so a plugin update that moves the cache folder takes effect at the next session, as the update itself does.
+A `FAIL` line names what broke. The plugin's mod, `hooks/mod.js`, draws the row on Claude Code's `StatusLine` render site and answers `/phi` through `command.run`, both by running the launcher's `statusline`, which prints `{"line": …, "reply": …}`. Claude Code puts a no-break space after the `⎿` of a command's reply, so `$ROOT/phi.txt` holds `⎿` and U+00A0 before `phi-router: session`. Claude Code older than 2.1.332 loads no mod and shows neither.

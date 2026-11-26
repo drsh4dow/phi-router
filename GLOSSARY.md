@@ -237,7 +237,7 @@ A repository whose sessions run wholly on the sealed lane.
 Codex's request that names a thread, marked by `thread_source: "thread_title"` in its turn metadata. It runs sealed with the reason `title`, with no judge call and no bridge.
 
 **Status line**:
-The line Claude Code shows below its prompt, which `phi-router statusline` fills with the session's last request, its sealed and cleared counts, and its pinned subagent runs, only while a phi model is picked. pi shows the same in its status bar.
+The row the plugin's mod draws under Claude Code's prompt, below the user's own status line, with the session's last request, its sealed and cleared counts, and its pinned subagent runs, only while a phi model is picked. It needs Claude Code 2.1.332 or later. pi shows the same in its status bar.
 
 **Lane log**:
 One line per routed request, which never holds content. Its reason says why the request ran on its lane: `clean`, not pinned; `pinned`, the model `phi/sealed` or the pinned line; `BAA repo`; `title`, a title request; `failover`, it ended at another account than its first, or no account answered a request that is not pinned; `overflow`, see Overflow; `router failure`, the router could not build its clean body, or the request failed before its walk reached an account.
