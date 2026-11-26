@@ -195,12 +195,42 @@ const overflowMark = (
 		onSome: flow(markOf, Option.some),
 	});
 
+const wide =
+	/[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{20000}-\u{3FFFD}]/u;
+
+const zeroWidth = /\p{Mn}|\p{Me}|\u200D|\uFE0F/u;
+
+const cellsOfChar = (char: string): number => {
+	if (zeroWidth.test(char)) {
+		return none;
+	}
+
+	if (wide.test(char)) {
+		return one + one;
+	}
+
+	return one;
+};
+
+const cellsOf = (text: string): number =>
+	Array.reduce(Array.fromIterable(text), none, (sum, char) => sum + cellsOfChar(char));
+
 const cut = (text: string, width: number): string => {
-	if (text.length <= width) {
+	if (cellsOf(text) <= width) {
 		return text;
 	}
 
-	return `${Str.slice(none, Math.max(width - one, none))(text)}…`;
+	let kept = "";
+
+	for (const char of text) {
+		if (cellsOf(kept) + cellsOfChar(char) > width - one) {
+			break;
+		}
+
+		kept += char;
+	}
+
+	return `${kept}…`;
 };
 
 const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait?: VersionWait) {
@@ -240,13 +270,15 @@ const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait
 
 	const counted = row(account, [...counts, ...notices]);
 
-	if (counted.length <= columns) {
+	if (cellsOf(counted) <= columns) {
 		return counted;
 	}
 
-	const over = row(account, notices).length - columns;
+	const over = cellsOf(row(account, notices)) - columns;
 
-	return cut(row(cut(account, account.length - over), notices), columns);
+	const shortened = cut(account, cellsOf(account) - over);
+
+	return cut(row(shortened, notices), columns);
 });
 
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
