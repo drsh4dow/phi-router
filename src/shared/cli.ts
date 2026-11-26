@@ -35,10 +35,17 @@ const Pinned = Schema.Struct({
 	withheld: Schema.Array(Withheld),
 });
 
+const Last = Schema.Struct({
+	account: Schema.String,
+	model: Schema.String,
+	overflow: Schema.optionalKey(Schema.Boolean),
+	substitute: Schema.Boolean,
+});
+
 const Status = Schema.Struct({
 	accounts: Schema.Struct({ clean: Schema.Array(OpenAccount), sealed: Schema.Array(ConfiguredAccount) }),
 	cleared: Count,
-	last: Schema.NullOr(Schema.Struct({ account: Schema.String, model: Schema.String, substitute: Schema.Boolean })),
+	last: Schema.NullOr(Last),
 	overflowed: Schema.optionalKey(Count),
 	pinned: Schema.optionalKey(Pinned),
 	sealed: Count,

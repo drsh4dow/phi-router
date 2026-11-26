@@ -99,7 +99,7 @@ You keep this:
 
 **Does it work with Codex and pi?** Claude Code and [pi-harness](https://github.com/drsh4dow/pi-harness) run the whole flow. Codex runs the subagent without the answer check. Stock pi has no subagents, so use `phi/sealed` for PHI work. See [SETUP.md](SETUP.md#work-that-needs-phi-in-codex-and-stock-pi).
 
-**What if my subscription hits a rate limit?** List several subscriptions and phi-router moves to the next one. When all are limited, the request runs on the BAA account, with handles still in place of PHI. The status line under the prompt counts those requests and says when the limit ends, and `/phi` shows the session's accounts and counts. phi-router adds nothing to the conversation.
+**What if my subscription hits a rate limit?** List several subscriptions and phi-router moves to the next one. When all are limited, the request runs on the BAA account, with handles still in place of PHI. In Claude Code and pi, the status line under the prompt marks the overflow, with the time the router tries your subscription again when it has one, and `/phi` shows the session's accounts and counts. phi-router adds no notice to their conversation. Codex has no status line, so it says so once at the end of the turn.
 
 ## Security
 

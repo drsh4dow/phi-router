@@ -118,7 +118,7 @@ const spellings = Effect.gen(function* spellings() {
 				folders,
 				Array.map(({ reaches, session }) => [session, reaches]),
 			),
-			realLast: { account: "baa", model: fakes.targetModel, substitute: false },
+			realLast: { account: "baa", model: fakes.targetModel, overflow: false, substitute: false },
 			reasons: ["BAA repo", "clean"],
 		},
 	);

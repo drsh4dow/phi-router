@@ -119,7 +119,7 @@ const cutShort = Effect.gen(function* cutShort() {
 
 	const { last } = yield* log.summary("cut-1");
 
-	assert.deepStrictEqual(last, Option.some({ account: "baa", model: "target", substitute: false }));
+	assert.deepStrictEqual(last, Option.some({ account: "baa", model: "target", overflow: false, substitute: false }));
 });
 
 it.layer(NodeServices.layer)("a lane log the router cannot write", (test) => {
