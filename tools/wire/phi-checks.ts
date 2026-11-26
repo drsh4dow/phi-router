@@ -1,13 +1,14 @@
-import { Array, Effect, Number, String as Str, pipe } from "effect";
+import { Array, Effect, Number, Predicate, Schema, String as Str, pipe } from "effect";
 import type { Asked, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import type { Check, Turned } from "./checks.ts";
-import { isModelPost, isRefused, overflowing } from "./stored.ts";
+import { bridgesFor, sealedStub } from "#router/features/border/index.ts";
+import { everyOf, holds, stubOf } from "./checks.ts";
+import { isModelPost, isRefused, overflowing, tookOf } from "./stored.ts";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
+import { Handle } from "#router/primitives/handle.ts";
+import type { Harness } from "#router/features/border/index.ts";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
-import { everyOf } from "./checks.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
-import { handleAt } from "#router/primitives/handle.ts";
-import { sealedStub } from "#router/features/border/index.ts";
 import { voidedSsn } from "./cases.ts";
 
 const typed = { status: "/phi", usage: "/phi pin" } as const;
@@ -20,7 +21,7 @@ interface Shown {
 	readonly namesSubagent: boolean;
 	readonly namesSealedModel: boolean;
 	readonly seal: boolean;
-	readonly piStatusNamesBaa: boolean;
+	readonly piStatusSealedOnOpen: boolean;
 	readonly handled: boolean;
 }
 
@@ -42,7 +43,7 @@ const shownIn = (printed: string): Shown => {
 		handled: has(`"disposition":"handled"`),
 		namesSealedModel: has(`switch the model to ${pinnedModel}`),
 		namesSubagent: has("hand it to the phi-sealed subagent"),
-		piStatusNamesBaa: has("phi · baa, model "),
+		piStatusSealedOnOpen: has("phi · open, model ") && has(" · 1 sealed · "),
 		pinLine: has("Pin: "),
 		seal: has(sealWords),
 		statusBlock: has("Clean lane: open") && has("Sealed lane: baa") && has(" sealed, ") && has("Last request: "),
@@ -89,13 +90,16 @@ const shownChecksOf = ({
 	usageCheckOf(harness, turns.usage),
 ];
 
-const sealCheckOf = ([sealing, ...others]: readonly [PhiTurned, ...PhiTurned[]]): Check => ({
-	name: "the turn that seals shows the seal notice, and no other turn does",
+const sealCheckOf = (turns: {
+	readonly sealing: readonly PhiTurned[];
+	readonly others: readonly PhiTurned[];
+}): Check => ({
+	name: "each turn that seals a new part shows the seal notice, and no other turn does",
 	ok:
-		sealing.shown.seal &&
+		everyOf(turns.sealing, ({ shown }) => shown.seal) &&
 		!pipe(
-			others,
-			Array.some((other) => other.shown.seal),
+			turns.others,
+			Array.some(({ shown }) => shown.seal),
 		),
 });
 
@@ -130,10 +134,12 @@ interface HandedOff {
 	readonly harness: "claude" | "codex";
 	readonly handedOff: Turned;
 	readonly after: Turned;
+	readonly answer: `h${number}`;
 }
 
-const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Check[] => {
+const subagentChecksOf = ({ after, answer, handedOff, harness }: HandedOff): readonly Check[] => {
 	const started = pipe(handedOff.baa, Array.filter(isSubagent));
+	const stub = stubOf(harness)(answer);
 
 	const mainOpen = pipe(
 		handedOff.open,
@@ -153,19 +159,77 @@ const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Ch
 			ok: everyOf(mainOpen, (sent) => naming(fakes.targetModel)(sent) && !isSubagent(sent)),
 		},
 		{
-			name: "the pinned subagent's answer, which holds a canary, reaches the BAA mock in the main session",
-			ok: pipe(
-				handedOff.baa,
-				Array.some((sent) => !isSubagent(sent) && holdsAnswer(sent)),
-			),
+			name: `the pinned subagent's answer, which holds a canary, reaches the open mock as the stub of ${answer}, and no request of the main session reaches the BAA mock`,
+			ok:
+				pipe(
+					mainOpen,
+					Array.some(({ body }) => Str.includes(stub)(body)),
+				) && pipe(handedOff.baa, Array.every(isSubagent)),
 		},
 		{
 			name: "the next turn reaches the open mock with the stub in place of the subagent's answer",
 			ok:
 				pipe(
 					after.open,
-					Array.some(({ body }) => Str.includes(sealedStub(harness)(handleAt(1)))(body)),
+					Array.some(({ body }) => Str.includes(stub)(body)),
 				) && !pipe(opened, Array.some(holdsAnswer)),
+		},
+	];
+};
+
+interface Handled {
+	readonly canaries: readonly string[];
+	readonly read: Turned;
+	readonly untilCompaction: readonly Turned[];
+	readonly handedOff: Turned;
+	readonly compacted: Turned;
+	readonly reopened: Turned;
+	readonly beforeOverflow: readonly Turned[];
+	readonly lines: readonly LaneLogLine[];
+}
+
+const postsTo =
+	(mock: "open" | "baa") =>
+	(turn: Turned): readonly Sent[] =>
+		pipe(turn[mock], Array.filter(isModelPost));
+
+const isRootLine = ({ reason }: LaneLogLine): boolean => reason === "clean";
+
+const isPinnedLine = ({ reason }: LaneLogLine): boolean => reason === "pinned";
+
+const handleChecksOf = (played: Handled): readonly Check[] => {
+	const [, ...afterRead] = postsTo("open")(played.read);
+	const later = [...afterRead, ...pipe(played.untilCompaction, Array.flatMap(postsTo("open")))];
+	const baaBefore = pipe(played.beforeOverflow, Array.flatMap(postsTo("baa")));
+	const tookBefore = pipe(played.beforeOverflow, Array.flatMap(tookOf), Array.filter(isModelPost));
+	const linesBefore = Array.take(played.lines, tookBefore.length);
+	const opened = holds(["[content of h1]", "[end of h1]"]);
+
+	const opensFirstHandle = (sent: Sent): boolean => isSubagent(sent) && opened(sent) && holds(played.canaries)(sent);
+
+	return [
+		{
+			name: "AC1: after a Read tool result holds the canary, every later root-agent request up to the compaction reaches the open mock with the stub of h2 in its place",
+			ok: everyOf(later, (sent) => holds([stubOf("claude")("h2")])(sent) && !holds(played.canaries)(sent)),
+		},
+		{
+			name: "AC1: before the overflow the BAA mock receives only the pinned subagent's requests, and the lane log says clean for every root-agent request",
+			ok:
+				pipe(baaBefore, Array.every(isSubagent)) &&
+				pipe(linesBefore, Array.every(Predicate.or(isRootLine, isPinnedLine))) &&
+				Array.countBy(linesBefore, isPinnedLine) === baaBefore.length,
+		},
+		{
+			name: "AC3: the open mock's Agent call starts phi-router:phi-sealed with a task naming h1, the BAA mock receives it with the canary in place of h1, and the open mock never does",
+			ok:
+				pipe(played.handedOff.baa, Array.some(opensFirstHandle)) &&
+				!pipe(played.handedOff.open, Array.some(holds(played.canaries))),
+		},
+		{
+			name: "AC6: after /compact and a router restart on the same state folder, the pinned subagent's task naming h1 reaches the BAA mock with the canary in place of h1",
+			ok:
+				Array.isReadonlyArrayNonEmpty(postsTo("open")(played.compacted)) &&
+				pipe(played.reopened.baa, Array.some(opensFirstHandle)),
 		},
 	];
 };
@@ -191,6 +255,8 @@ interface PrintedTurn extends Turned {
 }
 
 interface Overflowed {
+	readonly harness: Harness;
+	readonly canaries: readonly string[];
 	readonly after: readonly [PrintedTurn, ...PrintedTurn[]];
 	readonly status: PrintedTurn;
 	readonly command: string;
@@ -214,6 +280,19 @@ const holding =
 	({ body }: Sent): boolean =>
 		Str.includes(prompt)(body);
 
+const stubbedHandles = /(?<=\[sealed )h[1-9]\d*(?=\])/gu;
+
+const handleOf = Schema.decodeUnknownOption(Handle);
+
+const holdsStub =
+	(harness: Harness) =>
+	({ body }: Sent): boolean =>
+		pipe(
+			Array.fromIterable(Str.matchAll(stubbedHandles)(body)),
+			Array.flatMap(([stubbed]) => Array.fromOption(handleOf(stubbed))),
+			Array.some((handle) => Str.includes(sealedStub(harness)(handle))(body)),
+		);
+
 const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 	const [overflowed, ...later] = played.after;
 
@@ -235,7 +314,14 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 		Array.flatMap(({ baa }) => baa),
 	);
 
+	const isRootOverflow = Predicate.and(holding(overflowing), holding(bridgesFor[played.harness]));
+	const rootOverflowed = pipe(overflowed.baa, Array.filter(isRootOverflow));
+
 	return [
+		{
+			name: "AC18: after the open mock answers 429, the root agent's request reaches the BAA mock with each sealed part as a stub with its handle, and never the canary",
+			ok: everyOf(rootOverflowed, (sent) => holdsStub(played.harness)(sent) && !holds(played.canaries)(sent)),
+		},
 		{
 			name: "after the open mock answers 429, the clean turn reaches the BAA mock and its lane log line says overflow",
 			ok:
@@ -265,6 +351,7 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 };
 
 export {
+	handleChecksOf,
 	handOff,
 	insideStamp,
 	isSubagent,

@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Path, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, FileSystem, Path, Predicate, Schema, String as Str, pipe } from "effect";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { laneLines } from "#tools/route/mocked-router.ts";
@@ -6,6 +6,7 @@ import { privacyUnder } from "#tools/route/private.ts";
 
 interface Stored {
 	readonly fileTexts: readonly string[];
+	readonly sealedTexts: readonly string[];
 	readonly laneLogText: string;
 	readonly lines: readonly LaneLogLine[];
 	readonly notPrivate: readonly string[];
@@ -50,20 +51,27 @@ const stampClockIn = Effect.fnUntraced(function* stampClockIn(state: string) {
 	);
 });
 
+const sealedStore = /\.sealed\.json$|^files(?:\/|$)/u;
+
+const isSealedStore = (name: string): boolean => sealedStore.test(name);
+
 const storedIn = Effect.fnUntraced(function* storedIn(folder: string, roots: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const names = yield* fs.readDirectory(folder, { recursive: true });
+	const sealed = pipe(names, Array.filter(isSealedStore));
+	const others = pipe(names, Array.filter(Predicate.not(isSealedStore)));
 
 	const read = (name: string): Effect.Effect<string> =>
 		fs.readFileString(path.join(folder, name)).pipe(Effect.orElseSucceed(() => ""));
 
-	const fileTexts = yield* Effect.forEach(names, read, { concurrency: 1 });
+	const fileTexts = yield* Effect.forEach(others, read, { concurrency: 1 });
+	const sealedTexts = yield* Effect.forEach(sealed, read, { concurrency: 1 });
 	const lines = yield* laneLines(folder);
 	const laneLogText = yield* read("lanes.jsonl");
 	const { notPrivate } = yield* privacyUnder(roots);
 
-	return { fileTexts, laneLogText, lines, notPrivate } satisfies Stored;
+	return { fileTexts, laneLogText, lines, notPrivate, sealedTexts } satisfies Stored;
 });
 
 const laneLogHolds = (run: {

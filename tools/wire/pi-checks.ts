@@ -1,6 +1,6 @@
 import { Array, Effect, Option, Schema, String as Str, pipe } from "effect";
 import type { Check, Played, Run } from "./checks.ts";
-import { commonChecksOf, isAsSent, isBaaOnly } from "./checks.ts";
+import { commonChecksOf, isAsSent, isBaaOnly, stubOf } from "./checks.ts";
 import { fakes, harnesses } from "#tools/route/mocked-router.ts";
 import {
 	insideStamp,
@@ -18,8 +18,6 @@ import type { RpcLine } from "./pi-run.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { foundIn } from "#tools/corpus/request-bodies.ts";
 import { rpcAnswered } from "./pi-run.ts";
-import { handleAt } from "#router/primitives/handle.ts";
-import { sealedStub } from "#router/features/border/index.ts";
 
 interface PiTurned extends PhiTurned {
 	readonly printed: string;
@@ -98,12 +96,19 @@ const wireChecksOf = (played: PiPlayed): readonly Check[] => {
 			ok: Array.isReadonlyArrayNonEmpty(cleanCase) && pipe(cleanCase, Array.every(isAsSent)),
 		},
 		{
-			name: "the canary case reaches the BAA mock with the BAA key and without the open credential",
-			ok: holdsAny(played.canaries)(canary.baa) && pipe(baa, Array.every(isBaaOnly)),
+			name: "the canary turn reaches the open mock with the stub of h1 in place of the prompt, and the BAA mock gets none",
+			ok:
+				holdsAny([stubOf("pi")("h1")])(canary.open) &&
+				!holdsAny(played.canaries)(canary.open) &&
+				Array.isReadonlyArrayEmpty(canary.baa),
+		},
+		{
+			name: "every request to the BAA mock carries the BAA key and not the open credential",
+			ok: pipe(baa, Array.every(isBaaOnly)),
 		},
 		{
 			name: "the follow-up reaches the open mock with the stub in place of the sealed part",
-			ok: holdsAny([sealedStub("pi")(handleAt(1))])(followUp.open),
+			ok: holdsAny([stubOf("pi")("h1")])(followUp.open),
 		},
 		{
 			name: "each request reached the router with x-phi-session naming its pi session, the compaction's included",
@@ -154,8 +159,10 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 	...overflowChecksOf({
 		after: played.overflow.after,
 		all: played.turns,
+		canaries: played.canaries,
 		clock: played.clock,
 		command: "/phi",
+		harness: "pi",
 		lines: played.stored.lines,
 		session: played.overflow.session,
 		status: played.overflow.status,
@@ -260,7 +267,7 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 	const checks: readonly Check[] = [
 		...phiChecksOf(phi),
 		...shownChecksOf({ harness: "pi", turns: phi }),
-		sealCheckOf([sealing, ...phi.inOrder]),
+		sealCheckOf({ others: phi.inOrder, sealing: [sealing] }),
 		{
 			name: "pi runs /phi and /phi pin as its extension command, which starts no run",
 			ok: pipe(
@@ -269,8 +276,8 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 			),
 		},
 		{
-			name: "after the turn that seals, pi's status line names the BAA account and its model",
-			ok: sealing.shown.piStatusNamesBaa,
+			name: "after the turn that seals, pi's status line names the open account and counts the sealed message",
+			ok: sealing.shown.piStatusSealedOnOpen,
 		},
 		...sealedModelChecksOf(chosen),
 	];
