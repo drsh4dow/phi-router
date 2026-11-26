@@ -134,18 +134,17 @@ interface HandedOff {
 	readonly harness: "claude" | "codex";
 	readonly handedOff: Turned;
 	readonly after: Turned;
-	readonly answer: `h${number}`;
 }
 
-const subagentChecksOf = ({ after, answer, handedOff, harness }: HandedOff): readonly Check[] => {
-	const started = pipe(handedOff.baa, Array.filter(isSubagent));
-	const stub = stubOf(harness)(answer);
-
-	const mainOpen = pipe(
+const mainOpenOf = (handedOff: Turned): readonly Sent[] =>
+	pipe(
 		handedOff.open,
 		Array.filter(({ method }) => method === "POST"),
 	);
 
+const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Check[] => {
+	const started = pipe(handedOff.baa, Array.filter(isSubagent));
+	const mainOpen = mainOpenOf(handedOff);
 	const opened = [...handedOff.open, ...after.open];
 
 	return [
@@ -158,6 +157,19 @@ const subagentChecksOf = ({ after, answer, handedOff, harness }: HandedOff): rea
 			name: "the main session's clean requests keep reaching the open mock under the target model",
 			ok: everyOf(mainOpen, (sent) => naming(fakes.targetModel)(sent) && !isSubagent(sent)),
 		},
+	];
+};
+
+const answerStubChecksOf = ({
+	after,
+	answer,
+	handedOff,
+}: HandedOff & { readonly answer: `h${number}` }): readonly Check[] => {
+	const stub = stubOf("codex")(answer);
+	const mainOpen = mainOpenOf(handedOff);
+	const opened = [...handedOff.open, ...after.open];
+
+	return [
 		{
 			name: `the pinned subagent's answer, which holds a canary, reaches the open mock as the stub of ${answer}, and no request of the main session reaches the BAA mock`,
 			ok:
@@ -370,6 +382,7 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 };
 
 export {
+	answerStubChecksOf,
 	handleChecksOf,
 	handleOpenedCheckOf,
 	handOff,
