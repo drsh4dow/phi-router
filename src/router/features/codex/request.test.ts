@@ -1,13 +1,14 @@
 import { Array, Effect, Exit, Function, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
 import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
 import type { CodexRequest, CodexRequestRejected } from "./index.ts";
-import { allCleared, cleanBodyPastBorder, decodedAfter, nothingWritten, realModel, writersOf } from "./test-kit.ts";
+import { allCleared, cleanBodyPastBorder, decodedAfter, h1, nothingWritten, realModel, writersOf } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
 import { replies, requests } from "./captures/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import { bridgesFor } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
+import { opened } from "#router/primitives/handle.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
@@ -222,6 +223,23 @@ const anyTextIdentity = ({
 
 const bigNumber = Str.replace('"parameters":{', '"parameters":{"maximum":9007199254740993,')(requests.functionCall);
 
+const askNamingHandle = '"Redact h1, then run the shell command."';
+
+const askOpened = `"Redact [content of h1]\\n${canary}\\n[end of h1], then run the shell command."`;
+
+const opensHandle = Effect.gen(function* opensHandle() {
+	const request = yield* decoded(Str.replace(lastAsk, askNamingHandle)(bigNumber));
+
+	const sent = yield* request.encode({
+		added: [bridgesFor.codex],
+		lane: "sealed",
+		open: opened((handle) => Option.liftPredicate(canary, () => handle === h1)),
+		upstreamModel: request.model,
+	});
+
+	assert.strictEqual(sent, withBridge(Str.replace(lastAsk, askOpened)(bigNumber)));
+});
+
 const tokenFree = (text: string): Effect.Effect<void> =>
 	Effect.sync(() => {
 		for (const pattern of tokenPatterns) {
@@ -290,6 +308,10 @@ it.layer(Digest.layerWebCrypto)("Codex codec", (test) => {
 		sealedIdentity(text),
 	);
 	test.effect("the sealed lane keeps a number past 2^53 as Codex wrote it", () => sealedIdentity(bigNumber));
+	test.effect(
+		"the sealed lane puts the content behind a handle a user message names in place of the handle, and keeps every other byte, a number past 2^53 and encrypted reasoning included",
+		() => opensHandle,
+	);
 	test.effect.prop("decode then encode keeps any user text byte for byte", { text: Schema.String }, anyTextIdentity);
 	test.effect(
 		"a request's model is the one Codex named, and the sealed lane gets only it changed and the bridge added",
