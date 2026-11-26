@@ -454,6 +454,7 @@ export {
 	openScriptOf,
 	readChart,
 	resultOf,
+	rewritten,
 	said,
 	tasksFor,
 };

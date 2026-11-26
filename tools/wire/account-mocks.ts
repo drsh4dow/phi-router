@@ -1,6 +1,6 @@
 import { Array, Effect, Function, Option, String as Str, Struct, pipe } from "effect";
 import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
-import { calling, resultOf, said } from "./answer-checks.ts";
+import { calling, resultOf, rewritten, said } from "./answer-checks.ts";
 import { delegated, lookUp, overdueFile, overdueId, quote } from "./account-turns.ts";
 import { mocked } from "#tools/route/mocked-router.ts";
 import { voidedSsn } from "./cases.ts";
@@ -89,14 +89,12 @@ const handBackTool = '"name":"SubagentHandback"';
 
 const handedBack = "toolu_acc_handback_";
 
-const rewritten = "This is rewrite attempt";
-
 const answerOf = (task: Task, { body }: Asked): string => {
 	if (task.name === "look_up") {
 		return `The overdue payment is ${overdueId}.`;
 	}
 
-	if (Str.includes(rewritten)(body) && !Str.includes(handBackTool)(body)) {
+	if (rewritten(body) && !Str.includes(handBackTool)(body)) {
 		return `I cannot quote it. The overdue payment is ${overdueId}.`;
 	}
 
