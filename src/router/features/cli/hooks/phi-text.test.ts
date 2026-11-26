@@ -144,6 +144,13 @@ it.effect(
 				Struct.assign(waiting, { installed: "0.6.0-rc.20261126.1234567890" }),
 			);
 
+			const wideNamed = yield* statusLine(
+				Struct.assign(noticed, {
+					last: Struct.assign(ranLast, { account: "東京診療所の研究開発部門向けAnthropic企業契約アカウント" }),
+				}),
+				waiting,
+			);
+
 			const unstamped = Struct.assign(noticed.accounts, {
 				clean: [{ name: "claude-1", vendor: "anthropic" as const }],
 			});
@@ -167,6 +174,7 @@ it.effect(
 					reply,
 					roomy,
 					unanswered,
+					wideNamed,
 				},
 				{
 					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
@@ -186,6 +194,7 @@ it.effect(
 					],
 					roomy: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
 					unanswered: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld · overflow",
+					wideNamed: "phi · 東京診療所… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 				},
 			);
 		}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
