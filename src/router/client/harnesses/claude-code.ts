@@ -244,6 +244,71 @@ const removeStatusLine = Effect.fnUntraced(function* removeStatusLine(named: str
 	return ours;
 });
 
+const Row = Schema.Struct({
+	behavesAs: Schema.String,
+	description: Schema.optionalKey(Schema.String),
+	label: Schema.optionalKey(Schema.String),
+	model: Schema.String,
+});
+
+type PickerRow = typeof Row.Type;
+
+const modelPickerStatement = "modelPicker";
+
+const rowsOf = Schema.decodeUnknownOption(Schema.Struct({ options: Schema.Array(Schema.JsonObject) }));
+
+const pickModels = Effect.fnUntraced(function* pickModels(
+	named: string,
+	models: readonly string[],
+	rows: readonly PickerRow[],
+) {
+	const file = yield* configFile(named, settingsName);
+	const { settings } = yield* read(file);
+	const picker = Option.getOrElse(asObject(settings[modelPickerStatement]), () => Record.empty<string, Schema.Json>());
+
+	const options = pipe(
+		rowsOf(picker),
+		Option.match({ onNone: (): readonly Schema.JsonObject[] => [], onSome: (decoded) => decoded.options }),
+	);
+
+	const left = [
+		...pipe(
+			options,
+			Array.filter(
+				(row) =>
+					!pipe(
+						models,
+						Array.some((model) => model === row["model"]),
+					),
+			),
+		),
+		...rows,
+	];
+
+	const picked: Option.Option<Schema.Json> = Option.firstSomeOf([
+		pipe(
+			Option.liftPredicate(left, Array.isReadonlyArrayNonEmpty),
+			Option.map((kept) => Struct.assign(picker, { options: kept })),
+		),
+		Option.liftPredicate(Record.remove(picker, "options"), Predicate.not(Record.isEmptyRecord)),
+	]);
+
+	const after = Option.match(picked, {
+		onNone: () => Record.remove(settings, modelPickerStatement),
+		onSome: (kept) => Record.set(settings, modelPickerStatement, kept),
+	});
+
+	const before = yield* Schema.encodeEffect(SettingsFile)(settings);
+	const text = yield* Schema.encodeEffect(SettingsFile)(after);
+	const changed = text !== before;
+
+	if (changed) {
+		yield* rewritePrivately(file, `${text}\n`);
+	}
+
+	return changed;
+});
+
 const claudePluginData = Effect.fnUntraced(function* claudePluginData(named: string, id: string) {
 	return yield* configFile(named, `plugins/data/${Str.replaceAll(/[^\w-]/gu, "-")(id)}`);
 });
@@ -293,10 +358,12 @@ export {
 	configFolder as claudeFolder,
 	followedMarketplace,
 	managedEnv,
+	modelPickerStatement,
+	pickModels,
 	removeStatusLine,
 	rewriteEnv,
 	statusLineStatement,
 	userSettings,
 };
 
-export type { UserSettings };
+export type { PickerRow, UserSettings };
