@@ -85,9 +85,9 @@ it.effect("the status line shows pi's status bar entry, and the pinned subagent'
 		assert.deepStrictEqual(
 			[
 				statusLine(status),
-				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 0, runs: 0 } })),
-				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 0, runs: 1 } })),
-				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 2, runs: 3 } })),
+				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 0, runs: 0, withheld: [] } })),
+				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 0, runs: 1, withheld: [] } })),
+				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 2, runs: 3, withheld: [] } })),
 			],
 			[
 				"phi · baa, model claude-sealed · 1 sealed · 2 cleared",

@@ -14,12 +14,11 @@ import {
 	Struct,
 	pipe,
 } from "effect";
+import { Handle, handleAt } from "#router/primitives/handle.ts";
 import { folderPrivately, writePrivately } from "./private-file.ts";
 import { Base64Url } from "effect/encoding";
-import type { Handle } from "#router/primitives/handle.ts";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
-import { handleAt } from "#router/primitives/handle.ts";
 
 const none = 0;
 
@@ -27,7 +26,12 @@ const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(none));
 
 const SealedPart = Schema.Struct({ images: Count, key: Schema.String, text: Schema.String });
 
-const PinnedRun = Schema.Struct({ gaveUp: Count, inARow: Count, rewrites: Count });
+const PinnedRun = Schema.Struct({
+	gaveUp: Count,
+	inARow: Count,
+	rewrites: Count,
+	withheld: Schema.optionalKey(Schema.String),
+});
 
 const Stored = Schema.Struct({
 	answers: Schema.Record(Schema.String, PinnedRun),
@@ -54,6 +58,7 @@ interface PinnedSummary {
 	readonly runs: number;
 	readonly rewrites: number;
 	readonly gaveUp: number;
+	readonly withheld: readonly { readonly subagent: string; readonly handle: typeof Handle.Type }[];
 }
 
 const empty: StoredFile = { answers: {}, parts: [] };
@@ -108,6 +113,15 @@ const summaryOf = (stored: StoredFile): PinnedSummary => {
 			Num.sumAll,
 		),
 		runs: runs.length,
+		withheld: pipe(
+			Record.toEntries(stored.answers),
+			Array.flatMap(([subagent, { withheld }]) =>
+				Option.match(Option.flatMap(Option.fromUndefinedOr(withheld), Schema.decodeOption(Handle)), {
+					onNone: () => [],
+					onSome: (handle) => [{ handle, subagent }],
+				}),
+			),
+		),
 	};
 };
 
