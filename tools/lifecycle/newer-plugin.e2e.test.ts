@@ -51,6 +51,7 @@ const newerJoins = Effect.fnUntraced(function* newerJoins(routerVersion: readonl
 	const first = yield* instance();
 	const second = yield* instance();
 	const opened = yield* instance();
+	const openedInClaude = yield* instance();
 
 	yield* here.start(first.pid);
 
@@ -58,7 +59,8 @@ const newerJoins = Effect.fnUntraced(function* newerJoins(routerVersion: readonl
 	const joined = yield* here.start(second.pid, newer);
 	const opening = { entry: newer, env: here.env, harness: "codex" as const, pid: opened.pid, port: here.port };
 	const atSessionStart = yield* hooked(Struct.assign(opening, { event: "SessionStart" }));
-	const inClaude = yield* hooked(Struct.assign(opening, { event: "SessionStart", harness: "claude" as const }));
+	const claudeOpening = { event: "SessionStart", harness: "claude" as const, pid: openedInClaude.pid };
+	const inClaude = yield* hooked(Struct.assign(opening, claudeOpening));
 	const atPrompt = yield* hooked(Struct.assign(opening, { event: "UserPromptSubmit" }));
 	const shown = yield* shownBy(newer, here.port, here.env);
 	const after = yield* routersOn(older, here.port);
@@ -72,7 +74,7 @@ const newerJoins = Effect.fnUntraced(function* newerJoins(routerVersion: readonl
 			atSessionStart: { exitCode: 0, printed: `{"systemMessage":"${waiting(running)}"}\n` },
 			inClaude: silent,
 			joined: silent,
-			leases: [first.pid, second.pid, opened.pid],
+			leases: [first.pid, second.pid, opened.pid, openedInClaude.pid],
 			newer: [],
 			shown: {
 				line: "phi · none yet · 0 sealed · 0 cleared · 0.5.0 pending",
