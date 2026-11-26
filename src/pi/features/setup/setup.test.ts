@@ -109,6 +109,7 @@ const ranIn = Effect.fnUntraced(function* ranIn(world: World) {
 	);
 
 	const router = Router.of({
+		answerCheck: () => Effect.die("setup checks no answer"),
 		models: Effect.succeed({}),
 		setUp: ({ answers, keys, shown }) =>
 			Effect.sync(() => {

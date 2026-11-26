@@ -1,6 +1,7 @@
 import {
 	Array,
 	Clock,
+	Config,
 	DateTime,
 	Duration,
 	Effect,
@@ -34,6 +35,7 @@ interface Seen {
 	readonly sealed: number;
 	readonly overflowed?: number;
 	readonly quietUntil?: number;
+	readonly gaveUp?: number;
 }
 
 const unrouted = `phi-router: this session's model is not a ${piWire.provider} model, so phi-router does not route it.`;
@@ -96,6 +98,24 @@ const openNameOf = (account: OpenAccount): Effect.Effect<string, never, DateTime
 		),
 	});
 
+const countOf = (count: number, noun: string): string => {
+	if (count === one) {
+		return `1 ${noun}`;
+	}
+
+	return `${String(count)} ${noun}s`;
+};
+
+const pinnedLines = (status: Reported): readonly string[] =>
+	pipe(
+		Option.fromUndefinedOr(status.pinned),
+		Option.map(
+			({ gaveUp, rewrites, runs }) =>
+				`Pinned subagent: ${countOf(runs, "run")}, ${countOf(rewrites, "rewrite")}, ${countOf(gaveUp, "answer")} withheld`,
+		),
+		Option.toArray,
+	);
+
 const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 	const clean = yield* Effect.forEach(status.accounts.clean, openNameOf, { concurrency: 1 });
 
@@ -109,6 +129,7 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 			`phi-router, session ${status.session}`,
 			`Last request: ${lastOf(status)}`,
 			`Messages: ${String(status.sealed)} sealed, ${String(status.cleared)} cleared`,
+			...pinnedLines(status),
 			`Clean lane: ${listOf(clean)}`,
 			`Sealed lane: ${listOf(sealed)}`,
 		],
@@ -116,16 +137,22 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 	);
 });
 
-const statusLine: Shows = (status) =>
-	Array.join(["phi", lastOf(status), `${String(status.sealed)} sealed`, `${String(status.cleared)} cleared`], " · ");
+const statusLine: Shows = (status) => {
+	const runs = pipe(
+		Option.fromUndefinedOr(status.pinned),
+		Option.filter(({ runs: count }) => count >= one),
+		Option.map(({ runs: count }) => countOf(count, "pinned run")),
+		Option.toArray,
+	);
 
-const countOf = (count: number, noun: string): string => {
-	if (count === one) {
-		return `1 ${noun}`;
-	}
-
-	return `${String(count)} ${noun}s`;
+	return Array.join(
+		["phi", lastOf(status), `${String(status.sealed)} sealed`, `${String(status.cleared)} cleared`, ...runs],
+		" · ",
+	);
 };
+
+const gaveUpNotice = (count: number): string =>
+	`phi-router withheld ${countOf(count, "answer")} of the pinned subagent: each still held patient identifiers after its last rewrite, so the agent received its handle instead.`;
 
 const sealNotice: (sealed: { readonly newlySealed: number; readonly status: Reported }) => string = (sealed) =>
 	`phi-router: ${countOf(sealed.newlySealed, "message")} held patient identifiers. The open account sees a handle in place of each. Last request: ${lastOf(sealed.status)}.`;
@@ -225,8 +252,15 @@ const printedLine: (failed: Pick<CommandFailed, "cause">) => string = (failed) =
 const failureText: (failed: Pick<CommandFailed, "cause" | "command">) => string = (failed) =>
 	`phi-router ${failed.command} failed: ${printedLine(failed)}`;
 
-const sessionOf: (ctx: ShownContext) => typeof SessionId.Type = (ctx) =>
-	SessionId.make(ctx.sessionManager.getSessionId());
+const rootSession: Effect.Effect<Option.Option<string>> = Effect.orDie(
+	Config.option(Config.String(piWire.sessionVariable)),
+);
+
+const sessionOf = (ctx: Pick<ShownContext, "sessionManager">): Effect.Effect<typeof SessionId.Type> =>
+	rootSession.pipe(
+		Effect.map(Option.getOrElse(() => ctx.sessionManager.getSessionId())),
+		Effect.map((session) => SessionId.make(session)),
+	);
 
 const routed = (ctx: Pick<ShownContext, "model">): boolean =>
 	pipe(
@@ -248,7 +282,8 @@ const answered: (port: number) => (words: string, ctx: ShownContext) => Effect.E
 			});
 		}
 
-		return Router.use((client) => client.status(sessionOf(ctx), port)).pipe(
+		return sessionOf(ctx).pipe(
+			Effect.flatMap((session) => Router.use((client) => client.status(session, port))),
 			Effect.flatMap((status) => Effect.map(statusText(status), (text) => ({ status, text }))),
 			Effect.match({
 				onFailure: (failed) => {
@@ -277,17 +312,23 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 					return;
 				}
 
-				const session = sessionOf(ctx);
+				const session = yield* sessionOf(ctx);
 				const status = yield* Router.use((client) => client.status(session, port));
 				const now = yield* Clock.currentTimeMillis;
-				const seenNow: Seen = { overflowed: status.overflowed ?? none, sealed: status.sealed };
-				const firstSeen = { false: seenNow, true: { sealed: none } }[`${announce}`];
+
+				const gaveUp = pipe(
+					Option.fromUndefinedOr(status.pinned),
+					Option.match({ onNone: () => none, onSome: (pinned) => pinned.gaveUp }),
+				);
+
+				const seenNow: Seen = { gaveUp, overflowed: status.overflowed ?? none, sealed: status.sealed };
+				const firstSeen: Seen = { false: seenNow, true: { sealed: none } }[`${announce}`];
 
 				const [before, overflow] = yield* Ref.modify(seen, (all) => {
 					const was = Option.getOrElse(Record.get(all, session), () => firstSeen);
 					const [told, after] = overflowAt(status, now, was);
 
-					return [[was, told] as const, Record.set(all, session, after)];
+					return [[was, told] as const, Record.set(all, session, Struct.assign(after, { gaveUp }))];
 				});
 
 				const overflowText = yield* Effect.transposeOption(pipe(overflow, Option.map(overflowNotice)));
@@ -300,6 +341,10 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 
 				if (Option.isSome(overflowText)) {
 					ctx.ui.notify(overflowText.value, "warning");
+				}
+
+				if (gaveUp > (before.gaveUp ?? none)) {
+					ctx.ui.notify(gaveUpNotice(gaveUp - (before.gaveUp ?? none)), "warning");
 				}
 			}).pipe(
 				Effect.catchTag("CommandFailed", (failed) =>
@@ -314,6 +359,6 @@ const observerOn = Effect.fnUntraced(function* observerOn(port: number) {
 	return { afterTurn: observe(true), atStart: observe(false) };
 });
 
-export { answered, observerOn, printedLine, routed, usage };
+export { answered, failureText, observerOn, printedLine, rootSession, routed, sessionOf, usage };
 
 export type { Observe, ShownContext };

@@ -1,5 +1,6 @@
-import { Array, Config, DateTime, Effect, Layer, Option, Record, String as Str, pipe } from "effect";
 import type {
+	AgentBeforeSettleEvent,
+	AgentBeforeSettleEventResult,
 	BeforeProviderHeadersEvent,
 	ExtensionAPI,
 	ExtensionFactory,
@@ -14,13 +15,16 @@ import type {
 	SessionManager,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
+import { Array, Config, DateTime, Effect, Layer, Option, Record, String as Str, pipe } from "effect";
 import {
+	answerChecked,
 	answered,
 	compactionSent,
 	observerOn,
 	phiModels,
 	promptSent,
 	sessionLeased,
+	sessionOf,
 	usage,
 } from "#pi/features/phi/index.ts";
 import { blockUploads, recordUse } from "#pi/features/uploads/index.ts";
@@ -71,6 +75,7 @@ const addedHeaders =
 			}
 
 			const login = yield* Effect.promise(() => ctx.modelRegistry.getApiKeyForProvider(loginProvider));
+			const session = yield* sessionOf(ctx);
 
 			return {
 				authorization: pipe(
@@ -78,7 +83,7 @@ const addedHeaders =
 					Option.map((token) => `Bearer ${token}`),
 					Option.getOrNull,
 				),
-				[piWire.sessionHeader]: ctx.sessionManager.getSessionId(),
+				[piWire.sessionHeader]: session,
 			};
 		});
 
@@ -116,6 +121,20 @@ const checked =
 	(_event, ctx) =>
 		Effect.runPromise(Effect.provide(promptSent(port)(ctx), router()));
 
+const settling =
+	(port: number): ExtensionHandler<AgentBeforeSettleEvent, AgentBeforeSettleEventResult> =>
+	(event, ctx) => {
+		const settled = Effect.map(
+			answerChecked(port)(event, ctx),
+			Option.match({
+				onNone: () => event,
+				onSome: ({ continues, entry }) => ({ continue: continues, entries: [...event.entries, entry] }),
+			}),
+		);
+
+		return Effect.runPromise(Effect.provide(settled, router()));
+	};
+
 const compacted =
 	(port: number): ExtensionHandler<SessionBeforeCompactEvent, SessionBeforeCompactResult> =>
 	(_event, ctx) =>
@@ -129,6 +148,7 @@ const onRouter = (
 	pi.on("session_start", leased(port, shows.atStart));
 	pi.on("input", checked(port));
 	pi.on("session_before_compact", compacted(port));
+	pi.on("agent_before_settle", settling(port));
 	pi.on("turn_end", observed(shows.afterTurn));
 	pi.on("model_select", observed(shows.atStart));
 };
