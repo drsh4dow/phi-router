@@ -1,6 +1,15 @@
 import { Array, Effect, FileSystem, Record, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { claudeFolders, claudeIn, phiRouter, routed, settingsFile, settingsIn, writeSettings } from "./configured.ts";
+import {
+	claudeFolders,
+	claudeIn,
+	phiRouter,
+	routed,
+	settingsFile,
+	settingsIn,
+	statusLineIn,
+	writeSettings,
+} from "./configured.ts";
 import { NodeServices } from "@effect/platform-node";
 
 const patient = { timeout: 30_000 };
@@ -99,7 +108,15 @@ const roundTrip = Effect.fnUntraced(function* roundTrip({ added, env, shell }: L
 
 	assert.deepStrictEqual(
 		{ after, once, twice },
-		{ after: before, once: { env: Struct.assign(Struct.assign(env, routed), added), model: "opus" }, twice: once },
+		{
+			after: before,
+			once: {
+				env: Struct.assign(Struct.assign(env, routed), added),
+				model: "opus",
+				statusLine: statusLineIn(folders.dir),
+			},
+			twice: once,
+		},
 	);
 }, Effect.scoped);
 
@@ -115,7 +132,10 @@ const changed = Effect.gen(function* changed() {
 
 	const after = yield* phiRouter(claudeIn(dir).off, env).pipe(Effect.andThen(settingsIn(dir)));
 
-	assert.deepStrictEqual({ after, once }, { after: { env: { no_proxy: own } }, once: { env: onWrote } });
+	assert.deepStrictEqual(
+		{ after, once },
+		{ after: { env: { no_proxy: own } }, once: { env: onWrote, statusLine: statusLineIn(dir) } },
+	);
 }).pipe(Effect.scoped);
 
 const removedSince = Effect.gen(function* removedSince() {
@@ -130,7 +150,10 @@ const removedSince = Effect.gen(function* removedSince() {
 	const once = yield* phiRouter(claudeIn(dir).on, env).pipe(Effect.andThen(settingsIn(dir)));
 	const after = yield* phiRouter(claudeIn(dir).off, env).pipe(Effect.andThen(settingsIn(dir)));
 
-	assert.deepStrictEqual({ after, once }, { after: {}, once: { env: Struct.assign(routed, wrote(entry)) } });
+	assert.deepStrictEqual(
+		{ after, once },
+		{ after: {}, once: { env: Struct.assign(routed, wrote(entry)), statusLine: statusLineIn(dir) } },
+	);
 }).pipe(Effect.scoped);
 
 it.layer(NodeServices.layer)("the router's exemption from the developer's proxy in settings.json", (test) => {

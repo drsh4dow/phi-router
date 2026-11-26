@@ -6,11 +6,14 @@ import {
 	exemptionName,
 	exemptionReason,
 	keptReason,
+	keptStatusLine,
 	recordReason,
 	routerAddress,
 	shellLists,
+	statusLineCommand,
+	statusLineReason,
 } from "./settings.ts";
-import { rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
+import { placeStatusLine, rewriteEnv, statusLineStatement, userSettings } from "#router/client/harnesses/index.ts";
 
 const reasonOf = (name: string): string => {
 	if (name === exemptionName) {
@@ -27,11 +30,14 @@ const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 
 	yield* rewriteEnv(configDir, Struct.assign(claudeEnv, exempt.set), exempt.unset);
 
-	return { exempt, path: settings.path };
+	const command = yield* statusLineCommand(configDir);
+	const statusLine = yield* placeStatusLine(configDir, command);
+
+	return { command, exempt, path: settings.path, statusLine };
 });
 
 const on = Effect.fn("on claude")(function* on(configDir: string) {
-	const { exempt, path } = yield* switchedOn(configDir);
+	const { command, exempt, path, statusLine } = yield* switchedOn(configDir);
 
 	const lines = pipe(
 		claudeSettings,
@@ -44,13 +50,22 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 		Array.match({ onEmpty: () => [keptReason], onNonEmpty: (written) => written }),
 	);
 
-	const wrote = `phi-router wrote ${String(claudeSettings.length + Record.size(exempt.set))} settings to ${path}`;
+	const statusLineLines = {
+		ours: [`${statusLineStatement}=${command}`, `  ${statusLineReason}`],
+		theirs: keptStatusLine(command),
+	}[statusLine];
+
+	const count = claudeSettings.length + Record.size(exempt.set) + Number(statusLine === "ours");
+	const wrote = `phi-router wrote ${String(count)} settings to ${path}`;
 
 	const restart =
 		"Restart each open Claude Code session: it now sends to the router, which only a new session starts.";
 
 	yield* Console.log(
-		Array.join([wrote, ...lines, ...exemptionLines, restart, "Next: phi-router doctor claude"], "\n"),
+		Array.join(
+			[wrote, ...lines, ...exemptionLines, ...statusLineLines, restart, "Next: phi-router doctor claude"],
+			"\n",
+		),
 	);
 });
 

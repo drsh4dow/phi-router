@@ -1,5 +1,7 @@
-import { Array, Config, Effect, Option, Record, String as Str, pipe } from "effect";
+import { Array, Config, Effect, Option, Path, Record, String as Str, pipe } from "effect";
+import { claudePluginData } from "#router/client/harnesses/index.ts";
 import { loopback } from "#router/client/router-port/index.ts";
+import { piWire } from "#shared/pi.ts";
 import { productPort } from "#shared/cli.ts";
 
 interface Setting {
@@ -153,6 +155,26 @@ const exempted =
 				}),
 		});
 
+const launcherName = "phi-router";
+
+const shellQuoted = (text: string): string => `'${Str.replaceAll("'", String.raw`'\''`)(text)}'`;
+
+const statusLineCommand = Effect.fnUntraced(function* statusLineCommand(configDir: string) {
+	const path = yield* Path.Path;
+	const data = yield* claudePluginData(configDir, pluginId);
+
+	return `${shellQuoted(path.join(data, launcherName))} statusline`;
+});
+
+const statusLineReason = `Shows this session's sealed and cleared counts while the model is ${piWire.models.auto} or ${piWire.models.sealed}.`;
+
+const shownStatusLine = `✓ Claude Code's status line shows this session's sealed and cleared counts while the model is ${piWire.models.auto} or ${piWire.models.sealed}`;
+
+const keptStatusLine = (command: string): readonly string[] => [
+	"Claude Code already has a status line, so phi-router left it as it was. To show phi-router's counts in it, add this line to its script, where $input holds the JSON the script read from stdin:",
+	`  printf '%s' "$input" | ${command}`,
+];
+
 const restored = (env: Variables): EnvChange => {
 	const record = [exemptionRecord.wrote, exemptionRecord.replaced];
 	const wrote = Record.get(env, exemptionRecord.wrote);
@@ -179,6 +201,7 @@ export {
 	exemptionName,
 	exemptionReason,
 	keptReason,
+	keptStatusLine,
 	modelAddressSetting,
 	pickerModel,
 	pluginId,
@@ -186,6 +209,9 @@ export {
 	restored,
 	routerAddress,
 	shellLists,
+	shownStatusLine,
+	statusLineCommand,
+	statusLineReason,
 };
 
 export type { NoProxyLists };

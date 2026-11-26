@@ -27,6 +27,7 @@ import {
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
+import { statusLineIn, statusLineOf, writeSettings } from "#tools/claude/configured.ts";
 
 const foundScreen = `phi-router found
   Claude Code     Claude Max · you@example.com
@@ -43,6 +44,7 @@ const lastScreen = `✓ Anthropic key works
 ✓ Installed phi-router ${version} in Claude Code
 ✓ Test: a fake patient record went to your BAA account, not Claude Max
 ✓ Claude Code now sends its requests through phi-router
+✓ Claude Code's status line shows this session's sealed and cleared counts while the model is phi/auto or phi/sealed
 
   Everyday work   Claude Max · you@example.com
   Patient data    Anthropic API key
@@ -100,6 +102,10 @@ const switchedClaude = Effect.fnUntraced(function* switchedClaude(of: World) {
 	assert.include(settings, '"ANTHROPIC_BASE_URL": "http://127.0.0.1:47411"');
 	assert.include(settings, '"autoUpdate": true', "Claude Code updates the release channel by itself");
 	assert.include(settings, '"model": "opus"');
+
+	const statusLine = yield* statusLineOf(of.folders.CLAUDE_CONFIG_DIR);
+
+	assert.deepStrictEqual(statusLine, statusLineIn(of.folders.CLAUDE_CONFIG_DIR));
 });
 
 const savedKeys = Effect.fnUntraced(function* savedKeys(of: World) {
@@ -179,6 +185,27 @@ const echoedThenEnded = Effect.gen(function* echoedThenEnded() {
 	);
 }).pipe(Effect.scoped);
 
+const theirs = { model: "opus", statusLine: { command: "~/.claude/statusline.sh", type: "command" } } as const;
+
+const keptStatusLine = Effect.gen(function* keptStatusLine() {
+	const of = yield* world;
+	const folder = of.folders.CLAUDE_CONFIG_DIR;
+
+	yield* writeSettings(folder, theirs);
+
+	const run = yield* setUp(of, "claude", maxAnswers);
+	const statusLine = yield* statusLineOf(folder);
+
+	const told = `✓ Claude Code now sends its requests through phi-router
+Claude Code already has a status line, so phi-router left it as it was. To show phi-router's counts in it, add this line to its script, where $input holds the JSON the script read from stdin:
+  printf '%s' "$input" | ${statusLineIn(folder).command}
+`;
+
+	assert.strictEqual(run.exitCode, ok, run.shown);
+	assert.include(run.shown, told);
+	assert.deepStrictEqual(statusLine, theirs.statusLine);
+}).pipe(Effect.scoped);
+
 const noJudge =
 	"The PHI check needs an OpenAI key covered by your BAA. Run setup again when you have one. Nothing changed.";
 
@@ -205,6 +232,11 @@ it.layer(layer)("setup claude", (test) => {
 	test.effect(
 		"setup claude on a Max login offers an API key or an Enterprise login, takes both keys at hidden prompts, tests before it installs, switches on last and names the three roles, and a second run asks nothing and changes nothing",
 		() => maxSetUp,
+		patient,
+	);
+	test.effect(
+		"setup claude leaves a status line the user set and prints the one line to add to its script",
+		() => keptStatusLine,
 		patient,
 	);
 	test.effect(
