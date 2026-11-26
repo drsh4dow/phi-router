@@ -1,9 +1,30 @@
 {
 	"name": "phi-router",
 	"version": "0.1.0",
-	"description": "Runs Claude Code, Codex or pi on a subscription, with each message that holds PHI replaced by a handle only a BAA account opens.",
+	"description": "HIPAA-aligned router for Claude Code, Codex and pi. Your coding agent runs on your flat-rate subscription, and each message that holds PHI reaches only your BAA account.",
 	"keywords": [
-		"pi-package"
+		"ai-agent",
+		"anthropic",
+		"baa",
+		"claude-code",
+		"claude-code-plugin",
+		"codex",
+		"coding-agent",
+		"healthcare",
+		"healthtech",
+		"hipaa",
+		"llm",
+		"llm-router",
+		"medical",
+		"openai",
+		"openai-codex",
+		"patient-data",
+		"phi",
+		"pi",
+		"pi-coding-agent",
+		"pi-package",
+		"privacy",
+		"protected-health-information"
 	],
 	"license": "MIT",
 	"repository": {
