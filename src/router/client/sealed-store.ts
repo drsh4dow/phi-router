@@ -10,7 +10,6 @@ import {
 	Record,
 	Schema,
 	Semaphore,
-	String as Str,
 	Struct,
 	pipe,
 } from "effect";
@@ -68,10 +67,6 @@ const unrun: Run = { gaveUp: none, inARow: none, rewrites: none };
 const firstSequence = 1;
 
 const oneWriter = 1;
-
-const handlePrefix = "h".length;
-
-const sequenceOf = (handle: typeof Handle.Type): number => Number(Str.slice(handlePrefix)(handle));
 
 const handlesOf = (stored: StoredFile): ReadonlyMap<string, typeof Handle.Type> =>
 	new Map(
@@ -234,7 +229,8 @@ class SealedStore extends Context.Service<
 				read: (session) =>
 					current(session).pipe(
 						Effect.map((stored): Sealed => ({
-							partOf: (handle) => Array.get(stored.parts, sequenceOf(handle) - firstSequence),
+							partOf: (handle) =>
+								Array.findFirst(stored.parts, (_part, index) => handleAt(index + firstSequence) === handle),
 						})),
 						Effect.provideContext(services),
 					),
