@@ -1,6 +1,6 @@
 import { DateTime, Effect, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
-import { overflowNotice, sealNotice, statusLine, statusText } from "./phi-text.ts";
+import { overflowNotice, sealNotice, statusLine, statusText, withheldNotice } from "./phi-text.ts";
 import type { Reported } from "./phi-text.ts";
 
 const back = "2026-05-28T14:30:00.000Z";
@@ -97,4 +97,18 @@ it.effect("the status line shows pi's status bar entry, and the pinned subagent'
 			],
 		);
 	}),
+);
+
+it.effect(
+	"the withheld notice counts the pinned subagent answers phi-router withheld and says the agent got handles",
+	() =>
+		Effect.sync(() => {
+			assert.deepStrictEqual(
+				[withheldNotice(requests.one), withheldNotice(requests.many)],
+				[
+					"phi-router: 1 pinned subagent answer still held patient identifiers after 5 rewrites, so phi-router withheld it, and the agent got its handle instead.",
+					"phi-router: 6 pinned subagent answers still held patient identifiers after 5 rewrites, so phi-router withheld them, and the agent got their handles instead.",
+				],
+			);
+		}),
 );

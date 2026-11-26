@@ -1,6 +1,6 @@
 import { Array, Clock, Console, DateTime, Duration, Effect, Option, Order, Schema, Struct, flow, pipe } from "effect";
 import type { OpenAccount, Overflow, Reported } from "./phi-text.ts";
-import { overflowNotice, sealNotice } from "./phi-text.ts";
+import { overflowNotice, sealNotice, withheldNotice } from "./phi-text.ts";
 import type { Noticed } from "#router/client/turn-notices.ts";
 import { SessionId } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
@@ -19,6 +19,7 @@ const quietWithoutStamp = Duration.toMillis("30 minutes");
 
 interface Told {
 	readonly sealed: number;
+	readonly gaveUp: number;
 	readonly overflow: Option.Option<Overflow>;
 }
 
@@ -60,10 +61,18 @@ const toldAt = (status: Reported, now: number, seen: Noticed): readonly [Told, N
 	const overflowed = status.overflowed ?? none;
 	const count = overflowed - (seen.overflowed ?? none);
 	const sealed = status.sealed - seen.sealed;
-	const counts = { overflowed, sealed: status.sealed };
+
+	const gaveUpNow = pipe(
+		Option.fromUndefinedOr(status.pinned),
+		Option.map((pinned) => pinned.gaveUp),
+		Option.getOrElse(() => none),
+	);
+
+	const gaveUp = gaveUpNow - (seen.gaveUp ?? none);
+	const counts = { gaveUp: gaveUpNow, overflowed, sealed: status.sealed };
 
 	if (count <= none || now < (seen.quietUntil ?? none)) {
-		return [{ overflow: Option.none(), sealed }, Struct.assign(counts, Struct.pick(seen, ["quietUntil"]))];
+		return [{ gaveUp, overflow: Option.none(), sealed }, Struct.assign(counts, Struct.pick(seen, ["quietUntil"]))];
 	}
 
 	const counted = { count, subscriptions: open.length };
@@ -75,7 +84,7 @@ const toldAt = (status: Reported, now: number, seen: Noticed): readonly [Told, N
 
 	const quietUntil = Option.getOrElse(back, () => now + quietWithoutStamp);
 
-	return [{ overflow: Option.some(overflow), sealed }, Struct.assign(counts, { quietUntil })];
+	return [{ gaveUp, overflow: Option.some(overflow), sealed }, Struct.assign(counts, { quietUntil })];
 };
 
 const toldSince = Effect.fnUntraced(function* toldSince(session: typeof SessionId.Type, port: number) {
@@ -115,7 +124,12 @@ const turnEnd = Effect.fn("turn-end")(function* turnEnd(hook: { readonly address
 			Option.map((count) => sealNotice({ count, status })),
 		);
 
-		return Array.getSomes([sealed, overflow]);
+		const withheld = pipe(
+			Option.liftPredicate(told.gaveUp, (count) => count > none),
+			Option.map(withheldNotice),
+		);
+
+		return Array.getSomes([sealed, withheld, overflow]);
 	}).pipe(Effect.catchTag("RouterUnanswered", (failed) => Effect.succeed([failed.message])));
 
 	if (Array.isReadonlyArrayNonEmpty(lines)) {

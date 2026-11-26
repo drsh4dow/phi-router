@@ -6,6 +6,7 @@ import { writePrivately } from "./private-file.ts";
 
 const NoticedJson = Schema.fromJsonString(
 	Schema.Struct({
+		gaveUp: Schema.optionalKey(Schema.Int),
 		overflowed: Schema.optionalKey(Schema.Int),
 		quietUntil: Schema.optionalKey(Schema.Int),
 		sealed: Schema.Int,
