@@ -18,12 +18,12 @@ const shipped = Effect.gen(function* shipped() {
 		{
 			agentName: claudePinnedAgent === `${agent.pluginName}:${agent.name}`,
 			describedWithoutLine: !Str.includes(pinnedLine)(agent.description),
-			internalIds: Str.includes("Answer with internal ids, your organization's own record ids such as a patient_id")(
-				agent.body,
-			),
 			model: agent.model,
+			namesHandles:
+				Str.includes("[sealed hN]")(agent.description) && Str.includes("names each handle")(agent.description),
 			opensWithLine: Str.startsWith(`${pinnedLine}\n`)(agent.body),
-			readsAgain: Str.includes("read your sources again with your tools")(agent.body),
+			readsAgain: Str.includes("again with your tools")(agent.body),
+			roleDescription: Str.includes(`description = "${agent.description}"\n`)(sealedRole),
 			roleInstructions: Str.includes(`developer_instructions = """\n${agent.body}"""\n`)(sealedRole),
 			stubsNameIt: [
 				Str.includes(`the ${agent.pluginName}:${agent.name} subagent`)(sealedStub("claude")(h1)),
@@ -33,10 +33,11 @@ const shipped = Effect.gen(function* shipped() {
 		{
 			agentName: true,
 			describedWithoutLine: true,
-			internalIds: true,
 			model: pinnedModel,
+			namesHandles: true,
 			opensWithLine: true,
 			readsAgain: true,
+			roleDescription: true,
 			roleInstructions: true,
 			stubsNameIt: [true, true],
 		},
@@ -45,7 +46,7 @@ const shipped = Effect.gen(function* shipped() {
 
 it.layer(NodeServices.layer)("the plugin's pinned subagent", (test) => {
 	test.effect(
-		"runs on phi/sealed, opens its instructions with the pinned line, rereads its sources and answers with internal ids, and the Codex role carries the same instructions, and the Claude Code and Codex stubs and the answer-check hook name it",
+		"runs on phi/sealed, is started with a scoped task naming handles, opens its instructions with the pinned line and rereads its sources, the Codex role carries the same description and instructions, and the Claude Code and Codex stubs and the answer-check hook name it",
 		() => shipped,
 	);
 });
