@@ -1,6 +1,6 @@
 {
 	"name": "phi-router",
-	"version": "0.1.0",
+	"version": "0.6.1",
 	"description": "HIPAA-aligned router for Claude Code, Codex and pi. Your coding agent runs on your flat-rate subscription, and each message that holds PHI reaches only your BAA account.",
 	"keywords": [
 		"ai-agent",
