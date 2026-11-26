@@ -20,6 +20,7 @@ interface Shown {
 	readonly pinLine: boolean;
 	readonly namesSubagent: boolean;
 	readonly namesSealedModel: boolean;
+	readonly notified: boolean;
 	readonly seal: boolean;
 	readonly piStatusSealedOnOpen: boolean;
 	readonly handled: boolean;
@@ -43,7 +44,8 @@ const shownIn = (printed: string): Shown => {
 		handled: has(`"disposition":"handled"`),
 		namesSealedModel: has(`switch the model to ${pinnedModel}`),
 		namesSubagent: has("hand it to the phi-sealed subagent"),
-		piStatusSealedOnOpen: has("phi · open, model ") && has(" · 1 sealed · "),
+		notified: has(`"method":"notify"`),
+		piStatusSealedOnOpen: has("phi · open · 1 sealed · "),
 		pinLine: has("Pin: "),
 		seal: has(sealWords),
 		statusBlock: has("Clean lane: open") && has("Sealed lane: baa") && has(" sealed, ") && has("Last request: "),
@@ -90,17 +92,12 @@ const shownChecksOf = ({
 	usageCheckOf(harness, turns.usage),
 ];
 
-const sealCheckOf = (turns: {
-	readonly sealing: readonly PhiTurned[];
-	readonly others: readonly PhiTurned[];
-}): Check => ({
-	name: "each turn that seals a new part shows the seal notice, and no other turn does",
-	ok:
-		everyOf(turns.sealing, ({ shown }) => shown.seal) &&
-		!pipe(
-			turns.others,
-			Array.some(({ shown }) => shown.seal),
-		),
+const sealCheckOf = (turns: readonly PhiTurned[]): Check => ({
+	name: "no turn shows a seal notice, a turn that seals included: the sealed count shows only in the status line and /phi",
+	ok: !pipe(
+		turns,
+		Array.some(({ shown }) => shown.seal),
+	),
 });
 
 const phiTurns = Effect.fnUntraced(function* phiTurns<Turn extends PhiTurned, Failure, Needs>(
@@ -316,7 +313,45 @@ const once = 1;
 
 const timesIn = (printed: string, text: string): number => Str.split(printed, text).length - once;
 
-const noticesIn = (turn: PrintedTurn): number => timesIn(turn.printed, "ran on your BAA account");
+const noticeWords = "phi-router: your subscription is rate-limited until";
+
+const noticesIn = (turn: PrintedTurn): number => timesIn(turn.printed, noticeWords);
+
+const toldChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
+	const [overflowed, ...later] = played.after;
+
+	const told = pipe(played.all, Array.map(noticesIn), Number.sumAll);
+
+	const shown: Check = {
+		name: `${played.command} says how many requests overflowed to the BAA account and that the subscription is rate-limited until the stamp's HH:MM`,
+		ok:
+			Str.includes(`Overflow: your subscription is rate-limited until ${played.clock}, so `)(
+				played.status.printed,
+			) && Str.includes("ran on your BAA account")(played.status.printed),
+	};
+
+	if (played.harness === "codex") {
+		return [
+			{
+				name: "the harness shows the overflow notice once, with the stamp's HH:MM, and no other turn shows one",
+				ok: timesIn(overflowed.printed, noticeAt(played.clock)) === once && told === once,
+			},
+			{
+				name: "the next clean turn, inside the stamp, shows no notice",
+				ok: pipe(later, Array.map(noticesIn), Number.sumAll) < once,
+			},
+			shown,
+		];
+	}
+
+	return [
+		{
+			name: "no turn shows an overflow notice, the turns that overflowed included",
+			ok: told + pipe(played.after, Array.map(noticesIn), Number.sumAll) < once,
+		},
+		shown,
+	];
+};
 
 const holding =
 	(prompt: string) =>
@@ -334,7 +369,7 @@ const holdsStub =
 		);
 
 const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
-	const [overflowed, ...later] = played.after;
+	const [overflowed] = played.after;
 
 	const [overflowLine, insideLine] = pipe(
 		played.lines,
@@ -369,19 +404,13 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 				pipe(overflowed.baa, Array.some(holding(overflowing))) &&
 				overflowLine === true,
 		},
+		...toldChecksOf(played),
 		{
-			name: "the harness shows the overflow notice once, with the stamp's HH:MM, and no other turn shows one",
-			ok:
-				timesIn(overflowed.printed, noticeAt(played.clock)) === once &&
-				pipe(played.all, Array.map(noticesIn), Number.sumAll) === once,
-		},
-		{
-			name: "the next clean turn, inside the stamp, runs on the BAA mock with an overflow line and shows no notice",
+			name: "the next clean turn, inside the stamp, runs on the BAA mock with an overflow line",
 			ok:
 				pipe(afterBaa, Array.some(holding(insideStamp))) &&
 				pipe(afterOpen, Array.every(isRefused)) &&
-				insideLine === true &&
-				pipe(later, Array.map(noticesIn), Number.sumAll) < once,
+				insideLine === true,
 		},
 		{
 			name: `${played.command} shows the open account rate-limited until the stamp's HH:MM`,

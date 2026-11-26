@@ -50,12 +50,12 @@ grep -q "⎿.*phi-router: session " "$ROOT/phi.txt" || fail "/phi gave no plain 
 grep -q -e 'blocked by hook' -e 'Original prompt' "$ROOT/phi.txt" && fail "/phi shows a blocked prompt"
 counts=$(sed -n 's/^ *Messages: \([0-9]*\) sealed, \([0-9]*\) cleared$/\1 sealed · \2 cleared/p' "$ROOT/phi.txt" | tail -1)
 echo "/phi: $counts"
-case $row in *" · $counts") ;; *) fail "the phi row's counts are not /phi's" ;; esac
+case $row in *" · $counts" | *" · $counts · "*) ;; *) fail "the phi row's counts are not /phi's" ;; esac
 tm kill-session -t claude
 open --continue --model claude-sonnet-4-5
 off_phi=$(under | tr '\n' '|')
 echo "on claude-sonnet-4-5: $off_phi"
-case $off_phi in *"phi · "*) fail "the phi row shows on claude-sonnet-4-5" ;; esac
+case $off_phi in *"phi · "*) ;; *) fail "the phi row does not show on claude-sonnet-4-5, which the router routes too" ;; esac
 tm kill-session -t claude
 jq 'del(.statusLine)' "$settings" >"$settings.new"
 mv "$settings.new" "$settings"

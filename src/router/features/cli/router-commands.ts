@@ -1,7 +1,7 @@
 import { Command, Flag } from "effect/cli";
-import { Console, Effect, Option } from "effect";
 import { claude, modelAddress, pid } from "./adapters.ts";
 import { port, session } from "./sessions/index.ts";
+import { Effect } from "effect";
 import { Proofs } from "#router/client/router-port/index.ts";
 import { serve } from "./serve.ts";
 import { sessionStart } from "./hooks/index.ts";
@@ -12,9 +12,7 @@ const folder = Flag.String(spelling.start.folder);
 
 const routerCommands = [
 	Command.make(spelling.start.name, { folder, pid, port, session }, (flags) =>
-		start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port, "pi").pipe(
-			Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: Console.log })),
-		),
+		Effect.asVoid(start({ folder: flags.folder, pid: flags.pid, session: flags.session }, flags.port, "pi")),
 	).pipe(Command.provide(Proofs.layer)),
 	Command.make("session-start", { address: modelAddress, claude, pid }, (flags) => sessionStart(flags)).pipe(
 		Command.unlisted,

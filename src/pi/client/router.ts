@@ -1,4 +1,4 @@
-import type { AnswerCheck, AnswerChecked, SessionId, SetupVendor, Status } from "#shared/cli.ts";
+import type { AnswerCheck, AnswerChecked, SessionId, SetupVendor } from "#shared/cli.ts";
 import {
 	AnswerCheckJson,
 	AnswerCheckedJson,
@@ -6,7 +6,8 @@ import {
 	ModelsJson,
 	SetupAnswersJson,
 	SetupStepJson,
-	StatusJson,
+	StatuslineJson,
+	loopback,
 	spelling,
 } from "#shared/cli.ts";
 import { Array, Context, Effect, Layer, Record, Result, Schema, Stream, pipe } from "effect";
@@ -96,8 +97,8 @@ interface SetUp {
 class Router extends Context.Service<
 	Router,
 	{
-		readonly start: (session: string, folder: string, port: number) => Effect.Effect<string, CommandFailed>;
-		readonly status: Asking<typeof Status.Type>;
+		readonly start: (session: string, folder: string, port: number) => Effect.Effect<void, CommandFailed>;
+		readonly statusline: Asking<typeof StatuslineJson.Type>;
 		readonly answerCheck: (
 			asked: typeof AnswerCheck.Type,
 			port: number,
@@ -123,7 +124,7 @@ class Router extends Context.Service<
 					const { folder: folderFlag, name, port: portFlag, session: sessionFlag } = spelling.start;
 					const lease = [`--${sessionFlag}`, session, `--${folderFlag}`, folder, `--${portFlag}`, String(port)];
 
-					return yield* spawning(
+					yield* spawning(
 						printed(name, {
 							args: ["-c", onParentPid, program, name, ...lease],
 							env: {},
@@ -133,18 +134,22 @@ class Router extends Context.Service<
 					);
 				});
 
-				const status = Effect.fn("Router.status")(function* status(session: typeof SessionId.Type, port: number) {
-					const command = spelling.status.name;
+				const statusline = Effect.fn("Router.statusline")(function* statusline(
+					session: typeof SessionId.Type,
+					port: number,
+				) {
+					const { address, name } = spelling.statusline;
+					const addressed = `http://${loopback}:${String(port)}`;
 
-					const output = yield* run(command, [
-						command,
+					const output = yield* run(name, [
+						name,
+						`--${address}`,
+						addressed,
 						`--${spelling.status.session}`,
 						session,
-						`--${spelling.start.port}`,
-						String(port),
 					]);
 
-					return yield* decodedAs(command, Schema.decodeEffect(StatusJson))(output);
+					return yield* decodedAs(name, Schema.decodeEffect(StatuslineJson))(output);
 				});
 
 				const answerCheck = Effect.fn("Router.answerCheck")(function* answerCheck(
@@ -188,7 +193,7 @@ class Router extends Context.Service<
 					yield* spawning(printed(spelling.setup.name, { args, env, program, shown: given.shown }));
 				});
 
-				return Router.of({ answerCheck, models, setUp, setupStep, start, status });
+				return Router.of({ answerCheck, models, setUp, setupStep, start, statusline });
 			}),
 		);
 }

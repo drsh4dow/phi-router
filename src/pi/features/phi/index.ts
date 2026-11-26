@@ -1,4 +1,4 @@
-export { answered, observerOn, sessionOf, usage } from "./phi.ts";
+export { answered, sessionOf, statusShown, usage } from "./phi.ts";
 
 export { answerChecked } from "./pinned.ts";
 

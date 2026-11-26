@@ -134,10 +134,8 @@ const ranIn = Effect.fnUntraced(function* ranIn(world: World) {
 		start: (session, folder, port) =>
 			Effect.sync(() => {
 				started.push(`${session} ${folder} ${String(port)}`);
-
-				return "";
 			}),
-		status: () => Effect.die("setup asks no status"),
+		statusline: () => Effect.die("setup asks no status"),
 	});
 
 	const picked = pipe(

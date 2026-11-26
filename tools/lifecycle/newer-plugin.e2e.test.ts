@@ -1,4 +1,4 @@
-import { Effect, Layer, Struct } from "effect";
+import { Effect, Layer, Schema, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bundled, instance, leasedPids, ran, routersOn, world } from "./launched.ts";
 import { FetchHttpClient } from "effect/http";
@@ -13,18 +13,35 @@ const waiting = (running: string): string =>
 
 interface Hook {
 	readonly entry: string;
+	readonly harness: "claude" | "codex";
 	readonly pid: number;
 	readonly event: string;
 	readonly port: number;
 	readonly env: Readonly<Record<string, string>>;
 }
 
-const hooked = Effect.fnUntraced(function* hooked({ entry, env, event, pid, port }: Hook) {
-	const input = `{"session_id":"s-hook","cwd":"/work","hook_event_name":"${event}"}`;
-	const address = `http://127.0.0.1:${String(port)}`;
-	const piped = 'printf %s "$1" | node "$2" session-start --pid "$3" --address "$4"';
+const addressOf = (port: number): string => `http://127.0.0.1:${String(port)}`;
 
-	return yield* ran(["sh", "-c", piped, "sh", input, entry, String(pid), address], env);
+const claudeFlag = { claude: "--claude", codex: "" } as const;
+
+const hooked = Effect.fnUntraced(function* hooked({ entry, env, event, harness, pid, port }: Hook) {
+	const input = `{"session_id":"s-hook","cwd":"/work","hook_event_name":"${event}"}`;
+	const piped = 'printf %s "$1" | node "$2" session-start $5 --pid "$3" --address "$4"';
+	const flag = claudeFlag[harness];
+
+	return yield* ran(["sh", "-c", piped, "sh", input, entry, String(pid), addressOf(port), flag], env);
+});
+
+const Shown = Schema.fromJsonString(Schema.Struct({ line: Schema.String, reply: Schema.String }));
+
+const shownBy = Effect.fnUntraced(function* shownBy(
+	entry: string,
+	port: number,
+	env: Readonly<Record<string, string>>,
+) {
+	const printed = yield* ran(["node", entry, "statusline", "--address", addressOf(port), "--session", "s1"], env);
+
+	return yield* Schema.decodeEffect(Shown)(printed.printed);
 });
 
 const newerJoins = Effect.fnUntraced(function* newerJoins(routerVersion: readonly string[], running: string) {
@@ -39,21 +56,28 @@ const newerJoins = Effect.fnUntraced(function* newerJoins(routerVersion: readonl
 
 	const before = yield* routersOn(older, here.port);
 	const joined = yield* here.start(second.pid, newer);
-	const opening = { entry: newer, env: here.env, pid: opened.pid, port: here.port };
+	const opening = { entry: newer, env: here.env, harness: "codex" as const, pid: opened.pid, port: here.port };
 	const atSessionStart = yield* hooked(Struct.assign(opening, { event: "SessionStart" }));
+	const inClaude = yield* hooked(Struct.assign(opening, { event: "SessionStart", harness: "claude" as const }));
 	const atPrompt = yield* hooked(Struct.assign(opening, { event: "UserPromptSubmit" }));
+	const shown = yield* shownBy(newer, here.port, here.env);
 	const after = yield* routersOn(older, here.port);
 	const leases = yield* leasedPids(here.state);
 
 	assert.deepStrictEqual(
-		{ after, atPrompt, atSessionStart, joined, leases, newer: yield* routersOn(newer, here.port) },
+		{ after, atPrompt, atSessionStart, inClaude, joined, leases, newer: yield* routersOn(newer, here.port), shown },
 		{
 			after: before,
 			atPrompt: silent,
 			atSessionStart: { exitCode: 0, printed: `{"systemMessage":"${waiting(running)}"}\n` },
-			joined: { exitCode: 0, printed: `${waiting(running)}\n` },
+			inClaude: silent,
+			joined: silent,
 			leases: [first.pid, second.pid, opened.pid],
 			newer: [],
+			shown: {
+				line: "phi · none yet · 0 sealed · 0 cleared · 0.5.0 pending",
+				reply: `session s1\nLast request: none yet\nMessages: 0 sealed, 0 cleared\nPinned subagent: 0 runs, 0 rewrites, 0 answers withheld\nClean lane: open\nSealed lane: baa\n${waiting(running)}`,
+			},
 		},
 	);
 }, Effect.scoped);
@@ -74,6 +98,7 @@ const olderJoins = Effect.fnUntraced(function* olderJoins() {
 		entry: older,
 		env: here.env,
 		event: "SessionStart",
+		harness: "codex",
 		pid: second.pid,
 		port: here.port,
 	});
@@ -88,7 +113,7 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestSe
 	"a plugin newer than the running router",
 	(test) => {
 		test.effect(
-			"joins the 0.4.0 router, leaves it running, and says so once, at the session's start",
+			"joins the 0.4.0 router, leaves it running, says so at Codex's session start, and in Claude Code and pi only in the status line and /phi",
 			() => newerJoins(["0.4.0"], "0.4.0"),
 			patient,
 		);

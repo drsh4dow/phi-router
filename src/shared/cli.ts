@@ -47,6 +47,10 @@ const Status = Schema.Struct({
 
 const StatusJson = Schema.fromJsonString(Status);
 
+const StatuslineJson = Schema.fromJsonString(
+	Schema.Struct({ line: Schema.optionalKey(Schema.String), reply: Schema.String }),
+);
+
 const AnswerCheck = Schema.Struct({
 	answer: Schema.String,
 	session: Schema.NonEmptyString,
@@ -139,6 +143,7 @@ const spelling = {
 	},
 	start: { folder: "folder", name: "start", pid: "pid", port: "port", session: "session" },
 	status: { name: "status", session: "session" },
+	statusline: { address: "address", name: "statusline" },
 };
 
 const setupEnded = "Setup ended before it finished. Nothing was saved or changed.";
@@ -162,6 +167,7 @@ export {
 	SetupVendor,
 	Status,
 	StatusJson,
+	StatuslineJson,
 	loopback,
 	phiCommand,
 	productPort,

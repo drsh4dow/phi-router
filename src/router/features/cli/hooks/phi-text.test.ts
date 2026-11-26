@@ -1,4 +1,4 @@
-import { DateTime, Effect, Struct } from "effect";
+import { DateTime, Effect, String as Str, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
 import { overflowNotice, sealNotice, statusLine, statusText, withheldNotice } from "./phi-text.ts";
 import type { Reported } from "./phi-text.ts";
@@ -78,31 +78,75 @@ it.effect("the overflow notice says why the requests ran on the BAA account and 
 	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
 );
 
-it.effect("the status line shows pi's status bar entry, and the pinned subagent's runs once there is one", () =>
-	Effect.sync(() => {
+it.effect("the status line names the last request's account, and the pinned subagent's runs once there is one", () =>
+	Effect.gen(function* lines() {
 		const status = statusOf(false);
 
-		assert.deepStrictEqual(
+		const shown = yield* Effect.forEach(
 			[
-				statusLine(status),
-				statusLine(
-					Struct.assign(status, { pinned: { cleared: [], gaveUp: 0, rewrites: 0, runs: 0, withheld: [] } }),
-				),
-				statusLine(
-					Struct.assign(status, { pinned: { cleared: [], gaveUp: 0, rewrites: 0, runs: 1, withheld: [] } }),
-				),
-				statusLine(
-					Struct.assign(status, { pinned: { cleared: [], gaveUp: 0, rewrites: 2, runs: 3, withheld: [] } }),
-				),
+				status,
+				Struct.assign(status, { pinned: { cleared: [], gaveUp: 0, rewrites: 0, runs: 0, withheld: [] } }),
+				Struct.assign(status, { pinned: { cleared: [], gaveUp: 0, rewrites: 0, runs: 1, withheld: [] } }),
+				Struct.assign(status, { pinned: { cleared: [], gaveUp: 0, rewrites: 2, runs: 3, withheld: [] } }),
 			],
-			[
-				"phi · baa, model claude-sealed · 1 sealed · 2 cleared",
-				"phi · baa, model claude-sealed · 1 sealed · 2 cleared",
-				"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 1 pinned run",
-				"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 3 pinned runs",
-			],
+			(each) => statusLine(each),
+			{ concurrency: 1 },
 		);
-	}),
+
+		assert.deepStrictEqual(shown, [
+			"phi · baa · 1 sealed · 2 cleared",
+			"phi · baa · 1 sealed · 2 cleared",
+			"phi · baa · 1 sealed · 2 cleared · 1 pinned run",
+			"phi · baa · 1 sealed · 2 cleared · 3 pinned runs",
+		]);
+	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
+);
+
+const noticed: Reported = {
+	accounts: {
+		clean: [{ name: "claude-1", rateLimitedUntil: back, vendor: "anthropic" }],
+		sealed: [{ name: "claude-2", vendor: "anthropic" }],
+	},
+	cleared: 15,
+	last: { account: "claude-2", model: "claude-opus", substitute: false },
+	overflowed: 36,
+	pinned: { cleared: [], gaveUp: 1, rewrites: 5, runs: 1, withheld: [] },
+	sealed: 0,
+	session: "s-1",
+};
+
+const waiting = { installed: "0.6.0", running: "0.5.1" };
+
+const columns = 80;
+
+it.effect(
+	"the status line marks the overflow with the stamp's HH:MM, the withheld answers and the version wait in 80 columns, and /phi says each in full",
+	() =>
+		Effect.gen(function* marked() {
+			const line = yield* statusLine(noticed, waiting);
+			const text = yield* statusText(noticed, waiting);
+			const reply = Str.split(text, "\n");
+			const roomy = yield* statusLine(Struct.assign(noticed, { overflowed: 0 }));
+
+			assert.deepStrictEqual(
+				{ fits: line.length <= columns, line, reply, roomy },
+				{
+					fits: true,
+					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
+					reply: [
+						"session s-1",
+						"Last request: claude-2, model claude-opus",
+						"Messages: 0 sealed, 15 cleared",
+						"Pinned subagent: 1 run, 5 rewrites, 1 answer withheld",
+						"Clean lane: claude-1 (rate-limited until 14:30)",
+						"Sealed lane: claude-2",
+						"Overflow: your subscription is rate-limited until 14:30, so 36 requests ran on your BAA account. Add another subscription: npx phi-router accounts add",
+						"phi-router 0.6.0 is installed. Your open windows still run 0.5.1 until you close them all.",
+					],
+					roomy: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
+				},
+			);
+		}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
 );
 
 it.effect(

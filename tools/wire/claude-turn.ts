@@ -109,6 +109,8 @@ const userLine = "user-status-line";
 
 const statusRow = "phi · ";
 
+const hookSaid = /(?:SessionStart|Stop|UserPromptSubmit|PreCompact)(?::\w+)? says:/u;
+
 const noBreakSpace = "\u00A0";
 
 const Onboarded = Schema.fromJsonString(Schema.Unknown);
@@ -316,8 +318,19 @@ const windowChecksOf = (played: { readonly windows: Windows; readonly session: s
 			ok: pipe(afterPhi, Array.some(isModelPost)) && !pipe(afterPhi, Array.some(holdsStatus)),
 		},
 		{
-			name: "on claude-sonnet-4-5 the window shows the user's status line and no phi-router row",
-			ok: showsUserLine(otherModel.printed) && !showsRow(otherModel.printed),
+			name: "on claude-sonnet-4-5, a model the router routes too, the window shows the user's status line and phi-router's row",
+			ok: showsUserLine(otherModel.printed) && showsRow(otherModel.printed),
+		},
+		{
+			name: "after the overflow, phi-router's row marks it with the stamp's HH:MM",
+			ok: pipe(rowsOf(beside.printed), Array.some(Str.includes(" overflow till "))),
+		},
+		{
+			name: "no window shows a line a hook of phi-router said, at the session's start or after a turn",
+			ok: !pipe(
+				[beside, phi, after, otherModel, alone],
+				Array.some(({ printed }) => hookSaid.test(printed)),
+			),
 		},
 		{
 			name: "with no status line of the user's, Claude Code on phi/auto shows phi-router's row alone",

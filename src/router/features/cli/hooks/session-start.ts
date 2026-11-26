@@ -7,6 +7,7 @@ import { savePastedKey } from "#router/client/keys/index.ts";
 import { standardInput } from "#router/client/standard-input.ts";
 import { start } from "#router/features/cli/start.ts";
 import { userSettings } from "#router/client/harnesses/index.ts";
+import { waitNotice } from "#router/features/cli/newer-plugin.ts";
 
 const HookInput = Schema.fromJsonString(
 	Schema.Struct({ cwd: Schema.String, hook_event_name: Schema.optionalKey(Schema.String), session_id: SessionId }),
@@ -104,10 +105,10 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 
 	const harness = hookHarness[`${hook.claude}`];
 
-	const notice = yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
+	const wait = yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
 
-	if (input.hook_event_name === "SessionStart" && Option.isSome(notice)) {
-		const printed = yield* Schema.encodeEffect(Notice)({ systemMessage: notice.value });
+	if (!hook.claude && input.hook_event_name === "SessionStart" && Option.isSome(wait)) {
+		const printed = yield* Schema.encodeEffect(Notice)({ systemMessage: waitNotice(wait.value) });
 
 		yield* Console.log(printed);
 	}

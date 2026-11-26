@@ -167,6 +167,13 @@ const piChecksOf = (played: PiPlayed): readonly Check[] => [
 		session: played.overflow.session,
 		status: played.overflow.status,
 	}),
+	{
+		name: "after the turns that overflowed, pi's status bar marks the overflow with the stamp's HH:MM",
+		ok: pipe(
+			played.overflow.after,
+			Array.some(({ printed }) => Str.includes(`overflow till ${played.clock}`)(printed)),
+		),
+	},
 ];
 
 const piOpen = refusing(harnesses.pi.answersOk.open);
@@ -267,7 +274,7 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 	const checks: readonly Check[] = [
 		...phiChecksOf(phi),
 		...shownChecksOf({ harness: "pi", turns: phi }),
-		sealCheckOf({ others: phi.inOrder, sealing: [sealing] }),
+		sealCheckOf([...phi.inOrder, sealing]),
 		{
 			name: "pi runs /phi and /phi pin as its extension command, which starts no run",
 			ok: pipe(
@@ -278,6 +285,13 @@ const piPhiPlay = Effect.fnUntraced(function* piPhiPlay<Turn extends PhiTurned, 
 		{
 			name: "after the turn that seals, pi's status line names the open account and counts the sealed message",
 			ok: sealing.shown.piStatusSealedOnOpen,
+		},
+		{
+			name: "pi notifies nothing in the turns that seal, pin or overflow: phi-router speaks only through the status bar and /phi",
+			ok: !pipe(
+				[sealing, chosen, overflowed],
+				Array.some(({ shown }) => shown.notified),
+			),
 		},
 		...sealedModelChecksOf(chosen),
 	];

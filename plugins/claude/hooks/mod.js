@@ -1,5 +1,3 @@
-const phiModels = new Set(["phi/auto", "phi/sealed"]);
-
 let line = null;
 
 const shown = async ($, words) => {
@@ -48,7 +46,7 @@ export function register(on) {
 	});
 
 	on("ui.render", { component: "StatusLine" }, async ($, e, next) => {
-		if (line === null || !phiModels.has(await $.session.model())) {
+		if (line === null) {
 			return next(e);
 		}
 

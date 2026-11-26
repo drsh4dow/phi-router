@@ -1,9 +1,11 @@
-import { Array, DateTime, Effect, Option, String as Str, flow, pipe } from "effect";
+import { Array, DateTime, Effect, Option, Order, String as Str, flow, pipe } from "effect";
 import type { Status } from "#shared/cli.ts";
+import type { VersionWait } from "#router/features/cli/newer-plugin.ts";
 import { localTimeOf } from "#router/features/cli/accounts/index.ts";
 import { phiCommand } from "#shared/cli.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 import { rewriteLimit } from "#router/features/policy/index.ts";
+import { waitNotice } from "#router/features/cli/newer-plugin.ts";
 
 type Reported = Omit<typeof Status.Type, "session"> & { readonly session: string };
 
@@ -14,6 +16,8 @@ interface Overflow {
 	readonly subscriptions: number;
 	readonly back?: number;
 }
+
+const none = 0;
 
 const one = 1;
 
@@ -62,7 +66,76 @@ const countOf = (count: number, noun: string): string => {
 	return `${String(count)} ${noun}s`;
 };
 
-const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
+const openOf = (status: Reported): readonly OpenAccount[] => {
+	const { clean, sealed } = status.accounts;
+
+	const vendor = pipe(
+		Option.fromNullishOr(status.last),
+		Option.flatMap((last) =>
+			pipe(
+				[...clean, ...sealed],
+				Array.findFirst(({ name }) => name === last.account),
+			),
+		),
+		Option.map((account) => account.vendor),
+	);
+
+	const ofVendor = (account: OpenAccount): boolean =>
+		Option.match(vendor, { onNone: () => true, onSome: (named) => named === account.vendor });
+
+	return pipe(clean, Array.filter(ofVendor));
+};
+
+const millisOf = (account: OpenAccount): Option.Option<number> =>
+	pipe(
+		Option.fromUndefinedOr(account.rateLimitedUntil),
+		Option.flatMap((back) => DateTime.make(back)),
+		Option.map(DateTime.toEpochMillis),
+	);
+
+const earliest = flow(Array.min(Order.Number), Option.some);
+
+const backOf = (open: readonly OpenAccount[]): Option.Option<number> =>
+	pipe(open, Array.map(millisOf), Array.getSomes, Array.match({ onEmpty: Option.none, onNonEmpty: earliest }));
+
+const overflowOf = (status: Reported): Option.Option<Overflow> => {
+	const open = openOf(status);
+
+	return pipe(
+		Option.fromUndefinedOr(status.overflowed),
+		Option.filter((count) => count > none),
+		Option.map((count) =>
+			Option.match(backOf(open), {
+				onNone: () => ({ count, subscriptions: open.length }),
+				onSome: (back) => ({ back, count, subscriptions: open.length }),
+			}),
+		),
+	);
+};
+
+const subscriptions = {
+	false: { are: "is", yours: "your subscription" },
+	true: { are: "are", yours: "your subscriptions" },
+} as const;
+
+const overflowWords = Effect.fnUntraced(function* overflowWords(overflow: Overflow) {
+	const { are, yours } = subscriptions[`${overflow.subscriptions > one}`];
+
+	const why = yield* Option.match(Option.fromUndefinedOr(overflow.back), {
+		onNone: () => Effect.succeed(`${yours} did not answer`),
+		onSome: flow(
+			clockOf,
+			Effect.map((clock) => `${yours} ${are} rate-limited until ${clock}`),
+		),
+	});
+
+	return `${why}, so ${countOf(overflow.count, "request")} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
+});
+
+const overflowNotice = (overflow: Overflow): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
+	Effect.map(overflowWords(overflow), (words) => `phi-router: ${words}`);
+
+const statusText = Effect.fnUntraced(function* statusText(status: Reported, wait?: VersionWait) {
 	const clean = yield* Effect.forEach(status.accounts.clean, openNameOf, { concurrency: 1 });
 
 	const sealed = pipe(
@@ -79,6 +152,8 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 		Option.toArray,
 	);
 
+	const overflow = yield* Effect.transposeOption(Option.map(overflowOf(status), overflowWords));
+
 	return Array.join(
 		[
 			`session ${status.session}`,
@@ -87,24 +162,66 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 			...pinned,
 			`Clean lane: ${listOf(clean)}`,
 			`Sealed lane: ${listOf(sealed)}`,
+			...pipe(
+				overflow,
+				Option.map((words) => `Overflow: ${words}`),
+				Option.toArray,
+			),
+			...pipe(Option.fromUndefinedOr(wait), Option.map(waitNotice), Option.toArray),
 		],
 		"\n",
 	);
 });
 
-const statusLine = (status: Reported): string => {
+const columns = 80;
+
+const overflowMark = (overflow: Overflow): Effect.Effect<string, never, DateTime.CurrentTimeZone> =>
+	Option.match(Option.fromUndefinedOr(overflow.back), {
+		onNone: () => Effect.succeed("overflow"),
+		onSome: flow(
+			clockOf,
+			Effect.map((clock) => `overflow till ${clock}`),
+		),
+	});
+
+const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait?: VersionWait) {
+	const pinned = Option.fromUndefinedOr(status.pinned);
+
 	const runs = pipe(
-		Option.fromUndefinedOr(status.pinned),
+		pinned,
 		Option.filter(({ runs: count }) => count >= one),
 		Option.map(({ runs: count }) => countOf(count, "pinned run")),
-		Option.toArray,
 	);
 
-	return Array.join(
-		["phi", lastOf(status), `${String(status.sealed)} sealed`, `${String(status.cleared)} cleared`, ...runs],
-		" · ",
+	const withheld = pipe(
+		pinned,
+		Option.filter(({ gaveUp }) => gaveUp >= one),
+		Option.map(({ gaveUp }) => `${String(gaveUp)} withheld`),
 	);
-};
+
+	const overflow = yield* Effect.transposeOption(Option.map(overflowOf(status), overflowMark));
+
+	const pending = pipe(
+		Option.fromUndefinedOr(wait),
+		Option.map(({ installed }) => `${installed} pending`),
+	);
+
+	const account = pipe(
+		Option.fromNullishOr(status.last),
+		Option.match({ onNone: () => "none yet", onSome: ({ account: name }) => name }),
+	);
+
+	const named = ["phi", account, `${String(status.sealed)} sealed`];
+	const notices = Array.getSomes([withheld, overflow, pending]);
+	const counts = [`${String(status.cleared)} cleared`, ...Option.toArray(runs)];
+	const counted = Array.join([...named, ...counts, ...notices], " · ");
+
+	if (counted.length <= columns) {
+		return counted;
+	}
+
+	return Array.join([...named, ...notices], " · ");
+});
 
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
 	`phi-router: ${countOf(sealed.count, "message")} held patient identifiers. The open account sees a handle in place of each. Last request: ${lastOf(sealed.status)}.`;
@@ -120,25 +237,6 @@ const withheldNotice = (count: number): string => {
 	return `phi-router: ${String(count)} pinned subagent ${answers} still held patient identifiers after ${String(rewriteLimit)} rewrites, so phi-router withheld ${them}, and the agent got ${got} instead.`;
 };
 
-const subscriptions = {
-	false: { are: "is", yours: "your subscription" },
-	true: { are: "are", yours: "your subscriptions" },
-} as const;
+export { backOf, openOf, overflowNotice, sealNotice, statusLine, statusText, usage, withheldNotice };
 
-const overflowNotice = Effect.fnUntraced(function* overflowNotice(overflow: Overflow) {
-	const { are, yours } = subscriptions[`${overflow.subscriptions > one}`];
-
-	const why = yield* Option.match(Option.fromUndefinedOr(overflow.back), {
-		onNone: () => Effect.succeed(`${yours} did not answer`),
-		onSome: flow(
-			clockOf,
-			Effect.map((clock) => `${yours} ${are} rate-limited until ${clock}`),
-		),
-	});
-
-	return `phi-router: ${why}, so ${countOf(overflow.count, "request")} ran on your BAA account. Add another subscription: npx phi-router accounts add`;
-});
-
-export { overflowNotice, sealNotice, statusLine, statusText, usage, withheldNotice };
-
-export type { OpenAccount, Overflow, Reported };
+export type { Overflow, Reported };
