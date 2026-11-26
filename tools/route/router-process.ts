@@ -20,10 +20,11 @@ const leased = Effect.fnUntraced(function* leased(url: string, folder: string) {
 const routerProcess = Effect.fnUntraced(function* routerProcess(
 	command: readonly [string, ...string[]],
 	env: Readonly<Record<string, string>>,
+	checkout?: string,
 ) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const path = yield* Path.Path;
-	const cwd = path.resolve(import.meta.dirname, "../..");
+	const cwd = checkout ?? path.resolve(import.meta.dirname, "../..");
 	const [runtime, ...script] = command;
 
 	const handle = yield* spawner.spawn(
