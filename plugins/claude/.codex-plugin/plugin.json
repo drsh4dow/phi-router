@@ -1,6 +1,6 @@
 {
 	"name": "phi-router",
-	"version": "0.1.0",
+	"version": "0.5.1",
 	"description": "Starts the PHI router with each session. Run `phi-router on codex` for the provider entry a plugin cannot set.",
 	"hooks": "./hooks/codex.json"
 }
