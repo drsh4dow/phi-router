@@ -12,11 +12,14 @@ on:
          - src/router/client/processes.ts
          - src/router/client/router-port/server.ts
          - src/router/client/accounts/upstream.ts
+         - src/router/client/sealed-store.ts
          - src/router/client/verdict-store.ts
          - src/router/features/accounts/walk.ts
+         - src/router/features/anthropic-messages/request.ts
          - src/router/features/border/guard.ts
          - src/router/features/cli/serve.ts
          - src/router/features/cli/start.ts
+         - src/router/features/codex/request.ts
          - src/router/features/lanes/decide.ts
          - src/router/features/lanes/pin.ts
          - src/router/features/lifecycle/lifecycle.ts
@@ -24,11 +27,13 @@ on:
          - src/router/features/route/failover.ts
          - src/router/features/route/harness.ts
          - src/router/features/route/index.ts
+         - src/router/features/route/opening.ts
          - src/router/features/route/route.ts
          - src/router/features/route/send.ts
          - src/router/features/route/session.ts
          - src/router/features/route/walked.ts
          - src/router/features/verdicts/engine.ts
+         - src/router/primitives/handle.ts
    push:
       branches: [main]
 
