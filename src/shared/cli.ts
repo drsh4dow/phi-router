@@ -23,14 +23,16 @@ const OpenAccount = Schema.Struct({
 	vendor: AccountVendor,
 });
 
-const PinnedCounts = Schema.Struct({ gaveUp: Count, rewrites: Count, runs: Count });
+const Withheld = Schema.Struct({ reply: Schema.String, subagent: Schema.String });
+
+const Pinned = Schema.Struct({ gaveUp: Count, rewrites: Count, runs: Count, withheld: Schema.Array(Withheld) });
 
 const Status = Schema.Struct({
 	accounts: Schema.Struct({ clean: Schema.Array(OpenAccount), sealed: Schema.Array(ConfiguredAccount) }),
 	cleared: Count,
 	last: Schema.NullOr(Schema.Struct({ account: Schema.String, model: Schema.String, substitute: Schema.Boolean })),
 	overflowed: Schema.optionalKey(Count),
-	pinned: Schema.optionalKey(PinnedCounts),
+	pinned: Schema.optionalKey(Pinned),
 	sealed: Count,
 	session: SessionId,
 });

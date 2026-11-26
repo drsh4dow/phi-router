@@ -116,7 +116,7 @@ const outcomes = Effect.gen(function* outcomes() {
 		judgedMessage,
 		"phi-router's judge scored it 1.00 for holding a direct identifier of a patient or member, most likely a real patient's or member's name (patient-name)",
 	);
-	assert.deepStrictEqual(counts.pinned, { gaveUp: 0, rewrites: 2, runs: 3 });
+	assert.deepStrictEqual(counts.pinned, { gaveUp: 0, rewrites: 2, runs: 3, withheld: [] });
 });
 
 const gaveUp = Effect.gen(function* gaveUp() {
@@ -130,6 +130,7 @@ const gaveUp = Effect.gen(function* gaveUp() {
 		},
 	);
 
+	const withheld = yield* status;
 	const cleared = yield* checked("agent-d", cleanAnswer);
 	const again = yield* checked("agent-d", ruleAnswer);
 	const counts = yield* status;
@@ -148,7 +149,13 @@ const gaveUp = Effect.gen(function* gaveUp() {
 		"[sealed h1] The pinned subagent's answer still held patient identifiers after 5 rewrites, so phi-router could not clear it and withheld it. h1 is its handle.",
 	);
 	assert.deepStrictEqual([cleared, attemptOf(again)], [{ outcome: "cleared" }, firstAttempt]);
-	assert.deepStrictEqual(counts.pinned, { gaveUp: 2, rewrites: 6, runs: 1 });
+	assert.deepStrictEqual(withheld.pinned, {
+		gaveUp: 2,
+		rewrites: 5,
+		runs: 1,
+		withheld: [{ reply: seventh.reply, subagent: "agent-d" }],
+	});
+	assert.deepStrictEqual(counts.pinned, { gaveUp: 2, rewrites: 6, runs: 1, withheld: [] });
 
 	const pinned = yield* bodyOf([{ role: "user", text: "Summarize h1 by internal ids." }]);
 	const asked = yield* post({ body: Str.replace('"model":"phi/auto"', `"model":"${pinnedModel}"`)(pinned), session });
@@ -185,7 +192,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 			() => outcomes,
 		);
 		test.effect(
-			"gives up after the fifth rewrite, seals the answer under a handle the pinned subagent can open, keeps giving up until a clean answer, and counts it all in status",
+			"gives up after the fifth rewrite, seals the answer under a handle the pinned subagent can open, keeps giving up until a clean answer, lists the last withheld answer's reply in status until then, and counts it all",
 			() => gaveUp,
 		);
 		test.effect("refuses a request that is not the contract's", () => unreadable);
