@@ -13,8 +13,6 @@ const firstSequence = 1;
 
 const h1 = handleAt(firstSequence);
 
-const canary = "PATIENT-CANARY-2W6N";
-
 const status = { ok: 200, unreadable: 400 } as const;
 
 const none = 0;
@@ -54,7 +52,7 @@ const openScript =
 const twoTurns = Effect.fnUntraced(function* twoTurns(refusing: OpenRefusal) {
 	const { mocks, post, state } = yield* routed({
 		harness: "codex",
-		holdsPhi: Str.includes(canary),
+		holdsPhi: () => false,
 		open: openScript(refusing),
 	});
 
@@ -122,7 +120,7 @@ const otherRefusal = Effect.gen(function* otherRefusal() {
 const nothingToDrop = Effect.gen(function* nothingToDrop() {
 	const { mocks, post, state } = yield* routed({
 		harness: "codex",
-		holdsPhi: Str.includes(canary),
+		holdsPhi: () => false,
 		open: openScript({ refusal: unreadableBlob, refusesWithoutReasoning: true }),
 	});
 
@@ -142,10 +140,10 @@ const sealedRefusal = Effect.gen(function* sealedRefusal() {
 	const { mocks, post } = yield* routed({
 		baa: () => rejected(unreadableBlob),
 		harness: "codex",
-		holdsPhi: Str.includes(canary),
+		holdsPhi: () => false,
 	});
 
-	const body = yield* codexBodyOf([userMessage(`Member ${canary} called.`)]);
+	const body = yield* codexBodyOf([userMessage("Member 4411 called.")]);
 	const response = yield* post({ body: pinnedByModel(body), session: "retry-2" });
 	const text = yield* response.text;
 	const sealed = yield* mocks.baa.received;

@@ -12,10 +12,6 @@ import { pinnedByModel } from "./target-models.ts";
 import { resetting } from "./resetting.ts";
 import { textEvents } from "#router/client/mock-upstreams/index.ts";
 
-const canary = "PATIENT-CANARY-8F3D";
-
-const holdsCanary = Str.includes(canary);
-
 const status = { failed: 500, ok: 200, rateLimited: 429 } as const;
 
 const tags = ["request-1", "request-2", "request-3"] as const;
@@ -81,7 +77,7 @@ const pinnedPosted = Effect.fnUntraced(function* pinnedPosted(post: Post, sessio
 
 const stamped = Effect.gen(function* stamped() {
 	const session = yield* homedFirst("failover-1");
-	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary, opens: [limited, ok] });
+	const { mocks, post } = yield* routed({ holdsPhi: () => false, opens: [limited, ok] });
 	const first = yield* posted(post, session, [clean(one)]);
 	const skipped = yield* posted(post, session, [clean(two)]);
 	const atSkip = yield* mocks.accounts;
@@ -115,7 +111,7 @@ const stampsInFile = Effect.gen(function* stampsInFile() {
 	yield* TestClock.setTime(stampedAt);
 
 	const session = yield* homedFirst("failover-7", threeAccounts);
-	const { mocks, post, state } = yield* routed({ holdsPhi: holdsCanary, opens: [limited, ok, ok] });
+	const { mocks, post, state } = yield* routed({ holdsPhi: () => false, opens: [limited, ok, ok] });
 	const file = `${state}/accounts.json`;
 
 	yield* fs.makeDirectory(state, { mode: privateFolder, recursive: true });
@@ -142,7 +138,7 @@ const fellOver = Effect.gen(function* fellOver() {
 	const resets = yield* resetting;
 
 	const { mocks, post, state } = yield* routed({
-		holdsPhi: holdsCanary,
+		holdsPhi: () => false,
 		opens: [limited, stalling, "refused", resets],
 	});
 
@@ -179,7 +175,7 @@ const afterFirstByte = Effect.gen(function* afterFirstByte() {
 		kind: "events",
 	});
 
-	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary, open: breaking });
+	const { mocks, post } = yield* routed({ holdsPhi: () => false, open: breaking });
 	const body = yield* bodyOf([clean(one)]);
 	const response = yield* post({ body, session: "failover-3" });
 
@@ -200,11 +196,11 @@ const afterFirstByte = Effect.gen(function* afterFirstByte() {
 
 const sealedWalk = Effect.gen(function* sealedWalk() {
 	const fs = yield* FileSystem.FileSystem;
-	const walking = yield* routed({ baas: [limited, ok], holdsPhi: holdsCanary });
+	const walking = yield* routed({ baas: [limited, ok], holdsPhi: () => false });
 	const walked = yield* pinnedPosted(walking.post, "failover-4", [clean(one)]);
 	const walkedTo = yield* walking.mocks.accounts;
 	const stampsWritten = yield* fs.exists(`${walking.state}/accounts.json`);
-	const allFailing = yield* routed({ baas: [failing, failing], holdsPhi: holdsCanary });
+	const allFailing = yield* routed({ baas: [failing, failing], holdsPhi: () => false });
 	const failed = yield* pinnedPosted(allFailing.post, "failover-5", [clean(one)]);
 	const lines = yield* laneLines(allFailing.state);
 	const failedAt = yield* allFailing.mocks.accounts;
@@ -231,7 +227,7 @@ const sessionCount = 12;
 const sessions = Array.makeBy(sessionCount, (index) => `home-${String(index)}`);
 
 const homes = Effect.gen(function* homes() {
-	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary, opens: [ok, ok] });
+	const { mocks, post } = yield* routed({ holdsPhi: () => false, opens: [ok, ok] });
 
 	yield* Effect.forEach(
 		[...sessions, ...sessions],
@@ -279,7 +275,7 @@ const writesThenLimits: AccountScript = (asked) => {
 
 const replyKeys = Effect.gen(function* replyKeys() {
 	const session = yield* homedFirst("failover-6");
-	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary, opens: [writesThenLimits, ok] });
+	const { mocks, post } = yield* routed({ holdsPhi: () => false, opens: [writesThenLimits, ok] });
 	const wrote = yield* posted(post, session, [clean(one)]);
 	const echoed = yield* posted(post, session, [clean(one), { role: "assistant", text: replyText }, followUp]);
 	const judged = yield* mocks.judge.received;
@@ -316,7 +312,7 @@ const cutReply = Effect.gen(function* cutReply() {
 		};
 	};
 
-	const { mocks, post } = yield* routed({ holdsPhi: holdsCanary, open: cutAfterLastEvent });
+	const { mocks, post } = yield* routed({ holdsPhi: () => false, open: cutAfterLastEvent });
 	const body = yield* bodyOf([clean(one)]);
 	const response = yield* post({ body, session: "failover-8" });
 
