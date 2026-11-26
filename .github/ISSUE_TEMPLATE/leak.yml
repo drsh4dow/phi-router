@@ -42,4 +42,4 @@ body:
      id: received
      attributes:
         label: What the open account received
-        description: The handle or the text that reached it. The lane log, `phi-router/lanes.jsonl` in your XDG state folder, holds no content and is safe to paste.
+        description: The handle or the text that reached it. The lane log, `phi-router/lanes.jsonl` in your XDG state folder, holds no message content. Its session ids and account names can still identify someone, so check them before you paste it.

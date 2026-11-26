@@ -21,7 +21,7 @@ Never send real PHI or a real key. Rebuild the problem with synthetic data, such
 - Your harness and its version: Claude Code, Codex or pi.
 - Your operating system.
 - The steps, with synthetic data only.
-- What reached which account. The lane log, `phi-router/lanes.jsonl` in your XDG state folder, holds no content, and `/phi` shows the session's counts.
+- What reached which account. The lane log, `phi-router/lanes.jsonl` in your XDG state folder, holds no message content, but check its session ids and account names before you send it. `/phi` shows the session's counts.
 
 If real PHI reached an open account, follow your organization's incident process. phi-router cannot recall a request it sent.
 
