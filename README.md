@@ -71,7 +71,7 @@ Prices were read on 2026-11-26: [Claude Opus 5.5](https://platform.claude.com/do
 | --------------------------- | --------------------------- | ---------------------------- | -------------------------------------------------------------------------- | ------------------------- |
 | Everyday requests run on    | The BAA account, per token  | The Enterprise account       | Your current account                                                       | Your subscription         |
 | The agent can work with PHI | Yes                         | Yes                          | No, only redacted text                                                     | Yes, through the subagent |
-| When the check can't run    | No check                    | No check                     | Up to your code                                                            | The request is not sent   |
+| When the check can't run    | No check                    | No check                     | Up to your code                                                            | The part stays sealed     |
 
 ## What HIPAA-aligned means
 
