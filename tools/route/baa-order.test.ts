@@ -77,12 +77,12 @@ const heldCarryingFirst = Effect.gen(function* heldCarryingFirst() {
 		{ inRepo, pinned },
 		{
 			inRepo: {
-				last: { account: "baa-2", model: sentModels.claudeHaiku, substitute: false },
+				last: { account: "baa-2", model: sentModels.claudeHaiku, overflow: false, substitute: false },
 				lines: [["baa-2", "sealed", sentModels.claudeHaiku, false, "BAA repo"]],
 				models: atCarrier,
 			},
 			pinned: {
-				last: { account: "baa-2", model: sentModels.claudeHaiku, substitute: false },
+				last: { account: "baa-2", model: sentModels.claudeHaiku, overflow: false, substitute: false },
 				lines: [["baa-2", "sealed", sentModels.claudeHaiku, false, "pinned"]],
 				models: atCarrier,
 			},
@@ -110,12 +110,12 @@ const carryingFirst = Effect.gen(function* carryingFirst() {
 		{ auto, lacksAnother },
 		{
 			auto: {
-				last: { account: "baa-2", model: fakes.targetModel, substitute: false },
+				last: { account: "baa-2", model: fakes.targetModel, overflow: false, substitute: false },
 				lines: [["baa-2", "sealed", fakes.targetModel, false, "pinned"]],
 				models: [[], [], [fakes.targetModel]],
 			},
 			lacksAnother: {
-				last: { account: "baa", model: sentModels.claudeHaiku, substitute: false },
+				last: { account: "baa", model: sentModels.claudeHaiku, overflow: false, substitute: false },
 				lines: [["baa", "sealed", sentModels.claudeHaiku, false, "pinned"]],
 				models: [[], [sentModels.claudeHaiku], []],
 			},
@@ -148,17 +148,17 @@ const lackingLast = Effect.gen(function* lackingLast() {
 		{ fell, listedFirst, listedLast },
 		{
 			fell: {
-				last: { account: "baa", model: substitute, substitute: true },
+				last: { account: "baa", model: substitute, overflow: true, substitute: true },
 				lines: [["baa", "sealed", substitute, true, "overflow"]],
 				models: [[sentModels.claudeHaiku], [substitute]],
 			},
 			listedFirst: {
-				last: { account: "baa", model: substitute, substitute: true },
+				last: { account: "baa", model: substitute, overflow: false, substitute: true },
 				lines: [["baa", "sealed", substitute, true, "failover"]],
 				models: [[], [substitute], [sentModels.claudeHaiku]],
 			},
 			listedLast: {
-				last: { account: "baa-2", model: substitute, substitute: true },
+				last: { account: "baa-2", model: substitute, overflow: false, substitute: true },
 				lines: [["baa-2", "sealed", substitute, true, "failover"]],
 				models: [[], [sentModels.claudeHaiku], [substitute]],
 			},

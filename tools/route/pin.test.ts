@@ -111,7 +111,7 @@ const sealedThenAuto = Effect.gen(function* sealedThenAuto() {
 const statusOf = (seen: { readonly cleared: number; readonly account: string }): Shown => ({
 	accounts: { clean: [{ name: "open", vendor: "anthropic" }], sealed: [{ name: "baa", vendor: "anthropic" }] },
 	cleared: seen.cleared,
-	last: { account: seen.account, model: fakes.targetModel, substitute: false },
+	last: { account: seen.account, model: fakes.targetModel, overflow: false, substitute: false },
 	overflowed: 0,
 	pinned: { cleared: [], gaveUp: 0, rewrites: 0, runs: 0, withheld: [] },
 	sealed: none,

@@ -127,7 +127,7 @@ const statusAcross = Effect.fn("statusAcross")(function* statusAcross(
 
 const accounts = '{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]}';
 
-const statusLine = `{"accounts":${accounts},"cleared":2,"last":{"account":"open","model":"${fakes.targetModel}","substitute":false},"overflowed":0,"pinned":{"cleared":[],"gaveUp":0,"rewrites":0,"runs":0,"withheld":[]},"sealed":0,"session":"restart-1"}\n`;
+const statusLine = `{"accounts":${accounts},"cleared":2,"last":{"account":"open","model":"${fakes.targetModel}","overflow":false,"substitute":false},"overflowed":0,"pinned":{"cleared":[],"gaveUp":0,"rewrites":0,"runs":0,"withheld":[]},"sealed":0,"session":"restart-1"}\n`;
 
 const statusAcrossKill = {
 	killed: { status: statusLine, unanswered: { exitCode: 1, named: true } },

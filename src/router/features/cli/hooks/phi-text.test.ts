@@ -122,7 +122,7 @@ const waiting = { installed: "0.6.0", running: "0.5.1" };
 const columns = 80;
 
 it.effect(
-	"the status line marks the overflow until the stamp's HH:MM and no longer, the withheld answers and the version wait in 80 columns whatever the account's name, and /phi says each in full",
+	"the status line marks the overflow until the stamp's HH:MM, or while the last request overflowed with no stamp, and no longer, the withheld answers and the version wait in 80 columns whatever the account's name, and /phi says each in full",
 	() =>
 		Effect.gen(function* marked() {
 			const line = yield* statusLine(noticed, waiting);
@@ -137,11 +137,16 @@ it.effect(
 				waiting,
 			);
 
-			const backAgain = yield* statusLine(
+			const unstamped = Struct.assign(noticed.accounts, {
+				clean: [{ name: "claude-1", vendor: "anthropic" as const }],
+			});
+
+			const backAgain = yield* statusLine(Struct.assign(noticed, { accounts: unstamped }));
+
+			const unanswered = yield* statusLine(
 				Struct.assign(noticed, {
-					accounts: Struct.assign(noticed.accounts, {
-						clean: [{ name: "claude-1", vendor: "anthropic" as const }],
-					}),
+					accounts: unstamped,
+					last: Struct.assign(ranLast, { overflow: true }),
 				}),
 			);
 
@@ -153,6 +158,7 @@ it.effect(
 					longNamed,
 					reply,
 					roomy,
+					unanswered,
 				},
 				{
 					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
@@ -170,6 +176,7 @@ it.effect(
 						"phi-router 0.6.0 is installed. Your open windows still run 0.5.1 until you close them all.",
 					],
 					roomy: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
+					unanswered: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld · overflow",
 				},
 			);
 		}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),

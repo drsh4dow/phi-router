@@ -36,7 +36,7 @@ const LineJson = Schema.fromJsonString(Line);
 
 type Routed = Omit<typeof Line.Type, "time">;
 
-type Last = Pick<Routed, "account" | "model" | "substitute">;
+type Last = Pick<Routed, "account" | "model" | "substitute"> & { readonly overflow: boolean };
 
 interface Summary {
 	readonly last: Option.Option<Last>;
@@ -98,7 +98,11 @@ class LaneLog extends Context.Service<
 				);
 
 				return {
-					last: Option.map(Array.last(lines), Struct.pick(["account", "model", "substitute"])),
+					last: Option.map(Array.last(lines), (line) =>
+						Struct.assign(Struct.pick(line, ["account", "model", "substitute"]), {
+							overflow: line.reason === "overflow",
+						}),
+					),
 					overflowed: Array.countBy(lines, (line) => line.reason === "overflow"),
 				} satisfies Summary;
 			});

@@ -181,8 +181,19 @@ const markOf = flow(
 	Effect.map((clock) => `overflow till ${clock}`),
 );
 
-const overflowMark = (overflow: Overflow): Option.Option<Effect.Effect<string, never, DateTime.CurrentTimeZone>> =>
-	Option.map(Option.fromUndefinedOr(overflow.back), markOf);
+const overflowMark = (
+	overflow: Overflow,
+	last: Reported["last"],
+): Option.Option<Effect.Effect<string, never, DateTime.CurrentTimeZone>> =>
+	Option.match(Option.fromUndefinedOr(overflow.back), {
+		onNone: () =>
+			pipe(
+				Option.fromNullishOr(last),
+				Option.filter((ran) => ran.overflow === true),
+				Option.map(() => Effect.succeed("overflow")),
+			),
+		onSome: flow(markOf, Option.some),
+	});
 
 const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait?: VersionWait) {
 	const pinned = Option.fromUndefinedOr(status.pinned);
@@ -199,7 +210,9 @@ const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait
 		Option.map(({ gaveUp }) => `${String(gaveUp)} withheld`),
 	);
 
-	const overflow = yield* Effect.transposeOption(Option.flatMap(overflowOf(status), overflowMark));
+	const overflow = yield* Effect.transposeOption(
+		Option.flatMap(overflowOf(status), (counted) => overflowMark(counted, status.last)),
+	);
 
 	const pending = pipe(
 		Option.fromUndefinedOr(wait),
