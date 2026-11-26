@@ -1,7 +1,16 @@
+import type { AnswerCheck, AnswerChecked, SessionId, SetupVendor, Status } from "#shared/cli.ts";
+import {
+	AnswerCheckJson,
+	AnswerCheckedJson,
+	CommandFailed,
+	ModelsJson,
+	SetupAnswersJson,
+	SetupStepJson,
+	StatusJson,
+	spelling,
+} from "#shared/cli.ts";
 import { Array, Context, Effect, Layer, Record, Result, Schema, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { CommandFailed, ModelsJson, SetupAnswersJson, SetupStepJson, StatusJson, spelling } from "#shared/cli.ts";
-import type { SessionId, SetupVendor, Status } from "#shared/cli.ts";
 import type { Redacted } from "effect";
 
 const successExitCode = 0;
@@ -18,16 +27,18 @@ interface Spawned {
 	readonly program: string;
 	readonly args: readonly string[];
 	readonly env: Record.ReadonlyRecord<string, Readonly<Redacted.Redacted>>;
+	readonly input?: string;
 	readonly shown: Shown;
 }
 
 const printed = Effect.fn("Router.printed")(function* printed(name: string, spawned: Spawned) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const stdin = { stream: Stream.encodeText(Stream.make(spawned.input ?? "")) };
 
 	const ran = yield* Effect.result(
 		Effect.gen(function* ran() {
 			const handle = yield* spawner.spawn(
-				ChildProcess.make(spawned.program, spawned.args, { env: spawned.env, extendEnv: true }),
+				ChildProcess.make(spawned.program, spawned.args, { env: spawned.env, extendEnv: true, stdin }),
 			);
 
 			const { errors, lines } = yield* Effect.all(
@@ -87,6 +98,10 @@ class Router extends Context.Service<
 	{
 		readonly start: (session: string, folder: string, port: number) => Effect.Effect<string, CommandFailed>;
 		readonly status: Asking<typeof Status.Type>;
+		readonly answerCheck: (
+			asked: typeof AnswerCheck.Type,
+			port: number,
+		) => Effect.Effect<typeof AnswerChecked.Type, CommandFailed>;
 		readonly models: Effect.Effect<typeof ModelsJson.Type, CommandFailed>;
 		readonly setupStep: (answers: Answers) => Effect.Effect<typeof SetupStepJson.Type, CommandFailed>;
 		readonly setUp: (given: SetUp) => Effect.Effect<void, CommandFailed>;
@@ -132,6 +147,26 @@ class Router extends Context.Service<
 					return yield* decodedAs(command, Schema.decodeEffect(StatusJson))(output);
 				});
 
+				const answerCheck = Effect.fn("Router.answerCheck")(function* answerCheck(
+					asked: typeof AnswerCheck.Type,
+					port: number,
+				) {
+					const command = spelling.answerCheck.name;
+					const input = yield* Effect.orDie(Schema.encodeEffect(AnswerCheckJson)(asked));
+
+					const output = yield* spawning(
+						printed(command, {
+							args: [command, `--${spelling.start.port}`, String(port)],
+							env: {},
+							input,
+							program,
+							shown: unshown,
+						}),
+					);
+
+					return yield* decodedAs(command, Schema.decodeEffect(AnswerCheckedJson))(output);
+				});
+
 				const models = Effect.flatMap(run(spelling.models.name, [spelling.models.name]), decodedModels);
 
 				const setupArgs = Effect.fnUntraced(function* setupArgs(flag: string, answers: Answers) {
@@ -161,7 +196,7 @@ class Router extends Context.Service<
 					yield* spawning(printed(spelling.setup.name, { args, env, program, shown: given.shown }));
 				});
 
-				return Router.of({ models, setUp, setupStep, start, status });
+				return Router.of({ answerCheck, models, setUp, setupStep, start, status });
 			}),
 		);
 }

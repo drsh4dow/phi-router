@@ -26,6 +26,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean, printed 
 	const answered = Effect.as(Effect.when(refused, Effect.succeed(refuses)), printed);
 
 	const service = Router.of({
+		answerCheck: () => Effect.die("the proof checks no answer"),
 		models: Effect.succeed({}),
 		setUp: () => Effect.die("the proof sets nothing up"),
 		setupStep: () => Effect.die("the proof sets nothing up"),

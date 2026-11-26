@@ -6,7 +6,7 @@ import type {
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import type { Observe, ShownContext } from "./phi.ts";
-import { printedLine, routed } from "./phi.ts";
+import { printedLine, routed, sessionOf } from "./phi.ts";
 import type { CommandFailed } from "#shared/cli.ts";
 import { Router } from "#pi/client/router.ts";
 
@@ -19,7 +19,7 @@ interface HeldRequestContext {
 }
 
 const leaseLeft = (port: number, ctx: HeldRequestContext): Effect.Effect<string, CommandFailed, Router> =>
-	Router.use((client) => client.start(ctx.sessionManager.getSessionId(), ctx.cwd, port));
+	Effect.flatMap(sessionOf(ctx), (session) => Router.use((client) => client.start(session, ctx.cwd, port)));
 
 const cleared = (port: number, ctx: HeldRequestContext): Effect.Effect<boolean, never, Router> => {
 	if (!routed(ctx)) {

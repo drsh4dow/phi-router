@@ -15,6 +15,8 @@ const routerPort = 47_498;
 
 const cleared = 2;
 
+type Pinned = NonNullable<(typeof Status.Type)["pinned"]>;
+
 interface Pool {
 	readonly overflowed: number;
 	readonly back?: string;
@@ -24,7 +26,7 @@ const open = { name: "open", vendor: "anthropic" } as const;
 
 const reported =
 	(substitute: boolean) =>
-	(now: { readonly pool: Pool; readonly sealed: number }): typeof Status.Type => ({
+	(now: { readonly pool: Pool; readonly sealed: number; readonly pinned: Pinned }): typeof Status.Type => ({
 		accounts: {
 			clean: [
 				Option.match(Option.fromUndefinedOr(now.pool.back), {
@@ -37,6 +39,7 @@ const reported =
 		cleared,
 		last: { account: "baa", model: "claude-baa", substitute },
 		overflowed: now.pool.overflowed,
+		pinned: now.pinned,
 		sealed: now.sealed,
 		session: SessionId.make(session),
 	});
@@ -52,6 +55,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	const asked = yield* Ref.make<readonly string[]>([]);
 	const sealed = yield* Ref.make(none);
 	const pool = yield* Ref.make<Pool>({ overflowed: none });
+	const pinned = yield* Ref.make<Pinned>({ gaveUp: none, rewrites: none, runs: none });
 
 	const ask = (command: string, port: number): Effect.Effect<void, CommandFailed> => {
 		const failed = Effect.fail(
@@ -64,6 +68,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	};
 
 	const service = Router.of({
+		answerCheck: () => Effect.die("/phi checks no answer"),
 		models: Effect.succeed({}),
 		setUp: () => Effect.die("/phi sets nothing up"),
 		setupStep: () => Effect.die("/phi sets nothing up"),
@@ -72,12 +77,16 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 			Effect.andThen(
 				ask("status", port),
 				Effect.gen(function* statusNow() {
-					return reported(substitute === true)({ pool: yield* Ref.get(pool), sealed: yield* Ref.get(sealed) });
+					return reported(substitute === true)({
+						pinned: yield* Ref.get(pinned),
+						pool: yield* Ref.get(pool),
+						sealed: yield* Ref.get(sealed),
+					});
 				}),
 			),
 	});
 
-	return { asked, pool, sealed, service };
+	return { asked, pinned, pool, sealed, service };
 });
 
 const noEntry = "no entry";
@@ -131,7 +140,7 @@ it.effect("/phi shows the session's last request, counts and accounts, and asks 
 			["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared"],
 			[
 				"info",
-				"phi-router, session pi-session-1\nLast request: baa, model claude-baa\nMessages: 0 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
+				"phi-router, session pi-session-1\nLast request: baa, model claude-baa\nMessages: 0 sealed, 2 cleared\nPinned subagent: 0 runs, 0 rewrites, 0 answers withheld\nClean lane: open\nSealed lane: baa",
 			],
 		]);
 	}),
@@ -150,7 +159,7 @@ it.effect("/phi and the status bar say the last request's model was a substitute
 			["status", "phi · baa, model claude-baa, a substitute for the requested model · 0 sealed · 2 cleared"],
 			[
 				"info",
-				"phi-router, session pi-session-1\nLast request: baa, model claude-baa, a substitute for the requested model\nMessages: 0 sealed, 2 cleared\nClean lane: open\nSealed lane: baa",
+				"phi-router, session pi-session-1\nLast request: baa, model claude-baa, a substitute for the requested model\nMessages: 0 sealed, 2 cleared\nPinned subagent: 0 runs, 0 rewrites, 0 answers withheld\nClean lane: open\nSealed lane: baa",
 			],
 		]);
 	}),
@@ -369,4 +378,48 @@ it.effect(
 				["warning", overflowNotice("did not answer", "1 request")],
 			]);
 		}),
+);
+
+it.effect("/phi counts the pinned subagent's runs, rewrites and withheld answers, and the status bar its runs", () =>
+	Effect.gen(function* pinnedCounts() {
+		const router = yield* routerOf(false);
+		const { ctx, shown } = contextOf(true);
+
+		yield* Ref.set(router.pinned, { gaveUp: one, rewrites: 6, runs: 2 });
+		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
+
+		assert.deepStrictEqual(shown, [
+			["status", "phi · baa, model claude-baa · 0 sealed · 2 cleared · 2 pinned runs"],
+			[
+				"info",
+				"phi-router, session pi-session-1\nLast request: baa, model claude-baa\nMessages: 0 sealed, 2 cleared\nPinned subagent: 2 runs, 6 rewrites, 1 answer withheld\nClean lane: open\nSealed lane: baa",
+			],
+		]);
+	}),
+);
+
+it.effect("a turn after the pinned subagent's answer was withheld shows a notice once", () =>
+	Effect.gen(function* withheld() {
+		const router = yield* routerOf(false);
+		const { ctx, shown } = contextOf(true);
+		const { afterTurn, atStart } = yield* observerOn(routerPort);
+		const turn = afterTurn(ctx);
+
+		yield* Effect.provideService(atStart(ctx), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
+		yield* Ref.set(router.pinned, { gaveUp: one, rewrites: 5, runs: one });
+		yield* Effect.provideService(Effect.andThen(turn, turn), Router, router.service).pipe(
+			Effect.provideService(DateTime.CurrentTimeZone, utc),
+		);
+
+		assert.deepStrictEqual(noticesIn(shown), [
+			[
+				"warning",
+				"phi-router withheld 1 answer of the pinned subagent: each still held patient identifiers after its last rewrite, so the agent received its handle instead.",
+			],
+		]);
+	}),
 );
