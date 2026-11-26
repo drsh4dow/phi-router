@@ -1,9 +1,10 @@
 import type { AnswerCheck, AnswerChecked } from "#shared/cli.ts";
-import { Array, Effect, Option, String as Str, pipe } from "effect";
+import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
 import { Findings, Verdicts, verdictOfPiece } from "#router/features/verdicts/index.ts";
 import type { IdentifierKind, RuleId } from "#router/features/policy/index.ts";
 import type { PinnedRun, SealedStore } from "#router/client/sealed-store.ts";
 import { Rules, Seam, identifierKinds, rewriteLimit, wayOut } from "#router/features/policy/index.ts";
+import type { Handle } from "#router/primitives/handle.ts";
 import { stubTag } from "#router/primitives/handle.ts";
 
 type Asked = typeof AnswerCheck.Type;
@@ -61,6 +62,9 @@ const judgedReason = (kind: IdentifierKind | "unlabelled", score: number): strin
 const rewriteOf = (reason: string, attempt: number, filesFolder: string): string =>
 	`phi-router withheld your last answer: ${reason}. The agent that started you runs on an account that must never see patient identifiers, so your answer must hold none. This is rewrite attempt ${String(attempt)} of ${String(rewriteLimit)}: answer again without them. ${wayOut(filesFolder)}`;
 
+const withheldReply = (handle: typeof Handle.Type): string =>
+	`${stubTag(handle)} The pinned subagent's answer still held patient identifiers after ${String(rewriteLimit)} rewrites, so phi-router could not clear it and withheld it. ${handle} is its handle.`;
+
 const checkAnswer = Effect.fn("checkAnswer")(function* checkAnswer(asked: Asked, store: SealedStore["Service"]) {
 	const verdict = yield* verdictOfPiece({
 		context: [],
@@ -111,11 +115,9 @@ const checkAnswer = Effect.fn("checkAnswer")(function* checkAnswer(asked: Asked,
 		onSome: Effect.succeed,
 	});
 
-	return {
-		handle,
-		outcome: "gave-up",
-		reply: `${stubTag(handle)} The pinned subagent's answer still held patient identifiers after ${String(rewriteLimit)} rewrites, so phi-router could not clear it and withheld it. ${handle} is its handle.`,
-	} satisfies Checked;
+	yield* store.answered(asked.session, asked.subagent, (now) => Struct.assign(now, { withheld: handle }));
+
+	return { handle, outcome: "gave-up", reply: withheldReply(handle) } satisfies Checked;
 });
 
-export { checkAnswer };
+export { checkAnswer, withheldReply };

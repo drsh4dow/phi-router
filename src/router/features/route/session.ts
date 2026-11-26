@@ -3,9 +3,9 @@ import { AnswerCheckJson, AnswerCheckedJson, SessionId, StatusJson } from "#shar
 import { Array, DateTime, Effect, Option, Schema, Struct, pipe } from "effect";
 import type { Incoming, Outgoing, Path } from "#router/client/router-port/index.ts";
 import type { Judging, Routing } from "./routing.ts";
+import { checkAnswer, withheldReply } from "#router/features/answer-check/index.ts";
 import { Fixtures } from "#router/features/verdicts/index.ts";
 import type { Status } from "#shared/cli.ts";
-import { checkAnswer } from "#router/features/answer-check/index.ts";
 import { sessionPaths } from "#router/client/router-port/index.ts";
 
 type LaneAccounts = (typeof Status.Type)["accounts"]["sealed"];
@@ -87,7 +87,14 @@ const sessionRows = ({
 				Effect.gen(function* reported() {
 					const summary = yield* routing.store.summary(session, routing.policy);
 					const { last, overflowed } = yield* routing.laneLog.summary(session);
-					const pinned = yield* routing.sealedStore.summary(session);
+					const work = yield* routing.sealedStore.summary(session);
+
+					const withheld = pipe(
+						work.withheld,
+						Array.map(({ handle, subagent }) => ({ reply: withheldReply(handle), subagent })),
+					);
+
+					const pinned = { gaveUp: work.gaveUp, rewrites: work.rewrites, runs: work.runs, withheld };
 					const accounts = yield* listed(served, routing.accountState);
 
 					const body = yield* Schema.encodeEffect(StatusJson)({
