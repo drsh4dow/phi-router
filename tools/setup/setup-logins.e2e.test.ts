@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, String as Str, pipe } from "effect";
+import { Effect, FileSystem, String as Str } from "effect";
 import type { Typed, World } from "./world.ts";
 import {
 	asDarwin,
@@ -38,8 +38,6 @@ const enterpriseFound = `phi-router found
   PHI check       needs an OpenAI key
 `;
 
-const enterpriseNote = "! Check that your BAA covers Claude Code through phi-router.";
-
 const enterpriseEnd = `✓ Signed in as Claude Max · roe@example.com
 ✓ Installed phi-router ${version} in Claude Code
 ✓ Test: a fake patient record reached Claude Max only as a handle
@@ -49,11 +47,6 @@ const enterpriseEnd = `✓ Signed in as Claude Max · roe@example.com
   Patient data    Claude Enterprise · dr.roe@clinic.example
   PHI check       OpenAI
 `;
-
-const once = 1;
-
-const notedOnce = (shown: string): boolean =>
-	pipe(Str.split("\n")(shown), Array.filter(Str.startsWith(enterpriseNote)), (noted) => noted.length === once);
 
 const loginsOf = Effect.fnUntraced(function* loginsOf(of: World) {
 	const fs = yield* FileSystem.FileSystem;
@@ -96,7 +89,6 @@ const enterpriseSetUp = Effect.gen(function* enterpriseSetUp() {
 		"❯ Claude Pro or Max",
 		"  Nothing else",
 	]);
-	assert.isTrue(notedOnce(run.shown), run.shown);
 	assert.include(run.shown, enterpriseEnd);
 
 	const config = yield* writtenConfigOf(of);
@@ -132,7 +124,6 @@ const headless = Effect.gen(function* headless() {
 	assert.strictEqual(run.exitCode, ok, run.shown);
 	assert.include(run.shown, "Paste code here if prompted > CODE-123\n");
 	assert.include(run.shown, "  Patient data    Claude Enterprise · dr.roe@clinic.example\n");
-	assert.isTrue(notedOnce(run.shown), run.shown);
 	assert.isFalse(browserOpened, "no browser opened");
 	assert.strictEqual(logins, `${loginFolders(of).baa}\n`, "the login ran in a folder of its own");
 	assert.deepStrictEqual(config, {

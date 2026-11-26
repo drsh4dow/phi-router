@@ -156,7 +156,7 @@ files holding the key canary: config/phi-router/keys/anthropic config/phi-router
 
 It exits 1 with a `FAIL` line when pi shows no BAA question, no `Add another subscription?` question or no key field, setup does not end on `phi/auto`, the footer does not name `(phi) auto`, a captured pane holds the canary, the open mock gets any request, or any file under the run's folder but phi-router's key files holds the canary. The other worlds:
 
-- `setup-tui.sh enterprise` picks `Claude Enterprise login` with `BROWSER` set and a fake `claude` whose `auth login` writes a login. The last screen starts with `! Check that your BAA covers Claude Code through phi-router. Anthropic doesn't cover a custom base URL by default.`
+- `setup-tui.sh enterprise` picks `Claude Enterprise login` with `BROWSER` set and a fake `claude` whose `auth login` writes a login. Setup ends on `phi/auto` with the login as Patient data.
 - `setup-tui.sh headless` makes the same pick with no `DISPLAY` and no `BROWSER`. Within seconds pi shows `This machine has no browser. In any terminal, run ``CLAUDE_CONFIG_DIR='<login folder>' claude auth login`` and follow the steps. When it says you're signed in, type /phi setup again.` and keeps its model. The script runs that command, types `/phi setup` again, and ends on `phi/auto` with the login as Patient data.
 - `setup-tui.sh apikey` signs pi in with an API key. pi shows `You don't need phi-router. It keeps patient data off a subscription with no BAA, and you're on an API key. Nothing changed.` and keeps its model.
 - `setup-tui.sh terminal` and `terminal-apikey` run `phi-router setup pi` in the same worlds, for the terminal form's question and stop line.

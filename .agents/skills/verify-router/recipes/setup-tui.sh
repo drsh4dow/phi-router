@@ -111,7 +111,7 @@ else
 		wait_for "type /phi setup again." 60 || fail "setup with no browser did not name the sign-in command"
 		sleep 1
 		shot no-browser
-		grep -v '^\s*$' "$shots/no-browser.txt" | grep -A12 "^ ! Check"
+		grep -v '^\s*$' "$shots/no-browser.txt" | grep -A12 "This machine has no browser"
 		grep -qF "CLAUDE_CONFIG_DIR='$login' claude auth login" "$shots/no-browser.txt" || fail "the line does not name the login folder's command"
 		tail -3 "$shots/no-browser.txt" | grep -qF "(phi) auto" && fail "pi switched to phi/auto before the sign-in"
 		CLAUDE_CONFIG_DIR="$login" claude auth login </dev/null >/dev/null

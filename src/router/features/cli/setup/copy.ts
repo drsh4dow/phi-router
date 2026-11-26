@@ -130,12 +130,8 @@ const signInElsewhere = ({ folder, harness }: { readonly folder: string; readonl
 const macNote =
 	"Claude Enterprise sign-in isn't available on macOS yet: Claude Code keeps sign-ins in the Keychain, and phi-router reads only a file.";
 
-const enterpriseNote =
-	"! Check that your BAA covers Claude Code through phi-router. Anthropic doesn't cover a custom base URL by default.";
-
 export {
 	codexDone,
-	enterpriseNote,
 	keyInTerminal,
 	keyInputs,
 	keyName,

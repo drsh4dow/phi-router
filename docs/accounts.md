@@ -76,7 +76,7 @@ Setup offers a Claude Enterprise login as the BAA account, in Claude Code and in
 - When Claude Code is logged in to Claude Enterprise, setup asks whether your BAA covers it. On yes, the BAA account is Claude Code's own login folder, and setup asks you to log in to the subscription you use for everyday work, in a login folder of its own under `phi-router/logins/` in your config folder.
 - When your harness runs on a subscription, pick `Claude Enterprise login` at `Which account does your BAA cover?`. Setup runs `claude auth login` in a login folder of its own.
 
-With a browser, the login opens it. Without one, paste the code the login page shows at `Paste code here if prompted`. Check that your BAA covers Claude Code through phi-router: Anthropic's public page says its BAA does not cover a custom base URL by default.
+With a browser, the login opens it. Without one, paste the code the login page shows at `Paste code here if prompted`.
 
 On macOS, setup does not offer a login it would have to create. Claude Code keeps a login in the Keychain there, and the router reads only a login folder's file.
 

@@ -2,7 +2,7 @@ import { Array, Console, Effect, Option, Struct, pipe } from "effect";
 import type { HarnessName, Target } from "./harnesses.ts";
 import { anotherSignedIn, signedIn } from "./sign-ins.ts";
 import { checkedKeys, savedKey } from "./held-keys.ts";
-import { enterpriseNote, roleNames, rows, shown } from "./copy.ts";
+import { roleNames, rows, shown } from "./copy.ts";
 import type { NewAccount } from "#router/client/config-writer.ts";
 import type { Ready } from "./plan.ts";
 import type { Signed } from "./sign-ins.ts";
@@ -79,10 +79,6 @@ const apply = Effect.fn("setup apply")(function* apply(
 ) {
 	const { title } = harnesses[name];
 	const { roles, typed } = ready;
-
-	if (roles.baa.kind === "harnessFolder" || roles.baa.kind === "signIn") {
-		yield* Console.log(enterpriseNote);
-	}
 
 	yield* checkedKeys(title, roles, typed);
 
