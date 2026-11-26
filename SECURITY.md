@@ -2,7 +2,7 @@
 
 ## Report a vulnerability or a suspected leak
 
-Email daniel.morettiv@gmail.com with `phi-router security` in the subject. Do not open a public issue for it.
+Open a [private vulnerability report](https://github.com/drsh4dow/phi-router/security/advisories/new). Do not open a public issue for it.
 
 Report it privately when you find any of these:
 
