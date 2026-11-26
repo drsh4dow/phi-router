@@ -6,9 +6,11 @@ A [HIPAA-aligned](#what-hipaa-aligned-means-here) router that runs Claude Code, 
 [![check](https://github.com/drsh4dow/phi-router/actions/workflows/check.yml/badge.svg)](https://github.com/drsh4dow/phi-router/actions/workflows/check.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-![pi on phi/auto reads a synthetic patients.csv. The open account receives only [sealed h1], and /phi counts 1 sealed message.](docs/demo.gif)
+![Claude Code on phi/auto is asked which patients in a synthetic patients.csv are overdue for an A1c. The open account receives the file as [sealed h1]. Claude Code hands h1 to the phi-sealed subagent on the BAA account. phi-router sends the subagent's first answer back because it names a patient, and the rewrite holds only patient ids and the path of a 0600 file of names. Claude Code answers that 2 of 4 patients are overdue, and /phi counts 1 sealed message, 1 pinned subagent run and 1 rewrite.](docs/demo.gif)
 
-A real capture of pi with phi-router, run against the mock accounts of the [verify-router](.agents/skills/verify-router/SKILL.md) skill, at no cost. The agent reads `patients.csv`, a synthetic record with the voided SSN `078-05-1120`. The mock open account replies with the text it received, so its reply shows that it got `[sealed h1]` and none of the record. `/phi` then counts 1 sealed message. `target-under-test` is the mock's model name.
+A capture of the real Claude Code binary with the phi-router plugin, against the mock accounts of the [verify-router](.agents/skills/verify-router/SKILL.md) skill, at no cost. The model replies and the judge's verdicts are scripted mocks. Claude Code, the plugin's hooks, the router, the sealed store and the answer check are the real code. The record is synthetic, with voided SSNs such as `078-05-1120`.
+
+The file reaches the open account as `[sealed h1]`. The agent hands `h1` to the pinned subagent `phi-sealed`, which runs on the BAA account. The subagent's first answer names a patient, so phi-router sends it back with the reason. The rewrite gives patient ids and writes the names to a 0600 file. The agent answers with the ids and the file's path. The bottom pane shows what each mock account received. `/phi` counts 1 sealed message, 1 pinned subagent run and 1 rewrite. `target-under-test` is the mock's model name.
 
 ## What you get
 
