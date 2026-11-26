@@ -1,4 +1,4 @@
-import { Array, Effect, Number, Predicate, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Number, Predicate, String as Str, pipe } from "effect";
 import type { Asked, Said, Sent } from "#router/client/mock-upstreams/index.ts";
 import type { Check, Turned } from "./checks.ts";
 import { bridgesFor, sealedStub } from "#router/features/border/index.ts";
@@ -313,15 +313,12 @@ const holding =
 
 const stubbedHandles = /(?<=\[sealed )h[1-9]\d*(?=\])/gu;
 
-const handleOf = Schema.decodeUnknownOption(Handle);
-
 const holdsStub =
 	(harness: Harness) =>
 	({ body }: Sent): boolean =>
 		pipe(
 			Array.fromIterable(Str.matchAll(stubbedHandles)(body)),
-			Array.flatMap(([stubbed]) => Array.fromOption(handleOf(stubbed))),
-			Array.some((handle) => Str.includes(sealedStub(harness)(handle))(body)),
+			Array.some(([stubbed]) => Str.includes(sealedStub(harness)(Handle.make(stubbed)))(body)),
 		);
 
 const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
