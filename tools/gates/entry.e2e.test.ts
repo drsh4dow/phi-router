@@ -1,4 +1,4 @@
-import { Array, Effect, Layer, Path, Schema, String as Str, Stream, pipe } from "effect";
+import { Array, Effect, FileSystem, Layer, Path, Schema, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
@@ -11,7 +11,11 @@ const clean = 0;
 
 const bundle = "plugins/claude/phi-router.mjs";
 
+const pluginManifest = "plugins/claude/.claude-plugin/plugin.json";
+
 const patient = { timeout: 60_000 };
+
+const Manifest = Schema.fromJsonString(Schema.Struct({ version: Schema.String }));
 
 const run = Effect.fn("run")(function* run(
 	env: Readonly<Record<string, string>>,
@@ -168,16 +172,25 @@ const restarted = Effect.fn("restarted")(function* restarted(runtime: string) {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the committed bundle", (test) => {
 	test.effect.each(["bun", "node"])(
-		"started with %s, names its platform layer, and status reaches the router across a SIGKILL",
+		"started with %s, names its platform layer and its release, and status reaches the router across a SIGKILL",
 		(runtime) =>
 			Effect.gen(function* entry() {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
 				const { env } = yield* mocked({ holdsPhi: () => false });
 				const bare = yield* ran(env, runtime, [bundle]);
+				const version = yield* ran(env, runtime, [bundle, "--version"]);
+				const manifest = yield* fs.readFileString(path.resolve(import.meta.dirname, "../..", pluginManifest));
+				const { version: released } = yield* Schema.decodeEffect(Manifest)(manifest);
 				const seen = yield* statusAcross(runtime, env);
 
 				assert.deepStrictEqual(
-					{ bare, seen },
-					{ bare: `phi-router runs on the ${runtime} platform layer\n`, seen: statusAcrossKill },
+					{ bare, seen, version },
+					{
+						bare: `phi-router runs on the ${runtime} platform layer\n`,
+						seen: statusAcrossKill,
+						version: `phi-router v${released}\n`,
+					},
 				);
 			}),
 		patient,
