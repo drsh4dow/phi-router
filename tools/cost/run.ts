@@ -19,6 +19,7 @@ import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import { claudeTurn } from "#tools/wire/claude.ts";
 import { isModelPost } from "#tools/wire/stored.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
+import { succeeded } from "#tools/wire/checks.ts";
 
 const runtimeAndScript = 2;
 
@@ -31,8 +32,6 @@ const half = 2;
 const firstRun = 1;
 
 const lowest = 0;
-
-const succeeded = 0;
 
 const executable = 0o755;
 
