@@ -1,12 +1,12 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Struct, pipe } from "effect";
 import type { Asked, Json, Said } from "#router/client/mock-upstreams/index.ts";
-import { handOff, isSubagent, overflowPrompts, subagent } from "./phi-checks.ts";
+import { handOff, isSubagent, subagent } from "./phi-checks.ts";
 import { pinnedRoleFile, sealedRole } from "#router/features/cli/index.ts";
 import { replyMessage, replying } from "#tools/route/harnesses.ts";
 import type { Cause } from "effect";
 import { fakes } from "#tools/route/mocked-router.ts";
 
-const files = { chart: "planted-chart.txt", notes: "planted-notes.txt" } as const;
+const chart = "planted-chart.txt";
 
 const catting = (call: { readonly file: string; readonly id: string }): Said =>
 	replying([
@@ -64,8 +64,8 @@ const openScript = (asked: Asked): Said => {
 		return saying("The note says the build runs at noon.");
 	}
 
-	if (Str.includes(files.chart)(asked.last)) {
-		return catting({ file: files.chart, id: "wire_chart" });
+	if (Str.includes(chart)(asked.last)) {
+		return catting({ file: chart, id: "wire_chart" });
 	}
 
 	return saying("ok");
@@ -76,20 +76,7 @@ const baaScript = (asked: Asked): Said => {
 		return saying(subagent.answer);
 	}
 
-	if (
-		pipe(
-			overflowPrompts,
-			Array.some((prompt) => Str.includes(prompt)(asked.last)),
-		)
-	) {
-		return saying("ok");
-	}
-
-	if (isToolOutput(asked)) {
-		return saying("Noted.");
-	}
-
-	return catting({ file: files.notes, id: "wire_notes" });
+	return saying("ok");
 };
 
 const Entry = Schema.StructWithRest(Schema.Struct({ slug: Schema.String }), [
@@ -151,4 +138,4 @@ const execSessionOf = (stderr: string): Effect.Effect<string, Cause.NoSuchElemen
 		Effect.fromOption,
 	);
 
-export { baaScript, catalogOf, catalogSlugsOf, execSessionOf, files, installed, openScript };
+export { baaScript, catalogOf, catalogSlugsOf, chart, execSessionOf, installed, openScript };

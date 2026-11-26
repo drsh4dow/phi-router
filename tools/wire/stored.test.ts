@@ -31,6 +31,7 @@ const stored = (lines: readonly LaneLogLine[], text: string): Stored => ({
 	laneLogText: text,
 	lines,
 	notPrivate: [],
+	sealedTexts: [],
 });
 
 const turns = [
@@ -46,17 +47,25 @@ const stateFolder = Effect.gen(function* stateFolder() {
 	const root = yield* fs.makeTempDirectoryScoped({ prefix: "phi-wire-stored-" });
 	const state = path.join(root, "phi-router");
 	const sessions = path.join(state, "sessions");
+	const written = path.join(state, "files", "czE");
 	const shared = path.join(root, "shared");
 
 	yield* fs.makeDirectory(sessions, { recursive: true });
+	yield* fs.makeDirectory(written, { recursive: true });
 	yield* fs.makeDirectory(shared);
 	yield* fs.writeFileString(path.join(state, "lanes.jsonl"), laneLogText);
 	yield* fs.writeFileString(path.join(sessions, "czE.json"), "a session's verdicts");
+	yield* fs.writeFileString(path.join(sessions, "czE.sealed.json"), "a session's sealed parts");
+	yield* fs.writeFileString(path.join(written, "ids.csv"), "a file the pinned subagent wrote");
 	yield* fs.writeFileString(path.join(shared, "open.txt"), "left open");
 	yield* fs.chmod(state, modes.privateFolder);
 	yield* fs.chmod(sessions, modes.privateFolder);
 	yield* fs.chmod(path.join(state, "lanes.jsonl"), modes.private);
 	yield* fs.chmod(path.join(sessions, "czE.json"), modes.private);
+	yield* fs.chmod(path.join(sessions, "czE.sealed.json"), modes.private);
+	yield* fs.chmod(path.join(state, "files"), modes.privateFolder);
+	yield* fs.chmod(written, modes.privateFolder);
+	yield* fs.chmod(path.join(written, "ids.csv"), modes.private);
 	yield* fs.chmod(shared, modes.shared);
 	yield* fs.chmod(path.join(shared, "open.txt"), modes.open);
 
@@ -72,12 +81,14 @@ const readBack = Effect.gen(function* readBack() {
 		Struct.assign(left, {
 			fileTexts: Array.sort(left.fileTexts, Order.String),
 			notPrivate: Array.sort(left.notPrivate, Order.String),
+			sealedTexts: Array.sort(left.sealedTexts, Order.String),
 		}),
 		{
 			fileTexts: ["", "a session's verdicts", laneLogText],
 			laneLogText,
 			lines: [line],
 			notPrivate: [`${shared} 755`, `${path.join(shared, "open.txt")} 644`],
+			sealedTexts: ["", "", "a file the pinned subagent wrote", "a session's sealed parts"],
 		},
 	);
 }).pipe(Effect.scoped);
@@ -99,7 +110,7 @@ const laneLogChecked = Effect.gen(function* laneLogChecked() {
 describe("what a wire run left in the router's state folder", () => {
 	it.layer(NodeServices.layer)((test) => {
 		test.effect(
-			"holds the text of every file under it, nested ones too, the lane log's lines, and each file and folder under the roots that is not 0600 or 0700",
+			"holds the text of every file under it, nested ones too, the sealed store's apart, the lane log's lines, and each file and folder under the roots that is not 0600 or 0700",
 			() => readBack,
 		);
 	});

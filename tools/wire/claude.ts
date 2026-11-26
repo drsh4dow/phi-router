@@ -1,12 +1,13 @@
+import { Array, Config, Effect, FileSystem, Option, Path, String as Str, Stream, Struct, pipe } from "effect";
 import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { Config, Effect, FileSystem, Path, String as Str, Stream, Struct } from "effect";
 import type { Outcome, Run } from "./checks.ts";
 import { checksOf, leftOf } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
 	handOff,
+	handleChecksOf,
 	insideStamp,
 	isSubagent,
 	overflowChecksOf,
@@ -84,40 +85,44 @@ const claudeTurn = Effect.fnUntraced(
 	Effect.timeout("3 minutes"),
 );
 
-const planted = { name: "planted-notes.txt", text: "The build runs at noon on Fridays, after the lint step." };
+const chart = "planted-chart.txt";
 
-const readPlanted = `Read the file ${planted.name} and tell me what it says.`;
+const readChart = `Read the file ${chart} and tell me what it says.`;
+
+const sealedWithRestoredChart = "Go on.";
+
+const handOffAgain = "Ask the pinned subagent for that member's internal id once more.";
 
 const said = (texts: readonly string[]): Said => ({ events: Stream.fromIterable(textEvents(texts)), kind: "events" });
 
-const calling = (call: { readonly id: string; readonly name: string; readonly input: string }): Said => ({
-	events: Stream.fromIterable(toolEvents(call)),
-	kind: "events",
-});
+interface Call {
+	readonly id: string;
+	readonly name: string;
+	readonly input: string;
+}
 
-const startSubagent = calling({
-	id: "toolu_wire_agent",
-	input: `{"description":"Look up the member","prompt":"${subagent.prompt}","run_in_background":false,"subagent_type":"phi-router:phi-sealed"}`,
+const calling = (call: Call): Said => ({ events: Stream.fromIterable(toolEvents(call)), kind: "events" });
+
+const lookUp = (id: string): Call => ({
+	id,
+	input: `{"description":"Look up the member","prompt":"${subagent.prompt} The member is in h1.","run_in_background":false,"subagent_type":"phi-router:phi-sealed"}`,
 	name: "Agent",
 });
 
-const openScript =
-	(file: string) =>
-	(asked: Asked): Said => {
-		if (Str.includes('"tool_result"')(asked.last)) {
-			return said(["The note says the build runs at noon."]);
-		}
+const openScript = (file: string): ((asked: Asked) => Said) => {
+	const calls = [
+		{ asks: readChart, call: { id: "toolu_wire_read", input: `{"file_path":"${file}"}`, name: "Read" } },
+		{ asks: handOff, call: lookUp("toolu_wire_agent") },
+		{ asks: handOffAgain, call: lookUp("toolu_wire_agent_again") },
+	];
 
-		if (Str.includes(planted.name)(asked.last)) {
-			return calling({ id: "toolu_wire_1", input: `{"file_path":"${file}"}`, name: "Read" });
-		}
-
-		if (Str.includes(handOff)(asked.last)) {
-			return startSubagent;
-		}
-
-		return said(["ok"]);
-	};
+	return ({ body }) =>
+		pipe(
+			calls,
+			Array.findFirst(({ asks, call }) => Str.includes(asks)(body) && !Str.includes(call.id)(body)),
+			Option.match({ onNone: () => said(["ok"]), onSome: ({ call }) => calling(call) }),
+		);
+};
 
 const baaScript = (asked: Asked): Said => {
 	if (isSubagent(asked)) {
@@ -127,37 +132,40 @@ const baaScript = (asked: Asked): Said => {
 	return said(["ok"]);
 };
 
-const setUp = Effect.fnUntraced(function* setUp(judgeSeals: (piece: string) => boolean) {
+const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const where = yield* place;
-	const file = path.join(where.work, planted.name);
+	const file = path.join(where.work, chart);
 
-	yield* fs.writeFileString(file, planted.text);
+	yield* fs.writeFileString(file, run.phi.text);
 
 	const { breaches, env, received, roots, state } = yield* mocked({
 		baa: baaScript,
 		configExtras: { sealedModel: fakes.sealedModel },
-		holdsPhi: judgeSeals,
+		holdsPhi: run.judgeSeals,
 		open: refusing(openScript(file)),
 	});
 
-	const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 	const folders = Struct.pick(env, ["XDG_CONFIG_HOME", "XDG_STATE_HOME"]);
 
-	const turn = Effect.fnUntraced(function* turn(prompt: string, flags: readonly string[]) {
-		return yield* during(
-			() => received,
-			() => claudeTurn({ folders, place: where, prompt, router: router.url, session: flags }),
-		);
+	const routed = Effect.gen(function* routed() {
+		const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
+
+		const turn = Effect.fnUntraced(function* turn(prompt: string, flags: readonly string[]) {
+			return yield* during(
+				() => received,
+				() => claudeTurn({ folders, place: where, prompt, router: router.url, session: flags }),
+			);
+		});
+
+		return { stop: router.kill, turn };
 	});
 
-	return { breaches, roots, state, turn };
+	return { breaches, roots, routed, state };
 });
 
 const session = "17171717-1717-4717-8717-171717171717";
-
-const handingOff = "27272727-2727-4727-8727-272727272727";
 
 const events = ["--output-format", "stream-json", "--verbose"];
 
@@ -168,57 +176,88 @@ const resumed = ["--resume", session];
 const resumedEvents = [...resumed, ...events];
 
 const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
-	const { breaches, roots, state, turn } = yield* setUp(run.judgeSeals);
+	const { breaches, roots, routed, state } = yield* setUp(run);
+	const first = yield* routed;
 
 	const [clean, canary, followed, tool, handedOff, after] = yield* Effect.all(
 		[
-			turn(run.clean.text, started),
-			turn(run.phi.text, resumedEvents),
-			turn(followUp, resumedEvents),
-			turn(readPlanted, resumedEvents),
-			turn(handOff, ["--session-id", handingOff, ...events]),
-			turn(followUp, ["--resume", handingOff, ...events]),
+			first.turn(run.clean.text, started),
+			first.turn(run.phi.text, resumedEvents),
+			first.turn(followUp, resumedEvents),
+			first.turn(readChart, resumedEvents),
+			first.turn(handOff, resumedEvents),
+			first.turn(followUp, resumedEvents),
 		],
 		{ concurrency: 1 },
 	);
 
-	const phi = yield* phiTurns((prompt) => turn(prompt, resumed));
+	const phi = yield* phiTurns((prompt) => first.turn(prompt, resumed));
+	const compacted = yield* first.turn("/compact", resumed);
+
+	yield* first.stop;
+
+	const restarted = yield* routed;
+	const restoredChart = yield* restarted.turn(sealedWithRestoredChart, resumedEvents);
+	const reopened = yield* restarted.turn(handOffAgain, resumedEvents);
 
 	const overflow = yield* Effect.all(
-		[turn(overflowing, resumedEvents), turn(insideStamp, resumedEvents), turn("/phi", resumed)],
+		[
+			restarted.turn(overflowing, resumedEvents),
+			restarted.turn(insideStamp, resumedEvents),
+			restarted.turn("/phi", resumed),
+		],
 		{ concurrency: 1 },
 	);
 
 	const [overflowed, quiet, status] = overflow;
-	const all = [clean, canary, followed, tool, ...phi.inOrder, handedOff, after, ...overflow] as const;
+	const untilCompaction = [handedOff, after, ...phi.inOrder, compacted];
+	const beforeOverflow = [clean, canary, followed, tool, ...untilCompaction, restoredChart, reopened] as const;
+	const all = [...beforeOverflow, ...overflow] as const;
 	const stored = yield* storedIn(state, roots);
 
 	const left = leftOf({
-		prompts: [run.clean.text, run.phi.text, followUp, readPlanted, handOff],
+		prompts: [run.clean.text, run.phi.text, followUp, readChart, handOff, handOffAgain],
 		run,
-		sessions: [session, handingOff],
+		sessions: [session],
 		stored,
 		turns: all,
 	});
 
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
-	const sealed = sealCheckOf([canary, clean, followed, tool, ...phi.inOrder, ...overflow]);
+
+	const sealed = sealCheckOf({
+		others: [clean, followed, after, ...phi.inOrder, compacted, ...overflow],
+		sealing: [canary, tool, handedOff, restoredChart, reopened],
+	});
+
+	const handles = handleChecksOf({
+		beforeOverflow,
+		canaries: left.canaries,
+		compacted,
+		handedOff,
+		lines: stored.lines,
+		read: tool,
+		reopened,
+		untilCompaction,
+	});
 
 	const overflowChecks = overflowChecksOf({
 		after: [overflowed, quiet],
 		all,
+		canaries: left.canaries,
 		clock: yield* stampClockIn(state),
 		command: "/phi",
+		harness: "claude",
 		lines: stored.lines,
 		session,
 		status,
 	});
 
-	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });
+	const handing = subagentChecksOf({ after, answer: "h3", handedOff, harness: "claude" });
 
 	return {
 		checks: yield* withCredentialRule(
-			[...checksOf(left), ...phiChecks, sealed, ...handing, ...overflowChecks],
+			[...checksOf(left), ...handles, ...phiChecks, sealed, ...handing, ...overflowChecks],
 			() => breaches,
 		),
 		stored,

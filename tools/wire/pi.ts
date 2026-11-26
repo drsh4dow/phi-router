@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Layer, Option, Path, Struct } from "effect";
+import { Array, Effect, FileSystem, Layer, Option, Path, String as Str, Struct, pipe } from "effect";
 import type { Outcome, Run } from "./checks.ts";
 import { answers, freePort, leasedPids, refusedWithin } from "#tools/lifecycle/launched.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
@@ -23,7 +23,12 @@ const storesIn = Effect.fnUntraced(function* storesIn(state: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 
-	return yield* fs.readDirectory(path.join(state, "sessions"));
+	const names = yield* fs.readDirectory(path.join(state, "sessions"));
+
+	return pipe(
+		names,
+		Array.filter((name) => !Str.endsWith(".sealed.json")(name)),
+	);
 });
 
 const routerOutlivesLastLease = 10_000;

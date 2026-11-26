@@ -1,7 +1,7 @@
 import { Array, Config, Effect, FileSystem, Path, String as Str, Stream, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { CodexTurned, Listing, Outcome, Run } from "./checks.ts";
-import { baaScript, catalogOf, catalogSlugsOf, execSessionOf, files, installed, openScript } from "./codex-mocks.ts";
+import { baaScript, catalogOf, catalogSlugsOf, chart, execSessionOf, installed, openScript } from "./codex-mocks.ts";
 import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
@@ -190,8 +190,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const where = yield* place;
 	const { breaches, folders, received, roots, router, served, state } = yield* routedOn(run, where);
 
-	yield* fs.writeFileString(path.join(where.work, files.notes), "The build runs at noon on Fridays.");
-	yield* fs.writeFileString(path.join(where.work, files.chart), run.phi.text);
+	yield* fs.writeFileString(path.join(where.work, chart), run.phi.text);
 	yield* gitRepo(where);
 
 	const turn = Effect.fnUntraced(function* turn(args: readonly string[]) {
@@ -238,7 +237,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	return { breaches, handingOff, inTui, roots, served, state, turn };
 });
 
-const readChart = `Read the file ${files.chart} and tell me what it says.`;
+const readChart = `Read the file ${chart} and tell me what it says.`;
 
 const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const { breaches, handingOff, inTui, roots, served, state, turn } = yield* setUp(run);
@@ -294,12 +293,14 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 		[
 			...codexChecksOf(Struct.assign(left, listing)),
 			...phiChecksOf(phi),
-			...subagentChecksOf({ after, handedOff, harness: "codex" }),
+			...subagentChecksOf({ after, answer: "h1", handedOff, harness: "codex" }),
 			...overflowChecksOf({
 				after: [overflowed],
 				all: left.turns,
+				canaries: left.canaries,
 				clock: yield* stampClockIn(state),
 				command: "phi",
+				harness: "codex",
 				lines: stored.lines,
 				session: cleanSession,
 				status: overflowed,

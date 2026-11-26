@@ -1,12 +1,13 @@
 import { Array, Function, Option, String as Str, pipe } from "effect";
 import { laneLogHolds, windowsOf } from "./stored.ts";
 import type { Case } from "#tools/corpus/manifest.ts";
+import { Handle } from "#router/primitives/handle.ts";
+import type { Harness } from "#router/features/border/index.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import type { Stored } from "./stored.ts";
 import type { Tracked } from "#tools/corpus/canary-tokens.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { foundIn } from "#tools/corpus/request-bodies.ts";
-import { handleAt } from "#router/primitives/handle.ts";
 import { sealedStub } from "#router/features/border/index.ts";
 
 const succeeded = 0;
@@ -83,7 +84,15 @@ interface Outcome {
 const none = (tokens: readonly string[], bodies: readonly string[]): boolean =>
 	!Array.isReadonlyArrayNonEmpty(foundIn(bodies)(tokens));
 
-const holds = (tokens: readonly string[], sent: Sent): boolean => !none(tokens, [sent.body]);
+const holds =
+	(tokens: readonly string[]) =>
+	(sent: Sent): boolean =>
+		!none(tokens, [sent.body]);
+
+const stubOf =
+	(harness: Harness) =>
+	(handle: `h${number}`): string =>
+		sealedStub(harness)(Handle.make(handle));
 
 const isAsSent = ({ headers, body }: Sent): boolean =>
 	headers["authorization"] === `Bearer ${fakes.harnessToken}` && Str.includes(`"model":"${fakes.targetModel}"`)(body);
@@ -110,11 +119,7 @@ const sentIn = (turns: readonly Turned[], mock: "open" | "baa"): readonly Sent[]
 		Array.flatMap((turn) => turn[mock]),
 	);
 
-const someHold = (tokens: readonly string[], sent: readonly Sent[]): boolean =>
-	pipe(
-		sent,
-		Array.some((one) => holds(tokens, one)),
-	);
+const someHold = (tokens: readonly string[], sent: readonly Sent[]): boolean => pipe(sent, Array.some(holds(tokens)));
 
 const everyOf: {
 	<Item>(predicate: (item: Item) => boolean): (items: readonly Item[]) => boolean;
@@ -155,8 +160,8 @@ const commonChecksOf =
 			ok: !someHold(played.canaries, sentIn(played.turns, "open")),
 		},
 		{
-			name: "no file under the state folder holds corpus text",
-			ok: none(played.corpusTokens, played.stored.fileTexts),
+			name: "the canary lives only in the sealed store, and no other file under the state folder holds corpus text",
+			ok: !none(played.canaries, played.stored.sealedTexts) && none(played.corpusTokens, played.stored.fileTexts),
 		},
 		{
 			name: "every folder under the XDG state and config folders is 0700 and every file 0600",
@@ -176,10 +181,9 @@ const checksOf = (played: ClaudePlayed): readonly Check[] => {
 	const [clean, canary, followUp, tool] = played.turns;
 	const cleanWindows = windowsOf(played.cleanText);
 
-	const cleanCase = pipe(
-		clean.open,
-		Array.filter((sent) => holds(cleanWindows, sent)),
-	);
+	const cleanCase = pipe(clean.open, Array.filter(holds(cleanWindows)));
+
+	const stubbed = (sent: Sent): boolean => holds([stubOf("claude")("h1")])(sent) && !holds(played.canaries)(sent);
 
 	return [
 		{
@@ -187,12 +191,16 @@ const checksOf = (played: ClaudePlayed): readonly Check[] => {
 			ok: everyOf(cleanCase, isAsSent),
 		},
 		{
-			name: "the canary case reaches the BAA mock with the BAA key and without the open credential",
-			ok: someHold(played.canaries, canary.baa) && pipe(sentIn(played.turns, "baa"), Array.every(isBaaOnly)),
+			name: "AC2: the canary turn's first request reaches the open mock with the stub of h1 in place of the prompt, and the BAA mock gets none",
+			ok: Option.exists(Array.head(canary.open), stubbed) && Array.isReadonlyArrayEmpty(canary.baa),
+		},
+		{
+			name: "every request to the BAA mock carries the BAA key and not the open credential",
+			ok: pipe(sentIn(played.turns, "baa"), Array.every(isBaaOnly)),
 		},
 		{
 			name: "the follow-up reaches the open mock with the stub in place of the sealed part",
-			ok: someHold([sealedStub("claude")(handleAt(1))], followUp.open),
+			ok: someHold([stubOf("claude")("h1")], followUp.open),
 		},
 		{
 			name: "the open mock answers a Read, and Claude Code posts its tool result",
@@ -230,23 +238,24 @@ const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 			ok: everyOf(pipe(clean.open, Array.filter(isPost)), (sent) => isForwardedLogin(sent) && isTarget(sent)),
 		},
 		{
-			name: "the canary case reaches the BAA mock with the BAA key alone",
-			ok: someHold(played.canaries, canary.baa) && pipe(sentIn(played.turns, "baa"), Array.every(isBaaKeyOnly)),
+			name: "the canary turn reaches the open mock with the stub of h1 in place of the prompt, and the BAA mock gets none",
+			ok: someHold([stubOf("codex")("h1")], canary.open) && Array.isReadonlyArrayEmpty(canary.baa),
 		},
 		{
-			name: "codex runs the BAA mock's tool call and the canary turn finishes on the open mock",
-			ok: pipe(canary.open, Array.some(holdsToolOutput)),
+			name: "every request to the BAA mock carries the BAA key alone",
+			ok: pipe(sentIn(played.turns, "baa"), Array.every(isBaaKeyOnly)),
 		},
 		{
 			name: "the follow-up reaches the open mock with the stub in place of the sealed part",
-			ok: someHold([sealedStub("codex")(handleAt(1))], followUp.open),
+			ok: someHold([stubOf("codex")("h1")], followUp.open),
 		},
 		{
-			name: "a canary in a tool result reaches the BAA mock",
-			ok: pipe(
-				tool.baa,
-				Array.some((sent) => holdsToolOutput(sent) && holds(played.canaries, sent)),
-			),
+			name: "a canary in a tool result reaches the open mock as the stub of h2, and the BAA mock gets none",
+			ok:
+				pipe(
+					tool.open,
+					Array.some((sent) => holdsToolOutput(sent) && holds([stubOf("codex")("h2")])(sent)),
+				) && Array.isReadonlyArrayEmpty(tool.baa),
 		},
 		{
 			name: "no open body names the working folder's git remote",
@@ -264,6 +273,18 @@ const verdictOf = ({ name, ok }: Check): string => {
 	return `FAIL ${name}`;
 };
 
-export { checksOf, codexChecksOf, commonChecksOf, everyOf, isAsSent, isBaaOnly, leftOf, succeeded, verdictOf };
+export {
+	checksOf,
+	codexChecksOf,
+	commonChecksOf,
+	everyOf,
+	holds,
+	isAsSent,
+	isBaaOnly,
+	leftOf,
+	stubOf,
+	succeeded,
+	verdictOf,
+};
 
 export type { Check, CodexTurned, Listing, Outcome, Played, Run, Turned };
