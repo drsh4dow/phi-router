@@ -5,9 +5,10 @@ import type { LaneChoice } from "#router/features/lanes/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { NodeServices } from "@effect/platform-node";
 import { decide } from "#router/features/lanes/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { routed } from "./mocked-router.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
-import { stubsFor } from "#router/features/border/index.ts";
 
 const markers = {
 	cleared: "CODEX-BORDER-CLEARED-4H7J",
@@ -71,7 +72,7 @@ const border = Effect.gen(function* border() {
 
 	const texts = yield* Effect.forEach(open, (sent) => textsOf(sent.body), { concurrency: 1 });
 
-	assert.deepStrictEqual(texts, [[cleared, "Noted.", stubsFor.codex, "Noted.", stubs.unknown]]);
+	assert.deepStrictEqual(texts, [[cleared, "Noted.", sealedStub("codex")(handleAt(1)), "Noted.", stubs.unknown]]);
 });
 
 it.layer(NodeServices.layer)("the border with a wrong lane choice, for Codex", (test) => {

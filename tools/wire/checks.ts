@@ -6,7 +6,8 @@ import type { Stored } from "./stored.ts";
 import type { Tracked } from "#tools/corpus/canary-tokens.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
 import { foundIn } from "#tools/corpus/request-bodies.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const succeeded = 0;
 
@@ -191,7 +192,7 @@ const checksOf = (played: ClaudePlayed): readonly Check[] => {
 		},
 		{
 			name: "the follow-up reaches the open mock with the stub in place of the sealed part",
-			ok: someHold([stubsFor.claude], followUp.open),
+			ok: someHold([sealedStub("claude")(handleAt(1))], followUp.open),
 		},
 		{
 			name: "the open mock answers a Read, and Claude Code posts its tool result",
@@ -238,7 +239,7 @@ const codexChecksOf = (played: CodexPlayed): readonly Check[] => {
 		},
 		{
 			name: "the follow-up reaches the open mock with the stub in place of the sealed part",
-			ok: someHold([stubsFor.codex], followUp.open),
+			ok: someHold([sealedStub("codex")(handleAt(1))], followUp.open),
 		},
 		{
 			name: "a canary in a tool result reaches the BAA mock",

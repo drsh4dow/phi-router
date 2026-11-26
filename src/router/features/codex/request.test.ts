@@ -1,4 +1,4 @@
-import { Array, Effect, Exit, Option, Predicate, Record, Schema, String as Str, pipe } from "effect";
+import { Array, Effect, Exit, Function, Option, pipe, Predicate, Record, Schema, String as Str } from "effect";
 import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
 import type { CodexRequest, CodexRequestRejected } from "./index.ts";
 import { allCleared, cleanBodyPastBorder, decodedAfter, nothingWritten, realModel, writersOf } from "./test-kit.ts";
@@ -71,16 +71,24 @@ const captures = [...Record.toEntries(requests), ...Record.toEntries(replies)];
 const sealedIdentity = (text: string): Effect.Effect<void, CodexRequestRejected | CleanLaneRefused, Digest.Digest> =>
 	Effect.gen(function* encodeSealed() {
 		const request = yield* decoded(text);
-		const pinned = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
-		const bridged = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: request.model });
+		const bridged = yield* request.encode({
+			lane: "sealed",
+			open: Function.identity,
+			system: bridgesFor.codex,
+			upstreamModel: request.model,
+		});
 
-		assert.strictEqual(pinned, text);
 		assert.strictEqual(bridged, withBridge(text));
 	});
 
 const sealedModel = Effect.gen(function* sealedModel() {
 	const request = yield* decoded(requests.customToolCall);
-	const sent = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: realModel });
+	const sent = yield* request.encode({
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.codex,
+		upstreamModel: realModel,
+	});
 
 	assert.strictEqual(request.model, "phi/auto");
 	assert.strictEqual(sent, withBridge(withRealModel(requests.customToolCall)));

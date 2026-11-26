@@ -7,8 +7,9 @@ import { NodeServices } from "@effect/platform-node";
 import type { Sent as Received } from "#router/client/mock-upstreams/index.ts";
 import type { Turn } from "./mocked-router.ts";
 import { decide } from "#router/features/lanes/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
-import { stubsFor } from "#router/features/border/index.ts";
 
 const markers = {
 	cleared: "BORDER-CLEARED-5X2P",
@@ -66,7 +67,9 @@ const border = Effect.gen(function* border() {
 	const open = yield* mocks.open.received;
 	const texts = yield* Effect.forEach(open, (sent) => textsOf(sent), { concurrency: 1 });
 
-	assert.deepStrictEqual(texts, [[cleared.text, reply.text, stubsFor.claude, reply.text, stubs.unknown]]);
+	assert.deepStrictEqual(texts, [
+		[cleared.text, reply.text, sealedStub("claude")(handleAt(1)), reply.text, stubs.unknown],
+	]);
 });
 
 it.layer(NodeServices.layer)("the border with a wrong lane choice", (test) => {

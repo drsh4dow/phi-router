@@ -1,8 +1,9 @@
 import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
 import type { CodexRequest, CodexRequestRejected } from "./index.ts";
-import { Effect, Predicate, String as Str } from "effect";
+import { Effect, Function, Predicate, String as Str } from "effect";
 import { allCleared, cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
@@ -22,9 +23,14 @@ const sealedAsSent = (
 ): Effect.Effect<CodexRequest, CodexRequestRejected | CleanLaneRefused, Digest.Digest> =>
 	Effect.gen(function* decodeAndSeal() {
 		const request = yield* decodeRequest(text, nothingWritten);
-		const sealed = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
+		const sealed = yield* request.encode({
+			lane: "sealed",
+			open: Function.identity,
+			system: bridgesFor.codex,
+			upstreamModel: request.model,
+		});
 
-		assert.strictEqual(sealed, text);
+		assert.strictEqual(Str.replace(`,"instructions":"${bridgesFor.codex}"`, "")(sealed), text);
 
 		return request;
 	});
@@ -105,6 +111,12 @@ const refused = [
 ] as const;
 
 it.layer(Digest.layerWebCrypto)("what the codec cannot read", (test) => {
-	test.effect.each(stubbed)("%s decodes, goes sealed as sent, and clean as the stub", stubbedCase);
-	test.effect.each(refused)("%s decodes, goes sealed as sent, and refuses the clean lane", refusedCase);
+	test.effect.each(stubbed)(
+		"%s decodes, goes sealed as sent with the instructions added, and clean as the stub",
+		stubbedCase,
+	);
+	test.effect.each(refused)(
+		"%s decodes, goes sealed as sent with the instructions added, and refuses the clean lane",
+		refusedCase,
+	);
 });

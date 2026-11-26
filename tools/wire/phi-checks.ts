@@ -6,7 +6,8 @@ import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
 import { everyOf } from "./checks.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 import { voidedSsn } from "./cases.ts";
 
 const typed = { status: "/phi", usage: "/phi pin" } as const;
@@ -163,7 +164,7 @@ const subagentChecksOf = ({ after, handedOff, harness }: HandedOff): readonly Ch
 			ok:
 				pipe(
 					after.open,
-					Array.some(({ body }) => Str.includes(stubsFor[harness])(body)),
+					Array.some(({ body }) => Str.includes(sealedStub(harness)(handleAt(1)))(body)),
 				) && !pipe(opened, Array.some(holdsAnswer)),
 		},
 	];

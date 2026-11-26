@@ -5,7 +5,9 @@ import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import type { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
+import type { Keep } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 
 const realModel = "gpt-5.5";
 
@@ -13,10 +15,13 @@ const nothingWritten = (): boolean => false;
 
 const allCleared: Lookup = () => "cleared";
 
+const firstHandle: Keep<never> = (parts) =>
+	Effect.succeed(new Map(Array.map(parts, ({ key }) => [key, handleAt(1)] as const)));
+
 const cleanBodyPastBorder =
 	(lookup: Lookup) =>
 	(request: CodexRequest): Effect.Effect<string, CleanLaneRefused | ToolsNotCleared, Digest.Digest> =>
-		Effect.flatMap(guard({ harness: "codex", lookup, messages: request.messages }), (messages) =>
+		Effect.flatMap(guard({ harness: "codex", keep: firstHandle, lookup, messages: request.messages }), (messages) =>
 			request.encode({ lane: "clean", messages, upstreamModel: realModel }),
 		);
 

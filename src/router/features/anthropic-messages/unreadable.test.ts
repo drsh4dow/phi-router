@@ -1,6 +1,7 @@
-import { Array, Effect, Schema, pipe } from "effect";
+import { Array, Effect, Function, pipe, Schema, String as Str } from "effect";
 import { UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { BodyJson } from "./wire.ts";
 import { CleanLaneRefused } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
@@ -12,8 +13,12 @@ import { stubs } from "#router/features/policy/index.ts";
 
 const target = "claude-target";
 
-const bridge =
-	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-router:phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.";
+const bridge = bridgesFor.claude;
+
+const added = `{"type":"text","text":"${bridgesFor.claude}"}`;
+
+const withoutAdded = (sent: string): string =>
+	Str.replace(`,${added}`, "")(Str.replace(`,"system":[${added}]`, "")(sent));
 
 const unknownStub = { text: stubs.unknown, type: "text" } as const;
 
@@ -50,7 +55,7 @@ const clean = (request: MessagesRequest): Target => ({
 	upstreamModel: target,
 });
 
-const sealed: Target = { lane: "sealed", pinned: false, upstreamModel: target };
+const sealed: Target = { lane: "sealed", open: Function.identity, system: bridgesFor.claude, upstreamModel: target };
 
 const redactedFromBaa = Effect.gen(function* redactedFromBaa() {
 	const request = yield* decodeRequest(redacted, nobodyWrote, "claude");
@@ -121,9 +126,14 @@ const vendorMessage = Effect.gen(function* vendorMessage() {
 
 const vendorPinned = Effect.gen(function* vendorPinned() {
 	const request = yield* decodeRequest(vendorKeys, nobodyWrote, "claude");
-	const sent = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
+	const sent = yield* request.encode({
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: request.model,
+	});
 
-	assert.strictEqual(sent, vendorKeys);
+	assert.strictEqual(withoutAdded(sent), vendorKeys);
 });
 
 const repeatedKey = Effect.gen(function* repeatedKey() {
@@ -139,11 +149,16 @@ const strayCacheControl = String.raw`{"model":"phi/auto","messages":[{"role":"us
 const refused = Effect.gen(function* refused() {
 	const request = yield* decodeRequest(strayCacheControl, nobodyWrote, "claude");
 	const failure = yield* Effect.flip(request.encode(clean(request)));
-	const toBaa = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
+	const toBaa = yield* request.encode({
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: request.model,
+	});
 
 	assert.instanceOf(failure, CleanLaneRefused);
 	assert.strictEqual(failure.reason, "messages[0].content[0].cache_control");
-	assert.strictEqual(toBaa, strayCacheControl);
+	assert.strictEqual(withoutAdded(toBaa), strayCacheControl);
 });
 
 const toolReference = Effect.gen(function* toolReference() {
@@ -209,7 +224,10 @@ it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 		() => vendorMessage,
 	);
 
-	test.effect("a pinned request with unknown keys below the top leaves as it came", () => vendorPinned);
+	test.effect(
+		"a sealed request with unknown keys below the top leaves as it came, with one system block added",
+		() => vendorPinned,
+	);
 
 	test.effect(
 		"a key that appears twice in one object fails the request and names where, even when one spelling is escaped",

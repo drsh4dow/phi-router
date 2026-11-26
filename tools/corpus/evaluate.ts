@@ -6,7 +6,9 @@ import type { Played, Sent } from "./report.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { Synthetic } from "#router/features/policy/index.ts";
 import { decide } from "#router/features/lanes/index.ts";
+import type { Keep } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { reportOf } from "./report.ts";
 import { requestMessagesOf } from "./messages.ts";
 import { tokensOf } from "./canary-tokens.ts";
@@ -40,8 +42,11 @@ const isFailure = Verdicts.$match({
 	Sealed: ({ finding }) => Findings.$is("Failure")(finding),
 });
 
+const inOrder: Keep<never> = (parts) =>
+	Effect.succeed(new Map(Array.map(parts, ({ key }, index) => [key, handleAt(index + 1)] as const)));
+
 const guardedBody = Effect.fnUntraced(function* guardedBody(messages: readonly Message[], lookup: Lookup) {
-	const guarded = yield* guard({ harness: "claude", lookup, messages }).pipe(
+	const guarded = yield* guard({ harness: "claude", keep: inOrder, lookup, messages }).pipe(
 		Effect.catchTag("ToolsNotCleared", () => Effect.succeed([])),
 	);
 

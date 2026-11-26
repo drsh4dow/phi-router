@@ -7,8 +7,9 @@ import { Base64 } from "effect/encoding";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { bodyFor } from "./target-models.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { judgeLimits } from "#router/features/policy/index.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const canary = "PATIENT-CANARY-7Q4K";
 
@@ -70,7 +71,7 @@ const postedIn = Effect.fnUntraced(function* postedIn(
 });
 
 const stubbedIn = Effect.fnUntraced(function* stubbedIn(opened: readonly Received[], text: string) {
-	const stub = yield* jsonText(stubsFor.claude);
+	const stub = yield* jsonText(sealedStub("claude")(handleAt(1)));
 
 	return pipe(
 		opened,
@@ -102,8 +103,8 @@ const expectedConversation = {
 	lines: [lineOf("open", "clean", "clean"), lineOf("open", "clean", "clean"), lineOf("open", "clean", "clean")],
 	open: [
 		Struct.assign(openSent, { atPhi: Option.none() }),
-		Struct.assign(openSent, { atPhi: Option.some(stubsFor.claude) }),
-		Struct.assign(openSent, { atPhi: Option.some(stubsFor.claude) }),
+		Struct.assign(openSent, { atPhi: Option.some(sealedStub("claude")(handleAt(1))) }),
+		Struct.assign(openSent, { atPhi: Option.some(sealedStub("claude")(handleAt(1))) }),
 	],
 	statuses: [status.ok, status.ok, status.ok],
 };

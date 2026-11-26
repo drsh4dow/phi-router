@@ -4,7 +4,8 @@ import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import { NodeServices } from "@effect/platform-node";
 import { pinnedSubagent } from "./agent-file.ts";
 import { sealedRole } from "#router/features/cli/index.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const shipped = Effect.gen(function* shipped() {
 	const agent = yield* pinnedSubagent;
@@ -20,8 +21,8 @@ const shipped = Effect.gen(function* shipped() {
 			readsAgain: Str.includes("read your sources again with your tools")(agent.body),
 			roleInstructions: Str.includes(`developer_instructions = """\n${agent.body}"""\n`)(sealedRole),
 			stubsNameIt: [
-				Str.includes(`the ${agent.pluginName}:${agent.name} subagent`)(stubsFor.claude),
-				Str.includes(`the ${agent.name} subagent`)(stubsFor.codex),
+				Str.includes(`the ${agent.pluginName}:${agent.name} subagent`)(sealedStub("claude")(handleAt(1))),
+				Str.includes(`the ${agent.name} subagent`)(sealedStub("codex")(handleAt(1))),
 			],
 		},
 		{

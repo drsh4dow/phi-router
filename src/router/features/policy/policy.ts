@@ -81,6 +81,27 @@ const counterList = pipe(
 	Array.join("; "),
 );
 
+const notIdentifiers = `Not direct identifiers: internal ids, health facts tied only to an internal id, code, schemas, logs and SQL, staff, vendor and business contacts, fragments, counts. For example: ${counterList}.`;
+
+const rewriteLimit = 5;
+
+const wayOut = (filesFolder: string): string =>
+	`Refer to each person by an internal id such as a patient_id or a row id, give counts instead of lists of people, and when the user needs the identifiers themselves, write them to a new file in ${filesFolder} with mode 0600 and answer with the file's absolute path and a summary that holds none of them.`;
+
+const pinnedInstructionsOf = (filesFolder: string): string =>
+	Array.join(
+		[
+			"phi-router: you are the pinned subagent. You run on the HIPAA account and can read patient identifiers. A part shown between [content of hN] and [end of hN] is the sealed part with handle hN, which phi-router put back for you.",
+			"phi-router checks your last answer before the agent that started you reads it, and that agent runs on an account that must never see patient identifiers. Your last answer must hold no direct identifier of a patient or health-plan member.",
+			`Direct identifiers: ${kindList}.`,
+			...defaults,
+			notIdentifiers,
+			wayOut(filesFolder),
+			`An answer that still holds an identifier comes back to you with the reason, up to ${String(rewriteLimit)} times. After that phi-router withholds it, and the agent that started you gets only its handle.`,
+		],
+		" ",
+	);
+
 const countingRules = [
 	`Direct identifiers: ${kindList}.`,
 	...defaults,
@@ -90,7 +111,7 @@ const countingRules = [
 	"A name, phone, email, address, date of birth or record or member number that could belong to a patient or member counts, wherever it appears (a file name, a log, a table, a header). Clear it only when the text shows it belongs to staff, a vendor or a business.",
 	"In a path or file name that names a diagnosis or a patient's document, in any language, every number or code other than a leading internal id counts, whatever its spacing or mix of letters and digits: in `9921_KX4410927_asthma_referral.pdf` or `9921_AW20831C_asma_referral.pdf` the second value counts, while `9921_asthma_referral.pdf` holds only an internal id.",
 	"Encoded, minified, misspelled or buried values count.",
-	`Not direct identifiers: internal ids, health facts tied only to an internal id, code, schemas, logs and SQL, staff, vendor and business contacts, fragments, counts. For example: ${counterList}.`,
+	notIdentifiers,
 ];
 
 const identifierQuestion = {
@@ -147,12 +168,15 @@ export {
 	identifierQuestion,
 	judgeLimits,
 	kindQuestion,
+	pinnedInstructionsOf,
 	quoteMinChars,
+	rewriteLimit,
 	seamChars,
 	stubs,
 	syntheticIdentities,
 	syntheticMark,
 	thresholds,
+	wayOut,
 	window,
 };
 

@@ -20,10 +20,10 @@ const none = 0;
 const phiText = `Member ${canary} called.`;
 
 const codexBridge =
-	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.";
+	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A part shown as [sealed h<number>] held patient identifiers: phi-router keeps it, you cannot read it, and h<number> is its handle. Hand work to the phi-sealed subagent only when the task needs a sealed part redacted, or needs its identifiers for one segment of the work. Scope each task tightly: name the handles it needs and say exactly what to return, because it cannot see this conversation and phi-router puts a part back only for it. Its calls are billed per token, so make as few as the task allows. When the user needs patient identifiers in the result, have it write them to a local file and report the file's path.";
 
 const codexStub =
-	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-sealed subagent.";
+	"[sealed h1] This part held patient identifiers, so phi-router withheld it. When the task needs it read, redacted or its identifiers used, hand that segment of the work to the phi-sealed subagent with a scoped task that names h1.";
 
 const items = {
 	clean: userMessage("List the build steps."),

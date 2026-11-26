@@ -3,7 +3,9 @@ import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
 import type { MessagesRequest } from "./index.ts";
 import { decodeRequest } from "./index.ts";
+import type { Keep } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
 
@@ -133,12 +135,15 @@ const onlyCleared =
 		return "unknown";
 	};
 
+const inOrder: Keep<never> = (parts) =>
+	Effect.succeed(new Map(Array.map(parts, ({ key }, index) => [key, handleAt(index + 1)] as const)));
+
 const cleanBodyOf = (
 	request: MessagesRequest,
 	lookup: Lookup,
 ): Effect.Effect<Option.Option<string>, never, Digest.Digest> =>
 	pipe(
-		guard({ harness: "claude", lookup, messages: request.messages }),
+		guard({ harness: "claude", keep: inOrder, lookup, messages: request.messages }),
 		Effect.flatMap((guarded) => request.encode({ lane: "clean", messages: guarded, upstreamModel: "target" })),
 		Effect.option,
 	);

@@ -1,7 +1,7 @@
 import { Array, Effect, Layer, Option, String as Str, pipe } from "effect";
 import type { Case, Synthetic } from "./manifest.ts";
 import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
-import { Rules, firstHit, identifierKind, stubs } from "#router/features/policy/index.ts";
+import { Rules, firstHit, identifierKind } from "#router/features/policy/index.ts";
 import { assert, it } from "@effect/vitest";
 import { evaluate, play } from "./evaluate.ts";
 import { Digest } from "effect/crypto";
@@ -158,7 +158,7 @@ const sealedThenStubbed = Effect.gen(function* sealedThenStubbed() {
 		Array.map((each) => ({
 			canary: Str.includes("canary-sealed")(each.openAccountBody),
 			sealing: each.sealing,
-			stub: Str.includes(stubs.sealed)(each.openAccountBody),
+			stub: Str.includes("[sealed h1]")(each.openAccountBody),
 		})),
 	);
 

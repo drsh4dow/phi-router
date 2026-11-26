@@ -1,13 +1,18 @@
-import { Array, Effect, Record, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Function, pipe, Record, String as Str, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
 import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
 
 const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "toolResult"]);
 
-const bridge =
-	"Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-router:phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.";
+const bridge = bridgesFor.claude;
+
+const added = `{"type":"text","text":"${bridgesFor.claude}"}`;
+
+const withoutAdded = (sent: string): string =>
+	Str.replace(`,${added}`, "")(Str.replace(`,"system":[${added}]`, "")(sent));
 
 const systemThenTools = '}],"tools":[';
 
@@ -31,19 +36,15 @@ const spaced = `{
   "model": "phi/auto"
 }`;
 
-const pinnedIsIdentity = Effect.gen(function* pinnedIsIdentity() {
-	for (const [name, body] of Record.toEntries(requests)) {
-		const request = yield* decodeRequest(body, nobodyWrote, "claude");
-		const sent = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: request.model });
-
-		assert.strictEqual(sent, body, `${name} changed on its way through`);
-	}
-});
-
 const sealedAddsOnlyTheBridge = Effect.gen(function* sealedAddsOnlyTheBridge() {
 	for (const [name, body] of Record.toEntries(requests)) {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
-		const sent = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: request.model });
+		const sent = yield* request.encode({
+			lane: "sealed",
+			open: Function.identity,
+			system: bridgesFor.claude,
+			upstreamModel: request.model,
+		});
 
 		assert.lengthOf(Str.split(body, systemThenTools), piecesAroundOneEnd, `${name} has one end of system`);
 		assert.strictEqual(
@@ -58,8 +59,12 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 	const request = yield* decodeRequest(bigNumbers, nobodyWrote, "claude");
 
 	const lanes = [
-		yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: target }),
-		yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: target }),
+		yield* request.encode({
+			lane: "sealed",
+			open: Function.identity,
+			system: bridgesFor.claude,
+			upstreamModel: target,
+		}),
 		yield* request.encode({ lane: "clean", messages: request.messages, upstreamModel: target }),
 	];
 
@@ -98,16 +103,19 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 	}
 });
 
-const pinnedKeepsSpacing = Effect.gen(function* pinnedKeepsSpacing() {
+const sealedKeepsSpacing = Effect.gen(function* sealedKeepsSpacing() {
 	const request = yield* decodeRequest(spaced, nobodyWrote, "claude");
-	const sent = yield* request.encode({ lane: "sealed", pinned: true, upstreamModel: target });
+	const sent = yield* request.encode({
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: target,
+	});
 
-	assert.strictEqual(sent, Str.replace('"model": "phi/auto"', `"model": "${target}"`)(spaced));
+	assert.strictEqual(withoutAdded(sent), Str.replace('"model": "phi/auto"', `"model": "${target}"`)(spaced));
 });
 
 it.layer(Digest.layerWebCrypto)("decode then encode", (test) => {
-	test.effect("gives each captured request's bytes back when pinned to its own model", () => pinnedIsIdentity);
-
 	test.effect("adds only the bridge, after the last system block, on the sealed lane", () => sealedAddsOnlyTheBridge);
 
 	test.effect(
@@ -115,5 +123,8 @@ it.layer(Digest.layerWebCrypto)("decode then encode", (test) => {
 		() => numbersAsSent,
 	);
 
-	test.effect("changes only the model of a pinned body, whatever its spacing and key order", () => pinnedKeepsSpacing);
+	test.effect(
+		"changes only the model and adds one system block on the sealed lane, whatever the spacing and key order",
+		() => sealedKeepsSpacing,
+	);
 });

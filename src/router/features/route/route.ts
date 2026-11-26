@@ -1,5 +1,5 @@
 import { Array, Effect, Option, Schema, Stream, Struct, pipe } from "effect";
-import type { Arrived } from "./send.ts";
+import type { Arrived, Choice } from "./send.ts";
 import type { Decoded, HarnessWire, Serving } from "./harness.ts";
 import { Findings, Fixtures, Verdicts, standingOf } from "#router/features/verdicts/index.ts";
 import type { Incoming, Outgoing, Path } from "#router/client/router-port/index.ts";
@@ -60,7 +60,9 @@ const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: s
 	const pinned = yield* serving.pinnedBy({ asked: request, session });
 
 	if (Option.isSome(pinned)) {
-		return { incoming, judged: unjudged, pinned, request, serving, session } satisfies Arrived;
+		const choice: Choice = { by: pinned.value, kind: "pinned" };
+
+		return { choice, incoming, judged: unjudged, request, serving, session } satisfies Arrived;
 	}
 
 	const judged = yield* judgedOn(serving, session, {
@@ -68,7 +70,9 @@ const arrived = Effect.fnUntraced(function* arrived(serving: Serving, session: s
 		messages: request.messages,
 	});
 
-	return { incoming, judged, pinned, request, serving, session } satisfies Arrived;
+	const choice: Choice = { kind: "judged" };
+
+	return { choice, incoming, judged, request, serving, session } satisfies Arrived;
 });
 
 const accountFailures = (wire: HarnessWire) =>

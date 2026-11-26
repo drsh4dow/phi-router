@@ -3,7 +3,9 @@ import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import { assert, it } from "@effect/vitest";
 import type { ToolsNotCleared } from "#router/features/border/index.ts";
-import { guard, stubsFor } from "#router/features/border/index.ts";
+import type { Keep } from "#router/features/border/index.ts";
+import { guard, sealedStub } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import { Verdicts } from "#router/features/verdicts/index.ts";
@@ -62,6 +64,9 @@ const reply = (writtenBy: "open-account" | "other", text: string): Message => ({
 	writtenBy,
 });
 
+const firstHandle: Keep<never> = (parts) =>
+	Effect.succeed(new Map(Array.map(parts, ({ key }) => [key, handleAt(1)] as const)));
+
 const opening = [system, asked("Why does the admissions import drop rows?")];
 
 interface Session {
@@ -96,7 +101,7 @@ const sessionOf = (): Session => {
 					}
 				}
 			}),
-			Effect.flatMap(() => guard({ harness: "claude", lookup, messages })),
+			Effect.flatMap(() => guard({ harness: "claude", keep: firstHandle, lookup, messages })),
 			Effect.map((view) => Array.countBy(Array.zip(view, messages), ([seen, sent]) => !Equal.equals(seen, sent))),
 		);
 
@@ -116,10 +121,10 @@ const sealedSession = Effect.gen(function* sealedSession() {
 const ssnResult = Effect.gen(function* ssnResult() {
 	const { done, lanes, next, session } = yield* sealedSession;
 	const after = yield* session.send(next);
-	const view = yield* guard({ harness: "claude", lookup: session.lookup, messages: next });
+	const view = yield* guard({ harness: "claude", keep: firstHandle, lookup: session.lookup, messages: next });
 
 	assert.deepStrictEqual([...lanes, after], [0, 1, 1]);
-	assert.deepStrictEqual(view, [...opening, ranCat, catOutput(stubsFor.claude), ...done]);
+	assert.deepStrictEqual(view, [...opening, ranCat, catOutput(sealedStub("claude")(handleAt(1))), ...done]);
 });
 
 const repeated = Effect.gen(function* repeated() {
@@ -168,14 +173,14 @@ const quoted = Effect.gen(function* quoted() {
 	const asking = [...read, reply("other", `The failing row:\n${row}`), fixIt];
 	const later = [...asking, ...done];
 	const lanes = [yield* session.send(read), yield* session.send(asking), yield* session.send(later)];
-	const view = yield* guard({ harness: "codex", lookup: session.lookup, messages: later });
+	const view = yield* guard({ harness: "codex", keep: firstHandle, lookup: session.lookup, messages: later });
 
 	assert.deepStrictEqual(lanes, [1, 2, 2]);
 	assert.deepStrictEqual(view, [
 		...opening,
 		ranCat,
-		catOutput(stubsFor.codex),
-		reply("other", stubsFor.codex),
+		catOutput(sealedStub("codex")(handleAt(1))),
+		reply("other", sealedStub("codex")(handleAt(1))),
 		fixIt,
 		...done,
 	]);

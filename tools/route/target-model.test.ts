@@ -5,7 +5,8 @@ import { fakes, jsonText } from "./harnesses.ts";
 import type { HarnessName } from "./target-models.ts";
 import { NodeServices } from "@effect/platform-node";
 import { routed } from "./mocked-router.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const ok = 200;
 
@@ -79,7 +80,7 @@ const judgedUnderEach = Effect.fnUntraced(function* judgedUnderEach(harness: Har
 
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
-	const stub = yield* jsonText(stubsFor[harness]);
+	const stub = yield* jsonText(sealedStub(harness)(handleAt(1)));
 
 	assert.deepStrictEqual<unknown>(
 		{

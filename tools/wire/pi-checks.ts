@@ -18,7 +18,8 @@ import type { RpcLine } from "./pi-run.ts";
 import type { Sent } from "#router/client/mock-upstreams/index.ts";
 import { foundIn } from "#tools/corpus/request-bodies.ts";
 import { rpcAnswered } from "./pi-run.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 interface PiTurned extends PhiTurned {
 	readonly printed: string;
@@ -102,7 +103,7 @@ const wireChecksOf = (played: PiPlayed): readonly Check[] => {
 		},
 		{
 			name: "the follow-up reaches the open mock with the stub in place of the sealed part",
-			ok: holdsAny([stubsFor.pi])(followUp.open),
+			ok: holdsAny([sealedStub("pi")(handleAt(1))])(followUp.open),
 		},
 		{
 			name: "each request reached the router with x-phi-session naming its pi session, the compaction's included",
