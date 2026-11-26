@@ -55,7 +55,7 @@ const openScript = (asked: Asked): Said => {
 
 	if (Str.includes(handOff)(asked.last)) {
 		return multiAgent({
-			arguments: `{"agent_type":"phi-sealed","message":"${subagent.prompt}"}`,
+			arguments: `{"agent_type":"phi-sealed","message":"${subagent.prompt} The member is in h1."}`,
 			name: "spawn_agent",
 		});
 	}

@@ -7,6 +7,7 @@ import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
 	handOff,
+	handleOpenedCheckOf,
 	overflowChecksOf,
 	overflowPrompts,
 	phiChecksOf,
@@ -226,12 +227,11 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 		}) satisfies CodexTurned;
 	});
 
-	const handingOff = Effect.gen(function* handingOff() {
-		const handedOff = yield* turn([...exec, handOff]);
-		const handing = yield* execSessionOf(handedOff.stderr);
-		const after = yield* turn([...exec, "resume", handing, followUp]);
+	const handingOff = Effect.fnUntraced(function* handingOff(session: string) {
+		const handedOff = yield* turn([...exec, "resume", session, handOff]);
+		const after = yield* turn([...exec, "resume", session, followUp]);
 
-		return { after, handedOff, handing };
+		return { after, handedOff };
 	});
 
 	return { breaches, handingOff, inTui, roots, served, state, turn };
@@ -254,10 +254,10 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 		{ concurrency: 1 },
 	);
 
-	const [phi, { after, handedOff, handing }] = yield* Effect.all([phiTurns(resumed), handingOff], { concurrency: 1 });
-
 	const [models, clean] = turns;
 	const cleanSession = yield* execSessionOf(clean.stderr);
+	const phi = yield* phiTurns(resumed);
+	const { after, handedOff } = yield* handingOff(cleanSession);
 
 	const overflowed = yield* inTui(cleanSession, [
 		...pipe(
@@ -284,7 +284,7 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 	const left = leftOf({
 		prompts: [run.clean.text, run.phi.text, followUp, readChart, handOff],
 		run,
-		sessions: [cleanSession, handing, ...titled],
+		sessions: [cleanSession, ...titled],
 		stored,
 		turns: [...turns, ...phi.inOrder, handedOff, after, overflowed] as const,
 	});
@@ -293,7 +293,8 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 		[
 			...codexChecksOf(Struct.assign(left, listing)),
 			...phiChecksOf(phi),
-			...subagentChecksOf({ after, answer: "h1", handedOff, harness: "codex" }),
+			handleOpenedCheckOf({ canaries: left.canaries, handedOff, harness: "codex" }),
+			...subagentChecksOf({ after, answer: "h3", handedOff, harness: "codex" }),
 			...overflowChecksOf({
 				after: [overflowed],
 				all: left.turns,
