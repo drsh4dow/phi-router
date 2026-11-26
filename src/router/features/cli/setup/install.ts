@@ -1,11 +1,11 @@
 import { Array, Console, Effect, Option, Predicate, pipe } from "effect";
 import type { HarnessName, Installed, Move, Target } from "./harnesses.ts";
-import { packageOf, versionOf } from "#router/client/own-package.ts";
-import { Platform } from "#router/features/cli/platform.ts";
+import { Platform, ownVersion } from "#router/features/cli/platform.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { harnesses } from "./harnesses.ts";
 import { installRun } from "#router/client/harnesses/index.ts";
 import { isOlder } from "#router/primitives/release.ts";
+import { packageOf } from "#router/client/own-package.ts";
 import { stopped } from "./keys.ts";
 
 const succeeded = 0;
@@ -103,8 +103,7 @@ const installedIn = Effect.fnUntraced(function* installedIn(name: HarnessName, t
 });
 
 const targetOf = Effect.fnUntraced(function* targetOf(checkout: string | undefined) {
-	const { entry } = yield* Platform;
-	const version = yield* versionOf(entry);
+	const version = yield* ownVersion;
 
 	return { checkout, version } satisfies Target;
 });

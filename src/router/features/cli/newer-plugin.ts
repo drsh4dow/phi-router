@@ -1,7 +1,6 @@
 import { Effect, Option, Schema, pipe } from "effect";
 import { Release, isOlder } from "#router/primitives/release.ts";
-import { Platform } from "./platform.ts";
-import { versionOf } from "#router/client/own-package.ts";
+import { ownVersion } from "./platform.ts";
 
 const runningOf = (router: string | undefined): string =>
 	pipe(
@@ -10,8 +9,7 @@ const runningOf = (router: string | undefined): string =>
 	);
 
 const newerPlugin = Effect.fnUntraced(function* newerPlugin(router: string | undefined) {
-	const { entry } = yield* Platform;
-	const read = yield* Effect.option(versionOf(entry));
+	const read = yield* Effect.option(ownVersion);
 	const own = pipe(read, Option.filter(Schema.is(Release)));
 
 	return pipe(

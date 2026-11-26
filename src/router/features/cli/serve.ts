@@ -1,10 +1,9 @@
 import { Callers, Listener, Proofs, listensOn } from "#router/client/router-port/index.ts";
 import { Console, Effect, Layer, Option, Schedule, Schema, Scope } from "effect";
-import { Platform } from "./platform.ts";
 import { Router } from "#router/features/route/index.ts";
 import { keyless } from "./no-baa-key.ts";
 import { lifecycle } from "#router/features/lifecycle/index.ts";
-import { versionOf } from "#router/client/own-package.ts";
+import { ownVersion } from "./platform.ts";
 
 class NoLeaseHolds extends Schema.TaggedError<NoLeaseHolds, { readonly brand: unique symbol }>()("NoLeaseHolds", {
 	port: Schema.Int,
@@ -17,8 +16,7 @@ class NoLeaseHolds extends Schema.TaggedError<NoLeaseHolds, { readonly brand: un
 const bindRetry = { schedule: Schedule.spaced("50 millis"), times: 40 } as const;
 
 const serve = Effect.fnUntraced(function* serve(port: number) {
-	const { entry } = yield* Platform;
-	const version = yield* Effect.option(versionOf(entry));
+	const version = yield* Effect.option(ownVersion);
 	const scope = yield* Scope.make();
 	const { on } = yield* Listener;
 	const server = yield* Layer.buildWithScope(on(port), scope).pipe(Effect.retry(bindRetry));
