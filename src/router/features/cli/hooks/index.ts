@@ -2,6 +2,7 @@ import { Command } from "effect/cli";
 import { Layer } from "effect";
 import { SessionRequests } from "#router/client/router-port/index.ts";
 import { TurnNotices } from "#router/client/turn-notices.ts";
+import { answerCheck } from "./answer-check.ts";
 import { modelAddress } from "#router/features/cli/adapters.ts";
 import { promptSubmit } from "./prompt-submit.ts";
 import { statusline } from "./statusline.ts";
@@ -16,9 +17,15 @@ const hookCommands = [
 		Command.provide(Layer.merge(SessionRequests.layer, TurnNotices.layer)),
 		Command.unlisted,
 	),
+	Command.make("answer-check", { address: modelAddress }, (flags) => answerCheck(flags)).pipe(
+		Command.provide(SessionRequests.layer),
+		Command.unlisted,
+	),
 	Command.make("statusline", {}, () => statusline()).pipe(Command.provide(SessionRequests.layer)),
 ] as const;
 
 export { hookCommands };
+
+export { rewriteExit } from "./answer-check.ts";
 
 export { sessionStart } from "./session-start.ts";

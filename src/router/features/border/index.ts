@@ -2,7 +2,7 @@ export { ToolsNotCleared, guard, stubbedCalls, stubbedMessage } from "./guard.ts
 
 export type { Keep } from "./guard.ts";
 
-export { bridgesFor, sealedStub } from "./texts.ts";
+export { bridgesFor, claudePinnedAgent, sealedStub } from "./texts.ts";
 
 export type { Harness } from "./texts.ts";
 

@@ -42,6 +42,42 @@
 				]
 			}
 		],
+		"SubagentStop": [
+			{
+				"matcher": "^phi-router:phi-sealed$",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" answer-check --address \"$ANTHROPIC_BASE_URL\"",
+						"timeout": 60
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "^SubagentHandback$",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" answer-check --address \"$ANTHROPIC_BASE_URL\"",
+						"timeout": 60
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "^Agent$",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" answer-check --address \"$ANTHROPIC_BASE_URL\"",
+						"timeout": 10
+					}
+				]
+			}
+		],
 		"PreCompact": [
 			{
 				"hooks": [

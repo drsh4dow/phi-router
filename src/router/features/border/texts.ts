@@ -4,8 +4,10 @@ import { stubTag } from "#router/primitives/handle.ts";
 
 type Harness = "claude" | "codex" | "pi";
 
+const claudePinnedAgent = "phi-router:phi-sealed";
+
 const pinnedSubagentOf = {
-	claude: "the phi-router:phi-sealed subagent",
+	claude: `the ${claudePinnedAgent} subagent`,
 	codex: "the phi-sealed subagent",
 	pi: `a delegate on ${piWire.models.sealed}`,
 } as const satisfies Record<Harness, string>;
@@ -24,6 +26,6 @@ const bridgesFor = {
 	pi: bridgeOf(pinnedSubagentOf.pi),
 } as const satisfies Record<Harness, string>;
 
-export { bridgesFor, sealedStub };
+export { bridgesFor, claudePinnedAgent, sealedStub };
 
 export type { Harness };
