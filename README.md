@@ -124,7 +124,7 @@ HIPAA-aligned means phi-router keeps PHI on the accounts your BAA covers. It is 
 phi-router does this:
 
 - PHI that the rules or the judge find reaches only the accounts you list as BAA accounts. Every other account receives a sealed handle, such as `[sealed h3]`, in its place. A part not yet judged reaches those accounts as a stub too.
-- The router fails closed. When it is down, or cannot check a part, nothing goes out unchecked.
+- The router fails closed. When it is down, requests fail. When it cannot check a part, the part stays sealed.
 - Rules on your machine and a judge that runs under your BAA decide what is PHI. A part they cannot clear stays sealed.
 
 You keep this:
@@ -141,7 +141,7 @@ Content that holds a complete direct identifier of a real patient or member. The
 
 ### What happens when the router is down?
 
-The request fails, and nothing leaves your machine unchecked. Before each prompt and each compaction, your harness asks the router to prove it is your router, and blocks the prompt when it cannot ([ADR 0002](docs/adr/0002-a-prompt-waits-until-the-router-proves-it-is-yours.md)). The router runs only while a session of your harness runs.
+The request fails, since your harness sends model requests only to the router. Before each prompt and each compaction, your harness asks the router to prove it is your router, and blocks the prompt when it cannot. Two cases are not checked: a request your harness sends before the first prompt, and the rest of a turn after the router crashes. In both, another user on the same machine who takes the router's port can read the request ([ADR 0002](docs/adr/0002-a-prompt-waits-until-the-router-proves-it-is-yours.md)). The router runs only while a session of your harness runs.
 
 ### What does the judge see?
 
