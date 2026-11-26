@@ -54,6 +54,14 @@ const openNameOf = (account: OpenAccount): Effect.Effect<string, never, DateTime
 		),
 	});
 
+const countOf = (count: number, noun: string): string => {
+	if (count === one) {
+		return `1 ${noun}`;
+	}
+
+	return `${String(count)} ${noun}s`;
+};
+
 const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 	const clean = yield* Effect.forEach(status.accounts.clean, openNameOf, { concurrency: 1 });
 
@@ -62,25 +70,27 @@ const statusText = Effect.fnUntraced(function* statusText(status: Reported) {
 		Array.map(({ name }) => name),
 	);
 
+	const pinned = pipe(
+		Option.fromUndefinedOr(status.pinned),
+		Option.map(
+			({ gaveUp, rewrites, runs }) =>
+				`Pinned subagent: ${countOf(runs, "run")}, ${countOf(rewrites, "rewrite")}, ${countOf(gaveUp, "answer")} withheld`,
+		),
+		Option.toArray,
+	);
+
 	return Array.join(
 		[
 			`phi-router, session ${status.session}`,
 			`Last request: ${lastOf(status)}`,
 			`Messages: ${String(status.sealed)} sealed, ${String(status.cleared)} cleared`,
+			...pinned,
 			`Clean lane: ${listOf(clean)}`,
 			`Sealed lane: ${listOf(sealed)}`,
 		],
 		"\n",
 	);
 });
-
-const countOf = (count: number, noun: string): string => {
-	if (count === one) {
-		return `1 ${noun}`;
-	}
-
-	return `${String(count)} ${noun}s`;
-};
 
 const statusLine = (status: Reported): string => {
 	const runs = pipe(
