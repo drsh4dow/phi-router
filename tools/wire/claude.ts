@@ -1,7 +1,16 @@
-import { Array, Config, Effect, FileSystem, Option, Path, String as Str, Stream, Struct, pipe } from "effect";
-import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { Config, Effect, FileSystem, Path, Stream, Struct } from "effect";
 import type { Outcome, Run } from "./checks.ts";
+import {
+	answerChecksOf,
+	baaScriptOf,
+	chart,
+	judgeOf,
+	listedIn,
+	openScriptOf,
+	readChart,
+	tasksFor,
+} from "./answer-checks.ts";
 import { checksOf, leftOf } from "./checks.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
@@ -9,18 +18,15 @@ import {
 	handOff,
 	handleChecksOf,
 	insideStamp,
-	isSubagent,
 	overflowChecksOf,
 	phiChecksOf,
 	phiTurns,
 	refusing,
 	sealCheckOf,
 	shownChecksOf,
-	subagent,
 	subagentChecksOf,
 } from "./phi-checks.ts";
 import { overflowing, stampClockIn, storedIn } from "./stored.ts";
-import { textEvents, toolEvents } from "#router/client/mock-upstreams/index.ts";
 import { pluginCopy } from "#tools/plugin/copied.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 
@@ -54,7 +60,7 @@ const claudeTurn = Effect.fnUntraced(
 			"--model",
 			"phi/auto",
 			"--allowedTools",
-			"Read",
+			"Read,Bash",
 			"--plugin-dir",
 			turn.place.plugin,
 		];
@@ -85,52 +91,7 @@ const claudeTurn = Effect.fnUntraced(
 	Effect.timeout("3 minutes"),
 );
 
-const chart = "planted-chart.txt";
-
-const readChart = `Read the file ${chart} and tell me what it says.`;
-
 const sealedWithRestoredChart = "Go on.";
-
-const handOffAgain = "Ask the pinned subagent for that member's internal id once more.";
-
-const said = (texts: readonly string[]): Said => ({ events: Stream.fromIterable(textEvents(texts)), kind: "events" });
-
-interface Call {
-	readonly id: string;
-	readonly name: string;
-	readonly input: string;
-}
-
-const calling = (call: Call): Said => ({ events: Stream.fromIterable(toolEvents(call)), kind: "events" });
-
-const lookUp = (id: string): Call => ({
-	id,
-	input: `{"description":"Look up the member","prompt":"${subagent.prompt} The member is in h1.","run_in_background":false,"subagent_type":"phi-router:phi-sealed"}`,
-	name: "Agent",
-});
-
-const openScript = (file: string): ((asked: Asked) => Said) => {
-	const calls = [
-		{ asks: readChart, call: { id: "toolu_wire_read", input: `{"file_path":"${file}"}`, name: "Read" } },
-		{ asks: handOff, call: lookUp("toolu_wire_agent") },
-		{ asks: handOffAgain, call: lookUp("toolu_wire_agent_again") },
-	];
-
-	return ({ body }) =>
-		pipe(
-			calls,
-			Array.findFirst(({ asks, call }) => Str.includes(asks)(body) && !Str.includes(call.id)(body)),
-			Option.match({ onNone: () => said(["ok"]), onSome: ({ call }) => calling(call) }),
-		);
-};
-
-const baaScript = (asked: Asked): Said => {
-	if (isSubagent(asked)) {
-		return said([subagent.answer]);
-	}
-
-	return said(["ok"]);
-};
 
 const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const fs = yield* FileSystem.FileSystem;
@@ -138,13 +99,16 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const where = yield* place;
 	const file = path.join(where.work, chart);
 
+	const tasks = tasksFor(file);
+
 	yield* fs.writeFileString(file, run.phi.text);
 
 	const { breaches, env, received, roots, state } = yield* mocked({
-		baa: baaScript,
+		baa: baaScriptOf(tasks),
 		configExtras: { sealedModel: fakes.sealedModel },
 		holdsPhi: run.judgeSeals,
-		open: refusing(openScript(file)),
+		judge: judgeOf(run.judgeSeals),
+		open: refusing(openScriptOf({ file, tasks })),
 	});
 
 	const folders = Struct.pick(env, ["XDG_CONFIG_HOME", "XDG_STATE_HOME"]);
@@ -162,7 +126,7 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 		return { stop: router.kill, turn };
 	});
 
-	return { breaches, roots, routed, state };
+	return { breaches, roots, routed, state, tasks };
 });
 
 const session = "17171717-1717-4717-8717-171717171717";
@@ -175,8 +139,10 @@ const resumed = ["--resume", session];
 
 const resumedEvents = [...resumed, ...events];
 
+const hookEvents = [...resumedEvents, "--include-hook-events"];
+
 const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
-	const { breaches, roots, routed, state } = yield* setUp(run);
+	const { breaches, roots, routed, state, tasks } = yield* setUp(run);
 	const first = yield* routed;
 
 	const [clean, canary, followed, tool, handedOff, after] = yield* Effect.all(
@@ -185,7 +151,7 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 			first.turn(run.phi.text, resumedEvents),
 			first.turn(followUp, resumedEvents),
 			first.turn(readChart, resumedEvents),
-			first.turn(handOff, resumedEvents),
+			first.turn(handOff, hookEvents),
 			first.turn(followUp, resumedEvents),
 		],
 		{ concurrency: 1 },
@@ -198,7 +164,19 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	const restarted = yield* routed;
 	const restoredChart = yield* restarted.turn(sealedWithRestoredChart, resumedEvents);
-	const reopened = yield* restarted.turn(handOffAgain, resumedEvents);
+	const reopened = yield* restarted.turn(tasks.lookUpAgain.asks, hookEvents);
+
+	const [judged, withheld, toolFirst, listed] = yield* Effect.all(
+		[
+			restarted.turn(tasks.judged.asks, hookEvents),
+			restarted.turn(tasks.withheld.asks, hookEvents),
+			restarted.turn(tasks.toolFirst.asks, hookEvents),
+			restarted.turn(tasks.listed.asks, hookEvents),
+		],
+		{ concurrency: 1 },
+	);
+
+	const rewritten = [judged, withheld, toolFirst, listed] as const;
 
 	const overflow = yield* Effect.all(
 		[
@@ -210,13 +188,28 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	);
 
 	const [overflowed, quiet, status] = overflow;
+
 	const untilCompaction = [handedOff, after, ...phi.inOrder, compacted];
-	const beforeOverflow = [clean, canary, followed, tool, ...untilCompaction, restoredChart, reopened] as const;
+
+	const beforeOverflow = [
+		clean,
+		canary,
+		followed,
+		tool,
+		...untilCompaction,
+		restoredChart,
+		reopened,
+		...rewritten,
+	] as const;
+
 	const all = [...beforeOverflow, ...overflow] as const;
+	yield* restarted.stop;
+
 	const stored = yield* storedIn(state, roots);
+	const files = yield* listedIn(state);
 
 	const left = leftOf({
-		prompts: [run.clean.text, run.phi.text, followUp, readChart, handOff, handOffAgain],
+		prompts: [run.clean.text, run.phi.text, followUp, readChart, handOff, tasks.lookUpAgain.asks],
 		run,
 		sessions: [session],
 		stored,
@@ -226,8 +219,8 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
 
 	const sealed = sealCheckOf({
-		others: [clean, followed, after, ...phi.inOrder, compacted, ...overflow],
-		sealing: [canary, tool, handedOff, restoredChart, reopened],
+		others: [clean, followed, handedOff, after, ...phi.inOrder, compacted, reopened, ...rewritten, ...overflow],
+		sealing: [canary, tool, restoredChart],
 	});
 
 	const handles = handleChecksOf({
@@ -253,11 +246,32 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 		status,
 	});
 
-	const handing = subagentChecksOf({ after, answer: "h3", handedOff, harness: "claude" });
+	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });
+
+	const rewrites = answerChecksOf({
+		all,
+		canaries: left.canaries,
+		files,
+		handedOff,
+		ids: {
+			judged: tasks.judged.id,
+			listed: tasks.listed.id,
+			lookUp: tasks.lookUp.id,
+			lookUpAgain: tasks.lookUpAgain.id,
+			toolFirst: tasks.toolFirst.id,
+			withheld: tasks.withheld.id,
+		},
+		judged,
+		listed,
+		reopened,
+		status,
+		toolFirst,
+		withheld,
+	});
 
 	return {
 		checks: yield* withCredentialRule(
-			[...checksOf(left), ...handles, ...phiChecks, sealed, ...handing, ...overflowChecks],
+			[...checksOf(left), ...handles, ...phiChecks, sealed, ...handing, ...rewrites, ...overflowChecks],
 			() => breaches,
 		),
 		stored,
