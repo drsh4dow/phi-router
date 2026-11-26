@@ -1,6 +1,6 @@
-import { Console, Effect } from "effect";
+import { Console, Effect, Option } from "effect";
+import { Platform, ownVersion } from "./platform.ts";
 import { Command } from "effect/cli";
-import { Platform } from "./platform.ts";
 import { accounts } from "./accounts/index.ts";
 import { adapterCommands } from "./adapters.ts";
 import { hookCommands } from "./hooks/index.ts";
@@ -19,7 +19,7 @@ const root = Command.make(
 	}),
 );
 
-const cli = root.pipe(
+const commands = root.pipe(
 	Command.withSubcommands([
 		...sessionCommands,
 		...routerCommands,
@@ -28,8 +28,15 @@ const cli = root.pipe(
 		accounts,
 		models,
 	]),
-	Command.run({ version: "0.0.0" }),
 );
+
+const unknownVersion = "unknown";
+
+const cli = Effect.gen(function* cli() {
+	const version = yield* Effect.option(ownVersion);
+
+	return yield* Command.run(commands, { version: Option.getOrElse(version, () => unknownVersion) });
+});
 
 export { cli };
 
