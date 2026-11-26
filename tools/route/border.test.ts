@@ -1,4 +1,4 @@
-import { Array, Effect, Schema, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Schema, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, routed } from "./mocked-router.ts";
 import type { LaneChoice } from "#router/features/lanes/index.ts";
@@ -40,9 +40,8 @@ const hidesNeverJudged = (message: Message): Effect.Effect<boolean> =>
 
 const wrongChoice: typeof LaneChoice.Service = Effect.fnUntraced(function* wrongChoice({ messages, lookup }) {
 	const shown = yield* pipe(messages, Effect.filter(hidesNeverJudged));
-	const choice = yield* decide({ lookup, messages: shown });
 
-	return Struct.assign(choice, { laneAt: () => "clean" as const });
+	return yield* decide({ lookup, messages: shown });
 });
 
 const Block = Schema.Struct({ text: Schema.String });

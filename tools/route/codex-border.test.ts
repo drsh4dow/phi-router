@@ -1,4 +1,4 @@
-import { Array, Effect, Schema, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Schema, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { codexBodyOf, replyMessage, userMessage } from "./harnesses.ts";
 import type { LaneChoice } from "#router/features/lanes/index.ts";
@@ -35,14 +35,11 @@ const jsonText = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown
 const hidesNeverJudged = (message: Message): Effect.Effect<boolean> =>
 	Effect.map(Effect.orDie(jsonText(message)), (text) => !Str.includes(markers.neverJudged)(text));
 
-const alwaysCleanHidingNeverJudged: typeof LaneChoice.Service = Effect.fnUntraced(
-	function* alwaysCleanHidingNeverJudged({ messages, lookup }) {
-		const shown = yield* pipe(messages, Effect.filter(hidesNeverJudged));
-		const choice = yield* decide({ lookup, messages: shown });
+const wrongChoice: typeof LaneChoice.Service = Effect.fnUntraced(function* wrongChoice({ messages, lookup }) {
+	const shown = yield* pipe(messages, Effect.filter(hidesNeverJudged));
 
-		return Struct.assign(choice, { laneAt: () => "clean" as const });
-	},
-);
+	return yield* decide({ lookup, messages: shown });
+});
 
 const Content = Schema.Array(Schema.Struct({ text: Schema.String }));
 
@@ -62,7 +59,7 @@ const textsOf = Effect.fnUntraced(function* textsOf(body: string) {
 
 const border = Effect.gen(function* border() {
 	const { mocks, post } = yield* routed({
-		choice: alwaysCleanHidingNeverJudged,
+		choice: wrongChoice,
 		harness: "codex",
 		holdsPhi: Str.includes(markers.sealed),
 	});
