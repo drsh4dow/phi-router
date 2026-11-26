@@ -196,7 +196,7 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's t
 		patient,
 	);
 	test.effect(
-		"for claude, no hook prints to the conversation after a turn that sealed and overflowed, and the status line and /phi carry both",
+		"for claude, no hook prints to the conversation after a turn that sealed and overflowed, and the statusline command's row and reply carry both",
 		() => claudeQuiet,
 		patient,
 	);
