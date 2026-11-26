@@ -124,9 +124,14 @@ const cleanBody =
 			return rawText(Record.fromEntries([["model", model], ["instructions", bridgesFor.codex], ...fields]));
 		});
 
-const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { system, upstreamModel }: Sealed) {
+const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { added, upstreamModel }: Sealed) {
 	const head = yield* modelField(upstreamModel);
-	const instructions = yield* Effect.orDie(quote(system));
+
+	if (Array.isReadonlyArrayEmpty(added)) {
+		return head + afterModel;
+	}
+
+	const instructions = yield* Effect.orDie(quote(Array.join(added, "\n\n")));
 
 	return `${head},"instructions":${instructions}${afterModel}`;
 });

@@ -50,14 +50,14 @@ const sendingOf = Effect.fnUntraced(function* sendingOf({
 	readonly request: Decoded;
 	readonly harness: Harness;
 	readonly keep: Keeping;
-	readonly opening: () => Opening;
+	readonly opening: (reason: Reason) => Opening;
 	readonly choice: Choice;
 	readonly models: Readonly<Record<Lane, SendModel>>;
 	readonly lookup: Lookup;
 	readonly openLeft: boolean;
 }) {
 	const sealed = Effect.fnUntraced(function* sealed(reason: Reason) {
-		const target = yield* opening();
+		const target = yield* opening(reason);
 
 		const body = yield* Effect.orDie(
 			request.encode(Struct.assign(target, { lane: "sealed" as const, upstreamModel: models.sealed.model })),
@@ -132,7 +132,7 @@ const chosen = Effect.fnUntraced(function* chosen(arrival: Arrived, walk: Walk) 
 		lookup: known.standing,
 		models: modelsAt({ arrival, walk }),
 		openLeft: Array.isReadonlyArrayNonEmpty(walk.open),
-		opening: () => openingOf({ pinned: choice.kind === "pinned", serving, session }),
+		opening: (reason) => openingOf({ reason, serving, session }),
 		request,
 	});
 

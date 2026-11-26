@@ -209,9 +209,9 @@ const stubsStayValid = Effect.fnUntraced(function* stubsStayValid(
 	const toOpen = yield* request.encode({ lane: "clean", messages: guarded.messages, upstreamModel: "claude-target" });
 
 	const toBaa = yield* request.encode({
+		added: [bridgesFor.claude],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: "claude-target",
 	});
 

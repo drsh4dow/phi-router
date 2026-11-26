@@ -80,9 +80,9 @@ const bridgeOnce = Effect.gen(function* bridgeOnce() {
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
 
 	const toBaa = yield* sent(request, {
+		added: [bridgesFor.claude],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: target,
 	});
 
@@ -95,9 +95,9 @@ const modelReplaced = Effect.gen(function* modelReplaced() {
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
 
 	const toBaa = yield* sent(request, {
+		added: [bridgesFor.claude],
 		lane: "sealed",
 		open: Function.identity,
-		system: bridgesFor.claude,
 		upstreamModel: target,
 	});
 
@@ -208,9 +208,9 @@ const bridgeBlock = `{"type":"text","text":"${bridge.text}"}`;
 const emptySystem = '{"model":"m","system":[],"messages":[{"role":"user","content":"hi"}],"max_tokens":10}';
 
 const sealedOnOwnModel: Target = {
+	added: [bridgesFor.claude],
 	lane: "sealed",
 	open: Function.identity,
-	system: bridgesFor.claude,
 	upstreamModel: "m",
 };
 
