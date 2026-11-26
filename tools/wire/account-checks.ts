@@ -43,13 +43,41 @@ const isPinned = ({ lane, reason }: LaneLogLine): boolean => lane === "sealed" &
 
 const atLeastOnce = 1;
 
-const exited = (step: StepRan): Check => ({
-	name: `${step.name}: every turn exits 0`,
-	ok: pipe(
+const excerptStart = 0;
+
+const excerptLength = 240;
+
+const excerptOf = (text: string): string => {
+	if (holdsCanary(text)) {
+		return "a text that holds the canary";
+	}
+
+	return `"${Str.slice(excerptStart, excerptLength)(text)}"`;
+};
+
+const lastLineOf = (printed: string): string =>
+	pipe(
+		Str.split(printed, "\n"),
+		Array.filter(Str.isNonEmpty),
+		Array.last,
+		Option.getOrElse(() => "no output"),
+	);
+
+const exited = (step: StepRan): Check => {
+	const failed = pipe(
 		step.turns,
-		Array.every(({ exitCode }) => exitCode === succeeded),
-	),
-});
+		Array.filter(({ exitCode }) => exitCode !== succeeded),
+		Array.map(({ exitCode, printed }) => `exit ${String(exitCode)}, last line ${excerptOf(lastLineOf(printed))}`),
+	);
+
+	return {
+		name: Array.match(failed, {
+			onEmpty: () => `${step.name}: every turn exits 0`,
+			onNonEmpty: (why) => `${step.name}: every turn exits 0 (${Array.join(why, "; ")})`,
+		}),
+		ok: Array.isReadonlyArrayEmpty(failed),
+	};
+};
 
 const stayedOpen = (step: StepRan): Check => ({
 	name: `${step.name}: every request but the pinned subagent's ran on an open account`,
@@ -180,18 +208,6 @@ const counting = 1;
 
 const lineOf = (line: LaneLogLine, index: number): string =>
 	`request ${String(index + counting)}: ${line.lane} lane, account ${line.account}, model ${line.model}, reason ${line.reason}`;
-
-const excerptStart = 0;
-
-const excerptLength = 240;
-
-const excerptOf = (text: string): string => {
-	if (holdsCanary(text)) {
-		return "a text that holds the canary";
-	}
-
-	return `"${Str.slice(excerptStart, excerptLength)(text)}"`;
-};
 
 const receivedBy = (step: StepRan): string => {
 	if (step.pinned.gaveUp >= atLeastOnce) {
