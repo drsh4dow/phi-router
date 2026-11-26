@@ -180,8 +180,10 @@ const Body = Schema.Struct({
 
 const Empty = Schema.Tuple([]);
 
+const InputText = Schema.Struct({ text: Schema.String, type: Schema.Literal("input_text") });
+
 const ReadPart = Schema.Union([
-	Schema.Struct({ text: Schema.String, type: Schema.Literal("input_text") }),
+	InputText,
 	Schema.Struct({ annotations: Empty, logprobs: Empty, text: Schema.String, type: Schema.Literal("output_text") }),
 	Schema.Struct({ encrypted_content: Schema.String, type: Schema.Literal("encrypted_content") }),
 ]);
@@ -194,6 +196,6 @@ type ReplyItem =
 
 type LoneItem = Exclude<WireItem, ReplyItem | typeof AdditionalTools.Type>;
 
-export { Body, Item, Raw, ReadPart };
+export { Body, InputText, Item, Raw, ReadPart };
 
 export type { LoneItem, ReplyItem, WireItem };

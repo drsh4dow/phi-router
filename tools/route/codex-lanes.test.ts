@@ -200,6 +200,57 @@ const baaReasoning = Effect.gen(function* baaReasoning() {
 	);
 });
 
+const handles = Effect.gen(function* handles() {
+	const { mocks, post, state } = yield* routed({ harness: "codex", holdsPhi: holdsCanary });
+	const redact = userMessage("Redact h1 and return the claim ids.");
+	const ask = userMessage("What does h1 hold?");
+
+	yield* postedIn(post, "codex-6", [items.phi]);
+
+	const pinned = yield* codexBodyOf([redact]);
+	const answered = yield* post({ body: pinnedByModel(pinned), session: "codex-6" });
+
+	yield* answered.text;
+	yield* postedIn(post, "codex-6", [items.phi, items.ok, ask]);
+
+	const opened = yield* mocks.open.received.pipe(Effect.flatMap(viewsOf));
+	const sealed = yield* mocks.baa.received.pipe(Effect.flatMap(viewsOf));
+	const lines = yield* laneLines(state);
+
+	const pinnedOpening = Str.startsWith("phi-router: you are the pinned subagent.");
+
+	assert.deepStrictEqual<unknown>(
+		{
+			canaryOpened: pipe(
+				opened,
+				Array.some(({ canary: holds }) => holds),
+			),
+			lanes: pipe(
+				lines,
+				Array.map(({ lane, reason }) => [lane, reason]),
+			),
+			openAsked: pipe(
+				opened,
+				Array.map(({ input }) => Array.takeRight(input, once)),
+			),
+			sealed: pipe(
+				sealed,
+				Array.map(({ input, instructions }) => [Array.takeRight(input, once), pinnedOpening(instructions)]),
+			),
+		},
+		{
+			canaryOpened: false,
+			lanes: [
+				["clean", "clean"],
+				["sealed", "pinned"],
+				["clean", "clean"],
+			],
+			openAsked: [[stubbed], [ask]],
+			sealed: [[[userMessage(`Redact [content of h1]\n${phiText}\n[end of h1] and return the claim ids.`)], true]],
+		},
+	);
+});
+
 const review = "codex-auto-review";
 
 const namedModel = Effect.gen(function* namedModel() {
@@ -236,4 +287,8 @@ it.layer(NodeServices.layer)("Codex over HTTP", (test) => {
 	test.effect("reasoning goes back open only in the session whose open reply completed with it", () => replyKeys);
 	test.effect("reasoning a BAA reply to a pinned request wrote never reaches the open account", () => baaReasoning);
 	test.effect("a model other than phi/auto is judged and kept", () => namedModel);
+	test.effect(
+		"a pinned request gets the content behind a handle it names and the pinned instructions, and a clean request keeps the handle as written",
+		() => handles,
+	);
 });
