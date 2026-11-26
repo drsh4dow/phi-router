@@ -19,7 +19,10 @@ const statusOf = Effect.fnUntraced(function* statusOf(address: string, session: 
 		(failed) => failedAs({ command: "status", port })(failed).message,
 	);
 
-	const proven = yield* proofs.ask(port);
+	const proven = yield* Effect.timeoutOrElse(proofs.ask(port), {
+		duration: "5 seconds",
+		orElse: () => Effect.succeed({ kind: "unanswered" } as const),
+	});
 
 	if (proven.kind !== "proved") {
 		return { status };
