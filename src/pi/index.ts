@@ -20,11 +20,11 @@ import {
 	answerChecked,
 	answered,
 	compactionSent,
-	observerOn,
 	phiModels,
 	promptSent,
 	sessionLeased,
 	sessionOf,
+	statusShown,
 	usage,
 } from "#pi/features/phi/index.ts";
 import { blockUploads, recordUse } from "#pi/features/uploads/index.ts";
@@ -140,17 +140,15 @@ const compacted =
 	(_event, ctx) =>
 		Effect.runPromise(Effect.provide(compactionSent(port)(ctx), router()));
 
-const onRouter = (
-	pi: Readonly<Pick<ExtensionAPI, "on">>,
-	port: number,
-	shows: { readonly afterTurn: Observe; readonly atStart: Observe },
-): void => {
-	pi.on("session_start", leased(port, shows.atStart));
+const onRouter = (pi: Readonly<Pick<ExtensionAPI, "on">>, port: number): void => {
+	const shown = statusShown(port);
+
+	pi.on("session_start", leased(port, shown));
 	pi.on("input", checked(port));
 	pi.on("session_before_compact", compacted(port));
 	pi.on("agent_before_settle", settling(port));
-	pi.on("turn_end", observed(shows.afterTurn));
-	pi.on("model_select", observed(shows.atStart));
+	pi.on("turn_end", observed(shown));
+	pi.on("model_select", observed(shown));
 };
 
 const bypassProxies = Effect.forEach(
@@ -171,12 +169,11 @@ const registered = Effect.fnUntraced(function* registered(
 	);
 
 	const port = yield* Config.Port(piWire.portVariable).pipe(Config.withDefault(productPort));
-	const shows = yield* observerOn(port);
 
 	yield* bypassProxies;
 	pi.registerProvider(piWire.provider, provider({ models, port }));
 	pi.on("session_start", blockUploads(piWire.provider));
-	onRouter(pi, port, shows);
+	onRouter(pi, port);
 	pi.on("before_provider_headers", recordUse({ pi, routedProvider: piWire.provider }));
 	pi.on("before_provider_headers", headed);
 	pi.registerCommand(phiCommand.name, { description: usage, handler: phiAnswered(port, pi) });

@@ -6,7 +6,7 @@ import { off, on } from "./claude/index.ts";
 import { Proofs } from "#router/client/router-port/index.ts";
 import { setupCommand } from "./setup/index.ts";
 
-const modelAddress = Flag.String("address");
+const modelAddress = Flag.String(spelling.statusline.address);
 
 const claude = Flag.Boolean("claude").pipe(Flag.withDefault(false));
 

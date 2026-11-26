@@ -125,8 +125,8 @@ const routerOf = (printed: { readonly models?: typeof ModelsJson.Type }): Router
 		),
 		setUp: () => Effect.die("registering sets nothing up"),
 		setupStep: () => Effect.die("registering sets nothing up"),
-		start: () => Effect.succeed(""),
-		status: () => Effect.die("registering asks no status"),
+		start: () => Effect.void,
+		statusline: () => Effect.die("registering asks no status"),
 	});
 
 const answers = routerOf({ models: routed });

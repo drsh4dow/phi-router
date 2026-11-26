@@ -3,10 +3,10 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { Harness, World } from "./hooked.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest } from "#tools/route/mocked-router.ts";
-import { canary, hook, session, setUp, setUpWith } from "./hooked.ts";
+import { canary, everyHook, hook, session, setUp, setUpWith } from "./hooked.ts";
+import { freePort, ran as launched } from "#tools/lifecycle/launched.ts";
 import type { AccountScript } from "#tools/route/harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
-import { freePort } from "#tools/lifecycle/launched.ts";
 import { privacyUnder } from "#tools/route/private.ts";
 import { stampClockIn } from "#tools/wire/stored.ts";
 
@@ -77,27 +77,21 @@ const announced = Effect.fnUntraced(function* announced(harness: Harness) {
 const down = Effect.gen(function* down() {
 	const world = yield* setUp;
 	const port = yield* freePort;
-	const told = yield* noticed(world, "claude", `http://127.0.0.1:${String(port)}`);
-	const unrouted = yield* turnEnd(world, "claude", {});
+	const told = yield* noticed(world, "codex", `http://127.0.0.1:${String(port)}`);
 
-	assert.deepStrictEqual(
-		{ told, unrouted },
-		{
-			told: {
-				exitCode: 0,
-				stderr: "",
-				stdout: `phi-router status --port ${String(port)}: no router answers there. A protected session starts the router.`,
-			},
-			unrouted: quiet,
-		},
-	);
+	assert.deepStrictEqual(told, {
+		exitCode: 0,
+		stderr: "",
+		stdout: `phi-router status --port ${String(port)}: no router answers there. A protected session starts the router.`,
+	});
 }).pipe(Effect.scoped);
 
 const limited: AccountScript = () => ({ body: "{}", kind: "status", status: 429 });
 
 const Blocked = Schema.fromJsonString(Schema.Struct({ reason: Schema.String }));
 
-const overflowed = Effect.fnUntraced(function* overflowed(harness: Harness) {
+const overflowed = Effect.gen(function* overflowed() {
+	const harness = "codex";
 	const world = yield* setUpWith({ open: limited });
 
 	yield* turnOn(world.routerUrl, "List the build steps.");
@@ -130,22 +124,80 @@ const overflowed = Effect.fnUntraced(function* overflowed(harness: Harness) {
 			},
 		},
 	);
-}, Effect.scoped);
+}).pipe(Effect.scoped);
+
+const hookInputs = {
+	PreCompact: `{"session_id":"${session}","cwd":"/work","hook_event_name":"PreCompact","trigger":"manual"}`,
+	SessionStart: `{"session_id":"${session}","cwd":"/work","hook_event_name":"SessionStart","source":"startup"}`,
+	Stop: stopInput,
+	UserPromptSubmit: `{"session_id":"${session}","cwd":"/work","hook_event_name":"UserPromptSubmit","prompt":"hello there","transcript_path":"/work/session.jsonl"}`,
+} as const;
+
+const Shown = Schema.fromJsonString(Schema.Struct({ line: Schema.String, reply: Schema.String }));
+
+const printedBy = Effect.fnUntraced(function* printedBy(world: World, event: keyof typeof hookInputs) {
+	const ran = yield* everyHook(world, {
+		address: world.routerUrl,
+		event,
+		harness: "claude",
+		input: hookInputs[event],
+	});
+
+	return pipe(
+		ran,
+		Array.map(({ exitCode, stdout }) => ({ exitCode, stdout })),
+	);
+});
+
+const claudeQuiet = Effect.gen(function* claudeQuiet() {
+	const world = yield* setUpWith({ open: limited });
+
+	yield* turnOn(world.routerUrl, `Patient Fakesmith ${canary} called about her refill.`);
+	yield* turnOn(world.routerUrl, "List the build steps.");
+
+	const inOrder = ["SessionStart", "UserPromptSubmit", "Stop", "PreCompact"] as const;
+	const printed = yield* Effect.forEach(inOrder, (event) => printedBy(world, event), { concurrency: 1 });
+
+	const statusline = yield* launched(
+		[`${world.pluginCopy}/bin/phi-router`, "statusline", "--address", world.routerUrl, "--session", session],
+		Struct.assign(world.folders, { HOME: world.home, TZ: "UTC" }),
+	);
+
+	const shown = yield* Schema.decodeEffect(Shown)(statusline.printed);
+	const back = yield* stampClockIn(`${world.folders.XDG_STATE_HOME}/phi-router`);
+	const silent = { exitCode: 0, stdout: "" };
+
+	assert.deepStrictEqual(
+		{
+			line: shown.line,
+			overflow: Array.findFirst(Str.split(shown.reply, "\n"), Str.startsWith("Overflow")),
+			printed,
+		},
+		{
+			line: `phi · baa · 1 sealed · 2 cleared · overflow till ${back}`,
+			overflow: Option.some(
+				`Overflow: your subscription is rate-limited until ${back}, so 2 requests ran on your BAA account. Add another subscription: npx phi-router accounts add`,
+			),
+			printed: [[silent], [silent, silent, silent], [], [silent]],
+		},
+	);
+}).pipe(Effect.scoped);
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's turn-end hook", (test) => {
-	test.effect.each(["claude", "codex"] as const)(
+	test.effect.each(["codex"] as const)(
 		"for %s, announces a turn that sealed once, from a count kept 0600 in 0700",
 		announced,
 		patient,
 	);
+	test.effect("for codex, says no router answers when none does", () => down, patient);
 	test.effect(
-		"says no router answers when none does, and prints nothing when the address names no router",
-		() => down,
+		"for codex, tells once that a rate-limited subscription sent a request to the BAA account, and /phi shows when it is back",
+		() => overflowed,
 		patient,
 	);
-	test.effect.each(["claude", "codex"] as const)(
-		"for %s, tells once that a rate-limited subscription sent a request to the BAA account, and /phi shows when it is back",
-		overflowed,
+	test.effect(
+		"for claude, no hook prints to the conversation after a turn that sealed and overflowed, and the status line and /phi carry both",
+		() => claudeQuiet,
 		patient,
 	);
 });

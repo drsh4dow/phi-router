@@ -34,37 +34,28 @@ const leasing = [
 	String(routerPort),
 ];
 
-const exitedLine =
-	'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"sealed":1,"session":"exits"}';
+const statuslineOf = (session: string): readonly string[] => [
+	"phi-router",
+	"statusline",
+	"--address",
+	`http://127.0.0.1:${String(routerPort)}`,
+	"--session",
+	session,
+];
+
+const shownLine = '{"line":"phi · baa · 1 sealed · 2 cleared","reply":"session s1"}';
 
 const replies: readonly { readonly argv: readonly string[]; readonly reply: Reply }[] = [
 	{ argv: leasing, reply: { exitCode: clean, stdout: "" } },
+	{ argv: statuslineOf("s1"), reply: { exitCode: clean, stdout: shownLine } },
 	{
-		argv: ["phi-router", "status", "--session", "s1", "--port", String(routerPort)],
-		reply: {
-			exitCode: clean,
-			stdout:
-				'{"accounts":{"clean":[{"name":"open","vendor":"anthropic"}],"sealed":[{"name":"baa","vendor":"anthropic"}]},"cleared":2,"last":{"account":"baa","model":"m","substitute":false},"sealed":1,"session":"s1"}',
-		},
+		argv: statuslineOf("exits"),
+		reply: { exitCode: failed, stderr: "phi-router: the router refused the session", stdout: shownLine },
 	},
+	{ argv: statuslineOf("garbled"), reply: { exitCode: clean, stdout: "phi-router: no such session" } },
 	{
-		argv: ["phi-router", "status", "--session", "exits", "--port", String(routerPort)],
-		reply: {
-			exitCode: failed,
-			stderr: "phi-router: the router refused the session",
-			stdout: exitedLine,
-		},
-	},
-	{
-		argv: ["phi-router", "status", "--session", "garbled", "--port", String(routerPort)],
-		reply: { exitCode: clean, stdout: "phi-router: no such session" },
-	},
-	{
-		argv: ["phi-router", "status", "--session", "fresh", "--port", String(routerPort)],
-		reply: {
-			exitCode: clean,
-			stdout: '{"accounts":{"clean":[],"sealed":[]},"cleared":0,"last":null,"sealed":0,"session":"fresh"}',
-		},
+		argv: statuslineOf("unanswered"),
+		reply: { exitCode: clean, stdout: '{"reply":"phi-router status --port 47499: no router answers there."}' },
 	},
 	{
 		argv: ["phi-router", "models"],
@@ -118,44 +109,35 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client",
 		}),
 	);
 
-	test.effect("decodes the status line the router CLI prints for the session", () =>
+	test.effect("decodes the status line and the /phi reply the router CLI prints for the session", () =>
 		Effect.gen(function* decoded() {
 			const router = yield* Router;
-			const status = yield* router.status(SessionId.make("s1"), routerPort);
+			const shown = yield* router.statusline(SessionId.make("s1"), routerPort);
 
-			assert.deepStrictEqual(status, {
-				accounts: {
-					clean: [{ name: "open", vendor: "anthropic" }],
-					sealed: [{ name: "baa", vendor: "anthropic" }],
-				},
-				cleared: 2,
-				last: { account: "baa", model: "m", substitute: false },
-				sealed: 1,
-				session: SessionId.make("s1"),
-			});
+			assert.deepStrictEqual(shown, { line: "phi · baa · 1 sealed · 2 cleared", reply: "session s1" });
 		}),
 	);
 
-	test.effect("decodes the status line of a session before its first request", () =>
-		Effect.gen(function* fresh() {
+	test.effect("decodes a reply with no status line, as the CLI prints when no router answers", () =>
+		Effect.gen(function* unanswered() {
 			const router = yield* Router;
-			const status = yield* router.status(SessionId.make("fresh"), routerPort);
+			const shown = yield* router.statusline(SessionId.make("unanswered"), routerPort);
 
-			assert.isNull(status.last);
+			assert.deepStrictEqual(shown, { reply: "phi-router status --port 47499: no router answers there." });
 		}),
 	);
 
 	test.effect("fails with CommandFailed when the CLI exits non-zero, even after printing a status line", () =>
 		Effect.gen(function* exited() {
 			const router = yield* Router;
-			const failure = yield* Effect.flip(router.status(SessionId.make("exits"), routerPort));
+			const failure = yield* Effect.flip(router.statusline(SessionId.make("exits"), routerPort));
 
 			assert.instanceOf(failure, CommandFailed);
 			assert.deepStrictEqual(
 				{ cause: failure.cause, command: failure.command },
 				{
-					cause: `${exitedLine}\nphi-router: the router refused the session`,
-					command: "status",
+					cause: `${shownLine}\nphi-router: the router refused the session`,
+					command: "statusline",
 				},
 			);
 		}),
@@ -164,10 +146,10 @@ it.layer(Layer.provide(Router.layer("phi-router"), cli))("the pi router client",
 	test.effect("fails with CommandFailed when the CLI prints what the contract does not allow", () =>
 		Effect.gen(function* garbled() {
 			const router = yield* Router;
-			const failure = yield* Effect.flip(router.status(SessionId.make("garbled"), routerPort));
+			const failure = yield* Effect.flip(router.statusline(SessionId.make("garbled"), routerPort));
 
 			assert.instanceOf(failure, CommandFailed);
-			assert.strictEqual(failure.command, "status");
+			assert.strictEqual(failure.command, "statusline");
 		}),
 	);
 
@@ -190,10 +172,10 @@ it.layer(Layer.provide(Router.layer("phi-router"), unspawned))("the pi router cl
 	test.effect("fails with CommandFailed naming the command when the CLI does not start", () =>
 		Effect.gen(function* notStarted() {
 			const router = yield* Router;
-			const failure = yield* Effect.flip(router.status(SessionId.make("s1"), routerPort));
+			const failure = yield* Effect.flip(router.statusline(SessionId.make("s1"), routerPort));
 
 			assert.instanceOf(failure, CommandFailed);
-			assert.strictEqual(failure.command, "status");
+			assert.strictEqual(failure.command, "statusline");
 		}),
 	);
 });

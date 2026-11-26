@@ -1,4 +1,4 @@
-import { Array, Config, Effect, FileSystem, Option, Record, Schema, String as Str, Stream, Struct } from "effect";
+import { Array, Config, Effect, FileSystem, Option, Record, Schema, String as Str, Stream, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { AccountScript } from "#tools/route/harnesses.ts";
 import type { Harness } from "./session-hook.ts";
@@ -15,13 +15,13 @@ const HookCommand = Schema.Struct({ command: Schema.String, type: Schema.Literal
 
 const Matcher = Schema.Struct({ hooks: Schema.NonEmptyArray(HookCommand) });
 
-const Events = Schema.Struct({ Stop: Schema.Tuple([Matcher]), UserPromptSubmit: Schema.Tuple([Matcher]) });
+const Events = Schema.Record(Schema.String, Schema.Array(Matcher));
 
 const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Events }));
 
 interface HookRun {
 	readonly harness: Harness;
-	readonly event: "Stop" | "UserPromptSubmit";
+	readonly event: "PreCompact" | "SessionStart" | "Stop" | "UserPromptSubmit";
 	readonly input: string;
 	readonly address?: string;
 }
@@ -46,25 +46,30 @@ const setUpWith = Effect.fnUntraced(function* setUpWith(open: { readonly open?: 
 
 const setUp = setUpWith({});
 
-const subcommandBesideRouterCheck = { Stop: "turn-end", UserPromptSubmit: "prompt-submit" } as const;
+const subcommandBesideRouterCheck = {
+	PreCompact: "session-start",
+	SessionStart: "session-start",
+	Stop: "turn-end",
+	UserPromptSubmit: "prompt-submit",
+} as const;
 
-const commandOf = Effect.fnUntraced(function* commandOf(world: World, run: HookRun) {
+const commandsOf = Effect.fnUntraced(function* commandsOf(world: World, run: HookRun) {
 	const fs = yield* FileSystem.FileSystem;
 	const text = yield* fs.readFileString(`${world.pluginCopy}/${harnesses[run.harness].hooksFile}`);
 	const { hooks } = yield* Schema.decodeEffect(Hooks)(text);
-	const [{ hooks: matched }] = hooks[run.event];
-	const ran = Str.includes(` ${subcommandBesideRouterCheck[run.event]} `);
 
-	const { command } = yield* Effect.fromOption(Array.findFirst(matched, ({ command: line }) => ran(line)));
-
-	return command;
+	return pipe(
+		Record.get(hooks, run.event),
+		Option.getOrElse(() => []),
+		Array.flatMap(({ hooks: matched }) => matched),
+		Array.map(({ command }) => command),
+	);
 });
 
 const unmasked = "umask 000";
 
-const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
+const ranAs = Effect.fnUntraced(function* ranAs(world: World, run: HookRun, command: string) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const command = yield* commandOf(world, run);
 	const searchPath = yield* Config.String("PATH");
 	const named = harnesses[run.harness];
 
@@ -96,7 +101,21 @@ const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
 	return Struct.assign(printed, { exitCode: Number(exitCode) });
 }, Effect.scoped);
 
-export { canary, hook, session, setUp, setUpWith };
+const hook = Effect.fnUntraced(function* hook(world: World, run: HookRun) {
+	const commands = yield* commandsOf(world, run);
+	const named = Str.includes(` ${subcommandBesideRouterCheck[run.event]} `);
+	const command = yield* Effect.fromOption(Array.findFirst(commands, named));
+
+	return yield* ranAs(world, run, command);
+});
+
+const everyHook = Effect.fnUntraced(function* everyHook(world: World, run: HookRun) {
+	const commands = yield* commandsOf(world, run);
+
+	return yield* Effect.forEach(commands, (command) => ranAs(world, run, command), { concurrency: 1 });
+});
+
+export { canary, everyHook, hook, session, setUp, setUpWith };
 
 export type { World };
 

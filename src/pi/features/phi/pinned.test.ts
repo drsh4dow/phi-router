@@ -58,7 +58,7 @@ const settled = Effect.fnUntraced(function* settled(given: Given) {
 		setUp: () => Effect.die("the answer check sets nothing up"),
 		setupStep: () => Effect.die("the answer check sets nothing up"),
 		start: () => Effect.die("the answer check starts nothing"),
-		status: () => Effect.die("the answer check asks no status"),
+		statusline: () => Effect.die("the answer check asks no status"),
 	});
 
 	const ctx = {

@@ -5,9 +5,9 @@ import type { Harness } from "#router/features/border/index.ts";
 import { Pid } from "#shared/cli.ts";
 import { Platform } from "./platform.ts";
 import { Processes } from "#router/client/processes.ts";
-import { newerPlugin } from "./newer-plugin.ts";
 import { noBaaKeyExit } from "./no-baa-key.ts";
 import { stopLines } from "#router/features/route/index.ts";
+import { versionWait } from "./newer-plugin.ts";
 
 const leaseTakenWithin = "10 seconds";
 
@@ -96,7 +96,7 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 
 	const running = yield* Ref.get(router);
 
-	return yield* newerPlugin(Option.getOrUndefined(running));
+	return yield* versionWait(Option.getOrUndefined(running));
 }, Effect.scoped);
 
 export { start };

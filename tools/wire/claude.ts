@@ -174,10 +174,7 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
 
-	const sealed = sealCheckOf({
-		others: [clean, followed, handedOff, after, ...phi.inOrder, compacted, ...rewritten, ...overflow],
-		sealing: [canary, tool, reopened],
-	});
+	const sealed = sealCheckOf(all);
 
 	const handles = handleChecksOf({
 		afterCompaction: tasks.lookUpAgain.asks,

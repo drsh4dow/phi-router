@@ -41,9 +41,9 @@ const answerOf = Effect.fnUntraced(function* answerOf(words: string, address: st
 		return usage;
 	}
 
-	const status = yield* statusOf(address, session);
+	const { status, wait } = yield* statusOf(address, session);
 
-	return `phi-router, ${yield* statusText(status)}`;
+	return `phi-router, ${yield* statusText(status, wait)}`;
 }, DateTime.withCurrentZoneLocal);
 
 const suppressed = { hookEventName: "UserPromptSubmit", suppressOriginalPrompt: true } as const;

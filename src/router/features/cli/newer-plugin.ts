@@ -2,29 +2,31 @@ import { Effect, Option, Schema, pipe } from "effect";
 import { Release, isOlder } from "#router/primitives/release.ts";
 import { ownVersion } from "./platform.ts";
 
-const runningOf = (router: string | undefined): string =>
-	pipe(
-		Option.fromUndefinedOr(router),
-		Option.getOrElse(() => "an older version"),
-	);
+interface VersionWait {
+	readonly installed: string;
+	readonly running: string;
+}
 
-const newerPlugin = Effect.fnUntraced(function* newerPlugin(router: string | undefined) {
+const versionWait = Effect.fnUntraced(function* versionWait(router: string | undefined) {
 	const read = yield* Effect.option(ownVersion);
-	const own = pipe(read, Option.filter(Schema.is(Release)));
+	const running = Option.fromUndefinedOr(router);
 
 	return pipe(
-		own,
+		read,
+		Option.filter(Schema.is(Release)),
 		Option.filter((installed) =>
-			Option.match(Option.fromUndefinedOr(router), {
-				onNone: () => true,
-				onSome: (running) => isOlder(running, installed),
-			}),
+			Option.match(running, { onNone: () => true, onSome: (version) => isOlder(version, installed) }),
 		),
-		Option.map(
-			(installed) =>
-				`phi-router ${installed} is installed. Your open windows still run ${runningOf(router)} until you close them all.`,
-		),
+		Option.map((installed): VersionWait => ({
+			installed,
+			running: Option.getOrElse(running, () => "an older version"),
+		})),
 	);
 });
 
-export { newerPlugin };
+const waitNotice = ({ installed, running }: VersionWait): string =>
+	`phi-router ${installed} is installed. Your open windows still run ${running} until you close them all.`;
+
+export { versionWait, waitNotice };
+
+export type { VersionWait };

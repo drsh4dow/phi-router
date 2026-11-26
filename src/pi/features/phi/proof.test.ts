@@ -1,4 +1,4 @@
-import { Array, DateTime, Effect, Ref } from "effect";
+import { Array, Effect, Ref } from "effect";
 import type { Observe, ShownContext } from "./phi.ts";
 import { assert, it } from "@effect/vitest";
 import { compactionSent, promptSent, sessionLeased } from "./proof.ts";
@@ -8,13 +8,11 @@ import { Router } from "#pi/client/router.ts";
 
 const routerPort = 47_496;
 
-const utc = DateTime.zoneMakeNamedUnsafe("UTC");
-
 const refusal = "phi-router: no BAA key is saved for anthropic. Run phi-router setup.";
 
 const leaseLine = `start pi-session-1 /work ${String(routerPort)}`;
 
-const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean, printed = "") {
+const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean) {
 	const asked = yield* Ref.make<readonly string[]>([]);
 
 	const refused = Effect.fail(
@@ -23,7 +21,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean, printed 
 
 	const recorded = (line: string): Effect.Effect<void> => Ref.update(asked, Array.append(line));
 
-	const answered = Effect.as(Effect.when(refused, Effect.succeed(refuses)), printed);
+	const answered = Effect.asVoid(Effect.when(refused, Effect.succeed(refuses)));
 
 	const service = Router.of({
 		answerCheck: () => Effect.die("the proof checks no answer"),
@@ -32,7 +30,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(refuses: boolean, printed 
 		setupStep: () => Effect.die("the proof sets nothing up"),
 		start: (session, folder, port) =>
 			Effect.andThen(recorded(`start ${session} ${folder} ${String(port)}`), answered),
-		status: () => Effect.die("the proof asks no status"),
+		statusline: () => Effect.die("the proof asks no status"),
 	});
 
 	return { asked, service };
@@ -120,30 +118,9 @@ it.effect("a session the router refuses at start shows nothing, and one it lease
 		const { ctx, shown } = contextOf("phi");
 		const started = sessionLeased(routerPort)(showLeased, ctx);
 
-		yield* Effect.provideService(started, Router, refusing.service).pipe(
-			Effect.provideService(DateTime.CurrentTimeZone, utc),
-		);
-		yield* Effect.provideService(started, Router, leasing.service).pipe(
-			Effect.provideService(DateTime.CurrentTimeZone, utc),
-		);
+		yield* Effect.provideService(started, Router, refusing.service);
+		yield* Effect.provideService(started, Router, leasing.service);
 
 		assert.deepStrictEqual(shown, ["status: leased"]);
-	}),
-);
-
-const waiting = "phi-router 0.5.0 is installed. Your open windows still run 0.4.0 until you close them all.";
-
-it.effect("shows the line start printed for a newer plugin once, at the session's start, and not before a prompt", () =>
-	Effect.gen(function* newerPlugin() {
-		const router = yield* routerOf(false, `${waiting}\n`);
-		const { ctx, shown } = contextOf("phi");
-		const started = sessionLeased(routerPort)(showLeased, ctx);
-
-		yield* Effect.provideService(started, Router, router.service).pipe(
-			Effect.provideService(DateTime.CurrentTimeZone, utc),
-		);
-		yield* Effect.provideService(promptSent(routerPort)(ctx), Router, router.service);
-
-		assert.deepStrictEqual(shown, [`info: ${waiting}`, "status: leased"]);
 	}),
 );

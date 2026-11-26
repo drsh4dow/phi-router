@@ -524,8 +524,8 @@ const answerChecksOf = (played: Rewritten): readonly Check[] => {
 				opensNone(played.canaries, [played.withheld]),
 		},
 		{
-			name: "AC11: the turn that withheld an answer shows one notice, and no other turn shows one",
-			ok: noticesIn(played.withheld) === once && pipe(played.all, Array.map(noticesIn), Number.sumAll) === once,
+			name: "AC11: no turn shows a withheld notice, the turn that withheld an answer included: /phi counts it",
+			ok: pipe(played.all, Array.map(noticesIn), Number.sumAll) < once,
 		},
 		{
 			name: "AC13: one SubagentStop answer check runs per answer, exit 2 for each rewrite, and none for the subagent's tool call",

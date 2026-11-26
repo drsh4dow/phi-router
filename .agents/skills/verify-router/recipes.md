@@ -295,17 +295,17 @@ That is `no-key`. Its chat cannot go on after the terminal's apply: Codex 0.166 
 
 ## 10. The Claude Code status line
 
-The real claude TUI in tmux with the plugin installed from this checkout and `phi-router on claude`, which must write no `statusLine`. The script sets a status line of the user's, `echo user-status-line`, types a clean and a canary prompt on `phi/auto` and `/phi`, then reopens the same session with `--continue --model claude-sonnet-4-5`, and last on `phi/auto` with the user's status line removed. Each check reads the rows under the last `❯` line. `/model` in the session cannot switch: it validates the model with a request the mock answers without usage.
+The real claude TUI in tmux with the plugin installed from this checkout and `phi-router on claude`, which must write no `statusLine`. The script sets a status line of the user's, `echo user-status-line`, types a clean and a canary prompt on `phi/auto` and `/phi`, then reopens the same session with `--continue --model claude-sonnet-4-5`, where the router routes too, and last on `phi/auto` with the user's status line removed. Each check reads the rows under the last `❯` line. `/model` in the session cannot switch: it validates the model with a request the mock answers without usage.
 
 ```sh
 recipes/iso.sh statusline statusline.sh
 ```
 
 ```
-on phi/auto: user-status-line|phi · open, model target-under-test · 2 sealed · 12 cleared|⏵⏵ auto mode on (shift+tab to cycle)|
+on phi/auto: user-status-line|phi · open · 2 sealed · 12 cleared|⏵⏵ auto mode on (shift+tab to cycle)|
 /phi: 2 sealed · 12 cleared
-on claude-sonnet-4-5: user-status-line|⏸ manual mode on · ← for agents|
-alone: phi · open, model target-under-test · 2 sealed · 12 cleared
+on claude-sonnet-4-5: user-status-line|phi · open · 2 sealed · 12 cleared|⏸ manual mode on · ← for agents|
+alone: phi · open · 2 sealed · 12 cleared
 ```
 
 A `FAIL` line names what broke. The plugin's mod, `hooks/mod.js`, draws the row on Claude Code's `StatusLine` render site and answers `/phi` through `command.run`, both by running the launcher's `statusline`, which prints `{"line": …, "reply": …}`. Claude Code puts a no-break space after the `⎿` of a command's reply, so `$ROOT/phi.txt` holds `⎿` and U+00A0 before `phi-router: session`. Claude Code older than 2.1.332 loads no mod and shows neither.

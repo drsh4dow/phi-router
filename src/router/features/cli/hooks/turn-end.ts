@@ -1,6 +1,6 @@
-import { Array, Clock, Console, DateTime, Duration, Effect, Option, Order, Schema, Struct, flow, pipe } from "effect";
-import type { OpenAccount, Overflow, Reported } from "./phi-text.ts";
-import { overflowNotice, sealNotice, withheldNotice } from "./phi-text.ts";
+import { Array, Clock, Console, DateTime, Duration, Effect, Option, Schema, Struct, pipe } from "effect";
+import type { Overflow, Reported } from "./phi-text.ts";
+import { backOf, openOf, overflowNotice, sealNotice, withheldNotice } from "./phi-text.ts";
 import type { Noticed } from "#router/client/turn-notices.ts";
 import { SessionId } from "#shared/cli.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
@@ -22,38 +22,6 @@ interface Told {
 	readonly gaveUp: number;
 	readonly overflow: Option.Option<Overflow>;
 }
-
-const openOf = (status: Reported): readonly OpenAccount[] => {
-	const { clean, sealed } = status.accounts;
-
-	const vendor = pipe(
-		Option.fromNullishOr(status.last),
-		Option.flatMap((last) =>
-			pipe(
-				[...clean, ...sealed],
-				Array.findFirst(({ name }) => name === last.account),
-			),
-		),
-		Option.map((account) => account.vendor),
-	);
-
-	const ofVendor = (account: OpenAccount): boolean =>
-		Option.match(vendor, { onNone: () => true, onSome: (named) => named === account.vendor });
-
-	return pipe(clean, Array.filter(ofVendor));
-};
-
-const millisOf = (account: OpenAccount): Option.Option<number> =>
-	pipe(
-		Option.fromUndefinedOr(account.rateLimitedUntil),
-		Option.flatMap((back) => DateTime.make(back)),
-		Option.map(DateTime.toEpochMillis),
-	);
-
-const earliest = flow(Array.min(Order.Number), Option.some);
-
-const backOf = (open: readonly OpenAccount[]): Option.Option<number> =>
-	pipe(open, Array.map(millisOf), Array.getSomes, Array.match({ onEmpty: Option.none, onNonEmpty: earliest }));
 
 const toldAt = (status: Reported, now: number, seen: Noticed): readonly [Told, Noticed] => {
 	const open = openOf(status);
