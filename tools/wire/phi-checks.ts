@@ -319,7 +319,7 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 
 	return [
 		{
-			name: "AC18: after the open mock answers 429, the root agent's request reaches the BAA mock with each sealed part as a stub with its handle, and never the canary",
+			name: "AC19: after the open mock answers 429, the root agent's request reaches the BAA mock with each sealed part as a stub with its handle, and never the canary",
 			ok: everyOf(rootOverflowed, (sent) => holdsStub(played.harness)(sent) && !holds(played.canaries)(sent)),
 		},
 		{
