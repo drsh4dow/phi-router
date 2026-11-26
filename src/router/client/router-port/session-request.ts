@@ -8,13 +8,15 @@ const sessionPaths = { answerCheck: "/phi-router/answer-check", status: "/phi-ro
 
 const ok = 200;
 
-const patience = "5 seconds";
+const patience = { answerCheck: "30 seconds", status: "5 seconds" } as const;
+
+type Patience = (typeof patience)[keyof typeof patience];
 
 interface Unanswered {
 	readonly reason:
 		| "no router answers there"
 		| `it answered ${number}`
-		| `it took a request and gave no answer within ${typeof patience}`
+		| `it took a request and gave no answer within ${Patience}`
 		| "its status is not the contract's"
 		| "its answer check is not the contract's";
 }
@@ -23,7 +25,8 @@ const unanswered = (reason: Unanswered["reason"]): Unanswered => ({ reason });
 
 const noRouter = unanswered("no router answers there");
 
-const stalled = unanswered(`it took a request and gave no answer within ${patience}`);
+const stalledFor = (waited: Patience): Unanswered =>
+	unanswered(`it took a request and gave no answer within ${waited}`);
 
 class SessionRequests extends Context.Service<
 	SessionRequests,
@@ -42,6 +45,7 @@ class SessionRequests extends Context.Service<
 
 			const answerTo = (
 				port: number,
+				waited: Patience,
 				request: (origin: string) => HttpClientRequest.HttpClientRequest,
 			): Effect.Effect<string, Unanswered> =>
 				client.execute(request(`http://${loopback}:${String(port)}`)).pipe(
@@ -52,12 +56,12 @@ class SessionRequests extends Context.Service<
 					),
 					Effect.flatMap((response) => Effect.mapError(response.text, () => noRouter)),
 					Effect.scoped,
-					Effect.timeoutOrElse({ duration: patience, orElse: () => Effect.fail(stalled) }),
+					Effect.timeoutOrElse({ duration: waited, orElse: () => Effect.fail(stalledFor(waited)) }),
 					Effect.provideService(HttpClient.TracerPropagationEnabled, false),
 				);
 
 			const status = Effect.fn("SessionRequests.status")(function* status(port: number, session: string) {
-				const text = yield* answerTo(port, (origin) =>
+				const text = yield* answerTo(port, patience.status, (origin) =>
 					HttpClientRequest.get(`${origin}${sessionPaths.status}`, { urlParams: { session } }),
 				);
 
@@ -72,7 +76,7 @@ class SessionRequests extends Context.Service<
 			) {
 				const body = yield* Effect.orDie(Schema.encodeEffect(AnswerCheckJson)(asked));
 
-				const text = yield* answerTo(port, (origin) =>
+				const text = yield* answerTo(port, patience.answerCheck, (origin) =>
 					HttpClientRequest.post(`${origin}${sessionPaths.answerCheck}`).pipe(
 						HttpClientRequest.bodyText(body, "application/json"),
 					),
