@@ -16,12 +16,12 @@ import {
 import { Handle, handleAt } from "#router/primitives/handle.ts";
 import { folderPrivately, writePrivately } from "./private-file.ts";
 import { Base64Url } from "effect/encoding";
+import { Count } from "#shared/cli.ts";
+import type { Pinned } from "#shared/cli.ts";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 
 const none = 0;
-
-const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(none));
 
 const SealedPart = Schema.Struct({ images: Count, key: Schema.String, text: Schema.String });
 
@@ -51,13 +51,6 @@ type Services = FileSystem.FileSystem | Path.Path | UserDirectories.UserDirector
 
 interface Sealed {
 	readonly partOf: (handle: typeof Handle.Type) => Option.Option<Part>;
-}
-
-interface PinnedSummary {
-	readonly runs: number;
-	readonly rewrites: number;
-	readonly gaveUp: number;
-	readonly withheld: readonly { readonly subagent: string; readonly handle: typeof Handle.Type }[];
 }
 
 const empty: StoredFile = { answers: {}, parts: [] };
@@ -93,7 +86,9 @@ const kept = (stored: StoredFile, parts: readonly Part[]): StoredFile => {
 	return Struct.assign(stored, { parts: [...stored.parts, ...added] });
 };
 
-const summaryOf = (stored: StoredFile): PinnedSummary => {
+type ReplyOf = (handle: typeof Handle.Type) => string;
+
+const summaryOf = (stored: StoredFile, replyOf: ReplyOf): typeof Pinned.Type => {
 	const runs = Record.values(stored.answers);
 
 	return {
@@ -113,7 +108,7 @@ const summaryOf = (stored: StoredFile): PinnedSummary => {
 			Array.flatMap(([subagent, { withheld }]) =>
 				Option.match(Option.flatMap(Option.fromUndefinedOr(withheld), Schema.decodeOption(Handle)), {
 					onNone: () => [],
-					onSome: (handle) => [{ handle, subagent }],
+					onSome: (handle) => [{ reply: replyOf(handle), subagent }],
 				}),
 			),
 		),
@@ -179,7 +174,7 @@ class SealedStore extends Context.Service<
 			subagent: string,
 			update: (now: Run) => Run,
 		) => Effect.Effect<Run, StoreFailed>;
-		readonly summary: (session: string) => Effect.Effect<PinnedSummary, StoreFailed>;
+		readonly summary: (session: string, replyOf: ReplyOf) => Effect.Effect<typeof Pinned.Type, StoreFailed>;
 		readonly filesFolder: (session: string) => Effect.Effect<string, PlatformError.PlatformError>;
 	}
 >()("phi-router/router/client/sealed-store/SealedStore") {
@@ -234,7 +229,11 @@ class SealedStore extends Context.Service<
 						})),
 						Effect.provideContext(services),
 					),
-				summary: (session) => current(session).pipe(Effect.map(summaryOf), Effect.provideContext(services)),
+				summary: (session, replyOf) =>
+					current(session).pipe(
+						Effect.map((stored) => summaryOf(stored, replyOf)),
+						Effect.provideContext(services),
+					),
 			});
 		}),
 	).pipe(Layer.provide(UserDirectories.layer));
