@@ -1,7 +1,6 @@
 import { Array, Effect, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { bridgesFor, sealedStub } from "#router/features/border/index.ts";
-import { handleAt } from "#router/primitives/handle.ts";
 import {
 	clean,
 	harnessNames,
@@ -19,7 +18,12 @@ import type { HarnessName } from "./target-models.ts";
 import type { Json } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Post } from "./mocked-router.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { jsonText } from "./harnesses.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
 
 const vendorOf: Readonly<Record<HarnessName, keyof typeof fakes.sealedModel>> = {
 	claude: "anthropic",
@@ -199,7 +203,7 @@ const answerJudged = Effect.gen(function* answerJudged() {
 
 	const opened = yield* mocks.open.received;
 	const lines = yield* laneLines(state);
-	const stub = yield* jsonText(sealedStub("claude")(handleAt(1)));
+	const stub = yield* jsonText(sealedStub("claude")(h1));
 	const stubbedResult = `{"tool_use_id":"${callId}","type":"tool_result","content":${stub}}`;
 
 	assert.deepStrictEqual<unknown>(

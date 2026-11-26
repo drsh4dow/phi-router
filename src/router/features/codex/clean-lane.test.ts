@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Predicate, Schema, String as Str, Struct, pipe } from "effect";
 import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
 import { assert, it } from "@effect/vitest";
-import { cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
+import { cleanBodyPastBorder, h1, nothingWritten } from "./test-kit.ts";
 import type { CodexRequestRejected } from "./index.ts";
 import { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
@@ -9,9 +9,8 @@ import type { Message } from "#router/features/parts/index.ts";
 import { decodeRequest } from "./index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
-import { stubs } from "#router/features/policy/index.ts";
-import { handleAt } from "#router/primitives/handle.ts";
 import { sealedStub } from "#router/features/border/index.ts";
+import { stubs } from "#router/features/policy/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
 
@@ -176,7 +175,7 @@ const frameKeys = (messages: readonly Message[]): Effect.Effect<ReadonlySet<stri
 		);
 	});
 
-const codexStub = sealedStub("codex")(handleAt(1));
+const codexStub = sealedStub("codex")(h1);
 
 const sealedText = [{ text: codexStub, type: "input_text" }];
 

@@ -1,6 +1,6 @@
-import { Array, Effect, Function, Option, pipe, Record, Schema } from "effect";
+import { Array, Effect, Function, Option, Record, Schema, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor } from "#router/features/border/index.ts";
+import { bridgesFor, stubbedMessage } from "#router/features/border/index.ts";
 import { BodyJson } from "./wire.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
@@ -9,7 +9,6 @@ import type { Target } from "#router/features/border/index.ts";
 import type { WireBody } from "./wire.ts";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
-import { stubbedMessage } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const sealedStub =
@@ -74,6 +73,7 @@ const stubbedWhere = (
 const baaThinking = Effect.gen(function* baaThinking() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, clean(request.messages));
+
 	const toBaa = yield* sent(request, {
 		lane: "sealed",
 		open: Function.identity,
@@ -150,12 +150,14 @@ const replyStubKeepsCache = Effect.gen(function* replyStubKeepsCache() {
 const unreadableWithheld = Effect.gen(function* unreadableWithheld() {
 	const request = yield* decodeRequest(withUnreadable, nobodyWrote, "claude");
 	const toOpen = yield* request.encode(clean(request.messages));
+
 	const toBaa = yield* request.encode({
 		lane: "sealed",
 		open: Function.identity,
 		system: bridgesFor.claude,
 		upstreamModel: target,
 	});
+
 	const received = yield* decodeBody(toOpen);
 	const original = yield* decodeBody(withUnreadable);
 	const kept = yield* decodeBody(toBaa);
@@ -252,6 +254,7 @@ const unchangedAsSent = Effect.gen(function* unchangedAsSent() {
 	for (const [name, body] of Record.toEntries(Record.set(requests, "respelled", respelled))) {
 		const request = yield* decodeRequest(body, openWroteAll, "claude");
 		const toOpen = yield* request.encode(clean(request.messages));
+
 		const toBaa = yield* request.encode({
 			lane: "sealed",
 			open: Function.identity,

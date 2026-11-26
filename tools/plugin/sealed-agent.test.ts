@@ -2,10 +2,14 @@ import { Effect, String as Str } from "effect";
 import { assert, it } from "@effect/vitest";
 import { pinnedLine, pinnedModel } from "#router/features/lanes/index.ts";
 import { NodeServices } from "@effect/platform-node";
+import { handleAt } from "#router/primitives/handle.ts";
 import { pinnedSubagent } from "./agent-file.ts";
 import { sealedRole } from "#router/features/cli/index.ts";
-import { handleAt } from "#router/primitives/handle.ts";
 import { sealedStub } from "#router/features/border/index.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
 
 const shipped = Effect.gen(function* shipped() {
 	const agent = yield* pinnedSubagent;
@@ -21,8 +25,8 @@ const shipped = Effect.gen(function* shipped() {
 			readsAgain: Str.includes("read your sources again with your tools")(agent.body),
 			roleInstructions: Str.includes(`developer_instructions = """\n${agent.body}"""\n`)(sealedRole),
 			stubsNameIt: [
-				Str.includes(`the ${agent.pluginName}:${agent.name} subagent`)(sealedStub("claude")(handleAt(1))),
-				Str.includes(`the ${agent.name} subagent`)(sealedStub("codex")(handleAt(1))),
+				Str.includes(`the ${agent.pluginName}:${agent.name} subagent`)(sealedStub("claude")(h1)),
+				Str.includes(`the ${agent.name} subagent`)(sealedStub("codex")(h1)),
 			],
 		},
 		{

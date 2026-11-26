@@ -1,7 +1,7 @@
-import { Array, Effect, Function, pipe, Record, String as Str, Struct } from "effect";
+import { Array, Effect, Function, Record, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
 
@@ -39,6 +39,7 @@ const spaced = `{
 const sealedAddsOnlyTheBridge = Effect.gen(function* sealedAddsOnlyTheBridge() {
 	for (const [name, body] of Record.toEntries(requests)) {
 		const request = yield* decodeRequest(body, nobodyWrote, "claude");
+
 		const sent = yield* request.encode({
 			lane: "sealed",
 			open: Function.identity,
@@ -105,6 +106,7 @@ const numbersAsSent = Effect.gen(function* numbersAsSent() {
 
 const sealedKeepsSpacing = Effect.gen(function* sealedKeepsSpacing() {
 	const request = yield* decodeRequest(spaced, nobodyWrote, "claude");
+
 	const sent = yield* request.encode({
 		lane: "sealed",
 		open: Function.identity,

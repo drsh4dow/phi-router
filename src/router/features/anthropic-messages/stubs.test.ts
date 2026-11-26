@@ -1,13 +1,12 @@
-import { Array, Effect, Function, Option, Order, pipe, Predicate, Schema, String as Str, Struct } from "effect";
+import { Array, Effect, Function, Option, Order, Predicate, Schema, String as Str, Struct, pipe } from "effect";
 import { BodyJson, LooseCall, LooseResult } from "./wire.ts";
 import type { WireAssistantBlock, WireUnreadable, WireUserBlock } from "./wire.ts";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor } from "#router/features/border/index.ts";
+import { bridgesFor, stubbedMessage } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import { requests as captured } from "./captures/index.ts";
 import { decodeRequest } from "./index.ts";
-import { stubbedMessage } from "#router/features/border/index.ts";
 
 const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "toolResult"]);
 
@@ -208,6 +207,7 @@ const stubsStayValid = Effect.fnUntraced(function* stubsStayValid(
 	const request = yield* decodeRequest(body, nobodyWrote, "claude");
 	const guarded = sealedIn(request.messages, pickedBy(mask));
 	const toOpen = yield* request.encode({ lane: "clean", messages: guarded.messages, upstreamModel: "claude-target" });
+
 	const toBaa = yield* request.encode({
 		lane: "sealed",
 		open: Function.identity,

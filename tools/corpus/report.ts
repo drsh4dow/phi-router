@@ -252,13 +252,6 @@ const reportOf = (played: readonly Played[]): Report => {
 	return {
 		fragments: fragmentsOf(played),
 		judge: judgeOf(sent),
-		requests: {
-			clean: pipe(
-				sent,
-				Array.countBy((each) => !isSealed(each)),
-			),
-			sealing: pipe(sent, Array.countBy(isSealed)),
-		},
 		leaks: pipe(phi, Array.flatMap(Struct.get("leak"))),
 		overRouting: overRoutingOf(
 			pipe(
@@ -266,6 +259,13 @@ const reportOf = (played: readonly Played[]): Report => {
 				Array.filter((each) => each.case.expect === "clean"),
 			),
 		),
+		requests: {
+			clean: pipe(
+				sent,
+				Array.countBy((each) => !isSealed(each)),
+			),
+			sealing: pipe(sent, Array.countBy(isSealed)),
+		},
 		splits: pipe(phi, Array.flatMap(Struct.get("split"))),
 		strata: strataOf(phi),
 	};

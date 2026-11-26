@@ -9,6 +9,10 @@ import { handleAt } from "#router/primitives/handle.ts";
 import { pinnedByModel } from "./target-models.ts";
 import { sealedStub } from "#router/features/border/index.ts";
 
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
+
 const canary = "PATIENT-CANARY-2W6N";
 
 const status = { ok: 200, unreadable: 400 } as const;
@@ -192,7 +196,7 @@ const resentSealed = Effect.gen(function* resentSealed() {
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
 	const lines = yield* laneLines(state);
-	const stub = yield* jsonText(sealedStub("codex")(handleAt(1)));
+	const stub = yield* jsonText(sealedStub("codex")(h1));
 
 	assert.deepStrictEqual(
 		{

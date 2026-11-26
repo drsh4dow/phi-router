@@ -1,11 +1,11 @@
-import { Array, Effect, Function, pipe, Record, Schema, String as Str, Struct } from "effect";
+import { Array, Effect, Function, Record, Schema, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor } from "#router/features/border/index.ts";
 import { BodyJson } from "./wire.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import type { MessagesRequest } from "./index.ts";
 import type { Target } from "#router/features/border/index.ts";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
 
@@ -78,6 +78,7 @@ const bridgeOnce = Effect.gen(function* bridgeOnce() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const original = yield* decodeBody(requests.toolResult);
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
+
 	const toBaa = yield* sent(request, {
 		lane: "sealed",
 		open: Function.identity,
@@ -92,6 +93,7 @@ const bridgeOnce = Effect.gen(function* bridgeOnce() {
 const modelReplaced = Effect.gen(function* modelReplaced() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
+
 	const toBaa = yield* sent(request, {
 		lane: "sealed",
 		open: Function.identity,

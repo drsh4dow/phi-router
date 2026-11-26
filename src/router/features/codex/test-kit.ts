@@ -1,13 +1,16 @@
 import { Array, Effect, pipe } from "effect";
-import type { CleanLaneRefused, ToolsNotCleared } from "#router/features/border/index.ts";
+import type { CleanLaneRefused, Keep, ToolsNotCleared } from "#router/features/border/index.ts";
 import type { CodexRequest, CodexRequestRejected } from "./index.ts";
 import { cleanLaneKeys, decodeRequest } from "./index.ts";
 import type { Digest } from "effect/crypto";
 import type { Lookup } from "#router/features/verdicts/index.ts";
 import type { Message } from "#router/features/parts/index.ts";
-import type { Keep } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
 import { handleAt } from "#router/primitives/handle.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
 
 const realModel = "gpt-5.5";
 
@@ -16,7 +19,12 @@ const nothingWritten = (): boolean => false;
 const allCleared: Lookup = () => "cleared";
 
 const firstHandle: Keep<never> = (parts) =>
-	Effect.succeed(new Map(Array.map(parts, ({ key }) => [key, handleAt(1)] as const)));
+	pipe(
+		parts,
+		Array.map(({ key }) => [key, h1] as const),
+		(pairs) => new Map(pairs),
+		Effect.succeed,
+	);
 
 const cleanBodyPastBorder =
 	(lookup: Lookup) =>
@@ -47,4 +55,4 @@ const writersOf = (messages: readonly Message[]): readonly string[] =>
 		}),
 	);
 
-export { allCleared, cleanBodyPastBorder, decodedAfter, nothingWritten, realModel, writersOf };
+export { allCleared, cleanBodyPastBorder, decodedAfter, h1, nothingWritten, realModel, writersOf };

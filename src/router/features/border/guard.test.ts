@@ -1,14 +1,21 @@
 import { Array, Effect, Predicate, String as Str, pipe } from "effect";
+import type { Harness, Keep } from "./index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import type { Message, Part } from "#router/features/parts/index.ts";
 import { ToolsNotCleared, guard, sealedStub } from "./index.ts";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
-import type { Harness } from "./index.ts";
-import type { Keep } from "./index.ts";
 import { handleAt } from "#router/primitives/handle.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
+
+const secondSequence = 2;
+
+const h2 = handleAt(secondSequence);
 
 const asked: Message = {
 	content: [{ text: "Why does the eligibility import drop row 88123?", type: "text" }],
@@ -50,7 +57,12 @@ const prompt: Message = {
 };
 
 const inOrder: Keep<never> = (parts) =>
-	Effect.succeed(new Map(Array.map(parts, ({ key }, index) => [key, handleAt(index + 1)] as const)));
+	pipe(
+		parts,
+		Array.map(({ key }, index) => [key, handleAt(index + firstSequence)] as const),
+		(pairs) => new Map(pairs),
+		Effect.succeed,
+	);
 
 const lookupOf = Effect.fnUntraced(function* lookupOf(
 	given: readonly (readonly [Standing, readonly Message[]])[],
@@ -91,7 +103,7 @@ const stubbed = Effect.gen(function* stubbed() {
 
 	assert.deepStrictEqual(sent, [
 		asked,
-		{ content: [{ text: sealedStub("claude")(handleAt(1)), type: "text" }], role: "user" },
+		{ content: [{ text: sealedStub("claude")(h1), type: "text" }], role: "user" },
 		{
 			content: [
 				{ text: stubs.unknown, type: "text" },
@@ -101,7 +113,7 @@ const stubbed = Effect.gen(function* stubbed() {
 			writtenBy: "other",
 		},
 		{
-			content: [{ text: sealedStub("claude")(handleAt(2)), type: "text" }],
+			content: [{ text: sealedStub("claude")(h2), type: "text" }],
 			isError: false,
 			role: "toolResult",
 			toolCallId: "toolu_7",
@@ -123,7 +135,7 @@ const perHarness = Effect.gen(function* perHarness() {
 
 	const stubOf = (harness: (typeof harnesses)[number]): readonly Message[] => [
 		{
-			content: [{ text: sealedStub(harness)(handleAt(1)), type: "text" }],
+			content: [{ text: sealedStub(harness)(h1), type: "text" }],
 			isError: false,
 			role: "toolResult",
 			toolCallId: "toolu_7",
@@ -132,11 +144,13 @@ const perHarness = Effect.gen(function* perHarness() {
 
 	const harnessStubs = pipe(
 		harnesses,
-		Array.map((harness) => sealedStub(harness)(handleAt(1))),
+		Array.map((harness) => sealedStub(harness)(h1)),
 	);
 
+	const tagged = pipe(harnessStubs, Array.every(Str.startsWith("[sealed h1] ")));
+
 	assert.deepStrictEqual(sent, pipe(harnesses, Array.map(stubOf)));
-	assert.isTrue(pipe(harnessStubs, Array.every(Str.startsWith("[sealed h1] "))));
+	assert.isTrue(tagged);
 	assert.strictEqual(new Set(harnessStubs).size, harnesses.length);
 });
 

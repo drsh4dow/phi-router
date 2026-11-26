@@ -4,9 +4,13 @@ import { autoOf, clean, harnessNames, holdsCanary, modelsIn, phi, posted, sentMo
 import { fakes, jsonText } from "./harnesses.ts";
 import type { HarnessName } from "./target-models.ts";
 import { NodeServices } from "@effect/platform-node";
-import { routed } from "./mocked-router.ts";
 import { handleAt } from "#router/primitives/handle.ts";
+import { routed } from "./mocked-router.ts";
 import { sealedStub } from "#router/features/border/index.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
 
 const ok = 200;
 
@@ -80,7 +84,7 @@ const judgedUnderEach = Effect.fnUntraced(function* judgedUnderEach(harness: Har
 
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
-	const stub = yield* jsonText(sealedStub(harness)(handleAt(1)));
+	const stub = yield* jsonText(sealedStub(harness)(h1));
 
 	assert.deepStrictEqual<unknown>(
 		{
