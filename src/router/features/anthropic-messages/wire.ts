@@ -103,7 +103,16 @@ const UserTurn = Schema.Struct({
 
 const NamedTool = Schema.Struct({ name: Schema.String, type: Schema.Literal("tool_reference") });
 
-const DefinedTool = Schema.Struct({ definition: Judged, type: Schema.Literal("tool_definition") });
+const AssistantTurn = Schema.Struct({ content: Schema.Array(AssistantBlock), role: Schema.Literal("assistant") });
+
+const Tool = Schema.Struct({
+	defer_loading: flag,
+	description: Schema.String,
+	input_schema: Judged,
+	name: Schema.String,
+});
+
+const DefinedTool = Schema.Struct({ definition: Tool, type: Schema.Literal("tool_definition") });
 
 const ToolAddition = Schema.Struct({
 	cache_control: cacheControl,
@@ -121,20 +130,11 @@ const NoteBlock = Schema.Union([Text, ToolAddition, ToolRemoval, Unreadable]);
 
 const noteContent = Schema.Union([Schema.String, Schema.Array(NoteBlock)]);
 
-const AssistantTurn = Schema.Struct({ content: Schema.Array(AssistantBlock), role: Schema.Literal("assistant") });
-
 const HarnessNote = Schema.Struct({
 	clear_at: Schema.optionalKey(forwarded.clear_at),
 	content: noteContent,
 	output_config: Schema.optionalKey(forwarded.output_config),
 	role: Schema.Literal("system"),
-});
-
-const Tool = Schema.Struct({
-	defer_loading: flag,
-	description: Schema.String,
-	input_schema: Judged,
-	name: Schema.String,
 });
 
 const turns = Schema.Array(Schema.Union([UserTurn, AssistantTurn, HarnessNote, Unreadable]));

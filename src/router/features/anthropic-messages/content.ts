@@ -10,7 +10,7 @@ import type {
 	WireUnreadable,
 	WireUserBlock,
 } from "./wire.ts";
-import { kept, locate, required, textOf } from "./spans.ts";
+import { kept, locate, required, textOf, valueOf } from "./spans.ts";
 import { LooseResult } from "./wire.ts";
 import type { Message } from "#router/features/parts/index.ts";
 import { withheld } from "./reply.ts";
@@ -211,15 +211,37 @@ const userRuns = Effect.fnUntraced(function* userRuns({
 	});
 });
 
+const toolLineOf = (
+	tool: Extract<WireNoteBlock, { readonly type: "tool_addition" }>["tool"],
+	span: Span,
+): Option.Option<string> => {
+	if (tool.type === "tool_reference") {
+		return Option.some(tool.name);
+	}
+
+	const { description, name } = tool.definition;
+
+	return pipe(
+		span,
+		valueOf("tool"),
+		Option.flatMap(valueOf("definition")),
+		Option.flatMap(valueOf("input_schema")),
+		Option.map((schema) => Array.join([name, description, textOf(schema)], "\n")),
+	);
+};
+
 const noteLineOf = ({ span, wire }: Located<WireNoteBlock>): Option.Option<string> => {
 	switch (wire.type) {
 		case "text": {
 			return Option.some(wire.text);
 		}
 
-		case "tool_addition":
+		case "tool_addition": {
+			return toolLineOf(wire.tool, span);
+		}
+
 		case "tool_removal": {
-			return Option.some(textOf(span));
+			return Option.some(wire.tool.name);
 		}
 
 		case "unreadable": {

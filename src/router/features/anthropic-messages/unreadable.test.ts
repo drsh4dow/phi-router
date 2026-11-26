@@ -253,6 +253,13 @@ it.layer(Digest.layerWebCrypto)("harness notes Claude Code 2.1.332 sends", (test
 		noteReadWhole(toolsChanged, ["# Environment", "find_note", "Finds a note.", "old_tool"]),
 	);
 
+	test.effect("the judge and the rules read a tool's description in a note as text, not as escaped JSON", () =>
+		noteReadWhole(
+			String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"hello there"},{"role":"system","content":[{"type":"tool_addition","tool":{"type":"tool_definition","definition":{"name":"find_note","description":"SSN:\n078-05-1120","input_schema":{"type":"object"}}}}]}],"max_tokens":1000}`,
+			["find_note\nSSN:\n078-05-1120"],
+		),
+	);
+
 	test.effect(
 		"a sealed note that adds and removes tools reaches an open account as its stub alone",
 		() => sealedToolNote,
