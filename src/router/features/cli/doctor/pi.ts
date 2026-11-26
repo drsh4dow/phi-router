@@ -39,7 +39,7 @@ const doctorPi = Effect.fn("doctor pi")(function* doctorPi(agentDir: string) {
 	yield* reported(
 		"pi",
 		checks,
-		"The canary must reach the BAA mock alone, through the router the package's session hook starts. Each FAIL line names what did not hold. When pi -p fails, run pi install with the repository's address again.",
+		"The canary must reach the open mock only as a stub with its handle, through the router the package's session hook starts. Each FAIL line names what did not hold. When pi -p fails, run pi install with the repository's address again.",
 	);
 });
 

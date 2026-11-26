@@ -7,15 +7,26 @@ const canary = "phi-doctor-canary-42";
 
 const body = (text: string): string => `{"model":"phi/auto","messages":[{"role":"user","content":"${text}"}]}`;
 
+const stub = "[sealed h1]";
+
 const cases = [
-	{ arrived: { baa: [body(canary)], open: [body("ok")] }, passed: true, what: "the BAA mock alone" },
-	{ arrived: { baa: [body(canary)], open: [body(canary)] }, passed: false, what: "the BAA and an open mock" },
-	{ arrived: { baa: [], open: [body(canary)] }, passed: false, what: "an open mock alone" },
-	{ arrived: { baa: [body("ok")], open: [body("ok")] }, passed: false, what: "neither mock" },
+	{ arrived: { baa: [], open: [body(stub)] }, passed: true, what: "the open mock as its stub" },
 	{
-		arrived: { baa: [body(canary)], open: [body("phi-doctor-"), body("canary-42")] },
+		arrived: { baa: [body(canary)], open: [body(stub)] },
 		passed: true,
-		what: "the BAA mock whole, and two open bodies in halves",
+		what: "the open mock as its stub and the BAA mock",
+	},
+	{
+		arrived: { baa: [], open: [body(stub), body(canary)] },
+		passed: false,
+		what: "the open mock as its stub and itself",
+	},
+	{ arrived: { baa: [], open: [body(canary)] }, passed: false, what: "the open mock itself" },
+	{ arrived: { baa: [body(canary)], open: [body("ok")] }, passed: false, what: "the BAA mock alone" },
+	{
+		arrived: { baa: [], open: [body(stub), body("phi-doctor-"), body("canary-42")] },
+		passed: true,
+		what: "the open mock as its stub, and two open bodies in halves",
 	},
 ];
 

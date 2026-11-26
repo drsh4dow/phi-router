@@ -127,7 +127,7 @@ const passes = Effect.gen(function* passes() {
 
 	assert.isFalse(routerAnswers, "the plugin's router is gone once doctor returns");
 	assert.include(doctor.printed, "pass the plugin phi-router@phi-router is installed");
-	assert.include(doctor.printed, "pass the canary arrived at the BAA mock");
+	assert.include(doctor.printed, "pass the canary's prompt arrived at the open mock as the stub [sealed h1]");
 	assert.include(doctor.printed, "pass the canary arrived at no open mock");
 });
 
@@ -203,7 +203,7 @@ const failsBroken = Effect.fnUntraced(function* failsBroken({ install }: { reado
 	assert.isTrue(claudeRan);
 	assert.notStrictEqual(doctor.exitCode, ok);
 	assert.include(doctor.printed, "pass the plugin phi-router@phi-router is installed");
-	assert.include(doctor.printed, "FAIL the canary arrived at the BAA mock");
+	assert.include(doctor.printed, "FAIL the canary's prompt arrived at the open mock as the stub [sealed h1]");
 });
 
 const silent = Effect.gen(function* silent() {
@@ -211,7 +211,7 @@ const silent = Effect.gen(function* silent() {
 
 	assert.isTrue(claudeRan);
 	assert.notStrictEqual(doctor.exitCode, ok);
-	assert.include(doctor.printed, "FAIL the canary arrived at the BAA mock");
+	assert.include(doctor.printed, "FAIL the canary's prompt arrived at the open mock as the stub [sealed h1]");
 });
 
 const absent = Effect.gen(function* absent() {
@@ -223,7 +223,7 @@ const absent = Effect.gen(function* absent() {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("doctor claude", (test) => {
 	test.effect(
-		"passes when the installed plugin's router takes the canary to the BAA mock alone",
+		"passes when the installed plugin's router takes the canary to the open mock only as its stub",
 		() => passes,
 		patient,
 	);

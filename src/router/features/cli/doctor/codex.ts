@@ -116,7 +116,7 @@ const doctorCodex = Effect.fn("doctor codex")(function* doctorCodex(named: strin
 	yield* reported(
 		"codex",
 		checks,
-		`The canary must reach the BAA mock alone, through the router the plugin's hook starts. Each FAIL line names what did not hold. When codex exec fails, run codex plugin add ${pluginId} again and trust its hooks.`,
+		`The canary must reach the open mock only as a stub with its handle, through the router the plugin's hook starts. Each FAIL line names what did not hold. When codex exec fails, run codex plugin add ${pluginId} again and trust its hooks.`,
 	);
 });
 

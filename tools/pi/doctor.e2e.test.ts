@@ -219,7 +219,7 @@ const passes = Effect.gen(function* passes() {
 	);
 	assert.include(doctor.printed, "pass pi installed the package phi-router");
 	assert.include(doctor.printed, "pass pi -p exited 0");
-	assert.include(doctor.printed, "pass the canary arrived at the BAA mock");
+	assert.include(doctor.printed, "pass the canary's prompt arrived at the open mock as the stub [sealed h1]");
 	assert.include(doctor.printed, "pass the canary arrived at no open mock");
 
 	assert.isTrue(Option.isSome(prompt), "pi ran the prompt");
@@ -276,7 +276,7 @@ const failsBroken = Effect.fnUntraced(function* failsBroken({ install }: { reado
 
 	assert.notStrictEqual(doctor.exitCode, ok);
 	assert.include(doctor.printed, "pass pi installed the package phi-router");
-	assert.include(doctor.printed, "FAIL the canary arrived at the BAA mock");
+	assert.include(doctor.printed, "FAIL the canary's prompt arrived at the open mock as the stub [sealed h1]");
 });
 
 const absent = Effect.gen(function* absent() {
@@ -288,7 +288,7 @@ const absent = Effect.gen(function* absent() {
 
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("doctor pi", (test) => {
 	test.effect(
-		"passes when the installed package's router takes the canary to the BAA mock alone",
+		"passes when the installed package's router takes the canary to the open mock only as its stub",
 		() => passes,
 		patient,
 	);

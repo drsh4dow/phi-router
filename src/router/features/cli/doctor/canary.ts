@@ -1,6 +1,7 @@
 import { Array, Console, Effect, Layer, Match, Random, Schedule, Schema, String as Str, pipe } from "effect";
 import type { Arrived, Vendor } from "#router/client/mock-upstreams/index.ts";
 import { Listener, listensOn } from "#router/client/router-port/index.ts";
+import { handleAt, stubTag } from "#router/primitives/handle.ts";
 import type { Turn } from "#router/client/harnesses/index.ts";
 import { mockWorld } from "#router/client/mock-upstreams/index.ts";
 
@@ -27,12 +28,16 @@ const anyFreePort = 0;
 
 const canaryRange = { high: 1_000_000_000, low: 0 } as const;
 
+const firstSequence = 1;
+
+const firstSealed = stubTag(handleAt(firstSequence));
+
 const canaryChecks = (run: { readonly canary: string; readonly arrived: Arrived }): readonly Check[] => {
-	const holdsIt = (bodies: readonly string[]): boolean => pipe(bodies, Array.some(Str.includes(run.canary)));
+	const holds = (text: string): boolean => pipe(run.arrived.open, Array.some(Str.includes(text)));
 
 	return [
-		{ name: "the canary arrived at the BAA mock", passed: holdsIt(run.arrived.baa) },
-		{ name: "the canary arrived at no open mock", passed: !holdsIt(run.arrived.open) },
+		{ name: `the canary's prompt arrived at the open mock as the stub ${firstSealed}`, passed: holds(firstSealed) },
+		{ name: "the canary arrived at no open mock", passed: !holds(run.canary) },
 	];
 };
 
