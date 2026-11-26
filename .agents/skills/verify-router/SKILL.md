@@ -124,6 +124,7 @@ Each run removes its temp folders and stops the router and mocks it started when
 - The lane log logs model POSTs only. Codex's `/models` GET reaches the open account and is not logged.
 - Codex's update prompt starts a global install on Enter. Every Codex home these runs make holds `check_for_update_on_startup = false`.
 - Run Codex in a folder outside any git repository; the runs do.
+- A mock run never turns on the betas Anthropic's servers grant a real account, so Claude Code sends a mock none of the shapes they gate, such as a harness note with `clear_at` or with tool changes. A block the codec cannot name reaches the model as `[withheld: not checked for patient identifiers]` with every verdict cleared. Find such a shape in the request builder of the Claude Code binary and pin it with a codec test, as `unreadable.test.ts` does.
 - On a loaded machine the wire runs and some property tests can hit their time limits. Rerun the one that failed, alone.
 - The wire runs start each harness with `TZ=UTC`, so the notice's HH:MM is the stamp's UTC time in `accounts.json`.
 
