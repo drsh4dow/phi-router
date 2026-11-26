@@ -116,8 +116,8 @@ class Router extends Context.Service<
 				const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 				const spawning = Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner);
 
-				const run = (name: string, args: readonly string[]): Effect.Effect<string, CommandFailed> =>
-					spawning(printed(name, { args, env: {}, program, shown: unshown }));
+				const run = (name: string, args: readonly string[], input = ""): Effect.Effect<string, CommandFailed> =>
+					spawning(printed(name, { args, env: {}, input, program, shown: unshown }));
 
 				const start = Effect.fn("Router.start")(function* start(session: string, folder: string, port: number) {
 					const { folder: folderFlag, name, port: portFlag, session: sessionFlag } = spelling.start;
@@ -154,15 +154,7 @@ class Router extends Context.Service<
 					const command = spelling.answerCheck.name;
 					const input = yield* Effect.orDie(Schema.encodeEffect(AnswerCheckJson)(asked));
 
-					const output = yield* spawning(
-						printed(command, {
-							args: [command, `--${spelling.start.port}`, String(port)],
-							env: {},
-							input,
-							program,
-							shown: unshown,
-						}),
-					);
+					const output = yield* run(command, [command, `--${spelling.start.port}`, String(port)], input);
 
 					return yield* decodedAs(command, Schema.decodeEffect(AnswerCheckedJson))(output);
 				});
