@@ -1,12 +1,14 @@
 ------------------------------- MODULE Route -------------------------------
 (***************************************************************************)
 (* The requests inside one router: the verdicts it stores, the lane it     *)
-(* picks, what the border lets through to an open account, and the pin.    *)
+(* picks, what the border lets through to an open account, the pin, and    *)
+(* the handles a request on the sealed lane opens.                         *)
 (* Properties (a), (b), (c) and (e). Lifecycle.tla holds (d).            *)
 (*                                                                         *)
 (* The harness is free. A request carries any of its session's parts as   *)
-(* history and any as new content, pinned or not, at any time. So a turn, *)
-(* a subagent, a background request, a resume and a fork are all covered  *)
+(* history and any as new content, pinned or not, at any time, and names   *)
+(* every handle of its session. So a turn, a hand-over by handle, a        *)
+(* subagent, a background request, a resume and a fork are all covered     *)
 (* without a model of the transcript, and the properties hold whatever    *)
 (* the parts feature computes as new content.                              *)
 (*                                                                         *)
@@ -59,7 +61,7 @@ Ascending(S) == [n \in 1..Cardinality(S) |-> CHOOSE a \in S : Cardinality({b \in
 Request(phase, c, pinned, sealed, cleared) ==
     [phase |-> phase, history |-> c.history, new |-> c.new,
      pinned |-> pinned, sealed |-> sealed, cleared |-> cleared,
-     lane |-> "none", account |-> 0, body |-> <<>>, sealedNew |-> FALSE, wasSealed |-> FALSE,
+     lane |-> "none", account |-> 0, body |-> <<>>, opened |-> {}, wasSealed |-> FALSE,
      spent |-> FALSE, resentHere |-> FALSE, substitute |-> FALSE, triedBaa |-> {}]
 
 \* A request that failed at the harness. The harness can send its parts again.
@@ -70,21 +72,15 @@ Failed(q) == Request("failed", [history |-> q.history, new |-> q.new], FALSE, {}
 (* swaps one for a broken variant at the end of this module.              *)
 
 \* The parts a request has judged: every part with no stored verdict, history
-\* included, as the lane rule needs: "A sealed part in the new content,
-\* or a part sealed during this request, sends it to the sealed lane."
+\* included, so the border finds each part judged.
 ToJudge(c, verdicts) == {k \in c.history \cup c.new : verdicts[k] = "none"}
 
 \* Storing a verdict never unseals: a sealed verdict stays, whatever is written after it.
 Merge(old, fresh) == IF old = "sealed" THEN "sealed" ELSE fresh
 
-\* The lane rule. A pin, a part this request's judgments sealed, or a sealed
-\* part in the new content sends the request to the sealed lane.
-Lane(q, verdicts) ==
-    IF \/ q.pinned
-       \/ q.sealed # {}
-       \/ \E k \in q.new : verdicts[k] = "sealed"
-    THEN "sealed"
-    ELSE "clean"
+\* The lane rule. A pinned request runs on the sealed lane, and every other
+\* request on the clean lane, whatever its verdicts.
+Lane(q) == IF q.pinned THEN "sealed" ELSE "clean"
 
 \* Whether the account a send goes to has spent its 401 resend: what the
 \* request's current account had when the send stays there, and unspent when
@@ -103,6 +99,20 @@ BaaWalk == Ascending((1..BaaAccounts) \ Lacking) \o Ascending(Lacking)
 \* as they are and the stub in place of every other one.
 Passes(k, verdicts) == verdicts[k] = "cleared"
 
+\* Where a send goes when the clean lane refuses its request: the sealed lane's
+\* first account in its walk, for the reason router failure, leaving the clean
+\* lane for good. A request already on the sealed lane stays at its account.
+RouterFailure(lane, account) ==
+    IF lane = "clean" THEN [lane |-> "sealed", account |-> BaaWalk[1]] ELSE [lane |-> lane, account |-> account]
+
+\* The parts of session s whose handles a body opens. The border keeps each
+\* sealed part in the sealed store under the handle its stub carries. The
+\* model takes the store to hold every part of s the send's read holds sealed,
+\* and a request to name every handle. A body built for the sealed lane opens
+\* each one. A body built for the clean lane, the one overflow sends too,
+\* opens none.
+Opened(s, built, verdicts) == IF built = "sealed" THEN {k \in s : verdicts[k] = "sealed"} ELSE {}
+
 \* The account a request tries after its account fails before the first byte.
 \* Past the clean lane's last account comes the sealed lane's first in its walk.
 \* Past the sealed lane's last account in its walk the request fails.
@@ -115,23 +125,34 @@ NextAccount(lane, account) ==
 
 -----------------------------------------------------------------------------
 
-\* What a send to an open account carries for each part: "stub", or the part
-\* itself tagged with the verdict the store held for it when it left.
-Body(q, verdicts) == [k \in Parts(q) |-> IF Passes(k, verdicts) THEN verdicts[k] ELSE "stub"]
+\* What a send carries for each part: "stub", or the part's content tagged with
+\* the verdict the store held for it when it left. A body built for the clean
+\* lane goes through the border, and one built for the sealed lane carries every
+\* part as it is. Each handle the body opens carries its part's content, which
+\* the sealed store kept as sealed.
+Body(q, built, verdicts, opened) ==
+    [k \in Parts(q) \cup opened |->
+        IF k \in opened THEN "sealed"
+        ELSE IF built = "sealed" \/ Passes(k, verdicts) THEN verdicts[k]
+        ELSE "stub"]
 
-\* One send to one account. It reads the verdict store once: the lane rule can
-\* move the request from the clean lane to the sealed lane, never back, and the
-\* body is built from the same verdicts.
+\* One send to one account. It reads the verdict store once and builds the body
+\* from that read. A pinned request's body is built for the sealed lane. Every
+\* other request's body is built for the clean lane, through the border, on
+\* overflow to a BAA account too, unless the clean lane refuses it: then the
+\* body is built for the sealed lane, and the request moves to the sealed lane,
+\* never back. Only what an open account receives is recorded, since only that
+\* is read by a property.
 Send(s, i, q, lane, account) ==
-    LET to == IF lane = "clean" /\ Lane(q, store) = "sealed"
-              THEN [lane |-> "sealed", account |-> BaaWalk[1]]
-              ELSE [lane |-> lane, account |-> account]
-        sealedNew == \E k \in q.new : store[k] = "sealed"
+    \E refused \in IF q.pinned THEN {FALSE} ELSE BOOLEAN :
+    LET to == IF refused THEN RouterFailure(lane, account) ELSE [lane |-> lane, account |-> account]
+        built == IF q.pinned \/ refused THEN "sealed" ELSE "clean"
+        opened == Opened(s, built, store)
     IN  request' = [request EXCEPT ![s][i] =
            [q EXCEPT !.phase = "sent", !.lane = to.lane, !.account = to.account,
                      !.sealed = {}, !.cleared = {},
-                     !.body = IF to.lane = "clean" THEN Body(q, store) ELSE <<>>,
-                     !.sealedNew = q.sealed # {} \/ sealedNew,
+                     !.body = IF to.lane = "clean" THEN Body(q, built, store, opened) ELSE <<>>,
+                     !.opened = IF to.lane = "clean" THEN opened ELSE {},
                      !.wasSealed = q.wasSealed \/ to.lane = "sealed",
                      !.spent = Allowance(q, to),
                      !.substitute = Substitute(q, to),
@@ -197,7 +218,7 @@ Store(s, i) ==
 \* The lane rule decides, and the request goes to its lane's first account.
 Dispatch(s, i) ==
     LET q == request[s][i]
-        lane == Lane(q, store)
+        lane == Lane(q)
     IN  /\ q.phase = "stored"
         /\ Send(s, i, q, lane, IF lane = "clean" THEN 1 ELSE BaaWalk[1])
     /\ UNCHANGED <<store, sealedOnce>>
@@ -274,15 +295,17 @@ Spec == Init /\ [][Next]_vars
 AtOpenAccount == {q \in {request[s][i] : s \in Sessions, i \in Slots} :
                     q.phase = "sent" /\ q.lane = "clean"}
 
-\* (a) No part reaches an open account unless its content key is cleared or it is the stub.
+\* (a) No body an open account receives holds the content of a sealed part,
+\* as the part itself or opened from its handle: each part it carries is
+\* cleared or the stub.
 NoSealedPartAtOpenAccount ==
     \A q \in AtOpenAccount : \A k \in DOMAIN q.body : q.body[k] # "sealed"
 NoUnjudgedPartAtOpenAccount ==
     \A q \in AtOpenAccount : \A k \in DOMAIN q.body : q.body[k] # "none"
 
-\* (b) A request with sealed new content never goes to an open account, and
-\* failover only moves from the clean lane to the sealed lane.
-SealedNewContentRunsSealed == \A q \in AtOpenAccount : ~q.sealedNew
+\* (b) A handle opens only in a body that goes on the sealed lane to a BAA
+\* account, and failover only moves from the clean lane to the sealed lane.
+HandleOpensOnlyOnSealedLane == \A q \in AtOpenAccount : q.opened = {}
 FailoverOnlyToSealedLane == \A q \in AtOpenAccount : ~q.wasSealed
 
 \* (c) A verdict never changes from sealed to cleared inside one policy version.
@@ -327,6 +350,7 @@ TypeOK ==
           \/ /\ q.phase \in {"judged", "stored", "sent", "failed"}
              /\ [history |-> q.history, new |-> q.new] \in Contents(s)
              /\ q.sealed \cup q.cleared \subseteq Parts(q)
+             /\ q.opened \subseteq s
              /\ q.lane \in {"none", "clean", "sealed"}
 
 \* Nothing tells one session from another, or one part of a session from another.
@@ -344,10 +368,6 @@ ToJudgeNewContentOnly(c, verdicts) == {k \in c.new : verdicts[k] = "none"}
 
 \* The border stubs sealed parts only, so an unjudged part passes.
 PassesUnjudged(k, verdicts) == verdicts[k] # "sealed"
-
-\* The lane rule forgets the stored verdicts: only this request's own judgments count.
-LaneFromThisRequestOnly(q, verdicts) ==
-    IF q.pinned \/ q.sealed # {} THEN "sealed" ELSE "clean"
 
 \* The walk wraps: past the last BAA account it tries the clean lane again.
 NextAccountWraps(lane, account) ==
@@ -373,6 +393,11 @@ SubstituteOnFirstSendOnly(q, to) == q.lane = "none" /\ to.lane = "sealed" /\ to.
 BaaWalkInFileOrder == [n \in 1..BaaAccounts |-> n]
 
 \* The lane rule forgets the pin.
-LaneIgnoresPin(q, verdicts) ==
-    IF q.sealed # {} \/ \E k \in q.new : verdicts[k] = "sealed" THEN "sealed" ELSE "clean"
+LaneIgnoresPin(q) == "clean"
+
+\* A body built for the clean lane opens the handles too.
+OpenedOnEveryLane(s, built, verdicts) == {k \in s : verdicts[k] = "sealed"}
+
+\* A request the clean lane refused stays at its account, open or BAA.
+RouterFailureStays(lane, account) == [lane |-> lane, account |-> account]
 =============================================================================
