@@ -112,3 +112,18 @@ it.effect(
 			);
 		}),
 );
+
+it.effect(
+	"/phi shows the session's pinned subagent runs, rewrites and withheld answers beside the message counts",
+	() =>
+		Effect.gen(function* pinnedShown() {
+			const status = yield* statusText(
+				Struct.assign(statusOf(false), { pinned: { gaveUp: 1, rewrites: 6, runs: 2, withheld: [] } }),
+			);
+
+			assert.include(
+				status,
+				"Messages: 1 sealed, 2 cleared\nPinned subagent: 2 runs, 6 rewrites, 1 answer withheld\nClean lane: ",
+			);
+		}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
+);
