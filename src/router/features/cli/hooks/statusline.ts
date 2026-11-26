@@ -14,15 +14,19 @@ const statusOf = Effect.fnUntraced(function* statusOf(address: string, session: 
 	const requests = yield* SessionRequests;
 	const proofs = yield* Proofs;
 
-	const status = yield* Effect.mapError(
-		requests.status(port, session),
-		(failed) => failedAs({ command: "status", port })(failed).message,
+	const [status, proven] = yield* Effect.all(
+		[
+			Effect.mapError(
+				requests.status(port, session),
+				(failed) => failedAs({ command: "status", port })(failed).message,
+			),
+			Effect.timeoutOrElse(proofs.ask(port), {
+				duration: "5 seconds",
+				orElse: () => Effect.succeed({ kind: "unanswered" } as const),
+			}),
+		],
+		{ concurrency: "unbounded" },
 	);
-
-	const proven = yield* Effect.timeoutOrElse(proofs.ask(port), {
-		duration: "5 seconds",
-		orElse: () => Effect.succeed({ kind: "unanswered" } as const),
-	});
 
 	if (proven.kind !== "proved") {
 		return { status };
