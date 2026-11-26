@@ -232,4 +232,4 @@ class SealedStore extends Context.Service<
 
 export { SealedStore };
 
-export type { Run as PinnedRun, PinnedSummary, Sealed, Part as SealedPart, StoreFailed };
+export type { Run as PinnedRun, Part as SealedPart, StoreFailed };

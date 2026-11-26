@@ -1,9 +1,22 @@
-import { Array, Config, Console, Effect, FileSystem, Number as Num, Option, Path, Schema, pipe } from "effect";
+import {
+	Array,
+	Config,
+	Console,
+	Effect,
+	FileSystem,
+	Number as Num,
+	Option,
+	Path,
+	Predicate,
+	Schema,
+	pipe,
+} from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { billed, checksOf, reportOf } from "./account-checks.ts";
 import type { Ran } from "./account-checks.ts";
 import type { Turn } from "./account-turns.ts";
 import { dollars } from "#tools/corpus/render.ts";
+import { isSealedStore } from "./stored.ts";
 import { laneLines } from "#tools/route/mocked-router.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 import { turnsOn } from "./account-turns.ts";
@@ -27,9 +40,10 @@ const textsUnder = Effect.fnUntraced(function* textsUnder(folder: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const names = yield* fs.readDirectory(folder, { recursive: true });
+	const outsideSealedStore = pipe(names, Array.filter(Predicate.not(isSealedStore)));
 
 	return yield* Effect.forEach(
-		names,
+		outsideSealedStore,
 		(name) => fs.readFileString(path.join(folder, name)).pipe(Effect.orElseSucceed(() => "")),
 		{ concurrency: 1 },
 	);
