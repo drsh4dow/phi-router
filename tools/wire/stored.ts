@@ -83,6 +83,6 @@ const laneLogHolds = (run: {
 	return run.stored.lines.length === posts.length && !contentKeyLike.test(run.stored.laneLogText);
 };
 
-export { isModelPost, isRefused, laneLogHolds, overflowing, stampClockIn, storedIn, tookOf, windowsOf };
+export { isModelPost, isRefused, isSealedStore, laneLogHolds, overflowing, stampClockIn, storedIn, tookOf, windowsOf };
 
 export type { Stored };

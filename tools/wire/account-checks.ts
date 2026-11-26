@@ -37,7 +37,7 @@ const checksOf = (ran: Ran): readonly Check[] => [
 		ok: Option.exists(Array.get(ran.lines, canaryAt), ({ lane, reason }) => lane === "clean" && reason === "clean"),
 	},
 	{
-		name: "no file under the state folder holds the canary",
+		name: "no file under the state folder but the sealed store holds the canary",
 		ok: !pipe(ran.stateFileTexts, Array.some(Str.includes(voidedSsn))),
 	},
 ];
