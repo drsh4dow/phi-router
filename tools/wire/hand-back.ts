@@ -5,6 +5,8 @@ interface HandBack {
 	readonly fromSubagent: boolean;
 }
 
+const claudeHandBackFrame = "[Subagent hand-back]";
+
 const ResultEvent = Schema.Struct({ result: Schema.String, type: Schema.Literal("result") });
 
 const TextBlock = Schema.Struct({ text: Schema.String, type: Schema.Literal("text") });
@@ -185,7 +187,7 @@ const claudeHandBack = (events: readonly Event[]): Option.Option<HandBack> => {
 	);
 
 	return Option.map(Array.last(Array.appendAll(notified, handedBack)), (text) => ({
-		fromSubagent: pipe(words, Array.contains(text)),
+		fromSubagent: pipe(words, Array.contains(text)) || Str.startsWith(claudeHandBackFrame)(text),
 		text,
 	}));
 };
