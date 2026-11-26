@@ -60,6 +60,7 @@ const statusLines = [
 	`phi-router, session ${session}`,
 	"Last request: none yet",
 	"Messages: 0 sealed, 0 cleared",
+	"Pinned subagent: 0 runs, 0 rewrites, 0 answers withheld",
 	"Clean lane: open",
 	"Sealed lane: baa",
 ];
