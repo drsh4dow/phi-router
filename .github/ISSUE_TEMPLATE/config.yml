@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+   - name: Report a vulnerability privately
+     url: https://github.com/drsh4dow/phi-router/security/policy
+     about: A way around the border, a key in the wrong place, or anything you are not sure about. Never post real PHI.

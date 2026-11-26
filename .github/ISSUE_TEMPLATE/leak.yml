@@ -1,0 +1,45 @@
+name: Suspected leak
+description: Synthetic PHI reached an open account, or a clean message was sealed when it should not have been.
+labels: [bug, needs-triage]
+body:
+   - type: markdown
+     attributes:
+        value: |
+           Never paste real PHI. Rebuild the case with synthetic data, such as the voided SSN `078-05-1120` and a made-up name, and post only that.
+           If real PHI reached an open account, follow your organization's incident process, and report it privately as SECURITY.md says. If the leak shows a way around the border, report it privately too.
+   - type: checkboxes
+     id: synthetic
+     attributes:
+        label: Synthetic data only
+        options:
+           - label: This issue holds no real PHI, no real key and no login token.
+             required: true
+   - type: dropdown
+     id: direction
+     attributes:
+        label: What happened
+        options:
+           - Synthetic PHI reached an open account
+           - A clean message was sealed
+     validations:
+        required: true
+   - type: input
+     id: version
+     attributes:
+        label: phi-router version and harness
+        placeholder: phi-router v0.1.0, Claude Code 2.1.332
+     validations:
+        required: true
+   - type: textarea
+     id: sample
+     attributes:
+        label: The synthetic message
+        description: The smallest synthetic text, file or tool result that shows it, and where it entered the session, such as your prompt, a tool result or a file read.
+        render: text
+     validations:
+        required: true
+   - type: textarea
+     id: received
+     attributes:
+        label: What the open account received
+        description: The handle or the text that reached it. The lane log, `phi-router/lanes.jsonl` in your XDG state folder, holds no content and is safe to paste.
