@@ -1,6 +1,6 @@
 import { Array, Config, Effect, FileSystem, Path, Stream, Struct } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { place as claudePlace, claudeTurn } from "./claude.ts";
+import { place as claudePlace, claudeTurn } from "./claude-turn.ts";
 import { place as codexPlace, codexRun, configOf } from "./codex.ts";
 import { place as piPlace, piRun } from "./pi-run.ts";
 import { piWire } from "#router/features/route/index.ts";
