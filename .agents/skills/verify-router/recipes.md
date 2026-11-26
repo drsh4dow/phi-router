@@ -289,3 +289,22 @@ pass the keys are only in: config/phi-router/keys/openai
 ```
 
 That is `no-key`. Its chat cannot go on after the terminal's apply: Codex 0.166 starts no new turn in a chat whose provider changed (`This chat uses openai, but your current provider is phi`), so the terminal says the last line and the user goes straight to `/new`. The lane check skips title requests, which go sealed by design. In `found-key` the key check also allows `codex/shell_snapshots/`, where Codex itself copies the shell's environment, `OPENAI_API_KEY` included. Codex keeps its app-server daemon running after the TUI exits, with its socket in `/tmp/codex-daemon-<uid>`, outside the run's folders; the run kills the daemon before it checks that the router stopped. A daemon left by a run cut short blocks the next run of the same name with `app server did not become ready`: `pkill -f "$PHI_VERIFY_SCRATCH/NAME/codex/packages/"`. `env MOCK_BODIES=<folder> setup-codex.sh RUN` keeps each Responses body, decompressed.
+
+## 10. The Claude Code status line
+
+The real claude TUI in tmux with the plugin installed from this checkout and `phi-router on claude`, which writes the same status line as `setup claude`. The script wraps the written command in `tee`, so `$ROOT/statusline.in` holds each JSON Claude Code sent and `$ROOT/statusline.out` each line the command printed. It types a clean and a canary prompt on `phi/auto` and `/phi`, then reopens the same session with `--continue --model claude-sonnet-4-5` and types a clean prompt. `/model` in the session cannot switch: it validates the model with a request the mock answers without usage.
+
+```sh
+recipes/iso.sh statusline statusline.sh
+```
+
+```
+statusLine: '…/claude/plugins/data/phi-router-phi-router/phi-router' statusline
+on phi/auto: phi · baa, model target-under-test · 2 sealed · 11 cleared
+/phi: 2 sealed · 11 cleared
+link: …/plugins/claude/bin/phi-router
+on claude-sonnet-4-5: nothing
+stdin:  3 {"session_id":"…","model":{"id":"claude-sonnet-4-5","display_name":"Sonnet 4.5"}} 3 {"session_id":"…","model":{"id":"phi/auto","display_name":"phi/auto"}}
+```
+
+The command runs the link the plugin's SessionStart hook keeps in its data folder, `plugins/data/phi-router-phi-router` in the Claude Code folder, because Claude Code puts a plugin's `bin/` on the Bash tool's `PATH` and not on the status line's. The link names the plugin of the session that started last, so a plugin update that moves the cache folder takes effect at the next session, as the update itself does.

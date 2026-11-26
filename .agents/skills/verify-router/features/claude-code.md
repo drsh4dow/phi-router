@@ -8,6 +8,7 @@
 - Tool results: a tool result with a canary sends the request to the BAA account.
 - Overflow: when the open account answers 429, a clean request runs on the BAA account, and the turn's end shows `phi-router: your subscription is rate-limited until HH:MM, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add` once per stamp. `/phi` shows `Clean lane: open (rate-limited until HH:MM)`.
 - The pinned subagent: the plugin's agent `phi-router:phi-sealed` runs on `phi/sealed`, so its requests go to a BAA account under the sealed model, and its answer comes back to the main session as a tool result that is judged.
+- The status line: `phi-router on claude` and `setup claude` set Claude Code's `statusLine` to the plugin's launcher with `statusline` when none is set, and print the line to add to a script that is. On `phi/auto` or `phi/sealed` it shows `phi · <last request> · N sealed · M cleared`, the counts `/phi` shows, and nothing on another model (`recipes/iso.sh statusline statusline.sh`).
 - A repository's settings: a project `.claude/settings.json` that moves `ANTHROPIC_BASE_URL` or turns on a provider switch blocks the prompt and names the setting (`recipes/iso.sh project-settings project-settings.sh`).
 
 ## How to get to it (user POV)
