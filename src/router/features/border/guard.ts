@@ -2,10 +2,12 @@ import { Array, Effect, Option, Predicate, Schema, pipe } from "effect";
 import type { AssistantMessage, Message, Part } from "#router/features/parts/index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import type { Digest } from "effect/crypto";
+import type { Handle } from "#router/primitives/handle.ts";
 import type { Harness } from "./texts.ts";
-import { partsOf } from "#router/features/parts/index.ts";
+import type { SealedPart } from "#router/client/sealed-store.ts";
 import { stubs as policyStubs } from "#router/features/policy/index.ts";
-import { stubsFor } from "./texts.ts";
+import { sealedStub } from "./texts.ts";
+import { unitsOf } from "#router/features/parts/index.ts";
 
 class ToolsNotCleared extends Schema.TaggedError<ToolsNotCleared, { readonly brand: unique symbol }>()(
 	"ToolsNotCleared",
@@ -15,7 +17,10 @@ class ToolsNotCleared extends Schema.TaggedError<ToolsNotCleared, { readonly bra
 interface Checked {
 	readonly slot: Part["slot"];
 	readonly standing: Standing;
+	readonly stub: string;
 }
+
+type Keep<Failure> = (parts: readonly SealedPart[]) => Effect.Effect<ReadonlyMap<string, typeof Handle.Type>, Failure>;
 
 type SystemMessage = Extract<Message, { readonly role: "system" }>;
 
@@ -65,20 +70,19 @@ const isSealed = ({ standing }: Checked): boolean => standing === "sealed";
 
 const isCleared = ({ standing }: Checked): boolean => standing === "cleared";
 
-const stubOf = (checked: readonly Checked[], harness: Harness): string => {
-	if (pipe(checked, Array.some(isSealed))) {
-		return stubsFor[harness];
-	}
+const stubOf = (checked: readonly Checked[]): string =>
+	pipe(
+		checked,
+		Array.findFirst(isSealed),
+		Option.match({ onNone: () => policyStubs.unknown, onSome: ({ stub }) => stub }),
+	);
 
-	return policyStubs.unknown;
-};
-
-const guardedSystem = (message: SystemMessage, checked: readonly Checked[], harness: Harness): SystemMessage => {
+const guardedSystem = (message: SystemMessage, checked: readonly Checked[]): SystemMessage => {
 	const textOf = (isSlot: (slot: Part["slot"]) => boolean, text: string): string =>
 		pipe(
 			checked,
 			Array.findFirst((part) => isSlot(part.slot) && !isCleared(part)),
-			Option.match({ onNone: () => text, onSome: (part) => stubOf([part], harness) }),
+			Option.match({ onNone: () => text, onSome: (part) => stubOf([part]) }),
 		);
 
 	return {
@@ -95,57 +99,78 @@ const guardedSystem = (message: SystemMessage, checked: readonly Checked[], harn
 	};
 };
 
-const guardedMessage = (message: Message, checked: readonly Checked[], harness: Harness): Message => {
+const guardedMessage = (message: Message, checked: readonly Checked[]): Message => {
 	if (message.role === "system") {
-		return guardedSystem(message, checked, harness);
+		return guardedSystem(message, checked);
 	}
 
 	if (pipe(checked, Array.every(isCleared))) {
 		return message;
 	}
 
-	return stubbedMessage(stubOf(checked, harness))(message);
+	return stubbedMessage(stubOf(checked))(message);
 };
 
-const guard = Effect.fn("guard")(function* guard({
+const guard = Effect.fn("guard")(function* guard<Failure>({
 	messages,
 	lookup,
 	harness,
+	keep,
 }: {
 	readonly messages: readonly Message[];
 	readonly lookup: Lookup;
 	readonly harness: Harness;
-}): Effect.fn.Return<readonly Message[], ToolsNotCleared, Digest.Digest> {
-	const checked = yield* Effect.forEach(
+	readonly keep: Keep<Failure>;
+}): Effect.fn.Return<readonly Message[], ToolsNotCleared | Failure, Digest.Digest> {
+	const read = yield* Effect.forEach(
 		messages,
-		(message) =>
-			pipe(
-				partsOf(message),
-				Effect.map((parts) => ({
-					message,
-					parts: pipe(
-						parts,
-						Array.map(({ key, slot }): Checked => ({ slot, standing: lookup(key) })),
-					),
-				})),
-			),
+		(message) => Effect.map(unitsOf(message), (units) => ({ message, units })),
 		{ concurrency: 1 },
 	);
 
-	const toolsNotCleared = pipe(
-		checked,
-		Array.flatMap(({ parts }) => parts),
-		Array.some((part) => Predicate.isTagged(part.slot, "SystemTools") && !isCleared(part)),
+	const units = pipe(
+		read,
+		Array.flatMap((each) => each.units),
 	);
 
-	if (toolsNotCleared) {
+	const toolsUncleared = pipe(
+		units,
+		Array.some((unit) => Predicate.isTagged(unit.slot, "SystemTools") && lookup(unit.key) !== "cleared"),
+	);
+
+	if (toolsUncleared) {
 		return yield* ToolsNotCleared.make({});
 	}
 
+	const handles = yield* keep(
+		pipe(
+			units,
+			Array.filter((unit) => lookup(unit.key) === "sealed"),
+			Array.map((unit) => ({ images: unit.images.length, key: unit.key, text: Array.join(unit.texts, "\n") })),
+		),
+	);
+
 	return pipe(
-		checked,
-		Array.map(({ message, parts }) => guardedMessage(message, parts, harness)),
+		read,
+		Array.map(({ message, units: parts }) =>
+			guardedMessage(
+				message,
+				pipe(
+					parts,
+					Array.map(({ key, slot }): Checked => ({
+						slot,
+						standing: lookup(key),
+						stub: Option.match(Option.fromUndefinedOr(handles.get(key)), {
+							onNone: () => policyStubs.unknown,
+							onSome: (handle) => sealedStub(harness)(handle),
+						}),
+					})),
+				),
+			),
+		),
 	);
 });
 
 export { ToolsNotCleared, guard, stubbedCalls, stubbedMessage };
+
+export type { Keep };

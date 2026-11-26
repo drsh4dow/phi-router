@@ -1,5 +1,6 @@
-import { Array, Effect, Option, Record, Schema, pipe } from "effect";
+import { Array, Effect, Function, Option, pipe, Record, Schema } from "effect";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { BodyJson } from "./wire.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
@@ -12,7 +13,7 @@ import { stubbedMessage } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
 const sealedStub =
-	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
+	"[sealed h1] This part held patient identifiers, so phi-router withheld it. When the task needs it read, redacted or its identifiers used, hand that segment of the work to the phi-router:phi-sealed subagent with a scoped task that names h1.";
 
 const prompted = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":[{"type":"text","text":"Read notes.txt.","cache_control":{"type":"ephemeral"}}]},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"notes.txt"}}]},{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"1\tsynthetic note"}]}],"max_tokens":1000}`;
 
@@ -73,7 +74,12 @@ const stubbedWhere = (
 const baaThinking = Effect.gen(function* baaThinking() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, clean(request.messages));
-	const toBaa = yield* sent(request, { lane: "sealed", pinned: false, upstreamModel: target });
+	const toBaa = yield* sent(request, {
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: target,
+	});
 
 	assert.deepStrictEqual(replies(toOpen), [["text"], ["tool_use"]]);
 	assert.deepStrictEqual(replies(toBaa), [
@@ -144,7 +150,12 @@ const replyStubKeepsCache = Effect.gen(function* replyStubKeepsCache() {
 const unreadableWithheld = Effect.gen(function* unreadableWithheld() {
 	const request = yield* decodeRequest(withUnreadable, nobodyWrote, "claude");
 	const toOpen = yield* request.encode(clean(request.messages));
-	const toBaa = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: target });
+	const toBaa = yield* request.encode({
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: target,
+	});
 	const received = yield* decodeBody(toOpen);
 	const original = yield* decodeBody(withUnreadable);
 	const kept = yield* decodeBody(toBaa);
@@ -241,7 +252,12 @@ const unchangedAsSent = Effect.gen(function* unchangedAsSent() {
 	for (const [name, body] of Record.toEntries(Record.set(requests, "respelled", respelled))) {
 		const request = yield* decodeRequest(body, openWroteAll, "claude");
 		const toOpen = yield* request.encode(clean(request.messages));
-		const toBaa = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: target });
+		const toBaa = yield* request.encode({
+			lane: "sealed",
+			open: Function.identity,
+			system: bridgesFor.claude,
+			upstreamModel: target,
+		});
 
 		assert.strictEqual(toOpen, toBaa, name);
 	}

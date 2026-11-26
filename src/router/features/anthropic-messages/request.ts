@@ -123,6 +123,60 @@ const cleanEdits = Effect.fnUntraced(function* cleanEdits(
 	return [bridged, ...Array.getSomes(sections), ...Array.getSomes(turns)];
 });
 
+const opensIn =
+	(open: (text: string) => string) =>
+	(message: Message): boolean =>
+		message.role === "user" &&
+		pipe(
+			message.content,
+			Array.some((block) => block.type === "text" && open(block.text) !== block.text),
+		);
+
+const openedMessage =
+	(open: (text: string) => string) =>
+	(message: Message): Message => {
+		if (message.role !== "user" || !opensIn(open)(message)) {
+			return message;
+		}
+
+		const content = pipe(
+			message.content,
+			Array.map((block) => {
+				if (block.type !== "text") {
+					return block;
+				}
+
+				return { text: open(block.text), type: "text" } as const;
+			}),
+		);
+
+		return { content, role: "user" };
+	};
+
+const openedTurn = (turn: Turn, open: (text: string) => string): Effect.Effect<Option.Option<Edit>> => {
+	const prompts = pipe(
+		turn.runs,
+		Array.every((run) => run.readable && run.kind === "prompt"),
+	);
+
+	const opens = pipe(
+		turn.runs,
+		Array.some((run) => opensIn(open)(run.message)),
+	);
+
+	if (!prompts || !opens) {
+		return Effect.succeedNone;
+	}
+
+	return turnEdit(
+		turn,
+		pipe(
+			turn.runs,
+			Array.map((run) => openedMessage(open)(run.message)),
+		),
+	);
+};
+
 interface Encoding {
 	readonly decoded: Decoded;
 	readonly refusals: readonly string[];
@@ -145,13 +199,10 @@ const encoded = Effect.fnUntraced(function* encoded(
 		return edited(decoded.sentBody, [model, ...edits]);
 	}
 
-	if (upstream.pinned) {
-		return edited(decoded.sentBody, [model]);
-	}
+	const opened = yield* Effect.forEach(decoded.turns, (turn) => openedTurn(turn, upstream.open), { concurrency: 1 });
+	const added = yield* bridgeEdit(decoded, upstream.system);
 
-	const bridged = yield* bridgeEdit(decoded, bridge);
-
-	return edited(decoded.sentBody, [model, bridged]);
+	return edited(decoded.sentBody, [model, added, ...Array.getSomes(opened)]);
 });
 
 const decodeRequest = Effect.fn("decodeRequest")(function* decodeRequest(

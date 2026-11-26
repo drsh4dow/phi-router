@@ -1,7 +1,8 @@
-import { Array, Effect, Option, Order, Predicate, Schema, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Function, Option, Order, pipe, Predicate, Schema, String as Str, Struct } from "effect";
 import { BodyJson, LooseCall, LooseResult } from "./wire.ts";
 import type { WireAssistantBlock, WireUnreadable, WireUserBlock } from "./wire.ts";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import { requests as captured } from "./captures/index.ts";
@@ -11,7 +12,7 @@ import { stubbedMessage } from "#router/features/border/index.ts";
 const requests = Struct.pick(captured, ["compaction", "firstTurn", "subagent", "toolResult"]);
 
 const sealedStub =
-	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
+	"[sealed h1] This part held patient identifiers, so phi-router withheld it. When the task needs it read, redacted or its identifiers used, hand that segment of the work to the phi-router:phi-sealed subagent with a scoped task that names h1.";
 
 const piecesAroundNone = 1;
 
@@ -207,7 +208,12 @@ const stubsStayValid = Effect.fnUntraced(function* stubsStayValid(
 	const request = yield* decodeRequest(body, nobodyWrote, "claude");
 	const guarded = sealedIn(request.messages, pickedBy(mask));
 	const toOpen = yield* request.encode({ lane: "clean", messages: guarded.messages, upstreamModel: "claude-target" });
-	const toBaa = yield* request.encode({ lane: "sealed", pinned: false, upstreamModel: "claude-target" });
+	const toBaa = yield* request.encode({
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: "claude-target",
+	});
 
 	yield* pairingHolds(name, body, [toOpen, toBaa]);
 

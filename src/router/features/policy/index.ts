@@ -1,13 +1,17 @@
 export {
 	identifierKind,
 	identifierKindNames,
+	identifierKinds,
 	identifierQuestion,
 	judgeLimits,
 	kindQuestion,
+	pinnedInstructionsOf,
 	quoteMinChars,
+	rewriteLimit,
 	seamChars,
 	stubs,
 	thresholds,
+	wayOut,
 	window,
 } from "./policy.ts";
 

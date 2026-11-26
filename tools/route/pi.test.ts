@@ -1,10 +1,11 @@
 import { Array, Effect, Option, Schema, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor, stubsFor } from "#router/features/border/index.ts";
+import { bridgesFor, sealedStub } from "#router/features/border/index.ts";
 import { fakes, jsonText } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Sent as Received } from "#router/client/mock-upstreams/index.ts";
 import type { Turn } from "./mocked-router.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 import { routed } from "./mocked-router.ts";
 
@@ -71,7 +72,7 @@ const pointsAtSealedModel = (text: string): boolean =>
 
 const sealedModelPointed = Effect.sync(() => {
 	assert.isTrue(pointsAtSealedModel(bridgesFor.pi), "pi's bridge");
-	assert.isTrue(pointsAtSealedModel(stubsFor.pi), "pi's stub");
+	assert.isTrue(pointsAtSealedModel(sealedStub("pi")(handleAt(1))), "pi's stub");
 });
 
 const piConversation = Effect.gen(function* piConversation() {
@@ -101,8 +102,14 @@ const piConversation = Effect.gen(function* piConversation() {
 		Array.map(
 			[
 				[turns.clean.text],
-				[turns.clean.text, turns.cleared.text, stubsFor.pi],
-				[turns.clean.text, turns.cleared.text, stubsFor.pi, turns.answered.text, turns.followUp.text],
+				[turns.clean.text, turns.cleared.text, sealedStub("pi")(handleAt(1))],
+				[
+					turns.clean.text,
+					turns.cleared.text,
+					sealedStub("pi")(handleAt(1)),
+					turns.answered.text,
+					turns.followUp.text,
+				],
 			],
 			(texts) => ({
 				bridge: Option.some({ text: bridgesFor.pi }),

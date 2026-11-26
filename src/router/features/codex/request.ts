@@ -124,16 +124,11 @@ const cleanBody =
 			return rawText(Record.fromEntries([["model", model], ["instructions", bridgesFor.codex], ...fields]));
 		});
 
-const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { pinned, upstreamModel }: Sealed) {
+const sealedBody = Effect.fnUntraced(function* sealedBody({ afterModel }: Encoding, { system, upstreamModel }: Sealed) {
 	const head = yield* modelField(upstreamModel);
+	const instructions = yield* Effect.orDie(quote(system));
 
-	if (pinned) {
-		return head + afterModel;
-	}
-
-	const bridge = yield* Effect.orDie(quote(bridgesFor.codex));
-
-	return `${head},"instructions":${bridge}${afterModel}`;
+	return `${head},"instructions":${instructions}${afterModel}`;
 });
 
 const encodeKeeping =

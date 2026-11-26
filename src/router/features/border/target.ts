@@ -4,7 +4,8 @@ import { Schema } from "effect";
 interface Sealed {
 	readonly lane: "sealed";
 	readonly upstreamModel: string;
-	readonly pinned: boolean;
+	readonly system: string;
+	readonly open: (text: string) => string;
 }
 
 interface Clean {

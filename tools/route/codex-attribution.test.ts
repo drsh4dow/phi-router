@@ -5,8 +5,9 @@ import { laneLines, postedIn, routed } from "./mocked-router.ts";
 import type { Json } from "./harnesses.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Post } from "./mocked-router.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { pinnedByModel } from "./target-models.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const canary = "PATIENT-CANARY-4K7Q";
 
@@ -54,7 +55,7 @@ const tampered = Effect.gen(function* tampered() {
 	const opened = yield* mocks.open.received;
 	const lanes = yield* lanesIn(state);
 	const canaries = pipe(opened, Array.map(carries(canary)));
-	const stub = yield* jsonText(stubsFor.codex);
+	const stub = yield* jsonText(sealedStub("codex")(handleAt(1)));
 	const stubbed = pipe(opened, Array.map(carries(stub)));
 
 	assert.deepStrictEqual(

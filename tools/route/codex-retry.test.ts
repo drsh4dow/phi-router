@@ -5,8 +5,9 @@ import { codexBodyOf, jsonText, replyMessage, replying, userMessage } from "./ha
 import { laneLines, postedIn, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { VerdictStore } from "#router/client/verdict-store.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import { pinnedByModel } from "./target-models.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const canary = "PATIENT-CANARY-2W6N";
 
@@ -191,7 +192,7 @@ const resentSealed = Effect.gen(function* resentSealed() {
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
 	const lines = yield* laneLines(state);
-	const stub = yield* jsonText(stubsFor.codex);
+	const stub = yield* jsonText(sealedStub("codex")(handleAt(1)));
 
 	assert.deepStrictEqual(
 		{

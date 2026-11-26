@@ -10,7 +10,8 @@ import { decodeRequest } from "./index.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
-import { stubsFor } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+import { sealedStub } from "#router/features/border/index.ts";
 
 const optionalText = Schema.optionalKey(Schema.String);
 
@@ -175,13 +176,15 @@ const frameKeys = (messages: readonly Message[]): Effect.Effect<ReadonlySet<stri
 		);
 	});
 
-const sealedText = [{ text: stubsFor.codex, type: "input_text" }];
+const codexStub = sealedStub("codex")(handleAt(1));
+
+const sealedText = [{ text: codexStub, type: "input_text" }];
 
 const allSealedItems = [
 	...Array.replicate({ content: sealedText, type: "message" }, sixAsks),
-	{ content: [{ annotations: [], logprobs: [], text: stubsFor.codex, type: "output_text" }], type: "message" },
+	{ content: [{ annotations: [], logprobs: [], text: codexStub, type: "output_text" }], type: "message" },
 	{ call_id: "call_33b97ed6958b47edb7ab93c98fae0771", input: "", name: "exec", type: "custom_tool_call" },
-	{ call_id: "call_33b97ed6958b47edb7ab93c98fae0771", output: stubsFor.codex, type: "custom_tool_call_output" },
+	{ call_id: "call_33b97ed6958b47edb7ab93c98fae0771", output: codexStub, type: "custom_tool_call_output" },
 ];
 
 const allSealed = Effect.gen(function* allSealed() {

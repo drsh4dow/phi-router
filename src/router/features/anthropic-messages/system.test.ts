@@ -1,5 +1,6 @@
-import { Array, Effect, Record, Schema, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Function, pipe, Record, Schema, String as Str, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { BodyJson } from "./wire.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
@@ -9,10 +10,10 @@ import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
 
 const sealedStub =
-	"[withheld: holds patient identifiers, handled on the HIPAA account] The next assistant reply was written there with this content in view, so what it says about this content is accurate. Work that needs the identifiers themselves goes to the phi-router:phi-sealed subagent.";
+	"[sealed h1] This part held patient identifiers, so phi-router withheld it. When the task needs it read, redacted or its identifiers used, hand that segment of the work to the phi-router:phi-sealed subagent with a scoped task that names h1.";
 
 const bridge = {
-	text: "Refer to patients and members only by internal ids, such as a patient_id or a row id, never by name, SSN, date of birth, address, phone, email, member number or record number. A message shown as [withheld: holds patient identifiers, handled on the HIPAA account] was handled on the HIPAA account. When the newest user message holds patient identifiers, open your reply by restating what was asked without them, because later requests will not include that message. When the work cannot be done without the identifiers themselves, hand it to the phi-router:phi-sealed subagent and put the identifiers it needs in its prompt, because it cannot see this conversation.",
+	text: bridgesFor.claude,
 	type: "text",
 } as const;
 
@@ -77,18 +78,26 @@ const bridgeOnce = Effect.gen(function* bridgeOnce() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const original = yield* decodeBody(requests.toolResult);
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
-	const toBaa = yield* sent(request, { lane: "sealed", pinned: false, upstreamModel: target });
-	const pinned = yield* sent(request, { lane: "sealed", pinned: true, upstreamModel: target });
+	const toBaa = yield* sent(request, {
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: target,
+	});
 
 	assert.deepStrictEqual(toOpen.system, [...(original.system ?? []), bridge]);
 	assert.deepStrictEqual(toBaa.system, [...(original.system ?? []), bridge]);
-	assert.deepStrictEqual(pinned.system, original.system);
 });
 
 const modelReplaced = Effect.gen(function* modelReplaced() {
 	const request = yield* decodeRequest(requests.toolResult, nobodyWrote, "claude");
 	const toOpen = yield* sent(request, { lane: "clean", messages: request.messages, upstreamModel: target });
-	const toBaa = yield* sent(request, { lane: "sealed", pinned: true, upstreamModel: target });
+	const toBaa = yield* sent(request, {
+		lane: "sealed",
+		open: Function.identity,
+		system: bridgesFor.claude,
+		upstreamModel: target,
+	});
 
 	assert.notStrictEqual(request.model, target);
 	assert.strictEqual(toOpen.model, target);
@@ -168,10 +177,7 @@ it.layer(Digest.layerWebCrypto)("the system blocks and the model", (test) => {
 
 	test.effect("the attribution block stays first and unchanged when every section is stubbed", () => attributionFirst);
 
-	test.effect(
-		"the bridge is the last system block, once, without cache_control, unless the request is pinned",
-		() => bridgeOnce,
-	);
+	test.effect("the bridge is the last system block, once, without cache_control, on both lanes", () => bridgeOnce);
 
 	test.effect("the model is the one the upstream names, on both lanes", () => modelReplaced);
 
@@ -199,7 +205,12 @@ const bridgeBlock = `{"type":"text","text":"${bridge.text}"}`;
 
 const emptySystem = '{"model":"m","system":[],"messages":[{"role":"user","content":"hi"}],"max_tokens":10}';
 
-const sealedOnOwnModel: Target = { lane: "sealed", pinned: false, upstreamModel: "m" };
+const sealedOnOwnModel: Target = {
+	lane: "sealed",
+	open: Function.identity,
+	system: bridgesFor.claude,
+	upstreamModel: "m",
+};
 
 const bridgeOpensSystem = Effect.gen(function* bridgeOpensSystem() {
 	const withoutSystem = yield* decodeRequest(wholes, nobodyWrote, "claude");

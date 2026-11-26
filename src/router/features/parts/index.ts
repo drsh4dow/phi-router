@@ -1,4 +1,4 @@
-export { partsOf } from "./parts.ts";
+export { partsOf, unitsOf } from "./parts.ts";
 
 export type { Part } from "./parts.ts";
 

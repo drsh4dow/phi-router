@@ -1,6 +1,7 @@
 import { Array, Effect, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor, stubsFor } from "#router/features/border/index.ts";
+import { bridgesFor, sealedStub } from "#router/features/border/index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
 import {
 	clean,
 	harnessNames,
@@ -198,7 +199,7 @@ const answerJudged = Effect.gen(function* answerJudged() {
 
 	const opened = yield* mocks.open.received;
 	const lines = yield* laneLines(state);
-	const stub = yield* jsonText(stubsFor.claude);
+	const stub = yield* jsonText(sealedStub("claude")(handleAt(1)));
 	const stubbedResult = `{"tool_use_id":"${callId}","type":"tool_result","content":${stub}}`;
 
 	assert.deepStrictEqual<unknown>(
