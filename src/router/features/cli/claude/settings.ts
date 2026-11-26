@@ -166,14 +166,7 @@ const statusLineCommand = Effect.fnUntraced(function* statusLineCommand(configDi
 	return `${shellQuoted(path.join(data, launcherName))} statusline`;
 });
 
-const statusLineReason = `Shows this session's sealed and cleared counts while the model is ${piWire.models.auto} or ${piWire.models.sealed}.`;
-
-const shownStatusLine = `✓ Claude Code's status line shows this session's sealed and cleared counts while the model is ${piWire.models.auto} or ${piWire.models.sealed}`;
-
-const keptStatusLine = (command: string): readonly string[] => [
-	"Claude Code already has a status line, so phi-router left it as it was. To show phi-router's counts in it, add this line to its script, where $input holds the JSON the script read from stdin:",
-	`  printf '%s' "$input" | ${command}`,
-];
+const removedStatusLine = `phi-router removed the statusLine an earlier phi-router wrote. The plugin now shows phi-router's row under the prompt while the model is ${piWire.models.auto} or ${piWire.models.sealed}.`;
 
 const restored = (env: Variables): EnvChange => {
 	const record = [exemptionRecord.wrote, exemptionRecord.replaced];
@@ -201,17 +194,15 @@ export {
 	exemptionName,
 	exemptionReason,
 	keptReason,
-	keptStatusLine,
 	modelAddressSetting,
 	pickerModel,
 	pluginId,
 	recordReason,
+	removedStatusLine,
 	restored,
 	routerAddress,
 	shellLists,
-	shownStatusLine,
 	statusLineCommand,
-	statusLineReason,
 };
 
 export type { NoProxyLists };

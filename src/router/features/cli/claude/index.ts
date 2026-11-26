@@ -3,13 +3,11 @@ export {
 	claudeSettings,
 	exempted,
 	exemption,
-	keptStatusLine,
 	modelAddressSetting,
 	pickerModel,
 	pluginId,
 	routerAddress,
 	shellLists,
-	shownStatusLine,
 } from "./settings.ts";
 
 export type { NoProxyLists } from "./settings.ts";

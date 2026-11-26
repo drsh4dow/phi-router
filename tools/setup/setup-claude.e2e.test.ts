@@ -27,7 +27,7 @@ import {
 import { assert, it } from "@effect/vitest";
 import { keys, world } from "./world.ts";
 import { packageOf, versionOf } from "#router/client/own-package.ts";
-import { statusLineIn, statusLineOf, writeSettings } from "#tools/claude/configured.ts";
+import { statusLineOf, writeSettings } from "#tools/claude/configured.ts";
 
 const foundScreen = `phi-router found
   Claude Code     Claude Max · you@example.com
@@ -44,7 +44,6 @@ const lastScreen = `✓ Anthropic key works
 ✓ Installed phi-router ${version} in Claude Code
 ✓ Test: a fake patient record reached Claude Max only as a handle
 ✓ Claude Code now sends its requests through phi-router
-✓ Claude Code's status line shows this session's sealed and cleared counts while the model is phi/auto or phi/sealed
 
   Everyday work   Claude Max · you@example.com
   Patient data    Anthropic API key
@@ -105,7 +104,7 @@ const switchedClaude = Effect.fnUntraced(function* switchedClaude(of: World) {
 
 	const statusLine = yield* statusLineOf(of.folders.CLAUDE_CONFIG_DIR);
 
-	assert.deepStrictEqual(statusLine, statusLineIn(of.folders.CLAUDE_CONFIG_DIR));
+	assert.isUndefined(statusLine, "the plugin draws phi-router's row, so setup writes no statusLine");
 });
 
 const savedKeys = Effect.fnUntraced(function* savedKeys(of: World) {
@@ -196,13 +195,8 @@ const keptStatusLine = Effect.gen(function* keptStatusLine() {
 	const run = yield* setUp(of, "claude", maxAnswers);
 	const statusLine = yield* statusLineOf(folder);
 
-	const told = `✓ Claude Code now sends its requests through phi-router
-Claude Code already has a status line, so phi-router left it as it was. To show phi-router's counts in it, add this line to its script, where $input holds the JSON the script read from stdin:
-  printf '%s' "$input" | ${statusLineIn(folder).command}
-`;
-
 	assert.strictEqual(run.exitCode, ok, run.shown);
-	assert.include(run.shown, told);
+	assert.include(run.shown, "✓ Claude Code now sends its requests through phi-router\n\n");
 	assert.deepStrictEqual(statusLine, theirs.statusLine);
 }).pipe(Effect.scoped);
 
@@ -235,7 +229,7 @@ it.layer(layer)("setup claude", (test) => {
 		patient,
 	);
 	test.effect(
-		"setup claude leaves a status line the user set and prints the one line to add to its script",
+		"setup claude leaves a status line the user set as it was and says nothing of it",
 		() => keptStatusLine,
 		patient,
 	);
