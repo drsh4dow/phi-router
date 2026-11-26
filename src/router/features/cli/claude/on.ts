@@ -6,13 +6,22 @@ import {
 	exemptionName,
 	exemptionReason,
 	keptReason,
+	phiModels,
+	pickerReason,
+	pickerRows,
 	recordReason,
 	removedStatusLine,
 	routerAddress,
 	shellLists,
 	statusLineCommand,
 } from "./settings.ts";
-import { removeStatusLine, rewriteEnv, userSettings } from "#router/client/harnesses/index.ts";
+import {
+	modelPickerStatement,
+	pickModels,
+	removeStatusLine,
+	rewriteEnv,
+	userSettings,
+} from "#router/client/harnesses/index.ts";
 
 const reasonOf = (name: string): string => {
 	if (name === exemptionName) {
@@ -29,14 +38,23 @@ const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 
 	yield* rewriteEnv(configDir, Struct.assign(claudeEnv, exempt.set), exempt.unset);
 
+	const rows = yield* pickerRows;
+
+	yield* pickModels(configDir, phiModels, rows);
+
 	const command = yield* statusLineCommand(configDir);
 	const statusLineRemoved = yield* removeStatusLine(configDir, command);
 
-	return { exempt, path: settings.path, statusLineLines: Array.filter([removedStatusLine], () => statusLineRemoved) };
+	return {
+		exempt,
+		path: settings.path,
+		rows,
+		statusLineLines: Array.filter([removedStatusLine], () => statusLineRemoved),
+	};
 });
 
 const on = Effect.fn("on claude")(function* on(configDir: string) {
-	const { exempt, path, statusLineLines } = yield* switchedOn(configDir);
+	const { exempt, path, rows, statusLineLines } = yield* switchedOn(configDir);
 
 	const lines = pipe(
 		claudeSettings,
@@ -49,7 +67,20 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 		Array.match({ onEmpty: () => [keptReason], onNonEmpty: (written) => written }),
 	);
 
-	const count = claudeSettings.length + Record.size(exempt.set);
+	const pickerLines = Array.match(rows, {
+		onEmpty: () => [],
+		onNonEmpty: (written) => [
+			`${modelPickerStatement}=${pipe(
+				written,
+				Array.map(({ behavesAs, model }) => `${model} as ${behavesAs}`),
+				Array.join(", "),
+			)}`,
+			`  ${pickerReason}`,
+		],
+	});
+
+	const count = claudeSettings.length + Record.size(exempt.set) + Number(Array.isReadonlyArrayNonEmpty(rows));
+
 	const wrote = `phi-router wrote ${String(count)} settings to ${path}`;
 
 	const restart =
@@ -57,7 +88,15 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 
 	yield* Console.log(
 		Array.join(
-			[wrote, ...lines, ...exemptionLines, ...statusLineLines, restart, "Next: phi-router doctor claude"],
+			[
+				wrote,
+				...lines,
+				...exemptionLines,
+				...statusLineLines,
+				...pickerLines,
+				restart,
+				"Next: phi-router doctor claude",
+			],
 			"\n",
 		),
 	);

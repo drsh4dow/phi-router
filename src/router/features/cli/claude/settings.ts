@@ -1,5 +1,8 @@
 import { Array, Config, Effect, Option, Path, Record, String as Str, pipe } from "effect";
+import type { PickerRow } from "#router/client/harnesses/index.ts";
+import type { VendorLanes } from "#router/client/configuration/index.ts";
 import { claudePluginData } from "#router/client/harnesses/index.ts";
+import { configuredLanes } from "#router/client/configuration/index.ts";
 import { loopback } from "#router/client/router-port/index.ts";
 import { piWire } from "#shared/pi.ts";
 import { productPort } from "#shared/cli.ts";
@@ -168,6 +171,31 @@ const statusLineCommand = Effect.fnUntraced(function* statusLineCommand(configDi
 
 const removedStatusLine = `phi-router removed the statusLine an earlier phi-router wrote. The plugin now shows phi-router's row under the prompt while the model is ${piWire.models.auto} or ${piWire.models.sealed}.`;
 
+const phiModels = Record.values(piWire.models);
+
+const pickerRowsOf = (lanes: VendorLanes): readonly PickerRow[] => [
+	{ behavesAs: lanes.targetModel, model: piWire.models.auto },
+	{
+		behavesAs: lanes.sealedModel,
+		description: "Your BAA account, for work that needs PHI",
+		label: "PHI sealed",
+		model: piWire.models.sealed,
+	},
+];
+
+const pickerRows = Effect.gen(function* pickerRows() {
+	const lanes = yield* configuredLanes;
+
+	return pipe(
+		lanes,
+		Option.flatMap(({ anthropic }) => anthropic),
+		Option.match({ onNone: (): readonly PickerRow[] => [], onSome: pickerRowsOf }),
+	);
+});
+
+const pickerReason =
+	"Claude Code gives each phi model the context window and capabilities of the model config.json runs it on.";
+
 const restored = (env: Variables): EnvChange => {
 	const record = [exemptionRecord.wrote, exemptionRecord.replaced];
 	const wrote = Record.get(env, exemptionRecord.wrote);
@@ -195,7 +223,10 @@ export {
 	exemptionReason,
 	keptReason,
 	modelAddressSetting,
+	phiModels,
 	pickerModel,
+	pickerReason,
+	pickerRows,
 	pluginId,
 	recordReason,
 	removedStatusLine,

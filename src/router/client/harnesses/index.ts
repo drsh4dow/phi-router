@@ -7,6 +7,8 @@ export {
 	claudeVersion,
 	followedMarketplace,
 	managedEnv,
+	modelPickerStatement,
+	pickModels,
 	removeStatusLine,
 	rewriteEnv,
 	statusLineStatement,
@@ -25,6 +27,6 @@ export type { SignIn } from "./sign-in.ts";
 
 export { installRun } from "./turn.ts";
 
-export type { UserSettings } from "./claude-code.ts";
+export type { PickerRow, UserSettings } from "./claude-code.ts";
 
 export type { Turn } from "./turn.ts";
