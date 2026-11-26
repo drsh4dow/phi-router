@@ -17,9 +17,12 @@ interface Routed {
 	readonly sealed: number;
 	readonly overflowed: number;
 	readonly back?: string;
+	readonly gaveUp?: number;
 }
 
 const open = { name: "open", vendor: "anthropic" } as const;
+
+const withheldBy = { first: 1, later: 3, none: 0 } as const;
 
 const statusOf = (routed: Routed): Effect.Success<ReturnType<SessionRequests["Service"]["status"]>> => ({
 	accounts: {
@@ -35,6 +38,7 @@ const statusOf = (routed: Routed): Effect.Success<ReturnType<SessionRequests["Se
 	cleared: 0,
 	last: { account: "baa", model: "claude-sealed", substitute: false },
 	overflowed: routed.overflowed,
+	pinned: { gaveUp: routed.gaveUp ?? withheldBy.none, rewrites: 0, runs: 1, withheld: [] },
 	sealed: routed.sealed,
 	session,
 });
@@ -65,7 +69,11 @@ const turnsOf = Effect.fnUntraced(function* turnsOf(turns: readonly (readonly [t
 					Effect.provideService(TurnNotices, notices),
 				);
 
-				return { overflow: pipe(told.overflow, Option.map(Struct.omit(["subscriptions"]))), sealed: told.sealed };
+				return {
+					gaveUp: told.gaveUp,
+					overflow: pipe(told.overflow, Option.map(Struct.omit(["subscriptions"]))),
+					sealed: told.sealed,
+				};
 			}),
 		{ concurrency: 1 },
 	);
@@ -122,4 +130,23 @@ it.effect(
 				],
 			);
 		}),
+);
+
+it.effect("a turn counts the pinned subagent answers withheld since the last turn end, so each is told once", () =>
+	Effect.gen(function* withheldCounts() {
+		const told = yield* turnsOf([
+			["14:00", { overflowed: 0, sealed: 0 }],
+			["14:01", { gaveUp: withheldBy.first, overflowed: 0, sealed: 0 }],
+			["14:02", { gaveUp: withheldBy.first, overflowed: 0, sealed: 0 }],
+			["14:03", { gaveUp: withheldBy.later, overflowed: 0, sealed: 0 }],
+		]);
+
+		assert.deepStrictEqual(
+			pipe(
+				told,
+				Array.map(({ gaveUp }) => gaveUp),
+			),
+			[withheldBy.none, withheldBy.first, withheldBy.none, withheldBy.later - withheldBy.first],
+		);
+	}),
 );
