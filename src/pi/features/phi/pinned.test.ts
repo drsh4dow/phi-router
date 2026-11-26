@@ -37,7 +37,7 @@ interface Given {
 
 const checkedOf = (checked: Given["checked"]): Effect.Effect<typeof AnswerChecked.Type, CommandFailed> => {
 	if (checked === "unanswered") {
-		return Effect.fail(CommandFailed.make({ cause: "unanswered", command: "answer-check" }));
+		return Effect.fail(CommandFailed.make({ cause: "unanswered", command: "answer-check-json" }));
 	}
 
 	return Effect.succeed(checked);
@@ -128,7 +128,7 @@ it.effect("an answer the router could not check is withheld, with why in its pla
 		});
 
 		const content =
-			"phi-router could not check the pinned subagent's answer, so it withheld it: phi-router answer-check failed: unanswered";
+			"phi-router could not check the pinned subagent's answer, so it withheld it: phi-router answer-check-json failed: unanswered";
 
 		assert.deepStrictEqual(
 			settlement,
