@@ -1,0 +1,52 @@
+name: Bug
+description: phi-router fails, stops a message it should send, or does something the docs do not say.
+labels: [bug, needs-triage]
+body:
+   - type: markdown
+     attributes:
+        value: Never paste real PHI, a real key or a login token. Use synthetic data. To report a way for PHI to reach an open account, follow SECURITY.md or use the suspected leak form.
+   - type: input
+     id: version
+     attributes:
+        label: phi-router version
+        description: The output of `npx phi-router --version`.
+     validations:
+        required: true
+   - type: dropdown
+     id: harness
+     attributes:
+        label: Harness
+        options:
+           - Claude Code
+           - Codex
+           - pi
+           - pi with pi-harness
+     validations:
+        required: true
+   - type: input
+     id: harness-version
+     attributes:
+        label: Harness version and operating system
+        placeholder: Claude Code 2.1.332 on Ubuntu 24.04
+     validations:
+        required: true
+   - type: textarea
+     id: steps
+     attributes:
+        label: Steps
+        description: What you did, with synthetic data only.
+     validations:
+        required: true
+   - type: textarea
+     id: expected
+     attributes:
+        label: What you expected and what happened
+        description: Paste the exact line phi-router or your harness showed.
+     validations:
+        required: true
+   - type: textarea
+     id: doctor
+     attributes:
+        label: Doctor output
+        description: The output of `npx phi-router doctor claude`, with `codex` or `pi` in place of `claude`.
+        render: text
