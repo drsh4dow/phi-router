@@ -46,7 +46,7 @@ Setup finds the keys you already have and asks only for the rest. Claude Code an
 
 `bun run eval:recorded` replays a synthetic corpus through the router with the judge's recorded answers. It calls no API.
 
-| Result                              |           |
+| Check                               | Result    |
 | ----------------------------------- | --------- |
 | PHI cases leaked to an open account | 0 of 282  |
 | Clean cases sealed anyway           | 41 of 352 |
