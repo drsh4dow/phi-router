@@ -1,4 +1,4 @@
-import { Array, Number as Num, Option, Record, Schema, String as Str, pipe } from "effect";
+import { Array, Option, Record, Schema, String as Str, pipe } from "effect";
 
 interface Tokens {
 	readonly uncachedInput: number;
@@ -7,111 +7,113 @@ interface Tokens {
 	readonly output: number;
 }
 
-const summed = (all: readonly Tokens[]): Tokens => ({
-	cacheRead: Num.sumAll(
-		pipe(
-			all,
-			Array.map(({ cacheRead }) => cacheRead),
-		),
-	),
-	cacheWrite: Num.sumAll(
-		pipe(
-			all,
-			Array.map(({ cacheWrite }) => cacheWrite),
-		),
-	),
-	output: Num.sumAll(
-		pipe(
-			all,
-			Array.map(({ output }) => output),
-		),
-	),
-	uncachedInput: Num.sumAll(
-		pipe(
-			all,
-			Array.map(({ uncachedInput }) => uncachedInput),
-		),
-	),
+type Usage = { readonly read: true; readonly tokens: Tokens } | { readonly read: false };
+
+const counted = Schema.optionalKey(Schema.NullOr(Schema.Finite));
+
+const AnthropicUsage = Schema.Struct({
+	cache_creation_input_tokens: counted,
+	cache_read_input_tokens: counted,
+	input_tokens: counted,
+	output_tokens: counted,
 });
 
-const ClaudeUsage = Schema.Struct({
-	cache_creation_input_tokens: Schema.Finite,
-	cache_read_input_tokens: Schema.Finite,
+const Cached = Schema.Struct({ cached_tokens: Schema.Finite });
+
+const OpenAiUsage = Schema.Struct({
 	input_tokens: Schema.Finite,
+	input_tokens_details: Schema.optionalKey(Cached),
 	output_tokens: Schema.Finite,
 });
 
-const ClaudeResult = Schema.fromJsonString(Schema.Struct({ usage: ClaudeUsage }));
-
-const CodexUsage = Schema.Struct({
-	cached_input_tokens: Schema.Finite,
-	input_tokens: Schema.Finite,
-	output_tokens: Schema.Finite,
+const MessageStart = Schema.Struct({
+	message: Schema.Struct({ usage: AnthropicUsage }),
+	type: Schema.Literal("message_start"),
 });
 
-const CodexTurnCompleted = Schema.fromJsonString(
-	Schema.Struct({ type: Schema.Literal("turn.completed"), usage: CodexUsage }),
-);
+const MessageDelta = Schema.Struct({ type: Schema.Literals(["message_delta", "message"]), usage: AnthropicUsage });
 
-const PiUsage = Schema.Struct({
-	cacheRead: Schema.Finite,
-	cacheWrite: Schema.Finite,
-	input: Schema.Finite,
-	output: Schema.Finite,
+const ResponseCompleted = Schema.Struct({
+	response: Schema.Struct({ usage: OpenAiUsage }),
+	type: Schema.Literal("response.completed"),
 });
 
-const PiAssistant = Schema.Struct({ role: Schema.Literal("assistant"), usage: PiUsage });
+const WholeResponse = Schema.Struct({ object: Schema.Literal("response"), usage: OpenAiUsage });
 
-const PiMessageEnd = Schema.fromJsonString(
-	Schema.Struct({ message: PiAssistant, type: Schema.Literal("message_end") }),
-);
+const decodeStarted = Schema.decodeOption(Schema.fromJsonString(MessageStart));
 
-const decodedLines =
-	<Line>(decode: (line: string) => Option.Option<Line>) =>
-	(printed: string): readonly Line[] =>
-		pipe(Str.split(printed, "\n"), Array.map(decode), Array.getSomes);
+const decodeAnthropic = Schema.decodeOption(Schema.fromJsonString(MessageDelta));
 
-const decodeClaude = decodedLines(Schema.decodeOption(ClaudeResult));
+const decodeCompleted = Schema.decodeOption(Schema.fromJsonString(ResponseCompleted));
 
-const decodeCodex = decodedLines(Schema.decodeOption(CodexTurnCompleted));
+const decodeResponse = Schema.decodeOption(Schema.fromJsonString(WholeResponse));
 
-const decodePi = decodedLines(Schema.decodeOption(PiMessageEnd));
+const anthropicCounted = (usage: typeof AnthropicUsage.Type): Partial<Tokens> =>
+	Record.getSomes({
+		cacheRead: Option.fromNullishOr(usage.cache_read_input_tokens),
+		cacheWrite: Option.fromNullishOr(usage.cache_creation_input_tokens),
+		output: Option.fromNullishOr(usage.output_tokens),
+		uncachedInput: Option.fromNullishOr(usage.input_tokens),
+	});
 
-const tokensIn = {
-	claude: (printed: string): Tokens =>
+const uncached = 0;
+
+const openAiCounted = (usage: typeof OpenAiUsage.Type): Tokens => {
+	const cached = pipe(
+		Option.fromUndefinedOr(usage.input_tokens_details),
+		Option.match({ onNone: () => uncached, onSome: ({ cached_tokens: tokens }) => tokens }),
+	);
+
+	return { cacheRead: cached, cacheWrite: 0, output: usage.output_tokens, uncachedInput: usage.input_tokens - cached };
+};
+
+const countedIn = (piece: string): Option.Option<Partial<Tokens>> =>
+	Option.firstSomeOf([
+		Option.map(decodeStarted(piece), ({ message }) => anthropicCounted(message.usage)),
+		Option.map(decodeAnthropic(piece), ({ usage }) => anthropicCounted(usage)),
+		Option.map(decodeCompleted(piece), ({ response }) => openAiCounted(response.usage)),
+		Option.map(decodeResponse(piece), ({ usage }) => openAiCounted(usage)),
+	]);
+
+const absent = 0;
+
+const lastOf =
+	(all: readonly Partial<Tokens>[]) =>
+	(kind: keyof Tokens): number =>
 		pipe(
-			decodeClaude(printed),
-			Array.map(({ usage }) => ({
-				cacheRead: usage.cache_read_input_tokens,
-				cacheWrite: usage.cache_creation_input_tokens,
-				output: usage.output_tokens,
-				uncachedInput: usage.input_tokens,
-			})),
-			summed,
-		),
-	codex: (printed: string): Tokens =>
-		pipe(
-			decodeCodex(printed),
-			Array.map(({ usage }) => ({
-				cacheRead: usage.cached_input_tokens,
-				cacheWrite: 0,
-				output: usage.output_tokens,
-				uncachedInput: usage.input_tokens - usage.cached_input_tokens,
-			})),
-			summed,
-		),
-	pi: (printed: string): Tokens =>
-		pipe(
-			decodePi(printed),
-			Array.map(({ message: { usage } }) => ({
-				cacheRead: usage.cacheRead,
-				cacheWrite: usage.cacheWrite,
-				output: usage.output,
-				uncachedInput: usage.input,
-			})),
-			summed,
-		),
-} as const;
+			all,
+			Array.map((counts) => Option.fromUndefinedOr(counts[kind])),
+			Array.getSomes,
+			Array.last,
+			Option.getOrElse(() => absent),
+		);
+
+const dataLine = /^data: ?/u;
+
+const usageIn = (answer: string): Usage =>
+	pipe(
+		Str.split(answer, "\n"),
+		Array.map(Str.replace(dataLine, "")),
+		Array.prepend(answer),
+		Array.map(countedIn),
+		Array.getSomes,
+		Array.match({
+			onEmpty: (): Usage => ({ read: false }),
+			onNonEmpty: (all): Usage => {
+				const last = lastOf(all);
+
+				return {
+					read: true,
+					tokens: {
+						cacheRead: last("cacheRead"),
+						cacheWrite: last("cacheWrite"),
+						output: last("output"),
+						uncachedInput: last("uncachedInput"),
+					},
+				};
+			},
+		}),
+	);
 
 const dollarsPerMillionTokens = {
 	"claude-haiku-5-5": { cacheRead: 0.01, cacheWrite: 0.125, output: 0.5, uncachedInput: 0.1 },
@@ -134,6 +136,6 @@ const costOf = ({ model, tokens }: { readonly model: string; readonly tokens: To
 			perMillion,
 	);
 
-export { costOf, tokensIn };
+export { costOf, usageIn };
 
-export type { Tokens };
+export type { Usage };

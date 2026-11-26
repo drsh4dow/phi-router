@@ -1,40 +1,33 @@
 import { Array, Effect, Option } from "effect";
 import { assert, describe, it } from "@effect/vitest";
-import { costOf, tokensIn } from "./spent.ts";
+import { costOf, usageIn } from "./spent.ts";
 
-const claudeResult = Array.join(
+const anthropicStream = Array.join(
 	[
-		'{"type":"system","subtype":"init","session_id":"s1"}',
-		'{"type":"result","subtype":"success","result":"ok","usage":{"input_tokens":3,"cache_creation_input_tokens":5,"cache_read_input_tokens":11,"output_tokens":13}}',
+		"event: message_start",
+		'data: {"type":"message_start","message":{"usage":{"input_tokens":3,"cache_creation_input_tokens":5,"cache_read_input_tokens":11,"output_tokens":1}}}',
+		"",
+		"event: message_delta",
+		'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":13}}',
 	],
 	"\n",
 );
 
-const codexEvents = Array.join(
+const openAiStream = Array.join(
 	[
-		'{"type":"thread.started","thread_id":"t1"}',
-		'{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":40,"output_tokens":7}}',
-		'{"type":"turn.completed","usage":{"input_tokens":20,"cached_input_tokens":0,"output_tokens":1}}',
-	],
-	"\n",
-);
-
-const piEvents = Array.join(
-	[
-		'{"type":"message_end","message":{"role":"user","content":"Reply with the single word ok."}}',
-		'{"type":"message_end","message":{"role":"assistant","usage":{"input":2,"output":3,"cacheRead":5,"cacheWrite":7,"totalTokens":17}}}',
-		'{"type":"message_end","message":{"role":"assistant","usage":{"input":1,"output":1,"cacheRead":0,"cacheWrite":0,"totalTokens":2}}}',
+		'data: {"type":"response.created","response":{"status":"in_progress"}}',
+		'data: {"type":"response.completed","response":{"usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":40},"output_tokens":7}}}',
 	],
 	"\n",
 );
 
 const read = Effect.sync(() => {
 	assert.deepStrictEqual(
-		[tokensIn.claude(claudeResult), tokensIn.codex(codexEvents), tokensIn.pi(piEvents)],
+		[usageIn(anthropicStream), usageIn(openAiStream), usageIn('{"type":"error"}')],
 		[
-			{ cacheRead: 11, cacheWrite: 5, output: 13, uncachedInput: 3 },
-			{ cacheRead: 40, cacheWrite: 0, output: 8, uncachedInput: 80 },
-			{ cacheRead: 5, cacheWrite: 7, output: 4, uncachedInput: 3 },
+			{ read: true, tokens: { cacheRead: 11, cacheWrite: 5, output: 13, uncachedInput: 3 } },
+			{ read: true, tokens: { cacheRead: 40, cacheWrite: 0, output: 7, uncachedInput: 60 } },
+			{ read: false },
 		],
 	);
 });
@@ -54,9 +47,9 @@ const priced = Effect.sync(() => {
 	);
 });
 
-describe("what a turn on a BAA account spent", () => {
+describe("what a request to a BAA account spent", () => {
 	it.effect(
-		"is read from the tokens each harness prints, with Codex's cached tokens taken out of its input",
+		"is read from the usage the account answered with, the last count of each kind, with OpenAI's cached tokens taken out of its input",
 		() => read,
 	);
 	it.effect(

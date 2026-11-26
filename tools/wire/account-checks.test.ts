@@ -1,121 +1,189 @@
-import { Array, Effect, Option, Struct } from "effect";
+import { Array, Effect, Option, String as Str, Struct, pipe } from "effect";
+import type { Ran, StepRan } from "./account-checks.ts";
 import { assert, describe, it } from "@effect/vitest";
-import { billed, checksOf, reportOf } from "./account-checks.ts";
+import { checksOf, reportOf } from "./account-checks.ts";
 import type { LaneLogLine } from "#tools/route/mocked-router.ts";
-import type { Ran } from "./account-checks.ts";
-import type { Turn } from "./account-turns.ts";
+import type { Relayed } from "./relay.ts";
 import { voidedSsn } from "./cases.ts";
 
-const failedExit = 1;
-
-const noTokens = { cacheRead: 0, cacheWrite: 0, output: 0, uncachedInput: 0 };
-
-const turn: Turn = { exitCode: 0, reportedTokens: noTokens };
-
-const cleanLine: LaneLogLine = {
-	account: "claude-setup-token",
-	judgeCost: 0.0002,
+const line = (lane: "clean" | "sealed", reason: LaneLogLine["reason"]): LaneLogLine => ({
+	account: lane,
+	judgeCost: 0,
 	judgeFailures: 0,
-	lane: "clean",
+	lane,
 	model: "claude-haiku-5-5",
-	reason: "clean",
-	session: "29292929-2929-4929-8929-292929292929",
+	reason,
+	session: "29292929-2929-4929-8929-292929292930",
 	substitute: false,
 	time: "2026-01-01T00:00:00.000Z",
-};
+});
 
-const sealedLine: LaneLogLine = {
-	account: "anthropic-baa",
-	judgeCost: 0.0001,
-	judgeFailures: 0,
-	lane: "sealed",
+const clean = line("clean", "clean");
+
+const pinnedLine = line("sealed", "pinned");
+
+const answered = (answer: string): StepRan["turns"] => [
+	{ exitCode: 0, printed: `{"type":"result","subtype":"success","result":"${answer}"}` },
+];
+
+const noPinnedRun = { gaveUp: 0, rewrites: 0, runs: 0 };
+
+const handedOff = (name: StepRan["name"], answer: string): StepRan => ({
+	lines: [clean, pinnedLine, clean],
+	name,
+	pinned: { gaveUp: 0, rewrites: 1, runs: 1 },
+	turns: answered(answer),
+});
+
+const steps: readonly StepRan[] = [
+	{ lines: [clean, clean], name: "prompts", pinned: noPinnedRun, turns: [...answered("ok"), ...answered("ok")] },
+	handedOff("tool result", "The overdue payment is p-4821."),
+	handedOff("sealed answer", "It returned p-4821."),
+	handedOff("sealed answer in auto mode", "It returned a handle."),
+];
+
+const usage = { read: true, tokens: { cacheRead: 0, cacheWrite: 0, output: 1_000_000, uncachedInput: 0 } } as const;
+
+const relayed = (lane: Relayed["lane"], holdsCanary: boolean): Relayed => ({
+	account: lane,
+	holdsCanary,
+	lane,
 	model: "claude-haiku-5-5",
-	reason: "overflow",
-	session: "29292929-2929-4929-8929-292929292929",
-	substitute: false,
-	time: "2026-01-01T00:00:01.000Z",
+	status: 200,
+	usage,
+});
+
+const requests = { baa: 3, open: 8 };
+
+const ran: Ran = {
+	relayed: [
+		...Array.replicate(relayed("open", false), requests.open),
+		...Array.replicate(relayed("baa", false), requests.baa),
+	],
+	stateFileTexts: ["{}"],
+	steps,
 };
 
-const failedTurn: Turn = Struct.assign(turn, { exitCode: failedExit });
+type Change = Pick<StepRan, "lines"> | Pick<StepRan, "pinned"> | Pick<StepRan, "turns">;
 
-const session: Ran = { lines: [cleanLine, cleanLine], stateFileTexts: ["{}"], turns: [turn, turn] };
+const changed = (name: StepRan["name"], change: Change): Ran =>
+	Struct.assign(ran, {
+		steps: pipe(
+			steps,
+			Array.map((step): StepRan => {
+				if (step.name !== name) {
+					return step;
+				}
 
-const holds = (ran: Ran): boolean => Array.every(checksOf(ran), ({ ok }) => ok);
+				return Struct.assign(step, change);
+			}),
+		),
+	});
+
+const wrongId = answered("The overdue payment is p-4822.");
+
+const canaryAnswer = answered(`It returned ${voidedSsn}.`);
+
+const notPinned = [clean, clean];
+
+const pinnedAfterAnotherSealedLine = [line("sealed", "overflow"), pinnedLine];
+
+const openWithCanary = Struct.assign(ran, { relayed: [...ran.relayed, relayed("open", true)] });
+
+const unpricedBaa = Struct.assign(ran, {
+	relayed: [...ran.relayed, Struct.assign(relayed("baa", false), { model: "unpriced" })],
+});
+
+const canaryOnDisk = Struct.assign(ran, { stateFileTexts: ["{}", `{"note":"SSN ${voidedSsn}"}`] });
+
+const noRewrite = { gaveUp: 0, rewrites: 0, runs: 1 };
+
+const failedTurn = [{ exitCode: 1, printed: "" }];
+
+const holds = (run: Ran): boolean =>
+	pipe(
+		checksOf(run),
+		Array.every(({ ok }) => ok),
+	);
 
 const checked = Effect.sync(() => {
 	assert.deepStrictEqual(
-		Array.map(
+		pipe(
 			[
-				session,
-				Struct.assign(session, { turns: [turn, failedTurn] }),
-				Struct.assign(session, { lines: [cleanLine, cleanLine, cleanLine] }),
-				Struct.assign(session, { lines: [sealedLine, cleanLine] }),
-				Struct.assign(session, { lines: [cleanLine, sealedLine] }),
-				Struct.assign(session, { stateFileTexts: ["{}", `{"note":"SSN ${voidedSsn}"}`] }),
+				ran,
+				changed("tool result", { turns: wrongId }),
+				changed("tool result", { lines: notPinned }),
+				changed("tool result", { lines: pinnedAfterAnotherSealedLine }),
+				changed("sealed answer", { pinned: noRewrite }),
+				changed("sealed answer", { turns: canaryAnswer }),
+				changed("sealed answer in auto mode", { turns: failedTurn }),
+				openWithCanary,
+				unpricedBaa,
+				canaryOnDisk,
 			],
-			holds,
+			Array.map(holds),
 		),
-		[true, false, false, false, false, false],
+		[true, false, false, false, false, false, false, false, false, false],
 	);
 });
 
-const unpriced = "claude-unpriced";
-
-const openAccountCost = 0;
-
-const millionUncachedInputOnHaiku = 0.1;
-
-const priced = Effect.sync(() => {
-	const spent = Struct.assign(turn, { reportedTokens: Struct.assign(noTokens, { uncachedInput: 1_000_000 }) });
-
-	assert.deepStrictEqual(
-		[
-			billed([Struct.assign(cleanLine, { model: unpriced }), spent]),
-			billed([sealedLine, spent]),
-			billed([Struct.assign(sealedLine, { model: unpriced }), spent]),
-		],
-		[Option.some(openAccountCost), Option.some(millionUncachedInputOnHaiku), Option.none()],
-	);
-});
-
-const printed = Effect.sync(() => {
-	const checks = [
-		{ name: "every turn exits 0", ok: true },
-		{ name: "the lane log holds two lines", ok: false },
-	];
-
-	assert.strictEqual(
-		reportOf({
-			baa: "$0.1000",
-			checks,
-			harness: "claude",
-			ran: Struct.assign(session, { lines: [cleanLine, sealedLine] }),
-		}),
-		Array.join(
+const handBack = (event: string): StepRan["turns"] => [
+	{
+		exitCode: 0,
+		printed: Array.join(
 			[
-				"accounts claude: 2 lane log lines",
-				"request 1: clean lane, account claude-setup-token, model claude-haiku-5-5, reason clean",
-				"request 2: sealed lane, account anthropic-baa, model claude-haiku-5-5, reason overflow",
-				"pass every turn exits 0",
-				"FAIL the lane log holds two lines",
-				"cost: judge $0.0003, BAA tokens $0.1000",
+				'{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Agent","input":{}}]}}',
+				'{"type":"assistant","parent_tool_use_id":"toolu_1","message":{"content":[{"type":"text","text":"p-4821"}]}}',
+				event,
+				'{"type":"result","subtype":"success","result":"done"}',
 			],
 			"\n",
 		),
+	},
+];
+
+const cleared = handBack(
+	'{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"p-4821"}]}}',
+);
+
+const fallback = handBack(
+	'{"type":"system","subtype":"task_notification","tool_use_id":"toolu_1","status":"failed","summary":"Agent stopped"}',
+);
+
+const noteOn = (step: StepRan): string => {
+	const report = reportOf({ checks: [], harness: "claude", ran: Struct.assign(ran, { steps: [step] }) });
+
+	return pipe(
+		Str.split(report, "\n"),
+		Array.findFirst(Str.startsWith(`${step.name}: `)),
+		Option.getOrElse(() => ""),
+	);
+};
+
+const received = Effect.sync(() => {
+	const auto = handedOff("sealed answer in auto mode", "done");
+
+	assert.deepStrictEqual(
+		[
+			noteOn(Struct.assign(auto, { turns: cleared })),
+			noteOn(Struct.assign(auto, { turns: fallback })),
+			noteOn(Struct.assign(auto, { pinned: { gaveUp: 1, rewrites: 5, runs: 1 }, turns: cleared })),
+		],
+		[
+			'sealed answer in auto mode: the pinned subagent ran 1 times, with 1 rewrites and 0 answers withheld; the root agent received the cleared answer "p-4821"',
+			'sealed answer in auto mode: the pinned subagent ran 1 times, with 1 rewrites and 0 answers withheld; the root agent received the harness\'s own fallback text "Agent stopped"',
+			"sealed answer in auto mode: the pinned subagent ran 1 times, with 5 rewrites and 1 answers withheld; the root agent received phi-router's withheld reply, the handle of the answer it could not clear",
+		],
 	);
 });
 
-describe("an accounts run's session", () => {
+describe("an accounts run", () => {
 	it.effect(
-		"fails when a turn exits non-zero, the lane log holds other than two lines, or either prompt ran on a BAA account, or a state file holds the canary",
+		"fails when the root misses the id, the pinned subagent skips the BAA account or the rewrite, the canary reaches the root, an open account or a state file, or a BAA request has no price",
 		() => checked,
 	);
 	it.effect(
-		"costs nothing on an open account, the model's price on a BAA account, and nothing known on a BAA model with no price",
-		() => priced,
-	);
-	it.effect(
-		"prints its lane log lines, then each check's verdict, then the judge's and the BAA accounts' cost",
-		() => printed,
+		"reports whether the root received the cleared answer, the harness's own fallback or phi-router's withheld reply",
+		() => received,
 	);
 });
