@@ -26,6 +26,7 @@ interface ClaudeSettings {
 	readonly enabledPlugins?: Readonly<Record<string, boolean>>;
 	readonly env?: Readonly<Record<string, string>>;
 	readonly model?: string;
+	readonly modelPicker?: { readonly options: readonly Readonly<Record<string, string>>[] };
 	readonly permissions?: { readonly allow: readonly string[] };
 	readonly statusLine?: { readonly command: string; readonly type: "command" };
 }
@@ -61,7 +62,10 @@ const claudeFolders = Effect.gen(function* claudeFolders() {
 	const home = yield* folder("phi-claude-home-");
 	const dir = yield* folder("phi-claude-config-");
 
-	return { dir, env: { CLAUDE_CONFIG_DIR: "", HOME: home, NO_PROXY: "", no_proxy: "" } };
+	return {
+		dir,
+		env: { CLAUDE_CONFIG_DIR: "", HOME: home, NO_PROXY: "", XDG_CONFIG_HOME: `${home}/.config`, no_proxy: "" },
+	};
 });
 
 const settingsIn = Effect.fnUntraced(function* settingsIn(dir: string) {

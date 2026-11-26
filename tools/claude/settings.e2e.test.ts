@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, FileSystem, Formatter, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import {
 	claudeFolders,
@@ -251,6 +251,80 @@ const edited = Effect.gen(function* edited() {
 	);
 }).pipe(Effect.scoped);
 
+const lanesWith = (targetModel: string): string =>
+	Formatter.formatJson({
+		clean: [{ forwarded: true, name: "open", vendor: "anthropic" }],
+		sealed: [{ keyEnv: "PHI_TEST_BAA_KEY", name: "baa", scheme: "apiKey", vendor: "anthropic" }],
+		sealedModel: { anthropic: "claude-haiku-4-5" },
+		targetModel: { anthropic: targetModel },
+	});
+
+const configured = Effect.fnUntraced(function* configured(configHome: string, targetModel: string) {
+	const fs = yield* FileSystem.FileSystem;
+
+	yield* fs.makeDirectory(`${configHome}/phi-router`, { recursive: true });
+	yield* fs.writeFileString(`${configHome}/phi-router/config.json`, lanesWith(targetModel));
+});
+
+const mine = { label: "Mine", model: "opus" };
+
+const rowsFor = (targetModel: string): readonly Readonly<Record<string, string>>[] => [
+	mine,
+	{ behavesAs: targetModel, model: "phi/auto" },
+	{
+		behavesAs: "claude-haiku-4-5",
+		description: "Your BAA account, for work that needs PHI",
+		label: "PHI sealed",
+		model: "phi/sealed",
+	},
+];
+
+const recognized = Effect.gen(function* recognized() {
+	const fs = yield* FileSystem.FileSystem;
+	const { dir, env } = yield* claudeFolders;
+	const bytes = fs.readFileString(settingsFile(dir));
+
+	yield* configured(env.XDG_CONFIG_HOME, "claude-sonnet-4-5");
+	yield* writeSettings(dir, { modelPicker: { options: [mine] } });
+
+	const on = yield* phiRouter(claudeIn(dir).on, env);
+	const once = yield* bytes;
+	const afterOn = yield* settingsIn(dir);
+	const twice = yield* phiRouter(claudeIn(dir).on, env).pipe(Effect.andThen(bytes));
+
+	yield* configured(env.XDG_CONFIG_HOME, "claude-opus-4-8");
+	yield* phiRouter(claudeIn(dir).on, env);
+
+	const rerun = yield* settingsIn(dir);
+	const off = yield* phiRouter(claudeIn(dir).off, env);
+	const afterOff = yield* settingsIn(dir);
+
+	assert.deepStrictEqual<unknown>(
+		{
+			afterOff,
+			afterOn,
+			named: Str.startsWith(`phi-router wrote 11 settings to ${settingsFile(dir)}\n`)(on.printed),
+			offExit: off.exitCode,
+			rerun,
+			same: twice === once,
+		},
+		{
+			afterOff: { modelPicker: { options: [mine] } },
+			afterOn: {
+				env: written,
+				modelPicker: { options: rowsFor("claude-sonnet-4-5") },
+			},
+			named: true,
+			offExit: ok,
+			rerun: {
+				env: written,
+				modelPicker: { options: rowsFor("claude-opus-4-8") },
+			},
+			same: true,
+		},
+	);
+}).pipe(Effect.scoped);
+
 const untouched = Effect.gen(function* untouched() {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* claudeFolders;
@@ -299,4 +373,9 @@ it.layer(NodeServices.layer)("on claude and off claude", (test) => {
 		patient,
 	);
 	test.effect("off in a folder never switched on exits 0 and creates no file", () => untouched, patient);
+	test.effect(
+		"on adds picker rows that make phi/auto behave as the configured target model and phi/sealed as the sealed model, after the user's rows, follows a changed config, and off removes only its rows",
+		() => recognized,
+		patient,
+	);
 });
