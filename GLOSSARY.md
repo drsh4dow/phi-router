@@ -260,7 +260,7 @@ One conversation of the corpus, PHI or clean.
 The bytes of one request or reply recorded off a real harness binary, kept as a fixture.
 
 **Harness note**:
-A system-role message a harness puts inside `messages`, such as Claude Code's environment block.
+A system-role message a harness puts inside `messages`, such as Claude Code's environment block. Claude Code can mark one to clear at the next prompt (`clear_at`), or fill one with the tools it adds and removes; the judge reads those tools as text.
 
 **Attribution block**:
 Claude Code's first system block, its billing header. The router neither judges nor stubs it.

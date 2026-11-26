@@ -1,7 +1,15 @@
 import { Array, Effect, Option, Predicate, Schema, pipe } from "effect";
 import type { Located, Span } from "./spans.ts";
 import type { Run, Spelling } from "./runs.ts";
-import type { WireImage, WireText, WireToolReference, WireToolResult, WireUnreadable, WireUserBlock } from "./wire.ts";
+import type {
+	WireImage,
+	WireNoteBlock,
+	WireText,
+	WireToolReference,
+	WireToolResult,
+	WireUnreadable,
+	WireUserBlock,
+} from "./wire.ts";
 import { kept, locate, required, textOf } from "./spans.ts";
 import { LooseResult } from "./wire.ts";
 import type { Message } from "#router/features/parts/index.ts";
@@ -35,7 +43,7 @@ const blocksSpelled = (spans: readonly Span[]): Spelling => ({
 	kind: "blocks",
 });
 
-const spellingOf = ({ span, wire }: Located<string | readonly ContentBlock[]>): Spelling => {
+const spellingOf = ({ span, wire }: Located<string | readonly (ContentBlock | WireNoteBlock)[]>): Spelling => {
 	if (Predicate.isString(wire)) {
 		return { kind: "string" };
 	}
@@ -203,27 +211,46 @@ const userRuns = Effect.fnUntraced(function* userRuns({
 	});
 });
 
-const noteRun = (content: Located<string | readonly ContentBlock[]>): Run => {
-	const reading = readingOf(content.wire);
+const noteLineOf = ({ span, wire }: Located<WireNoteBlock>): Option.Option<string> => {
+	switch (wire.type) {
+		case "text": {
+			return Option.some(wire.text);
+		}
 
-	const text = pipe(
-		reading.content,
-		Array.flatMap((block) => {
-			if (block.type === "text") {
-				return [block.text];
-			}
+		case "tool_addition":
+		case "tool_removal": {
+			return Option.some(textOf(span));
+		}
 
-			return [];
-		}),
-		Array.join("\n"),
-	);
+		case "unreadable": {
+			return Option.none();
+		}
+
+		default: {
+			const unhandled: never = wire;
+
+			return unhandled;
+		}
+	}
+};
+
+const noteLinesOf = ({ span, wire }: Located<string | readonly WireNoteBlock[]>): readonly Option.Option<string>[] => {
+	if (Predicate.isString(wire)) {
+		return [Option.some(wire)];
+	}
+
+	return pipe(wire, locate(span.items), Array.map(noteLineOf));
+};
+
+const noteRun = (content: Located<string | readonly WireNoteBlock[]>): Run => {
+	const text = pipe(Option.all(noteLinesOf(content)), Option.map(Array.join("\n")));
 
 	return {
 		blocks: pipe(content.span.items, Array.map(textOf)),
 		content: spellingOf(content),
 		kind: "note",
-		message: { content: text, role: "system", sections: [], tools: [] },
-		readable: reading.readable,
+		message: { content: Option.getOrElse(text, () => withheld.text), role: "system", sections: [], tools: [] },
+		readable: Option.isSome(text),
 	};
 };
 

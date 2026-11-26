@@ -245,14 +245,12 @@ const sealedToolNote = Effect.gen(function* sealedToolNote() {
 });
 
 it.layer(Digest.layerWebCrypto)("harness notes Claude Code 2.1.332 sends", (test) => {
-	test.effect.fails(
-		"a note marked to clear at the next prompt reaches an open account whole, and the judge reads it",
-		() => noteReadWhole(clearedAtNextPrompt, ["# Environment\n - Platform: linux"]),
+	test.effect("a note marked to clear at the next prompt reaches an open account whole, and the judge reads it", () =>
+		noteReadWhole(clearedAtNextPrompt, ["# Environment\n - Platform: linux"]),
 	);
 
-	test.effect.fails(
-		"a note that adds and removes tools reaches an open account whole, and the judge reads every tool",
-		() => noteReadWhole(toolsChanged, ["# Environment", "find_note", "Finds a note.", "old_tool"]),
+	test.effect("a note that adds and removes tools reaches an open account whole, and the judge reads every tool", () =>
+		noteReadWhole(toolsChanged, ["# Environment", "find_note", "Finds a note.", "old_tool"]),
 	);
 
 	test.effect(

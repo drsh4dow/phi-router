@@ -16,6 +16,7 @@ const forwarded = {
 		type: Schema.Literal("ephemeral"),
 	}),
 	caller: Schema.Struct({ type: Schema.Literal("direct") }),
+	clear_at: Schema.Literal("next_user_message"),
 	is_error: Schema.Boolean,
 	output_config: Schema.Struct({ effort: Effort }),
 } as const;
@@ -100,11 +101,30 @@ const UserTurn = Schema.Struct({
 	role: Schema.Literal("user"),
 });
 
-const noteContent = Schema.Union([Schema.String, Schema.Array(Schema.Union([Text, Unreadable]))]);
+const NamedTool = Schema.Struct({ name: Schema.String, type: Schema.Literal("tool_reference") });
+
+const DefinedTool = Schema.Struct({ definition: Judged, type: Schema.Literal("tool_definition") });
+
+const ToolAddition = Schema.Struct({
+	cache_control: cacheControl,
+	tool: Schema.Union([DefinedTool, NamedTool]),
+	type: Schema.Literal("tool_addition"),
+});
+
+const ToolRemoval = Schema.Struct({
+	cache_control: cacheControl,
+	tool: NamedTool,
+	type: Schema.Literal("tool_removal"),
+});
+
+const NoteBlock = Schema.Union([Text, ToolAddition, ToolRemoval, Unreadable]);
+
+const noteContent = Schema.Union([Schema.String, Schema.Array(NoteBlock)]);
 
 const AssistantTurn = Schema.Struct({ content: Schema.Array(AssistantBlock), role: Schema.Literal("assistant") });
 
 const HarnessNote = Schema.Struct({
+	clear_at: Schema.optionalKey(forwarded.clear_at),
 	content: noteContent,
 	output_config: Schema.optionalKey(forwarded.output_config),
 	role: Schema.Literal("system"),
@@ -187,6 +207,8 @@ type WireImage = typeof Image.Type;
 
 type WireToolReference = typeof ToolReference.Type;
 
+type WireNoteBlock = typeof NoteBlock.Type;
+
 type WireUnreadable = typeof Unreadable.Type;
 
 type WireDelta = typeof Delta.Type;
@@ -202,6 +224,7 @@ export type {
 	WireDelta,
 	WireEvent,
 	WireImage,
+	WireNoteBlock,
 	WireText,
 	WireToolReference,
 	WireToolResult,
