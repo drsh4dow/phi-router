@@ -4,6 +4,7 @@ import { SessionRequests } from "#router/client/router-port/index.ts";
 import { TurnNotices } from "#router/client/turn-notices.ts";
 import { modelAddress } from "#router/features/cli/adapters.ts";
 import { promptSubmit } from "./prompt-submit.ts";
+import { statusline } from "./statusline.ts";
 import { turnEnd } from "./turn-end.ts";
 
 const hookCommands = [
@@ -15,6 +16,7 @@ const hookCommands = [
 		Command.provide(Layer.merge(SessionRequests.layer, TurnNotices.layer)),
 		Command.unlisted,
 	),
+	Command.make("statusline", {}, () => statusline()).pipe(Command.provide(SessionRequests.layer)),
 ] as const;
 
 export { hookCommands };
