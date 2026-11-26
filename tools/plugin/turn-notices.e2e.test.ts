@@ -68,7 +68,7 @@ const announced = Effect.fnUntraced(function* announced(harness: Harness) {
 				exitCode: 0,
 				stderr: "",
 				stdout:
-					"phi-router: 1 message held patient identifiers and ran only on the BAA account. Last request: baa, model target-under-test.",
+					"phi-router: 1 message held patient identifiers. The open account sees a handle in place of each. Last request: open, model target-under-test.",
 			},
 		},
 	);

@@ -13,7 +13,7 @@ import { voidedSsn } from "./cases.ts";
 
 const typed = { status: "/phi", usage: "/phi pin" } as const;
 
-const sealWords = "held patient identifiers and ran only on the BAA account";
+const sealWords = "held patient identifiers. The open account sees a handle in place of each";
 
 interface Shown {
 	readonly statusBlock: boolean;
