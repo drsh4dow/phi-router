@@ -1,11 +1,8 @@
 import { Array, Config, Effect, FileSystem, Path, String as Str, Stream, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { CodexTurned, Listing, Outcome, Run } from "./checks.ts";
-import { baaScript, catalogOf, catalogSlugsOf, chart, execSessionOf, installed, openScript } from "./codex-mocks.ts";
-import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
-import { during, followUp, withCredentialRule } from "./during.ts";
-import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
+	answerStubChecksOf,
 	handOff,
 	overflowChecksOf,
 	overflowPrompts,
@@ -14,6 +11,10 @@ import {
 	refusing,
 	subagentChecksOf,
 } from "./phi-checks.ts";
+import { baaScript, catalogOf, catalogSlugsOf, chart, execSessionOf, installed, openScript } from "./codex-mocks.ts";
+import { codexChecksOf, leftOf, succeeded } from "./checks.ts";
+import { during, followUp, withCredentialRule } from "./during.ts";
+import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import { stampClockIn, storedIn } from "./stored.ts";
 import { codexTui } from "./codex-tui.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
@@ -293,7 +294,8 @@ const codexPlay = Effect.fnUntraced(function* codexPlay(run: Run) {
 		[
 			...codexChecksOf(Struct.assign(left, listing)),
 			...phiChecksOf(phi),
-			...subagentChecksOf({ after, answer: "h1", handedOff, harness: "codex" }),
+			...subagentChecksOf({ after, handedOff, harness: "codex" }),
+			...answerStubChecksOf({ after, answer: "h1", handedOff, harness: "codex" }),
 			...overflowChecksOf({
 				after: [overflowed],
 				all: left.turns,
