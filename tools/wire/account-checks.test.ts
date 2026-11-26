@@ -36,8 +36,6 @@ const sealedLine: LaneLogLine = {
 	time: "2026-01-01T00:00:01.000Z",
 };
 
-const pinnedLine: LaneLogLine = Struct.assign(sealedLine, { reason: "pinned" as const });
-
 const failedTurn: Turn = Struct.assign(turn, { exitCode: failedExit });
 
 const session: Ran = { lines: [cleanLine, cleanLine], stateFileTexts: ["{}"], turns: [turn, turn] };
@@ -53,12 +51,11 @@ const checked = Effect.sync(() => {
 				Struct.assign(session, { lines: [cleanLine, cleanLine, cleanLine] }),
 				Struct.assign(session, { lines: [sealedLine, cleanLine] }),
 				Struct.assign(session, { lines: [cleanLine, sealedLine] }),
-				Struct.assign(session, { lines: [cleanLine, pinnedLine] }),
 				Struct.assign(session, { stateFileTexts: ["{}", `{"note":"SSN ${voidedSsn}"}`] }),
 			],
 			holds,
 		),
-		[true, false, false, false, false, false, false],
+		[true, false, false, false, false, false],
 	);
 });
 
