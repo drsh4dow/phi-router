@@ -187,8 +187,6 @@ const strataOf = (scored: readonly Shown[]): Report["strata"] =>
 		),
 	);
 
-const isSealed = ({ sealing }: Sent): boolean => sealing;
-
 const overRoutingOf = (clean: readonly Played[]): Report["overRouting"] =>
 	pipe(
 		Negative.literals,
@@ -204,12 +202,12 @@ const overRoutingOf = (clean: readonly Played[]): Report["overRouting"] =>
 				onSealed: Num.sumAll(
 					pipe(
 						inClass,
-						Array.map(({ sent }) => pipe(sent, Array.countBy(isSealed))),
+						Array.map(({ sent }) => pipe(sent, Array.countBy(Struct.get("sealing")))),
 					),
 				),
 				overRouted: pipe(
 					inClass,
-					Array.countBy(({ sent }) => pipe(sent, Array.some(isSealed))),
+					Array.countBy(({ sent }) => pipe(sent, Array.some(Struct.get("sealing")))),
 				),
 				requests: Num.sumAll(
 					pipe(
@@ -259,9 +257,9 @@ const reportOf = (played: readonly Played[]): Report => {
 		requests: {
 			clean: pipe(
 				sent,
-				Array.countBy((each) => !isSealed(each)),
+				Array.countBy((each) => !each.sealing),
 			),
-			sealing: pipe(sent, Array.countBy(isSealed)),
+			sealing: pipe(sent, Array.countBy(Struct.get("sealing"))),
 		},
 		splits: pipe(phi, Array.flatMap(Struct.get("split"))),
 		strata: strataOf(phi),
