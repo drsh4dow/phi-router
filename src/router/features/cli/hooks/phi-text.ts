@@ -195,21 +195,22 @@ const overflowMark = (
 		onSome: flow(markOf, Option.some),
 	});
 
-const wide =
-	/[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{20000}-\u{3FFFD}]/u;
+const firstWide = "\u1100";
 
-const zeroWidth = /\p{Mn}|\p{Me}|\u200D|\uFE0F/u;
+const punctuation = { first: "\u2000", last: "\u206F" };
+
+const zeroWidth = /\p{Mn}|\p{Me}/u;
 
 const cellsOfChar = (char: string): number => {
 	if (zeroWidth.test(char)) {
 		return none;
 	}
 
-	if (wide.test(char)) {
-		return one + one;
+	if (char < firstWide || (char >= punctuation.first && char <= punctuation.last)) {
+		return one;
 	}
 
-	return one;
+	return one + one;
 };
 
 const cellsOf = (text: string): number =>
