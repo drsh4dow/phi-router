@@ -25,7 +25,7 @@ Setup writes the accounts to `phi-router/config.json` in your config folder: `$X
 
 ## Add a second subscription
 
-When one subscription hits its rate limit, the router sends the request to the next one. When every subscription is rate-limited or does not answer, requests run on your BAA account, and your harness says so at the end of the turn.
+When one subscription hits its rate limit, the router sends the request to the next one. When every subscription is rate-limited or does not answer, requests run on your BAA account. The status line marks `overflow till HH:MM`, the time the router tries your subscription again, and `/phi` says how many requests ran there. Codex has no status line, so it says so once at the end of the turn.
 
 A first setup asks `Add another subscription?` after its account questions. On yes, it runs the vendor's own login in a login folder of its own under `phi-router/logins/` in your config folder, and puts that account on the clean lane after your harness's own. A login that does not finish, or that signs in to the account setup already uses, is left out, and the rest of setup goes on.
 

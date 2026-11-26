@@ -44,13 +44,13 @@ it.effect(
 					notice:
 						"phi-router: 1 message held patient identifiers. The open account sees a handle in place of each. Last request: baa, model claude-sealed.",
 					status:
-						"session s-1\nLast request: baa, model claude-sealed\nMessages: 1 sealed, 2 cleared\nClean lane: open, open-2 (rate-limited until 14:30)\nSealed lane: baa",
+						"session s-1\nLast request: baa, model claude-sealed\nMessages: 1 sealed, 2 cleared\nClean lane: open, open-2 (rate-limited, tried again at 14:30)\nSealed lane: baa",
 				},
 				{
 					notice:
 						"phi-router: 1 message held patient identifiers. The open account sees a handle in place of each. Last request: baa, model claude-sealed, a substitute for the requested model.",
 					status:
-						"session s-1\nLast request: baa, model claude-sealed, a substitute for the requested model\nMessages: 1 sealed, 2 cleared\nClean lane: open, open-2 (rate-limited until 14:30)\nSealed lane: baa",
+						"session s-1\nLast request: baa, model claude-sealed, a substitute for the requested model\nMessages: 1 sealed, 2 cleared\nClean lane: open, open-2 (rate-limited, tried again at 14:30)\nSealed lane: baa",
 				},
 			]);
 		}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
@@ -71,9 +71,9 @@ it.effect("the overflow notice says why the requests ran on the BAA account and 
 		);
 
 		assert.deepStrictEqual(notices, [
-			"phi-router: your subscription is rate-limited until 14:30, so 6 requests ran on your BAA account. Add another subscription: npx phi-router accounts add",
-			"phi-router: your subscriptions are rate-limited until 14:30, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add",
-			"phi-router: your subscription did not answer, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add",
+			"phi-router: your subscription hit its rate limit, so 6 requests ran on your BAA account. phi-router tries it again at 14:30. Add another subscription: npx phi-router accounts add",
+			"phi-router: your subscriptions hit their rate limits, so 1 request ran on your BAA account. phi-router tries them again at 14:30. Add another subscription: npx phi-router accounts add",
+			"phi-router: 1 request ran on your BAA account because your subscription hit a rate limit or did not answer. Add another subscription: npx phi-router accounts add",
 		]);
 	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
 );
@@ -120,7 +120,7 @@ const waiting = { installed: "0.6.0", running: "0.5.1" };
 const columns = 80;
 
 it.effect(
-	"the status line marks the overflow with the stamp's HH:MM, the withheld answers and the version wait in 80 columns, and /phi says each in full",
+	"the status line marks the overflow until the stamp's HH:MM and no longer, the withheld answers and the version wait in 80 columns, and /phi says each in full",
 	() =>
 		Effect.gen(function* marked() {
 			const line = yield* statusLine(noticed, waiting);
@@ -128,9 +128,18 @@ it.effect(
 			const reply = Str.split(text, "\n");
 			const roomy = yield* statusLine(Struct.assign(noticed, { overflowed: 0 }));
 
+			const backAgain = yield* statusLine(
+				Struct.assign(noticed, {
+					accounts: Struct.assign(noticed.accounts, {
+						clean: [{ name: "claude-1", vendor: "anthropic" as const }],
+					}),
+				}),
+			);
+
 			assert.deepStrictEqual(
-				{ fits: line.length <= columns, line, reply, roomy },
+				{ backAgain, fits: line.length <= columns, line, reply, roomy },
 				{
+					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
 					fits: true,
 					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					reply: [
@@ -138,9 +147,9 @@ it.effect(
 						"Last request: claude-2, model claude-opus",
 						"Messages: 0 sealed, 15 cleared",
 						"Pinned subagent: 1 run, 5 rewrites, 1 answer withheld",
-						"Clean lane: claude-1 (rate-limited until 14:30)",
+						"Clean lane: claude-1 (rate-limited, tried again at 14:30)",
 						"Sealed lane: claude-2",
-						"Overflow: your subscription is rate-limited until 14:30, so 36 requests ran on your BAA account. Add another subscription: npx phi-router accounts add",
+						"Overflow: your subscription hit its rate limit, so 36 requests ran on your BAA account. phi-router tries it again at 14:30. Add another subscription: npx phi-router accounts add",
 						"phi-router 0.6.0 is installed. Your open windows still run 0.5.1 until you close them all.",
 					],
 					roomy: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",

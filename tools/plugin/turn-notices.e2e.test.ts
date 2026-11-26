@@ -115,12 +115,12 @@ const overflowed = Effect.gen(function* overflowed() {
 	assert.deepStrictEqual(
 		{ clean: Array.findFirst(Str.split(reason, "\n"), Str.startsWith("Clean lane")), quietTurn, told },
 		{
-			clean: Option.some(`Clean lane: open (rate-limited until ${back})`),
+			clean: Option.some(`Clean lane: open (rate-limited, tried again at ${back})`),
 			quietTurn: quiet,
 			told: {
 				exitCode: 0,
 				stderr: "",
-				stdout: `phi-router: your subscription is rate-limited until ${back}, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add`,
+				stdout: `phi-router: your subscription hit its rate limit, so 1 request ran on your BAA account. phi-router tries it again at ${back}. Add another subscription: npx phi-router accounts add`,
 			},
 		},
 	);
@@ -176,7 +176,7 @@ const claudeQuiet = Effect.gen(function* claudeQuiet() {
 		{
 			line: `phi · baa · 1 sealed · 2 cleared · overflow till ${back}`,
 			overflow: Option.some(
-				`Overflow: your subscription is rate-limited until ${back}, so 2 requests ran on your BAA account. Add another subscription: npx phi-router accounts add`,
+				`Overflow: your subscription hit its rate limit, so 2 requests ran on your BAA account. phi-router tries it again at ${back}. Add another subscription: npx phi-router accounts add`,
 			),
 			printed: [[silent], [silent, silent, silent], [], [silent]],
 		},

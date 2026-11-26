@@ -307,13 +307,13 @@ interface Overflowed {
 }
 
 const noticeAt = (clock: string): string =>
-	`phi-router: your subscription is rate-limited until ${clock}, so 1 request ran on your BAA account. Add another subscription: npx phi-router accounts add`;
+	`phi-router: your subscription hit its rate limit, so 1 request ran on your BAA account. phi-router tries it again at ${clock}. Add another subscription: npx phi-router accounts add`;
 
 const once = 1;
 
 const timesIn = (printed: string, text: string): number => Str.split(printed, text).length - once;
 
-const noticeWords = "phi-router: your subscription is rate-limited until";
+const noticeWords = "phi-router: your subscription hit its rate limit";
 
 const noticesIn = (turn: PrintedTurn): number => timesIn(turn.printed, noticeWords);
 
@@ -323,11 +323,10 @@ const toldChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 	const told = pipe(played.all, Array.map(noticesIn), Number.sumAll);
 
 	const shown: Check = {
-		name: `${played.command} says how many requests overflowed to the BAA account and that the subscription is rate-limited until the stamp's HH:MM`,
+		name: `${played.command} says how many requests overflowed to the BAA account and that phi-router tries the subscription again at the stamp's HH:MM`,
 		ok:
-			Str.includes(`Overflow: your subscription is rate-limited until ${played.clock}, so `)(
-				played.status.printed,
-			) && Str.includes("ran on your BAA account")(played.status.printed),
+			Str.includes("Overflow: your subscription hit its rate limit, so ")(played.status.printed) &&
+			Str.includes(`ran on your BAA account. phi-router tries it again at ${played.clock}.`)(played.status.printed),
 	};
 
 	if (played.harness === "codex") {
@@ -413,8 +412,8 @@ const overflowChecksOf = (played: Readonly<Overflowed>): readonly Check[] => {
 				insideLine === true,
 		},
 		{
-			name: `${played.command} shows the open account rate-limited until the stamp's HH:MM`,
-			ok: Str.includes(`Clean lane: open (rate-limited until ${played.clock})`)(played.status.printed),
+			name: `${played.command} shows the open account rate-limited and tried again at the stamp's HH:MM`,
+			ok: Str.includes(`Clean lane: open (rate-limited, tried again at ${played.clock})`)(played.status.printed),
 		},
 	];
 };

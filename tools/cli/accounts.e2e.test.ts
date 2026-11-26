@@ -265,9 +265,9 @@ const listsTrouble = Effect.gen(function* listsTrouble() {
 				stdout: Array.join(
 					[
 						"Clean lane",
-						"  claude-1    Claude  forwarded     rate-limited. Back at 14:52.",
+						"  claude-1    Claude  forwarded     rate-limited. Tried again at 14:52.",
 						`  claude-2    Claude  login folder  login ended 2020-01-01. Fix: ${fixOf(claude)}`,
-						"  claude-3    Claude  login folder  rate-limited. Back at 14:52.",
+						"  claude-3    Claude  login folder  rate-limited. Tried again at 14:52.",
 						`  claude-4    Claude  login folder  no login. Fix: ${fixOf(codex)}`,
 						`  claude-5    Claude  login folder  no login. Fix: ${fixOf(emptied)}`,
 						"Sealed lane",
