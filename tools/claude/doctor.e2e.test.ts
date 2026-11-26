@@ -42,6 +42,8 @@ const seenBy = (marker: string): string => {
 	return `{ stat -c %a ${config}; ${proxy}; ${apiKey}; grep -o '"ANTHROPIC_BASE_URL":"http://127.0.0.1:[0-9]*' "$CLAUDE_CONFIG_DIR/settings.json" | grep -o 'http.*'; } > '${marker}'`;
 };
 
+const olderVersion = `[ "$1" = --version ] && { echo '2.1.331 (Claude Code)'; exit 0; }`;
+
 const searchPath = Effect.fnUntraced(function* searchPath(claude: Claude) {
 	const fs = yield* FileSystem.FileSystem;
 	const bin = yield* folder("phi-claude-bin-");
@@ -54,7 +56,9 @@ const searchPath = Effect.fnUntraced(function* searchPath(claude: Claude) {
 	const runs = { absent: "", posts: `exec '${bun}' '${standIn}' "$@"\n`, silent: "" };
 
 	if (claude !== "absent") {
-		yield* fs.writeFileString(`${bin}/claude`, `#!/bin/sh\n${seenBy(marker)}\n${runs[claude]}`, { mode: 0o755 });
+		yield* fs.writeFileString(`${bin}/claude`, `#!/bin/sh\n${olderVersion}\n${seenBy(marker)}\n${runs[claude]}`, {
+			mode: 0o755,
+		});
 	}
 
 	return { bun, marker, searchPath: `${bin}:/usr/bin:/bin` };
@@ -129,6 +133,7 @@ const passes = Effect.gen(function* passes() {
 	assert.include(doctor.printed, "pass the plugin phi-router@phi-router is installed");
 	assert.include(doctor.printed, "pass the canary's prompt arrived at the open mock as the stub [sealed h1]");
 	assert.include(doctor.printed, "pass the canary arrived at no open mock");
+	assert.include(doctor.printed, "note: Claude Code 2.1.331 is older than 2.1.332");
 });
 
 const direct = "no_proxy or NO_PROXY takes Claude Code to http://127.0.0.1:47411 without a proxy";

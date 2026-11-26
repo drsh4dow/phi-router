@@ -4,6 +4,7 @@ export {
 	claudePlugin,
 	claudePluginData,
 	claudeTurn,
+	claudeVersion,
 	followedMarketplace,
 	managedEnv,
 	removeStatusLine,

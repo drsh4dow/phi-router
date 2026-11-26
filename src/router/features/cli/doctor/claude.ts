@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Struct, pipe } from "effect";
+import { Array, Console, Effect, Option, Order, String as Str, Struct, pipe } from "effect";
 import { canaryRun, reported } from "./canary.ts";
 import {
 	claudeEnv,
@@ -11,7 +11,7 @@ import {
 	routerAddress,
 	shellLists,
 } from "#router/features/cli/claude/index.ts";
-import { claudePlugin, claudeTurn, userSettings } from "#router/client/harnesses/index.ts";
+import { claudePlugin, claudeTurn, claudeVersion, userSettings } from "#router/client/harnesses/index.ts";
 import type { Check } from "./canary.ts";
 import type { NoProxyLists } from "#router/features/cli/claude/index.ts";
 import type { UserSettings } from "#router/client/harnesses/index.ts";
@@ -34,6 +34,30 @@ const settingsChecks = ({ installed, settings, shell }: Found): readonly Check[]
 	{ name: `the plugin ${pluginId} is enabled`, passed: pipe(settings.enabledPlugins, Array.contains(pluginId)) },
 	{ name: `the plugin ${pluginId} is installed`, passed: installed },
 ];
+
+const statusRowSince = "2.1.332";
+
+const versionPattern = /^\d+\.\d+\.\d+/u;
+
+const versionOf = (printed: string): Option.Option<string> =>
+	pipe(
+		Option.fromNullishOr(versionPattern.exec(printed)),
+		Option.map(([version]) => version),
+	);
+
+const partsOf = (version: string): readonly number[] => pipe(Str.split(version, "."), Array.map(Number));
+
+const olderThan = Order.isLessThan(Order.Array(Order.Number));
+
+const versionNote = (printed: string): Option.Option<string> =>
+	pipe(
+		versionOf(printed),
+		Option.filter((version) => olderThan(partsOf(version), partsOf(statusRowSince))),
+		Option.map(
+			(version) =>
+				`note: Claude Code ${version} is older than ${statusRowSince}, so it shows no phi-router row under the prompt and answers /phi as a blocked prompt. Routing works the same. Run claude update to get both.`,
+		),
+	);
 
 const claudeCanary = Effect.fnUntraced(function* claudeCanary(folder: string) {
 	return yield* canaryRun({ binary: "claude", headless: "claude -p", vendor: "anthropic" }, (canaried) =>
@@ -61,6 +85,10 @@ const doctorClaude = Effect.fn("doctor claude")(function* doctorClaude(configDir
 		`Run phi-router on claude for a missing setting, and claude plugin install ${pluginId} for the plugin.`,
 	);
 
+	const note = yield* Effect.map(Effect.option(claudeVersion), Option.flatMap(versionNote));
+
+	yield* Option.match(note, { onNone: () => Effect.void, onSome: Console.log });
+
 	const checks = yield* Option.match(installed, {
 		onNone: () => Effect.succeed([]),
 		onSome: ({ installPath }) => claudeCanary(installPath),
@@ -73,4 +101,4 @@ const doctorClaude = Effect.fn("doctor claude")(function* doctorClaude(configDir
 	);
 });
 
-export { claudeCanary, doctorClaude };
+export { claudeCanary, doctorClaude, versionNote };
