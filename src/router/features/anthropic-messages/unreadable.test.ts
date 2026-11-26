@@ -1,9 +1,8 @@
-import { Array, Effect, Function, pipe, Schema, String as Str } from "effect";
+import { Array, Effect, Function, Schema, String as Str, pipe } from "effect";
+import { CleanLaneRefused, bridgesFor } from "#router/features/border/index.ts";
 import { UnreadableRequest, decodeRequest, replyKeys } from "./index.ts";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor } from "#router/features/border/index.ts";
 import { BodyJson } from "./wire.ts";
-import { CleanLaneRefused } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import type { MessagesRequest } from "./index.ts";
@@ -91,14 +90,14 @@ const vendorSystem = Effect.gen(function* vendorSystem() {
 	const baaBody = yield* request.encode(sealed);
 	const toOpen = yield* systemOf(openBody);
 	const toBaa = yield* systemOf(baaBody);
-	const added = { text: bridge, type: "text" } as const;
+	const bridgeBlock = { text: bridge, type: "text" } as const;
 
 	assert.deepStrictEqual(toOpen, [
 		{ text: "x-anthropic-billing-header: cc_version=2.1.325.a35; cc_entrypoint=cli;", type: "text" },
 		{ cache_control: { type: "ephemeral" }, text: stubs.unknown, type: "text" },
-		added,
+		bridgeBlock,
 	]);
-	assert.deepStrictEqual(toBaa, [...(original ?? []), added]);
+	assert.deepStrictEqual(toBaa, [...(original ?? []), bridgeBlock]);
 });
 
 const vendorMessage = Effect.gen(function* vendorMessage() {
@@ -126,6 +125,7 @@ const vendorMessage = Effect.gen(function* vendorMessage() {
 
 const vendorPinned = Effect.gen(function* vendorPinned() {
 	const request = yield* decodeRequest(vendorKeys, nobodyWrote, "claude");
+
 	const sent = yield* request.encode({
 		lane: "sealed",
 		open: Function.identity,
@@ -149,6 +149,7 @@ const strayCacheControl = String.raw`{"model":"phi/auto","messages":[{"role":"us
 const refused = Effect.gen(function* refused() {
 	const request = yield* decodeRequest(strayCacheControl, nobodyWrote, "claude");
 	const failure = yield* Effect.flip(request.encode(clean(request)));
+
 	const toBaa = yield* request.encode({
 		lane: "sealed",
 		open: Function.identity,

@@ -3,13 +3,16 @@ import type { LaneLogLine, Post, Received, Said, Turn } from "./mocked-router.ts
 import { assert, it } from "@effect/vitest";
 import { beta, bodyOf, fakes, laneLines, routed } from "./mocked-router.ts";
 import { headersNamed, jsonText } from "./harnesses.ts";
-import { Base64 } from "effect/encoding";
 import { HttpClientRequest } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
 import { bodyFor } from "./target-models.ts";
 import { handleAt } from "#router/primitives/handle.ts";
 import { judgeLimits } from "#router/features/policy/index.ts";
 import { sealedStub } from "#router/features/border/index.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
 
 const canary = "PATIENT-CANARY-7Q4K";
 
@@ -71,7 +74,7 @@ const postedIn = Effect.fnUntraced(function* postedIn(
 });
 
 const stubbedIn = Effect.fnUntraced(function* stubbedIn(opened: readonly Received[], text: string) {
-	const stub = yield* jsonText(sealedStub("claude")(handleAt(1)));
+	const stub = yield* jsonText(sealedStub("claude")(h1));
 
 	return pipe(
 		opened,
@@ -103,8 +106,8 @@ const expectedConversation = {
 	lines: [lineOf("open", "clean", "clean"), lineOf("open", "clean", "clean"), lineOf("open", "clean", "clean")],
 	open: [
 		Struct.assign(openSent, { atPhi: Option.none() }),
-		Struct.assign(openSent, { atPhi: Option.some(sealedStub("claude")(handleAt(1))) }),
-		Struct.assign(openSent, { atPhi: Option.some(sealedStub("claude")(handleAt(1))) }),
+		Struct.assign(openSent, { atPhi: Option.some(sealedStub("claude")(h1)) }),
+		Struct.assign(openSent, { atPhi: Option.some(sealedStub("claude")(h1)) }),
 	],
 	statuses: [status.ok, status.ok, status.ok],
 };
@@ -162,9 +165,11 @@ const byteValues = 256;
 
 const blob = Uint8Array.from(Array.makeBy(blobBytes, (index) => (index * byteStride + byteOffset) % byteValues));
 
+const base64Blob = Option.getOrElse(Schema.encodeOption(Schema.Uint8ArrayFromBase64)(blob), () => "");
+
 const unasked = [
 	{ name: "a piece too large for the judge", text: `${Str.repeat(judgeLimits.maxChars)("x")} over` },
-	{ name: "a binary blob", text: `blob ${Base64.encode(blob)}` },
+	{ name: "a binary blob", text: `blob ${base64Blob}` },
 ] as const;
 
 const sealedUnasked = Effect.fnUntraced(function* sealedUnasked({ text }: (typeof unasked)[number]) {

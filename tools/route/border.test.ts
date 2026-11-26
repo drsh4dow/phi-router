@@ -11,6 +11,10 @@ import { handleAt } from "#router/primitives/handle.ts";
 import { sealedStub } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
+
 const markers = {
 	cleared: "BORDER-CLEARED-5X2P",
 	neverJudged: "BORDER-NEVER-JUDGED-3M8T",
@@ -67,9 +71,7 @@ const border = Effect.gen(function* border() {
 	const open = yield* mocks.open.received;
 	const texts = yield* Effect.forEach(open, (sent) => textsOf(sent), { concurrency: 1 });
 
-	assert.deepStrictEqual(texts, [
-		[cleared.text, reply.text, sealedStub("claude")(handleAt(1)), reply.text, stubs.unknown],
-	]);
+	assert.deepStrictEqual(texts, [[cleared.text, reply.text, sealedStub("claude")(h1), reply.text, stubs.unknown]]);
 });
 
 it.layer(NodeServices.layer)("the border with a wrong lane choice", (test) => {

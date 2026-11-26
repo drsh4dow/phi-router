@@ -3,8 +3,8 @@ import type { CodexRequest, CodexRequestRejected } from "./index.ts";
 import { Effect, Function, Predicate, String as Str } from "effect";
 import { allCleared, cleanBodyPastBorder, nothingWritten } from "./test-kit.ts";
 import { assert, it } from "@effect/vitest";
-import { bridgesFor } from "#router/features/border/index.ts";
 import { Digest } from "effect/crypto";
+import { bridgesFor } from "#router/features/border/index.ts";
 import { decodeRequest } from "./index.ts";
 import { requests } from "./captures/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
@@ -23,6 +23,7 @@ const sealedAsSent = (
 ): Effect.Effect<CodexRequest, CodexRequestRejected | CleanLaneRefused, Digest.Digest> =>
 	Effect.gen(function* decodeAndSeal() {
 		const request = yield* decodeRequest(text, nothingWritten);
+
 		const sealed = yield* request.encode({
 			lane: "sealed",
 			open: Function.identity,

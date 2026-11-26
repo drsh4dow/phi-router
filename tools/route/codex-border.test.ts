@@ -10,6 +10,10 @@ import { routed } from "./mocked-router.ts";
 import { sealedStub } from "#router/features/border/index.ts";
 import { stubs } from "#router/features/policy/index.ts";
 
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
+
 const markers = {
 	cleared: "CODEX-BORDER-CLEARED-4H7J",
 	neverJudged: "CODEX-BORDER-NEVER-JUDGED-9K3D",
@@ -72,7 +76,7 @@ const border = Effect.gen(function* border() {
 
 	const texts = yield* Effect.forEach(open, (sent) => textsOf(sent.body), { concurrency: 1 });
 
-	assert.deepStrictEqual(texts, [[cleared, "Noted.", sealedStub("codex")(handleAt(1)), "Noted.", stubs.unknown]]);
+	assert.deepStrictEqual(texts, [[cleared, "Noted.", sealedStub("codex")(h1), "Noted.", stubs.unknown]]);
 });
 
 it.layer(NodeServices.layer)("the border with a wrong lane choice, for Codex", (test) => {

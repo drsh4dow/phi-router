@@ -1,13 +1,15 @@
 import { Array, Effect, Option, Predicate, Record, Result, Schema, String as Str, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import { Digest } from "effect/crypto";
+import type { Keep } from "#router/features/border/index.ts";
 import type { MessagesRequest } from "./index.ts";
 import { decodeRequest } from "./index.ts";
-import type { Keep } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
 import { handleAt } from "#router/primitives/handle.ts";
 import { partsOf } from "#router/features/parts/index.ts";
 import { requests } from "./captures/index.ts";
+
+const firstSequence = 1;
 
 type Json = string | number | boolean | null | readonly Json[] | { readonly [key: string]: Json };
 
@@ -136,7 +138,12 @@ const onlyCleared =
 	};
 
 const inOrder: Keep<never> = (parts) =>
-	Effect.succeed(new Map(Array.map(parts, ({ key }, index) => [key, handleAt(index + 1)] as const)));
+	pipe(
+		parts,
+		Array.map(({ key }, index) => [key, handleAt(index + firstSequence)] as const),
+		(pairs) => new Map(pairs),
+		Effect.succeed,
+	);
 
 const cleanBodyOf = (
 	request: MessagesRequest,

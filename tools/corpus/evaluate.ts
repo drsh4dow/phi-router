@@ -3,15 +3,18 @@ import type { Case, Synthetic as SyntheticList } from "./manifest.ts";
 import { Findings, Verdicts, standingOf } from "#router/features/verdicts/index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import type { Played, Sent } from "./report.ts";
-import type { Message } from "#router/features/parts/index.ts";
+import type { Keep } from "#router/features/border/index.ts";
 import { Synthetic } from "#router/features/policy/index.ts";
 import { decide } from "#router/features/lanes/index.ts";
-import type { Keep } from "#router/features/border/index.ts";
 import { guard } from "#router/features/border/index.ts";
 import { handleAt } from "#router/primitives/handle.ts";
 import { reportOf } from "./report.ts";
 import { requestMessagesOf } from "./messages.ts";
 import { tokensOf } from "./canary-tokens.ts";
+
+type Messages = Parameters<typeof guard>[number]["messages"];
+
+const firstSequence = 1;
 
 interface Book {
 	readonly lookup: Lookup;
@@ -22,7 +25,7 @@ const casesAtOnce = 8;
 
 const encodeView = Schema.encodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
 
-const bodyOf = (messages: readonly Message[]): string => Option.getOrElse(encodeView(messages), () => "");
+const bodyOf = (messages: Messages): string => Option.getOrElse(encodeView(messages), () => "");
 
 const bookOf = (): Book => {
 	const verdicts = new Map<string, Standing>();
@@ -43,9 +46,14 @@ const isFailure = Verdicts.$match({
 });
 
 const inOrder: Keep<never> = (parts) =>
-	Effect.succeed(new Map(Array.map(parts, ({ key }, index) => [key, handleAt(index + 1)] as const)));
+	pipe(
+		parts,
+		Array.map(({ key }, index) => [key, handleAt(index + firstSequence)] as const),
+		(pairs) => new Map(pairs),
+		Effect.succeed,
+	);
 
-const guardedBody = Effect.fnUntraced(function* guardedBody(messages: readonly Message[], lookup: Lookup) {
+const guardedBody = Effect.fnUntraced(function* guardedBody(messages: Messages, lookup: Lookup) {
 	const guarded = yield* guard({ harness: "claude", keep: inOrder, lookup, messages }).pipe(
 		Effect.catchTag("ToolsNotCleared", () => Effect.succeed([])),
 	);
@@ -53,7 +61,7 @@ const guardedBody = Effect.fnUntraced(function* guardedBody(messages: readonly M
 	return bodyOf(guarded);
 });
 
-const sentOf = Effect.fn("sentOf")(function* sentOf(messages: readonly Message[], book: Book) {
+const sentOf = Effect.fn("sentOf")(function* sentOf(messages: Messages, book: Book) {
 	const decision = yield* decide({ lookup: book.lookup, messages });
 
 	book.record(

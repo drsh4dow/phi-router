@@ -1,15 +1,18 @@
 import { Array, Effect, Equal, String as Str, pipe } from "effect";
 import { Judge, JudgeFailed } from "#router/client/judge/index.ts";
+import type { Keep, ToolsNotCleared } from "#router/features/border/index.ts";
 import type { Lookup, Standing } from "#router/features/verdicts/index.ts";
 import { assert, it } from "@effect/vitest";
-import type { ToolsNotCleared } from "#router/features/border/index.ts";
-import type { Keep } from "#router/features/border/index.ts";
 import { guard, sealedStub } from "#router/features/border/index.ts";
-import { handleAt } from "#router/primitives/handle.ts";
 import { Digest } from "effect/crypto";
 import type { Message } from "#router/features/parts/index.ts";
 import { Verdicts } from "#router/features/verdicts/index.ts";
 import { decide } from "./index.ts";
+import { handleAt } from "#router/primitives/handle.ts";
+
+const firstSequence = 1;
+
+const h1 = handleAt(firstSequence);
 
 const patient = "Canary Fakesmith";
 
@@ -65,7 +68,18 @@ const reply = (writtenBy: "open-account" | "other", text: string): Message => ({
 });
 
 const firstHandle: Keep<never> = (parts) =>
-	Effect.succeed(new Map(Array.map(parts, ({ key }) => [key, handleAt(1)] as const)));
+	pipe(
+		parts,
+		Array.map(({ key }) => [key, h1] as const),
+		(pairs) => new Map(pairs),
+		Effect.succeed,
+	);
+
+const noStub = 0;
+
+const oneStub = 1;
+
+const twoStubs = 2;
 
 const opening = [system, asked("Why does the admissions import drop rows?")];
 
@@ -88,19 +102,21 @@ const sessionOf = (): Session => {
 		pipe(
 			decide({ lookup, messages }),
 			Effect.provideService(Judge, judge),
-			Effect.map(({ found }) => {
-				for (const [key, verdict] of found) {
-					const sealed = Verdicts.$is("Sealed")(verdict);
+			Effect.tap(({ found }) =>
+				Effect.sync(() => {
+					for (const [key, verdict] of found) {
+						const sealed = Verdicts.$is("Sealed")(verdict);
 
-					if (sealed) {
-						book.set(key, "sealed");
-					}
+						if (sealed) {
+							book.set(key, "sealed");
+						}
 
-					if (!sealed && book.get(key) !== "sealed") {
-						book.set(key, "cleared");
+						if (!sealed && book.get(key) !== "sealed") {
+							book.set(key, "cleared");
+						}
 					}
-				}
-			}),
+				}),
+			),
 			Effect.flatMap(() => guard({ harness: "claude", keep: firstHandle, lookup, messages })),
 			Effect.map((view) => Array.countBy(Array.zip(view, messages), ([seen, sent]) => !Equal.equals(seen, sent))),
 		);
@@ -123,8 +139,8 @@ const ssnResult = Effect.gen(function* ssnResult() {
 	const after = yield* session.send(next);
 	const view = yield* guard({ harness: "claude", keep: firstHandle, lookup: session.lookup, messages: next });
 
-	assert.deepStrictEqual([...lanes, after], [0, 1, 1]);
-	assert.deepStrictEqual(view, [...opening, ranCat, catOutput(sealedStub("claude")(handleAt(1))), ...done]);
+	assert.deepStrictEqual([...lanes, after], [noStub, oneStub, oneStub]);
+	assert.deepStrictEqual(view, [...opening, ranCat, catOutput(sealedStub("claude")(h1)), ...done]);
 });
 
 const repeated = Effect.gen(function* repeated() {
@@ -133,7 +149,7 @@ const repeated = Effect.gen(function* repeated() {
 	const after = yield* session.send(next);
 	const reread = yield* session.send([...next, ranCat, catOutput(ssnRecord)]);
 
-	assert.deepStrictEqual([retried, after, reread], [1, 1, 2]);
+	assert.deepStrictEqual([retried, after, reread], [oneStub, oneStub, twoStubs]);
 });
 
 const judged = Effect.gen(function* judged() {
@@ -141,11 +157,12 @@ const judged = Effect.gen(function* judged() {
 	const clean = yield* session.send([...opening, ranCat, catOutput("export const x = 1;")]);
 	const flagged = yield* session.send([...opening, ranCat, catOutput(syntheticChart)]);
 
-	assert.deepStrictEqual([clean, flagged], [0, 1]);
+	assert.deepStrictEqual([clean, flagged], [noStub, oneStub]);
 });
 
 const historySeals = Effect.gen(function* historySeals() {
 	const session = sessionOf();
+
 	const stubbed = yield* session.send([
 		system,
 		asked(syntheticChart),
@@ -153,7 +170,7 @@ const historySeals = Effect.gen(function* historySeals() {
 		asked("Now add a test."),
 	]);
 
-	assert.strictEqual(stubbed, 1);
+	assert.strictEqual(stubbed, oneStub);
 });
 
 const afterSeal = Effect.gen(function* afterSeal() {
@@ -162,7 +179,7 @@ const afterSeal = Effect.gen(function* afterSeal() {
 	const sealed = yield* session.send(read);
 	const after = yield* session.send([...read, reply("other", "Done."), asked("Now add a test.")]);
 
-	assert.deepStrictEqual([sealed, after], [1, 1]);
+	assert.deepStrictEqual([sealed, after], [oneStub, oneStub]);
 });
 
 const quoted = Effect.gen(function* quoted() {
@@ -175,12 +192,12 @@ const quoted = Effect.gen(function* quoted() {
 	const lanes = [yield* session.send(read), yield* session.send(asking), yield* session.send(later)];
 	const view = yield* guard({ harness: "codex", keep: firstHandle, lookup: session.lookup, messages: later });
 
-	assert.deepStrictEqual(lanes, [1, 2, 2]);
+	assert.deepStrictEqual(lanes, [oneStub, twoStubs, twoStubs]);
 	assert.deepStrictEqual(view, [
 		...opening,
 		ranCat,
-		catOutput(sealedStub("codex")(handleAt(1))),
-		reply("other", sealedStub("codex")(handleAt(1))),
+		catOutput(sealedStub("codex")(h1)),
+		reply("other", sealedStub("codex")(h1)),
 		fixIt,
 		...done,
 	]);
@@ -191,7 +208,7 @@ const judgeFails = Effect.gen(function* judgeFails() {
 	const failed = yield* session.send(opening, failing);
 	const next = yield* session.send([...opening, reply("other", "Sorry, try again."), asked("Thanks.")]);
 
-	assert.deepStrictEqual([failed, next], [2, 2]);
+	assert.deepStrictEqual([failed, next], [twoStubs, twoStubs]);
 });
 
 it.layer(Digest.layerWebCrypto)("decide", (test) => {

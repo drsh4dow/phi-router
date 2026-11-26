@@ -9,6 +9,16 @@ import { jsonText } from "./harnesses.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 import { sealedStub } from "#router/features/border/index.ts";
 
+const secondSequence = 2;
+
+const h2 = handleAt(secondSequence);
+
+const secondRequest = 1;
+
+const requestsPosted = 4;
+
+const permissionBits = 0o1000;
+
 const canaries = { first: "CANARY-PAT-4471", second: "CANARY-PAT-9050" } as const;
 
 const holdsCanary = Str.includes("CANARY-PAT");
@@ -38,8 +48,8 @@ const postAll = Effect.fnUntraced(function* postAll(
 
 const handlesIn = (body: string): readonly string[] =>
 	pipe(
-		Array.fromIterable(body.matchAll(/\[sealed (h\d+)\]/gu)),
-		Array.map((match) => match[1] ?? ""),
+		Array.fromIterable(Str.matchAll(/\[sealed (?<handle>h\d+)\]/gu)(body)),
+		Array.map(([, handle]) => handle ?? ""),
 	);
 
 const stableHandles = Effect.gen(function* stableHandles() {
@@ -51,7 +61,7 @@ const stableHandles = Effect.gen(function* stableHandles() {
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
 	const lines = yield* laneLines(state);
-	const stub = yield* jsonText(sealedStub("claude")(handleAt(2)));
+	const stub = yield* jsonText(sealedStub("claude")(h2));
 
 	assert.deepStrictEqual<unknown>(
 		{
@@ -70,7 +80,7 @@ const stableHandles = Effect.gen(function* stableHandles() {
 			),
 			stubbed: pipe(
 				opened,
-				Array.get(1),
+				Array.get(secondRequest),
 				Array.fromOption,
 				Array.some(({ body }) => Str.includes(stub)(body)),
 			),
@@ -79,7 +89,7 @@ const stableHandles = Effect.gen(function* stableHandles() {
 			baa: 0,
 			canaryOpened: false,
 			handles: [["h1"], ["h1", "h2"], ["h1", "h2", "h1"], ["h1"]],
-			reasons: Array.replicate(["clean", "clean"], 4),
+			reasons: Array.replicate(["clean", "clean"], requestsPosted),
 			stubbed: true,
 		},
 	);
@@ -97,12 +107,11 @@ const privateStore = Effect.gen(function* privateStore() {
 	const folderInfo = yield* fs.stat(folder);
 	const fileInfo = yield* fs.stat(file);
 	const text = yield* fs.readFileString(file);
-	const permissions = 0o777;
 
 	assert.deepStrictEqual(
 		{
-			file: fileInfo.mode % (permissions + 1),
-			folder: folderInfo.mode % (permissions + 1),
+			file: fileInfo.mode % permissionBits,
+			folder: folderInfo.mode % permissionBits,
 			holdsPart: Str.includes(canaries.first)(text),
 		},
 		{ file: 0o600, folder: 0o700, holdsPart: true },
@@ -126,6 +135,7 @@ const opensOnSealedLane = Effect.gen(function* opensOnSealedLane() {
 	const opened = yield* mocks.open.received;
 	const sealed = yield* mocks.baa.received;
 	const lines = yield* laneLines(state);
+
 	const toBaa = pipe(
 		sealed,
 		Array.map(({ body }) => body),
@@ -133,13 +143,25 @@ const opensOnSealedLane = Effect.gen(function* opensOnSealedLane() {
 
 	assert.deepStrictEqual(
 		{
-			baaOpened: Array.map(toBaa, (body) => [
-				Str.includes(`[content of h1]\\n${firstAsk.text}\\n[end of h1]`)(body),
-				Str.includes("phi-router: you are the pinned subagent.")(body),
-			]),
-			canaryOpened: Array.some(opened, ({ body }) => holdsCanary(body)),
-			handleKept: Array.some(opened, ({ body }) => Str.includes("What does h1 hold?")(body)),
-			reasons: Array.map(lines, ({ lane, reason }) => [lane, reason]),
+			baaOpened: pipe(
+				toBaa,
+				Array.map((body) => [
+					Str.includes(`[content of h1]\\n${firstAsk.text}\\n[end of h1]`)(body),
+					Str.includes("phi-router: you are the pinned subagent.")(body),
+				]),
+			),
+			canaryOpened: pipe(
+				opened,
+				Array.some(({ body }) => holdsCanary(body)),
+			),
+			handleKept: pipe(
+				opened,
+				Array.some(({ body }) => Str.includes("What does h1 hold?")(body)),
+			),
+			reasons: pipe(
+				lines,
+				Array.map(({ lane, reason }) => [lane, reason]),
+			),
 		},
 		{
 			baaOpened: [[true, true]],

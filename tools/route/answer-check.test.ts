@@ -1,5 +1,5 @@
-import { Array, Effect, Schema, String as Str, pipe } from "effect";
 import { AnswerCheckJson, AnswerCheckedJson, StatusJson } from "#shared/cli.ts";
+import { Array, Effect, Match, Schema, String as Str, pipe } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, routed } from "./mocked-router.ts";
@@ -20,29 +20,69 @@ const ruleAnswer = `The member's SSN is ${ssn}.`;
 
 const judgedAnswer = `The member is ${canary}.`;
 
+const firstAttempt = 1;
+
+const rewriteLimit = 5;
+
+const answersSent = 7;
+
+const unreadableStatus = 400;
+
+const kindReply = (holds: boolean, choice: string): Reply => ({
+	body: {
+		answers: [
+			{ name: "identifier", probability: Number(holds), type: "predicate" },
+			{ choice, confidence: 1, name: "kind", probabilities: [], type: "choice" },
+		],
+		usage: { input_tokens: 1 },
+	},
+	kind: "body",
+});
+
 const judgeNaming = (piece: string): Reply => {
 	const holds = Str.includes(canary)(piece);
 
-	return {
-		body: {
-			answers: [
-				{ name: "identifier", probability: Number(holds), type: "predicate" },
-				{ choice: holds ? "patient-name" : "none", confidence: 1, name: "kind", probabilities: [], type: "choice" },
-			],
-			usage: { input_tokens: 1 },
-		},
-		kind: "body",
-	};
+	if (holds) {
+		return kindReply(holds, "patient-name");
+	}
+
+	return kindReply(holds, "none");
 };
+
+type Checked = typeof AnswerCheckedJson.Type;
+
+const attemptOf = Match.type<Checked>().pipe(
+	Match.discriminator("outcome")("rewrite", ({ attempt }) => attempt),
+	Match.orElse(({ outcome }) => outcome),
+);
+
+const attemptAndLimitOf = Match.type<Checked>().pipe(
+	Match.discriminator("outcome")("rewrite", ({ attempt, limit }) => [attempt, limit]),
+	Match.orElse(({ outcome }) => outcome),
+);
+
+const messageOf = Match.type<Checked>().pipe(
+	Match.discriminator("outcome")("rewrite", ({ message }) => message),
+	Match.orElse(() => ""),
+);
+
+const notGivenUp = { handle: "", reply: "" };
+
+const gaveUpOf = Match.type<Checked>().pipe(
+	Match.discriminator("outcome")("gave-up", ({ handle, reply }) => ({ handle, reply })),
+	Match.orElse(() => notGivenUp),
+);
 
 const checker = Effect.gen(function* checker() {
 	const { client, mocks, post, state } = yield* routed({ holdsPhi: Str.includes(canary), judge: judgeNaming });
 
 	const checked = Effect.fnUntraced(function* checked(subagent: string, answer: string) {
 		const body = yield* Schema.encodeEffect(AnswerCheckJson)({ answer, session, subagent });
+
 		const response = yield* client.execute(
 			HttpClientRequest.post(sessionPaths.answerCheck).pipe(HttpClientRequest.bodyText(body, "application/json")),
 		);
+
 		const text = yield* response.text;
 
 		return yield* Schema.decodeEffect(AnswerCheckedJson)(text);
@@ -52,6 +92,7 @@ const checker = Effect.gen(function* checker() {
 		const response = yield* HttpClient.get(sessionPaths.status, { urlParams: { session } }).pipe(
 			Effect.provideService(HttpClient.HttpClient, client),
 		);
+
 		const text = yield* response.text;
 
 		return yield* Schema.decodeEffect(StatusJson)(text);
@@ -69,26 +110,24 @@ const outcomes = Effect.gen(function* outcomes() {
 	const folder = `${state}/files/`;
 
 	assert.deepStrictEqual(clean, { outcome: "cleared" });
-	assert.deepStrictEqual(
-		[rule, judged].map((each) => (each.outcome === "rewrite" ? [each.attempt, each.limit] : each.outcome)),
-		[
-			[1, 5],
-			[1, 5],
-		],
-	);
+	assert.deepStrictEqual(pipe([rule, judged], Array.map(attemptAndLimitOf)), [
+		[firstAttempt, rewriteLimit],
+		[firstAttempt, rewriteLimit],
+	]);
 
-	const messages = [rule, judged].map((each) => (each.outcome === "rewrite" ? each.message : ""));
+	const ruleMessage = messageOf(rule);
+	const judgedMessage = messageOf(judged);
 
-	for (const message of messages) {
+	for (const message of [ruleMessage, judgedMessage]) {
 		assert.include(message, "This is rewrite attempt 1 of 5");
 		assert.include(message, "internal id");
 		assert.include(message, "give counts");
 		assert.include(message, folder);
 	}
 
-	assert.include(messages[0], `it holds a Social Security number (ssn): "${ssn}"`);
+	assert.include(ruleMessage, `it holds a Social Security number (ssn): "${ssn}"`);
 	assert.include(
-		messages[1],
+		judgedMessage,
 		"phi-router's judge scored it 1.00 for holding a direct identifier of a patient or member, most likely a real patient's or member's name (patient-name)",
 	);
 	assert.deepStrictEqual(counts.pinned, { gaveUp: 0, rewrites: 2, runs: 3 });
@@ -96,34 +135,33 @@ const outcomes = Effect.gen(function* outcomes() {
 
 const gaveUp = Effect.gen(function* gaveUp() {
 	const { checked, mocks, post, status } = yield* checker;
+
 	const answers = yield* Effect.forEach(
-		Array.makeBy(7, () => ruleAnswer),
+		Array.makeBy(answersSent, () => ruleAnswer),
 		(answer) => checked("agent-d", answer),
 		{
 			concurrency: 1,
 		},
 	);
+
 	const cleared = yield* checked("agent-d", cleanAnswer);
 	const again = yield* checked("agent-d", ruleAnswer);
 	const counts = yield* status;
 
-	assert.deepStrictEqual(
-		answers.map((each) => (each.outcome === "rewrite" ? each.attempt : each.outcome)),
-		[1, 2, 3, 4, 5, "gave-up", "gave-up"],
-	);
+	assert.deepStrictEqual(pipe(answers, Array.map(attemptOf)), [
+		...Array.range(firstAttempt, rewriteLimit),
+		"gave-up",
+		"gave-up",
+	]);
 
-	const [sixth, seventh] = pipe(answers, Array.drop(5));
-	const handles = [sixth, seventh].map((each) => (each?.outcome === "gave-up" ? each.handle : ""));
+	const [sixth = notGivenUp, seventh = notGivenUp] = pipe(answers, Array.drop(rewriteLimit), Array.map(gaveUpOf));
 
-	assert.deepStrictEqual(handles, ["h1", "h2"]);
+	assert.deepStrictEqual([sixth.handle, seventh.handle], ["h1", "h2"]);
 	assert.strictEqual(
-		sixth?.outcome === "gave-up" ? sixth.reply : "",
+		sixth.reply,
 		"[sealed h1] The pinned subagent's answer still held patient identifiers after 5 rewrites, so phi-router could not clear it and withheld it. h1 is its handle.",
 	);
-	assert.deepStrictEqual(
-		[cleared, again.outcome === "rewrite" ? again.attempt : again.outcome],
-		[{ outcome: "cleared" }, 1],
-	);
+	assert.deepStrictEqual([cleared, attemptOf(again)], [{ outcome: "cleared" }, firstAttempt]);
 	assert.deepStrictEqual(counts.pinned, { gaveUp: 2, rewrites: 6, runs: 1 });
 
 	const pinned = yield* bodyOf([{ role: "user", text: "Summarize h1 by internal ids." }]);
@@ -133,18 +171,24 @@ const gaveUp = Effect.gen(function* gaveUp() {
 
 	const sealed = yield* mocks.baa.received;
 
-	assert.isTrue(Array.some(sealed, ({ body }) => Str.includes(`[content of h1]\\n${ruleAnswer}\\n[end of h1]`)(body)));
+	const opened = pipe(
+		sealed,
+		Array.some(({ body }) => Str.includes(`[content of h1]\\n${ruleAnswer}\\n[end of h1]`)(body)),
+	);
+
+	assert.isTrue(opened);
 });
 
 const unreadable = Effect.gen(function* unreadable() {
 	const { client } = yield* checker;
+
 	const response = yield* client.execute(
 		HttpClientRequest.post(sessionPaths.answerCheck).pipe(
 			HttpClientRequest.bodyText('{"answer":"x"}', "application/json"),
 		),
 	);
 
-	assert.strictEqual(response.status, 400);
+	assert.strictEqual(response.status, unreadableStatus);
 });
 
 it.layer(NodeServices.layer)("the answer check", (test) => {

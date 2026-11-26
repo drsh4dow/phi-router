@@ -6,9 +6,9 @@ import { outputOf } from "./render.ts";
 const report: Report = {
 	fragments: { cases: 0, shown: 0 },
 	judge: { calls: 0, cost: 0, failures: 0, inputTokens: 0, ms: 0 },
-	requests: { clean: 0, sealing: 0 },
 	leaks: [],
 	overRouting: [],
+	requests: { clean: 0, sealing: 0 },
 	splits: [],
 	strata: [
 		{ axis: "transform", cases: 42, leakRateUpper95: 0.0688, leaks: 0, value: "base64" },
