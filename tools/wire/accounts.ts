@@ -2,6 +2,7 @@ import { Array, Config, Console, Effect, Option, Path, Schema } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { checksOf, reportOf } from "./account-checks.ts";
 import { FetchHttpClient } from "effect/http";
+import { SessionRequests } from "#router/client/router-port/index.ts";
 import { mockedAccounts } from "./account-mocks.ts";
 import { sessionOn } from "./account-session.ts";
 
@@ -47,4 +48,6 @@ const program = Effect.gen(function* program() {
 	);
 });
 
-NodeRuntime.runMain(program.pipe(Effect.scoped, Effect.provide([NodeServices.layer, FetchHttpClient.layer])));
+NodeRuntime.runMain(
+	program.pipe(Effect.scoped, Effect.provide([NodeServices.layer, FetchHttpClient.layer, SessionRequests.layer])),
+);
