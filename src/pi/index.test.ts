@@ -32,6 +32,22 @@ it.effect("gives a request of the provider phi its session and pi's Anthropic lo
 	}),
 );
 
+it.effect(
+	"gives a delegate's request of the provider phi the session of its root agent, which PHI_ROUTER_SESSION names",
+	() =>
+		Effect.gen(function* delegateRequest() {
+			const marked = provider({ models: {}, port: productPort }).headers ?? {};
+
+			const headers = yield* Effect.provideService(
+				added(marked),
+				ConfigProvider.ConfigProvider,
+				ConfigProvider.fromUnknown({ PHI_ROUTER_SESSION: "root-session-1" }),
+			);
+
+			assert.deepStrictEqual(headers, { authorization: `Bearer ${login}`, "x-phi-session": "root-session-1" });
+		}),
+);
+
 it.effect("adds nothing to a request of another provider, so it goes out as pi built it", () =>
 	Effect.gen(function* otherRequest() {
 		const headers = yield* added({ authorization: "Bearer other-provider-key", "x-other": "kept" });
@@ -103,6 +119,7 @@ const routed = { anthropic: { auto: "claude-auto", sealed: "claude-baa" } };
 
 const routerOf = (printed: { readonly models?: typeof ModelsJson.Type }): Router["Service"] =>
 	Router.of({
+		answerCheck: () => Effect.die("the extension's start checks no answer"),
 		models: Effect.mapError(Effect.fromNullishOr(printed.models), () =>
 			CommandFailed.make({ cause: "refused", command: "models" }),
 		),
@@ -165,26 +182,33 @@ it.effect("keeps the router's address off any proxy pi's process names, beside t
 	Effect.gen(function* proxies() {
 		yield* Effect.provideService(registeredOn({ NO_PROXY: "localhost" }), Router, refuses);
 
-		const bypassed = yield* Config.all({ lower: Config.String("no_proxy"), upper: Config.String("NO_PROXY") });
+		const bypassed = yield* Effect.provideService(
+			Config.all({ lower: Config.String("no_proxy"), upper: Config.String("NO_PROXY") }),
+			ConfigProvider.ConfigProvider,
+			ConfigProvider.fromEnv(),
+		);
 
 		assert.deepStrictEqual(bypassed, { lower: "127.0.0.1", upper: "localhost,127.0.0.1" });
 	}),
 );
 
-it.effect("adds /phi and hooks each session's start, prompts, compactions, turns, model switches and headers", () =>
-	Effect.gen(function* hookedOnPi() {
-		const { hooks } = yield* Effect.provideService(registeredOn({}), Router, refuses);
+it.effect(
+	"adds /phi and hooks each session's start, prompts, compactions, settling, turns, model switches and headers",
+	() =>
+		Effect.gen(function* hookedOnPi() {
+			const { hooks } = yield* Effect.provideService(registeredOn({}), Router, refuses);
 
-		assert.deepStrictEqual(hooks, [
-			"on session_start",
-			"on session_start",
-			"on input",
-			"on session_before_compact",
-			"on turn_end",
-			"on model_select",
-			"on before_provider_headers",
-			"on before_provider_headers",
-			"command phi",
-		]);
-	}),
+			assert.deepStrictEqual(hooks, [
+				"on session_start",
+				"on session_start",
+				"on input",
+				"on session_before_compact",
+				"on agent_before_settle",
+				"on turn_end",
+				"on model_select",
+				"on before_provider_headers",
+				"on before_provider_headers",
+				"command phi",
+			]);
+		}),
 );
