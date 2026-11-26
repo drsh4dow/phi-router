@@ -37,3 +37,5 @@ const withCredentialRule = Effect.fnUntraced(function* withCredentialRule(
 });
 
 export { during, followUp, withCredentialRule };
+
+export type { Received };

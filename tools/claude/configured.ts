@@ -22,6 +22,7 @@ const SettingsJson = Schema.fromJsonString(Schema.Json);
 const entry = new URL("../../src/router/main.ts", import.meta.url).pathname;
 
 interface ClaudeSettings {
+	readonly disableDeepLinkRegistration?: "disable";
 	readonly enabledPlugins?: Readonly<Record<string, boolean>>;
 	readonly env?: Readonly<Record<string, string>>;
 	readonly model?: string;

@@ -11,7 +11,7 @@ import {
 	tasksFor,
 } from "./answer-checks.ts";
 import { checksOf, leftOf } from "./checks.ts";
-import { claudeTurn, place } from "./claude-turn.ts";
+import { claudeEnvOf, claudeTurn, claudeWindows, place, windowChecksOf } from "./claude-turn.ts";
 import { during, followUp, withCredentialRule } from "./during.ts";
 import { fakes, mocked } from "#tools/route/mocked-router.ts";
 import {
@@ -29,6 +29,8 @@ import {
 import { overflowing, stampClockIn, storedIn } from "./stored.ts";
 import { uncheckedChecksOf, uncheckedPlugins } from "./unchecked.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
+
+const session = "17171717-1717-4717-8717-171717171717";
 
 const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const fs = yield* FileSystem.FileSystem;
@@ -66,13 +68,16 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 			);
 		});
 
-		return { stop: router.kill, turn, url: router.url };
+		const harnessEnv = yield* claudeEnvOf({ folders, place: where, router: router.url });
+
+		const windows = (clean: string): ReturnType<typeof claudeWindows> =>
+			claudeWindows({ clean, env: harnessEnv, place: where, received: () => received, session });
+
+		return { stop: router.kill, turn, url: router.url, windows };
 	});
 
 	return { breaches, roots, routed, state, tasks };
 });
-
-const session = "17171717-1717-4717-8717-171717171717";
 
 const events = ["--output-format", "stream-json", "--verbose"];
 
@@ -151,6 +156,9 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	const beforeOverflow = [clean, canary, followed, tool, ...untilCompaction, reopened, ...rewritten] as const;
 
 	const all = [...beforeOverflow, ...overflow] as const;
+	const windows = yield* restarted.windows(run.clean.text);
+	const turned = [...all, windows.beside, windows.phi, windows.after, windows.otherModel, windows.alone] as const;
+
 	yield* restarted.stop;
 
 	const stored = yield* storedIn(state, roots);
@@ -161,7 +169,7 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 		run,
 		sessions: [session],
 		stored,
-		turns: all,
+		turns: turned,
 	});
 
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
@@ -234,11 +242,20 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	return {
 		checks: yield* withCredentialRule(
-			[...checksOf(left), ...handles, ...phiChecks, sealed, ...handing, ...rewrites, ...overflowChecks],
+			[
+				...checksOf(left),
+				...handles,
+				...phiChecks,
+				sealed,
+				...handing,
+				...rewrites,
+				...overflowChecks,
+				...windowChecksOf({ session, windows }),
+			],
 			() => breaches,
 		),
 		stored,
-		turns: all,
+		turns: turned,
 	} satisfies Outcome;
 });
 
