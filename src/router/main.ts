@@ -1,11 +1,9 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, Layer, Runtime, Schema } from "effect";
-import { LeaseRequests, Listener, loopback } from "#router/client/router-port/index.ts";
+import { Listener, loopback } from "#router/client/router-port/index.ts";
 import { NodeHttpServer, NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Platform, cli, noBaaKeyExit, rewriteExit } from "#router/features/cli/index.ts";
-import { LeaseRegistry } from "#router/client/leases.ts";
-import { Processes } from "#router/client/processes.ts";
-import { VerdictStore } from "#router/client/verdict-store.ts";
+import { clients } from "#router/client/clients.ts";
 import { createServer } from "node:http";
 
 const listener = Layer.succeed(
@@ -20,7 +18,7 @@ const bun = Layer.merge(BunServices.layer, platform("bun"));
 
 const node = Layer.merge(NodeServices.layer, platform("node"));
 
-const clients = Layer.mergeAll(VerdictStore.layer, LeaseRegistry.layer, LeaseRequests.layer, Processes.layer, listener);
+const clientsWithListener = Layer.merge(clients, listener);
 
 class Told extends Schema.TaggedError<Told, { readonly brand: unique symbol }>()("Told", { code: Schema.Int }) {
 	public override readonly [Runtime.errorReported] = false;
@@ -42,7 +40,7 @@ const program = Effect.catchTags(cli, {
 });
 
 if ("Bun" in globalThis) {
-	BunRuntime.runMain(Effect.provide(program, Layer.provideMerge(clients, bun)));
+	BunRuntime.runMain(Effect.provide(program, Layer.provideMerge(clientsWithListener, bun)));
 } else {
-	NodeRuntime.runMain(Effect.provide(program, Layer.provideMerge(clients, node)));
+	NodeRuntime.runMain(Effect.provide(program, Layer.provideMerge(clientsWithListener, node)));
 }

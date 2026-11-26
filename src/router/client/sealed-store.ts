@@ -26,6 +26,7 @@ const none = 0;
 const SealedPart = Schema.Struct({ images: Count, key: Schema.String, text: Schema.String });
 
 const PinnedRun = Schema.Struct({
+	cleared: Schema.optionalKey(Schema.String),
 	gaveUp: Count,
 	inARow: Count,
 	rewrites: Count,
@@ -91,7 +92,15 @@ type ReplyOf = (handle: typeof Handle.Type) => string;
 const summaryOf = (stored: StoredFile, replyOf: ReplyOf): typeof Pinned.Type => {
 	const runs = Record.values(stored.answers);
 
+	const entries = Record.toEntries(stored.answers);
+
 	return {
+		cleared: pipe(
+			entries,
+			Array.flatMap(([subagent, { cleared }]) =>
+				Option.match(Option.fromUndefinedOr(cleared), { onNone: () => [], onSome: (key) => [{ key, subagent }] }),
+			),
+		),
 		gaveUp: pipe(
 			runs,
 			Array.map(({ gaveUp }) => gaveUp),
@@ -104,7 +113,7 @@ const summaryOf = (stored: StoredFile, replyOf: ReplyOf): typeof Pinned.Type => 
 		),
 		runs: runs.length,
 		withheld: pipe(
-			Record.toEntries(stored.answers),
+			entries,
 			Array.flatMap(([subagent, { withheld }]) =>
 				Option.match(Option.flatMap(Option.fromUndefinedOr(withheld), Schema.decodeOption(Handle)), {
 					onNone: () => [],

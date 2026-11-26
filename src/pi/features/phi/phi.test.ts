@@ -55,7 +55,7 @@ const routerOf = Effect.fnUntraced(function* routerOf(down: boolean, substitute?
 	const asked = yield* Ref.make<readonly string[]>([]);
 	const sealed = yield* Ref.make(none);
 	const pool = yield* Ref.make<Pool>({ overflowed: none });
-	const pinned = yield* Ref.make<Pinned>({ gaveUp: none, rewrites: none, runs: none, withheld: [] });
+	const pinned = yield* Ref.make<Pinned>({ cleared: [], gaveUp: none, rewrites: none, runs: none, withheld: [] });
 
 	const ask = (command: string, port: number): Effect.Effect<void, CommandFailed> => {
 		const failed = Effect.fail(
@@ -385,7 +385,7 @@ it.effect("/phi counts the pinned subagent's runs, rewrites and withheld answers
 		const router = yield* routerOf(false);
 		const { ctx, shown } = contextOf(true);
 
-		yield* Ref.set(router.pinned, { gaveUp: one, rewrites: 6, runs: 2, withheld: [] });
+		yield* Ref.set(router.pinned, { cleared: [], gaveUp: one, rewrites: 6, runs: 2, withheld: [] });
 		yield* Effect.provideService(answered(routerPort)("", ctx), Router, router.service).pipe(
 			Effect.provideService(DateTime.CurrentTimeZone, utc),
 		);
@@ -410,7 +410,7 @@ it.effect("a turn after the pinned subagent's answer was withheld shows a notice
 		yield* Effect.provideService(atStart(ctx), Router, router.service).pipe(
 			Effect.provideService(DateTime.CurrentTimeZone, utc),
 		);
-		yield* Ref.set(router.pinned, { gaveUp: one, rewrites: 5, runs: one, withheld: [] });
+		yield* Ref.set(router.pinned, { cleared: [], gaveUp: one, rewrites: 5, runs: one, withheld: [] });
 		yield* Effect.provideService(Effect.andThen(turn, turn), Router, router.service).pipe(
 			Effect.provideService(DateTime.CurrentTimeZone, utc),
 		);

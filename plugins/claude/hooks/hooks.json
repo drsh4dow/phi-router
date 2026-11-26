@@ -27,6 +27,12 @@
 						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" prompt-submit --address \"$ANTHROPIC_BASE_URL\"",
 						"timeout": 10,
 						"onFailure": "block"
+					},
+					{
+						"type": "command",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" answer-check --address \"$ANTHROPIC_BASE_URL\"",
+						"timeout": 10,
+						"onFailure": "block"
 					}
 				]
 			}

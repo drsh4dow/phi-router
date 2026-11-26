@@ -4,7 +4,10 @@ import { Findings, Verdicts, verdictOfPiece } from "#router/features/verdicts/in
 import type { IdentifierKind, RuleId } from "#router/features/policy/index.ts";
 import type { PinnedRun, SealedStore } from "#router/client/sealed-store.ts";
 import { Rules, Seam, identifierKinds, rewriteLimit, wayOut } from "#router/features/policy/index.ts";
+import type { ContentKey } from "#router/primitives/content-key.ts";
+import type { Digest } from "effect/crypto";
 import type { Handle } from "#router/primitives/handle.ts";
+import { contentKey } from "#router/primitives/content-key.ts";
 import { stubTag } from "#router/primitives/handle.ts";
 
 type Asked = typeof AnswerCheck.Type;
@@ -19,7 +22,12 @@ const scoreDigits = 2;
 
 const textImages = 0;
 
-const cleared = (run: PinnedRun): PinnedRun => ({ gaveUp: run.gaveUp, inARow: none, rewrites: run.rewrites });
+const answerKey = (answer: string): Effect.Effect<typeof ContentKey.Type, never, Digest.Digest> =>
+	contentKey([Str.trim(answer)]);
+
+const cleared =
+	(key: string) =>
+	(run: PinnedRun): PinnedRun => ({ cleared: key, gaveUp: run.gaveUp, inARow: none, rewrites: run.rewrites });
 
 const sealedAgain = (run: PinnedRun): PinnedRun => {
 	const inARow = Math.min(run.inARow + oneMore, rewriteLimit + oneMore);
@@ -76,7 +84,9 @@ const checkAnswer = Effect.fn("checkAnswer")(function* checkAnswer(asked: Asked,
 	});
 
 	if (Verdicts.$is("Cleared")(verdict)) {
-		yield* store.answered(asked.session, asked.subagent, cleared);
+		const key = yield* answerKey(asked.answer);
+
+		yield* store.answered(asked.session, asked.subagent, cleared(key));
 
 		return { outcome: "cleared" } satisfies Checked;
 	}
@@ -120,4 +130,4 @@ const checkAnswer = Effect.fn("checkAnswer")(function* checkAnswer(asked: Asked,
 	return { handle, outcome: "gave-up", reply: withheldReply(handle) } satisfies Checked;
 });
 
-export { checkAnswer, withheldReply };
+export { answerKey, checkAnswer, withheldReply };

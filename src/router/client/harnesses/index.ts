@@ -13,6 +13,8 @@ export {
 	userSettings,
 } from "./claude-code.ts";
 
+export { ClaudeSubagents } from "./claude-subagents.ts";
+
 export { codexHome, codexPlugin, codexTurn, firstLine, removedIfPresent, rewritten, textOrEmpty } from "./codex.ts";
 
 export { installedPackage, piTurn, storedKey } from "./pi.ts";

@@ -1,6 +1,8 @@
-import type { AnswerCheck, AnswerChecked } from "#shared/cli.ts";
-import { Array, Console, Effect, Match, Option, Schema, Struct, pipe } from "effect";
+import type { AnswerCheck, AnswerChecked, Pinned } from "#shared/cli.ts";
+import { Array, Console, Effect, Match, Option, Schema, String as Str, Struct, pipe } from "effect";
+import { ClaudeSubagents } from "#router/client/harnesses/index.ts";
 import { SessionRequests } from "#router/client/router-port/index.ts";
+import { answerKey } from "#router/features/answer-check/index.ts";
 import { claudePinnedAgent } from "#router/features/border/index.ts";
 import { failedAs } from "#router/features/cli/sessions/index.ts";
 import { portOf } from "./session-start.ts";
@@ -32,15 +34,33 @@ const HandedBack = Schema.Struct({
 	tool_name: Schema.Literal("SubagentHandback"),
 });
 
+const TextBlock = Schema.Struct({ text: Schema.optionalKey(Schema.String) });
+
+const AgentResult = Schema.Struct({
+	agentId: Schema.String,
+	content: Schema.optionalKey(Schema.Array(TextBlock)),
+	harnessNoteCount: Schema.optionalKey(Schema.Int),
+	harnessTailCount: Schema.optionalKey(Schema.Int),
+});
+
+const noNotes = 0;
+
 const Delivered = Schema.Struct({
 	hook_event_name: Schema.Literal("PostToolUse"),
 	session_id: Schema.NonEmptyString,
 	tool_input: Schema.Struct({ subagent_type: Schema.optionalKey(Schema.String) }),
 	tool_name: Schema.Literal("Agent"),
-	tool_response: Schema.StructWithRest(Schema.Struct({ agentId: Schema.String }), [Fields]),
+	tool_response: Schema.StructWithRest(AgentResult, [Fields]),
 });
 
-const HookInput = Schema.fromJsonString(Schema.Union([AnswerGiven, HandedBack, Delivered]));
+const Notified = Schema.Struct({
+	hook_event_name: Schema.Literal("UserPromptSubmit"),
+	prompt: Schema.String,
+	session_id: Schema.NonEmptyString,
+	transcript_path: Schema.String,
+});
+
+const HookInput = Schema.fromJsonString(Schema.Union([AnswerGiven, HandedBack, Delivered, Notified]));
 
 const handback = Schema.Literal("PreToolUse");
 
@@ -61,6 +81,15 @@ const HandbackDecision = Schema.fromJsonString(Schema.Struct({ hookSpecificOutpu
 const ResultReplaced = Schema.Struct({ hookEventName: Schema.Literal("PostToolUse"), updatedToolOutput: Fields });
 
 const ReplacedResult = Schema.fromJsonString(Schema.Struct({ hookSpecificOutput: ResultReplaced }));
+
+const PromptSuppressed = Schema.Struct({
+	hookEventName: Schema.Literal("UserPromptSubmit"),
+	suppressOriginalPrompt: Schema.Literal(true),
+});
+
+const NotificationBlocked = Schema.fromJsonString(
+	Schema.Struct({ decision: Schema.Literal("block"), hookSpecificOutput: PromptSuppressed, reason: Schema.String }),
+);
 
 type Printed = Option.Option<string>;
 
@@ -132,34 +161,139 @@ const handedBackOf = Effect.fnUntraced(function* handedBackOf(port: number, hand
 	return yield* Effect.transposeOption(decided);
 });
 
+const uncheckedReply = (why: string): string =>
+	`phi-router could not check the pinned subagent's answer, so it withheld it: ${why}`;
+
+const neverCleared = "phi-router has no record that it cleared this answer.";
+
+interface Delivery {
+	readonly answer: string;
+	readonly session: string;
+	readonly subagent: string;
+}
+
+const withheldFrom =
+	(delivery: Delivery, key: string) =>
+	(pinned: typeof Pinned.Type): Option.Option<string> => {
+		const withheld = pipe(
+			pinned.withheld,
+			Array.findFirst(({ subagent }) => subagent === delivery.subagent),
+		);
+
+		if (Option.isSome(withheld)) {
+			return Option.some(withheld.value.reply);
+		}
+
+		const cleared = pipe(
+			pinned.cleared,
+			Array.some((each) => each.subagent === delivery.subagent && each.key === key),
+		);
+
+		if (cleared) {
+			return Option.none();
+		}
+
+		return Option.some(uncheckedReply(neverCleared));
+	};
+
+const heldBack = Effect.fnUntraced(function* heldBack(port: number, delivery: Delivery) {
+	const requests = yield* SessionRequests;
+	const key = yield* answerKey(delivery.answer);
+
+	return yield* requests.status(port, delivery.session).pipe(
+		Effect.map(({ pinned }) =>
+			Option.match(Option.fromUndefinedOr(pinned), {
+				onNone: () => Option.some(uncheckedReply(neverCleared)),
+				onSome: withheldFrom(delivery, key),
+			}),
+		),
+		Effect.catch((error) => Effect.succeedSome(uncheckedReply(failedAs({ command: "status", port })(error).message))),
+	);
+});
+
 const deliveredOf = Effect.fnUntraced(function* deliveredOf(port: number, delivered: typeof Delivered.Type) {
-	if (delivered.tool_input.subagent_type !== claudePinnedAgent) {
+	const content = Option.fromUndefinedOr(delivered.tool_response.content);
+
+	if (delivered.tool_input.subagent_type !== claudePinnedAgent || Option.isNone(content)) {
 		return printedNothing;
 	}
 
-	const requests = yield* SessionRequests;
+	const { harnessNoteCount = noNotes, harnessTailCount = noNotes } = delivered.tool_response;
 
-	const status = yield* Effect.mapError(
-		requests.status(port, delivered.session_id),
-		failedAs({ command: "status", port }),
+	const answer = pipe(
+		content.value,
+		Array.drop(harnessNoteCount),
+		Array.dropRight(harnessTailCount),
+		Array.flatMap(({ text }) => Option.toArray(Option.fromUndefinedOr(text))),
+		Array.join("\n"),
 	);
 
+	const held = yield* heldBack(port, {
+		answer,
+		session: delivered.session_id,
+		subagent: delivered.tool_response.agentId,
+	});
+
 	const replaced = pipe(
-		Option.fromUndefinedOr(status.pinned),
-		Option.flatMap(({ withheld }) =>
-			Array.findFirst(withheld, ({ subagent }) => subagent === delivered.tool_response.agentId),
-		),
-		Option.map(({ reply }) =>
+		held,
+		Option.map((reply) =>
 			Schema.encodeEffect(ReplacedResult)({
 				hookSpecificOutput: {
 					hookEventName: "PostToolUse",
-					updatedToolOutput: Struct.assign(delivered.tool_response, { content: [{ text: reply, type: "text" }] }),
+					updatedToolOutput: Struct.assign(delivered.tool_response, {
+						content: [{ text: reply, type: "text" }],
+						harnessNoteCount: noNotes,
+						harnessTailCount: noNotes,
+					}),
 				},
 			}),
 		),
 	);
 
 	return yield* Effect.transposeOption(replaced);
+});
+
+const notification =
+	/^<task-notification>\n<task-id>(?<subagent>[^<]+)<\/task-id>[\s\S]*<result>(?<result>[\s\S]*)<\/result>/u;
+
+const unescaped = (text: string): string =>
+	pipe(text, Str.replaceAll("&lt;", "<"), Str.replaceAll("&gt;", ">"), Str.replaceAll("&amp;", "&"));
+
+const notifiedOf = Effect.fnUntraced(function* notifiedOf(port: number, notified: typeof Notified.Type) {
+	const reported = pipe(
+		Str.match(notification)(notified.prompt),
+		Option.flatMapNullishOr(({ groups }) => groups),
+		Option.flatMap(({ result, subagent }) =>
+			Option.all({ result: Option.fromNullishOr(result), subagent: Option.fromNullishOr(subagent) }),
+		),
+	);
+
+	if (Option.isNone(reported)) {
+		return printedNothing;
+	}
+
+	const { result, subagent } = reported.value;
+	const subagents = yield* ClaudeSubagents;
+	const type = yield* subagents.typeOf({ subagent, transcript: notified.transcript_path });
+
+	if (!Option.contains(type, claudePinnedAgent)) {
+		return printedNothing;
+	}
+
+	const held = yield* heldBack(port, { answer: unescaped(result), session: notified.session_id, subagent });
+
+	const blocked = pipe(
+		held,
+		Option.map((reason) =>
+			Schema.encodeEffect(NotificationBlocked)({
+				decision: "block",
+				hookSpecificOutput: { hookEventName: "UserPromptSubmit", suppressOriginalPrompt: true },
+				reason,
+			}),
+		),
+	);
+
+	return yield* Effect.transposeOption(blocked);
 });
 
 const answered = Effect.fnUntraced(function* answered(port: number, text: string) {
@@ -170,6 +304,7 @@ const answered = Effect.fnUntraced(function* answered(port: number, text: string
 			PostToolUse: (delivered) => deliveredOf(port, delivered),
 			PreToolUse: (handedBack) => handedBackOf(port, handedBack),
 			SubagentStop: (given) => stopped(port, given),
+			UserPromptSubmit: (notified) => notifiedOf(port, notified),
 		}),
 	);
 });

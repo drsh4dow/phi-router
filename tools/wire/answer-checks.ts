@@ -50,8 +50,11 @@ const filesFolder = /(?<=new file in )\/\S+(?= with mode 0600)/u;
 
 const listedPath = /\/\S+\/phi-router\/files\/[\w-]+\/member\.txt/u;
 
+type Launch = "pinned" | "pinned in the background" | "general in the background";
+
 interface Task {
 	readonly id: string;
+	readonly launch: Launch;
 	readonly asks: string;
 	readonly task: string;
 	readonly answers: (asked: Asked) => Said;
@@ -64,7 +67,22 @@ interface Tasks {
 	readonly withheld: Task;
 	readonly toolFirst: Task;
 	readonly listed: Task;
+	readonly noRouter: Task;
+	readonly failing: Task;
+	readonly unreadable: Task;
+	readonly inBackground: Task;
+	readonly failingInBackground: Task;
+	readonly otherInBackground: Task;
 }
+
+const planAnswers = {
+	failing: "The member's plan id is p-22.",
+	failingInBackground: "The member's plan id is p-25.",
+	inBackground: "The member's plan id is p-24.",
+	noRouter: "The member's plan id is p-21.",
+	otherInBackground: "The plan rules fit on one page.",
+	unreadable: "The member's plan id is p-23.",
+} as const;
 
 const untilRewritten =
 	(first: string, later: string) =>
@@ -77,12 +95,12 @@ const untilRewritten =
 	};
 
 const readsFirst =
-	(file: string) =>
+	(file: string, answer: string) =>
 	({ body }: Asked): Said => {
 		const read = { id: "toolu_wire_sub_read", input: `{"file_path":"${file}"}`, name: "Read" };
 
 		if (Str.includes(resultOf(read.id))(body)) {
-			return said([cleanAnswer]);
+			return said([answer]);
 		}
 
 		return calling(read);
@@ -107,40 +125,88 @@ const writesList = ({ body }: Asked): Said => {
 };
 
 const tasksFor = (file: string): Tasks => ({
+	failing: {
+		answers: () => said([planAnswers.failing]),
+		asks: "Hand the plan lookup to the pinned subagent while its answer check answers 500.",
+		id: "toolu_wire_agent_failing",
+		launch: "pinned",
+		task: "Find the member's plan id while the check fails.",
+	},
+	failingInBackground: {
+		answers: () => said([planAnswers.failingInBackground]),
+		asks: "Start the pinned subagent on the plan lookup in the background while its answer check answers 500.",
+		id: "toolu_wire_agent_failing_background",
+		launch: "pinned in the background",
+		task: "Find the member's plan id behind the root agent while the check fails.",
+	},
+	inBackground: {
+		answers: readsFirst(file, planAnswers.inBackground),
+		asks: "Start the pinned subagent on the plan lookup in the background.",
+		id: "toolu_wire_agent_background",
+		launch: "pinned in the background",
+		task: "Find the member's plan id behind the root agent.",
+	},
 	judged: {
 		answers: untilRewritten(`The caller was ${judgedName}.`, "The caller was the member, p-17."),
 		asks: "Ask the pinned subagent who called about the member.",
 		id: "toolu_wire_agent_judged",
+		launch: "pinned",
 		task: "Say who called about the member.",
 	},
 	listed: {
 		answers: writesList,
 		asks: "Have the pinned subagent put the member's SSN in a file for the claims team.",
 		id: "toolu_wire_agent_listed",
+		launch: "pinned",
 		task: "Write the member's SSN to a file for the user.",
 	},
 	lookUp: {
 		answers: untilRewritten(subagent.answer, cleanAnswer),
 		asks: handOff,
 		id: "toolu_wire_agent",
+		launch: "pinned",
 		task: subagent.prompt,
 	},
 	lookUpAgain: {
 		answers: () => said([cleanAnswer]),
 		asks: "Ask the pinned subagent for that member's internal id once more.",
 		id: "toolu_wire_agent_again",
+		launch: "pinned",
 		task: "Find the member's internal id once more.",
 	},
+	noRouter: {
+		answers: () => said([planAnswers.noRouter]),
+		asks: "Hand the plan lookup to the pinned subagent while no router answers its hooks.",
+		id: "toolu_wire_agent_no_router",
+		launch: "pinned",
+		task: "Find the member's plan id with no router.",
+	},
+	otherInBackground: {
+		answers: () => said([planAnswers.otherInBackground]),
+		asks: "Start a general-purpose subagent on the plan rules in the background.",
+		id: "toolu_wire_agent_general",
+		launch: "general in the background",
+		task: "Sum up the plan rules.",
+	},
 	toolFirst: {
-		answers: readsFirst(file),
+		answers: readsFirst(file, cleanAnswer),
 		asks: "Ask the pinned subagent to read the chart before it answers.",
 		id: "toolu_wire_agent_tool_first",
+		launch: "pinned",
 		task: "Read the chart file, then find the member's internal id.",
+	},
+	unreadable: {
+		answers: () => said([planAnswers.unreadable]),
+		asks: "Hand the plan lookup to the pinned subagent while its answer check answers no JSON.",
+		id: "toolu_wire_agent_unreadable",
+		launch: "pinned",
+		task: "Find the member's plan id while the check answers no JSON.",
 	},
 	withheld: {
 		answers: () => said([subagent.answer]),
 		asks: "Ask the pinned subagent for the member's SSN.",
 		id: "toolu_wire_agent_withheld",
+		launch: "pinned",
 		task: "Give the member's SSN.",
 	},
 });
@@ -152,14 +218,35 @@ const tasksIn = (tasks: Tasks): readonly Task[] => [
 	tasks.withheld,
 	tasks.toolFirst,
 	tasks.listed,
+	tasks.noRouter,
+	tasks.failing,
+	tasks.unreadable,
+	tasks.inBackground,
+	tasks.failingInBackground,
+	tasks.otherInBackground,
 ];
 
-const agentCall = ({ id, task }: Task): Said =>
+const launched = {
+	"general in the background": { background: true, type: "general-purpose" },
+	pinned: { background: false, type: "phi-router:phi-sealed" },
+	"pinned in the background": { background: true, type: "phi-router:phi-sealed" },
+} as const;
+
+const agentCall = ({ id, launch, task }: Task): Said =>
 	calling({
 		id,
-		input: `{"description":"Hand off the segment that needs PHI","prompt":"${task} The member is in h1.","run_in_background":false,"subagent_type":"phi-router:phi-sealed"}`,
+		input: `{"description":"Hand off the segment that needs PHI","prompt":"${task} The member is in h1.","run_in_background":${String(launched[launch].background)},"subagent_type":"${launched[launch].type}"}`,
 		name: "Agent",
 	});
+
+const isAgent = ({ body }: Asked): boolean => Str.includes("cc_is_subagent=true")(body);
+
+const taskAnswer = (tasks: Tasks, asked: Asked): Said =>
+	pipe(
+		tasksIn(tasks),
+		Array.findFirst(({ task }) => Str.includes(task)(asked.body)),
+		Option.match({ onNone: () => said(["ok"]), onSome: ({ answers }) => answers(asked) }),
+	);
 
 const listReported = (tasks: Tasks, { last }: Asked): Option.Option<Said> => {
 	const listedResult = Str.includes(resultOf(tasks.listed.id));
@@ -182,13 +269,17 @@ const openScriptOf = ({ file, tasks }: { readonly file: string; readonly tasks: 
 	const read = { id: "toolu_wire_read", input: `{"file_path":"${file}"}`, name: "Read" };
 
 	return (asked) => {
+		if (isAgent(asked)) {
+			return taskAnswer(tasks, asked);
+		}
+
 		if (Str.includes(readChart)(asked.body) && !Str.includes(read.id)(asked.body)) {
 			return calling(read);
 		}
 
 		return pipe(
-			listReported(tasks, asked),
-			Option.orElse(() => handingOff(tasks, asked)),
+			handingOff(tasks, asked),
+			Option.orElse(() => listReported(tasks, asked)),
 			Option.getOrElse(() => said(["ok"])),
 		);
 	};
@@ -201,11 +292,7 @@ const baaScriptOf =
 			return said(["ok"]);
 		}
 
-		return pipe(
-			tasksIn(tasks),
-			Array.findFirst(({ task }) => Str.includes(task)(asked.body)),
-			Option.match({ onNone: () => said(["ok"]), onSome: ({ answers }) => answers(asked) }),
-		);
+		return taskAnswer(tasks, asked);
 	};
 
 const certain = 1;
@@ -277,6 +364,12 @@ interface Rewritten {
 	readonly withheld: PinnedTurn;
 	readonly toolFirst: PinnedTurn;
 	readonly listed: PinnedTurn;
+	readonly noRouter: PinnedTurn;
+	readonly failing: PinnedTurn;
+	readonly unreadable: PinnedTurn;
+	readonly inBackground: PinnedTurn;
+	readonly failingInBackground: PinnedTurn;
+	readonly otherInBackground: PinnedTurn;
 	readonly status: PinnedTurn;
 	readonly all: readonly PinnedTurn[];
 	readonly files: readonly Listed[];
@@ -448,13 +541,14 @@ const answerChecksOf = (played: Rewritten): readonly Check[] => {
 		},
 		{
 			name: "AC17: /phi shows the pinned subagent's runs, one per subagent started, its rewrites and its withheld answers",
-			ok: Str.includes("Pinned subagent: 6 runs, 7 rewrites, 1 answer withheld")(played.status.printed),
+			ok: Str.includes("Pinned subagent: 7 runs, 7 rewrites, 1 answer withheld")(played.status.printed),
 		},
 	];
 };
 
 export {
 	answerChecksOf,
+	planAnswers,
 	baaScriptOf,
 	calling,
 	chart,
@@ -468,3 +562,5 @@ export {
 	said,
 	tasksFor,
 };
+
+export type { PinnedTurn, Rewritten };
