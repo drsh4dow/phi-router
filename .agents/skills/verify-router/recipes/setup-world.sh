@@ -103,11 +103,10 @@ prompted() {
 	grows "$before"
 	shot end
 
-	[ "$before" -gt 0 ] && head -n "$before" "$lanes" | jq -e -s 'map(select(.reason != "title")) | all(.lane == "clean")' >/dev/null &&
-		tail -n +"$((before + 1))" "$lanes" | jq -e -s 'any(.reason == "sealed new content")' >/dev/null &&
-		pass "lane log: clean, then sealed for the canary" || fail "lane log: $(jq -c '[.lane, .account, .reason]' "$lanes" 2>/dev/null | tr '\n' ' ')"
-	jq -e -s 'any(.who == "baa" and .holdsCanary)' "$MOCK_LOG" >/dev/null && pass "the canary reached the BAA account" || fail "the canary never reached the BAA account"
-	jq -e -s 'any(.who != "baa" and (.path | test("/(messages|responses)$")) and .holdsCanary) | not' "$MOCK_LOG" >/dev/null && pass "the canary reached no other account" || fail "the canary reached the open account"
+	[ "$before" -gt 0 ] && jq -e -s 'map(select(.reason != "title")) | all(.lane == "clean" and .reason == "clean")' "$lanes" >/dev/null &&
+		pass "lane log: clean for both prompts" || fail "lane log: $(jq -c '[.lane, .account, .reason]' "$lanes" 2>/dev/null | tr '\n' ' ')"
+	jq -e -s 'any(.who == "open" and .holdsHandle and (.path | test("/(messages|responses)$")))' "$MOCK_LOG" >/dev/null && pass "the open account got the canary prompt as a handle" || fail "the open account never got a handle"
+	jq -e -s 'any(.who != "baa" and (.path | test("/(messages|responses)$")) and .holdsCanary) | not' "$MOCK_LOG" >/dev/null && pass "the canary reached no open account" || fail "the canary reached the open account"
 	jq -e -s 'any(.who == "open" and .holdsKey) | not' "$MOCK_LOG" >/dev/null && pass "no fake key reached the open account" || fail "a fake key reached the open account"
 	holders=$(grep -rlF -e "$baa_key" -e "$openai_key" "$ROOT" 2>/dev/null | sort)
 	leaks=$holders

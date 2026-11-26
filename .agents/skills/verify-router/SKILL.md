@@ -5,7 +5,7 @@ description: "Drive phi-router the way a user does: the real Claude Code, Codex 
 
 # Verify the router
 
-phi-router is a local HTTP router. A harness (Claude Code, Codex or pi) sends its model requests to it, and it sends each request to an open account or a BAA account by what the judge and the rules say about its content. A user never calls the router directly. They run a harness whose base URL points at it. So every check here runs the real harness binary, and observes what reached each upstream, the lane log and the state folder.
+phi-router is a local HTTP router. A harness (Claude Code, Codex or pi) sends its model requests to it, and it sends each request that is not pinned to an open account, with a stub and a handle in place of each part the judge or the rules sealed, and a pinned request to a BAA account. A user never calls the router directly. They run a harness whose base URL points at it. So every check here runs the real harness binary, and observes what reached each upstream, the lane log and the state folder.
 
 Two kinds of run:
 

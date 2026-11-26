@@ -11,7 +11,7 @@ The ports these recipes name, 47411 among them, are inside the namespace, never 
 
 ## 1. Real `serve` with the three mocks
 
-The router binds 127.0.0.1 only, refuses another loopback address, answers an unknown path or method with 404, and routes a clean prompt, a canary prompt and its follow-up. Add curl probes here.
+The router binds 127.0.0.1 only, refuses another loopback address, answers an unknown path or method with 404, and routes a clean prompt, a canary prompt and its follow-up, all three to the open mock, with no canary there. Add curl probes here.
 
 ```sh
 recipes/iso.sh serve serve.sh
@@ -24,7 +24,7 @@ canary 200
 follow-up 200
 unknown-path 404
 wrong-method 404
-{"received":{"open":2,"baa":1,"judge":4},"canaryAt":{"open":false,"baa":true},"lanes":["clean/open/clean","sealed/baa/sealed new content","clean/open/clean"]}
+{"received":{"open":3,"baa":0,"judge":4},"canaryAt":{"open":false,"baa":false},"lanes":["clean/open/clean","clean/open/clean","clean/open/clean"]}
 ```
 
 ## 2. The router's exit paths
@@ -63,7 +63,7 @@ pi's input hook stops the prompt, so `pi -p` exits 0.
 
 ### 2c. What each harness shows when phi-router stops a message
 
-For HARNESS `claude`, `codex` or `pi`: with no `config.json`, with a `config.json` whose BAA key file is missing, with a `config.json` the router cannot read, and with a BAA mock that answers 401, a canary prompt is stopped and the harness shows the line `src/router/features/route/stopped.ts` holds for it. Claude Code and pi run in print mode, Codex in its TUI in tmux.
+For HARNESS `claude`, `codex` or `pi`: with no `config.json`, with a `config.json` whose BAA key file is missing, with a `config.json` the router cannot read, and with a BAA mock that answers 401, on `phi/sealed` so the prompt goes to the BAA account, a canary prompt is stopped and the harness shows the line `src/router/features/route/stopped.ts` holds for it. Claude Code and pi run in print mode, Codex in its TUI in tmux.
 
 ```sh
 recipes/iso.sh refusals-claude refusals.sh claude
@@ -73,17 +73,20 @@ recipes/iso.sh refusals-pi refusals.sh pi
 
 ```
 == no config.json
+This hook comes from the phi-router@phi-router plugin.
 [".../plugins/claude/bin/phi-router" session-start --claude --pid "$PPID" --address "$ANTHROPIC_BASE_URL" 1>&2 || exit 2]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
 == a config.json whose key file is missing
+This hook comes from the phi-router@phi-router plugin.
 [...]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
 == a router that cannot start
+This hook comes from the phi-router@phi-router plugin.
 [...]: phi-router could not start, so this message was not sent. Nothing left your computer. Send it again. If it repeats, run: npx phi-router doctor claude
 == a BAA account that answers 401
 API Error: 400 phi-router stopped this message. Your BAA account refused its key, so nothing was sent, and nothing reached your subscription. Run in a terminal: npx phi-router setup claude --new-key
-{"received":{"open":0,"baa":6,"judge":8},"canaryAt":{"open":false,"baa":true},"lanes":["sealed/baa/sealed new content",...]}
+{"received":{"open":0,"baa":6,"judge":0},"canaryAt":{"open":false,"baa":true},"lanes":["sealed/baa/pinned",...]}
 ```
 
-Codex shows each hook line under `Blocked by hook` and the 401 line in its error JSON; pi shows the hook lines alone and the 401 line as `400 {"error":{"message":"..."}}`. Each names its own harness in the command. Claude Code sends a request answered 400 five more times, the last ones with `thinking` and no `display`, so the BAA mock counts 6. The router cannot start because its `config.json` is `{`, so that case waits out `start`'s 10 s, twice for Claude Code and Codex, whose session-start hook tries first. Each case's full output is in `$ROOT/work/<case>.out`.
+Codex shows each hook line under `Blocked by hook` and the 401 line in its error JSON; pi shows the hook lines alone and the 401 line as `400 {"error":{"message":"..."}}`. Each names its own harness in the command. The 401 case runs on `phi/sealed`, so the judge gets no call, and Codex's thread-title request goes sealed with it. Claude Code sends a request answered 400 five more times, the last ones with `thinking` and no `display`, so the BAA mock counts 6. The router cannot start because its `config.json` is `{`, so that case waits out `start`'s 10 s, twice for Claude Code and Codex, whose session-start hook tries first. Each case's full output is in `$ROOT/work/<case>.out`.
 
 ## 3. The empty-/tmp doctor for Claude Code and Codex
 
@@ -98,7 +101,7 @@ ISO_UNSHARE=-rnm recipes/iso.sh doctor-codex doctor.sh codex
 add the marketplace: ok
 install the plugin: ok
 phi-router on claude: ok
-pass the canary arrived at the BAA mock
+pass the canary's prompt arrived at the open mock as the stub [sealed h1]
 pass the canary arrived at no open mock
 doctor claude exited 0
 TMPDIR holds: 0 entries
@@ -118,11 +121,11 @@ recipes/iso.sh tui tui.sh
 no router before pi
 ok replies on screen: 2
 router answers on 47411 while pi runs
-router down 1 s after pi exited
-{"received":{"open":1,"baa":1,"judge":6},"canaryAt":{"open":false,"baa":true},"lanes":["clean/open/clean","sealed/baa/sealed new content"]}
+router down 3 s after pi exited
+{"received":{"open":2,"baa":0,"judge":6},"canaryAt":{"open":false,"baa":false},"lanes":["clean/open/clean","clean/open/clean"]}
 ```
 
-The router went down 1 to 4 s after pi exited, in five runs. The script waits up to 10 s for the router while pi runs, and exits 1 with a `FAIL` line when pi shows fewer than two `ok` replies, no router answers while pi runs, the router outlives pi by 15 s, or the canary reaches any mock but the BAA one.
+The router went down 1 to 4 s after pi exited, in five runs. The script waits up to 10 s for the router while pi runs, and exits 1 with a `FAIL` line when pi shows fewer than two `ok` replies, no router answers while pi runs, the router outlives pi by 15 s, or the canary reaches the open mock.
 
 ### 4b. `/phi setup` in the pi TUI
 
@@ -136,7 +139,7 @@ recipes/iso.sh setup-tui setup-tui.sh max
  ✓ Anthropic key works
  ✓ OpenAI key works
  ✓ Installed phi-router 0.1.0 in pi
- ✓ Test: a fake patient record went to your BAA account, not Claude
+ ✓ Test: a fake patient record reached Claude only as a handle
    Everyday work   Claude
    Patient data    Anthropic API key
    PHI check       OpenAI
@@ -234,11 +237,11 @@ ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-tool setup-claude.sh found-keys-too
 ISO_UNSHARE=-rnm recipes/iso.sh setup-claude-delay setup-claude.sh found-keys-delay
 ```
 
-| Run           | Starts with                                                   | The user                                                                                                                           | The agent ends with                         |
-| ------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `found-keys`  | a fake Max login, an Anthropic key in pi, `OPENAI_API_KEY`    | picks the two found keys, then types `/reload-plugins`                                                                             | `Done. Type /reload-plugins to turn it on.` |
-| `pasted-keys` | a fake Max login and no key                                   | picks an Anthropic API key, pastes both keys in `/plugin configure phi-router`, whose save reloads the plugins, and says `done`    | `Done. This window is protected.`           |
-| `headless`    | a fake Max login, `OPENAI_API_KEY`, no `DISPLAY` or `BROWSER` | picks a Claude Enterprise login, runs the command setup printed in a second tmux window, says `done`, then types `/reload-plugins` | `Done. Type /reload-plugins to turn it on.` |
+| Run           | Starts with                                                   | The user                                                                                                                                                              | The agent ends with                         |
+| ------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `found-keys`  | a fake Max login, an Anthropic key in pi, `OPENAI_API_KEY`    | picks the two found keys, then types `/reload-plugins`                                                                                                                | `Done. Type /reload-plugins to turn it on.` |
+| `pasted-keys` | a fake Max login and no key                                   | picks an Anthropic API key and No at `Add another subscription?`, pastes both keys in `/plugin configure phi-router`, whose save reloads the plugins, and says `done` | `Done. This window is protected.`           |
+| `headless`    | a fake Max login, `OPENAI_API_KEY`, no `DISPLAY` or `BROWSER` | picks a Claude Enterprise login, runs the command setup printed in a second tmux window, says `done`, then types `/reload-plugins`                                    | `Done. Type /reload-plugins to turn it on.` |
 
 ```
 pass apply exited 0
@@ -246,9 +249,9 @@ pass the agent ended with: Done. This window is protected.
 pass a router answers on 47411 10 s after apply
 pass no connection retry after apply
 pass a router answers on 47411 after the first prompt
-pass lane log: clean, then sealed for the canary
-pass the canary reached the BAA account
-pass the canary reached no other account
+pass lane log: clean for both prompts
+pass the open account got the canary prompt as a handle
+pass the canary reached no open account
 pass no fake key reached the open account
 pass the keys are only in: claude/.credentials.json config/phi-router/keys/anthropic config/phi-router/keys/openai config/phi-router/keys/pasted/anthropic config/phi-router/keys/pasted/openai
 pass no connection retry in the whole run
@@ -267,23 +270,23 @@ ISO_UNSHARE=-rnm recipes/iso.sh setup-codex-found setup-codex.sh found-key
 ISO_UNSHARE=-rnm recipes/iso.sh setup-codex-no-key setup-codex.sh no-key
 ```
 
-| Run         | Starts with                                    | The user                                                                                                                  | The last line                                                                                  |
-| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `found-key` | a fake ChatGPT Plus login and `OPENAI_API_KEY` | approves the prefix rule and answers `2`, the key from `OPENAI_API_KEY`                                                   | the agent's: `Done. In Codex, type /new, then /hooks and press t to trust phi-router's hooks.` |
-| `no-key`    | a fake ChatGPT Plus login and no key           | approves the prefix rule, runs the command the agent names in a second tmux window and types the key at its hidden prompt | the terminal's, the same line                                                                  |
+| Run         | Starts with                                    | The user                                                                                                                                                      | The last line                                                                                  |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `found-key` | a fake ChatGPT Plus login and `OPENAI_API_KEY` | approves the prefix rule and answers `2`, the key from `OPENAI_API_KEY`                                                                                       | the agent's: `Done. In Codex, type /new, then /hooks and press t to trust phi-router's hooks.` |
+| `no-key`    | a fake ChatGPT Plus login and no key           | approves the prefix rule, answers `2`, no other subscription, runs the command the agent names in a second tmux window and types the key at its hidden prompt | the terminal's, the same line                                                                  |
 
 ```
-the agent said:   I need an OpenAI key covered by your BAA. In any terminal, run `npx phi-router setup codex --apply` and paste it there, not here. Then follow its last line.
-the terminal runs setup's command: npx phi-router setup codex --apply
+the agent said:   I need an OpenAI key covered by your BAA. In any terminal, run `npx phi-router setup codex --apply --answers '{"another":"no"}'` and paste it there, not here. Then follow its last line.
+the terminal runs setup's command: npx phi-router setup codex --apply --answers '{"another":"no"}'
 pass one hidden prompt, for one OpenAI key
 pass the terminal ended with: Done. In Codex, type /new, then /hooks and press t to trust phi-router's hooks.
 pass apply exited 0
 pass config.json: {"clean":[{"name":"codex-1","forwarded":true,"vendor":"openai"}],"sealed":[{"name":"openai-1","keyFile":"…/config/phi-router/keys/openai","scheme":"apiKey","vendor":"openai"}],"judge":{"endpoint":"https://api.openai.com/v1","keyFile":"…/config/phi-router/keys/openai"}}
 pass config.toml sends Codex to phi-router
 pass a router answers on 47411 after the first prompt
-pass lane log: clean, then sealed for the canary
-pass the canary reached the BAA account
-pass the canary reached no other account
+pass lane log: clean for both prompts
+pass the open account got the canary prompt as a handle
+pass the canary reached no open account
 pass no fake key reached the open account
 pass the keys are only in: config/phi-router/keys/openai
 ```
