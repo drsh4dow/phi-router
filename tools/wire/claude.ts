@@ -30,8 +30,6 @@ import { overflowing, stampClockIn, storedIn } from "./stored.ts";
 import { uncheckedChecksOf, uncheckedPlugins } from "./unchecked.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 
-const sealedWithRestoredChart = "Go on.";
-
 const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -108,7 +106,6 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	yield* first.stop;
 
 	const restarted = yield* routed;
-	const restoredChart = yield* restarted.turn(sealedWithRestoredChart, resumedEvents);
 	const reopened = yield* restarted.turn(tasks.lookUpAgain.asks, hookEvents);
 
 	const [judged, withheld, toolFirst, listed] = yield* Effect.all(
@@ -151,16 +148,7 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	const untilCompaction = [handedOff, after, ...phi.inOrder, compacted];
 
-	const beforeOverflow = [
-		clean,
-		canary,
-		followed,
-		tool,
-		...untilCompaction,
-		restoredChart,
-		reopened,
-		...rewritten,
-	] as const;
+	const beforeOverflow = [clean, canary, followed, tool, ...untilCompaction, reopened, ...rewritten] as const;
 
 	const all = [...beforeOverflow, ...overflow] as const;
 	yield* restarted.stop;
@@ -179,11 +167,12 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 	const phiChecks = [...phiChecksOf(phi), ...shownChecksOf({ harness: "claude", turns: phi })];
 
 	const sealed = sealCheckOf({
-		others: [clean, followed, handedOff, after, ...phi.inOrder, compacted, reopened, ...rewritten, ...overflow],
-		sealing: [canary, tool, restoredChart],
+		others: [clean, followed, handedOff, after, ...phi.inOrder, compacted, ...rewritten, ...overflow],
+		sealing: [canary, tool, reopened],
 	});
 
 	const handles = handleChecksOf({
+		afterCompaction: tasks.lookUpAgain.asks,
 		beforeOverflow,
 		canaries: left.canaries,
 		compacted,
