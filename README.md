@@ -6,12 +6,12 @@ phi-router lets you run Claude Code, Codex or pi on a flat-rate subscription whe
 
 phi-router is a local router. Your harness sends every model request to it, and it reads what is new in each one.
 
-- A request with no PHI runs on your subscription, the open account outside any BAA.
-- A request whose new content holds PHI runs on your account under a BAA. Each later request to the subscription carries a constant stub where that content was.
+- Your agent runs on your subscription, the open account outside any BAA. A message that holds PHI, such as a tool result with patient names, reaches the subscription as a short handle like `[sealed h3]`, and phi-router keeps the message on your machine.
 - Rules catch the unambiguous identifiers, such as an SSN. A judge model under your BAA decides the rest.
-- `/phi` shows the session's accounts and how many messages were sealed and cleared. In Codex, type it without the slash.
-- An agent that must work with the PHI itself starts the pinned subagent `phi-sealed`, which runs on the BAA account. A session on the model `phi/sealed` runs wholly there. pi has no pinned subagent, so in pi that model is the way.
-- You can list several subscriptions. A rate limit on one moves the request to the next, and when all of them fail it runs on the BAA account. A request never moves from the BAA account to a subscription. At the end of a turn that ran on the BAA account this way, phi-router says why and how to add another subscription, and `/phi` shows when a rate-limited subscription is back.
+- When the work needs a sealed message read, your agent hands a scoped task that names its handle to the pinned subagent `phi-sealed`, which runs on your BAA account. phi-router checks the subagent's answer before your agent reads it. An answer that still holds PHI goes back to the subagent with the reason, up to five times, and then your agent gets a handle instead. Patient identifiers you need in the result go to a private file on your machine, and the answer gives its path.
+- Claude Code and [pi-harness](https://github.com/drsh4dow/pi-harness) run this flow. Codex and stock pi need a subagent system you set up, as [SETUP.md](SETUP.md) says. A session on the model `phi/sealed` runs wholly on the BAA account.
+- `/phi` shows the session's accounts, how many messages were sealed and cleared, and the pinned subagent's runs and rewrites. In Codex, type it without the slash. In Claude Code the status line shows the same counts while a phi model is picked.
+- You can list several subscriptions. A rate limit on one moves the request to the next, and when all of them fail it runs on the BAA account, still with handles in place of PHI. A request never moves from the BAA account to a subscription. At the end of a turn that ran on the BAA account this way, phi-router says why and how to add another subscription, and `/phi` shows when a rate-limited subscription is back.
 - The router runs only while a session of your harness runs, and installs no system service. When it is down, requests fail instead of leaving unchecked.
 
 ## Get started
@@ -34,7 +34,7 @@ By hand in pi, run `pi install npm:phi-router`, then type `/reload` and `/phi se
 
 New releases arrive by themselves in Claude Code and Codex, from phi-router's release channel, and load in the next session. The router your open windows share keeps the version it started with until you close them all, and a new window says so when a newer one waits. pi tells you when one is out, and `pi update --extensions` takes it. To update now in any of them, run `npx phi-router@latest setup claude`, with `codex` or `pi` in place of `claude`. It keeps your accounts and asks nothing it already knows.
 
-phi-router checks each message for patient data before it is sent. The check runs on OpenAI Decisions under your BAA. Messages it flags, or cannot clear, go to your BAA account. Everything else goes to your subscription as before. Setup asks which account your BAA covers and, on a first run, whether to add another subscription. To add one later, run `npx phi-router accounts add`. For a Claude Enterprise login or a key in a password manager, see [Accounts](docs/accounts.md).
+phi-router checks each message for patient data before it is sent. The check runs on OpenAI Decisions under your BAA. Messages it flags, or cannot clear, reach your subscription only as handles, and only your BAA account reads them. Everything else goes to your subscription as before. Setup asks which account your BAA covers and, on a first run, whether to add another subscription. To add one later, run `npx phi-router accounts add`. For a Claude Enterprise login or a key in a password manager, see [Accounts](docs/accounts.md).
 
 ## Disclaimer
 

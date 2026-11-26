@@ -30,6 +30,8 @@ Setup runs in this window. A key must never enter this chat, because the chat go
 
 If `npx` is not found, type `bunx` instead. If the human pastes a key in this chat, do not repeat it, use it, or write it anywhere. Tell them the key went to their subscription's vendor with this chat, so they must revoke it where they got it and type a new one in the terminal command setup names. If they ask for something else, such as a second subscription, a key in a password manager, or another model, point them to its section in [Accounts](https://github.com/drsh4dow/phi-router/blob/main/docs/accounts.md).
 
+When the human asks how to work with PHI in Codex, follow [Work that needs PHI in Codex and stock pi](#work-that-needs-phi-in-codex-and-stock-pi).
+
 ## pi
 
 Setup runs in this window, and the human types each key in a masked field that never reaches this chat.
@@ -38,3 +40,12 @@ Setup runs in this window, and the human types each key in a masked field that n
 2. Send the message below word for word, and end your turn.
 
    > phi-router is installed. Type `/reload`, then `/phi setup`. Setup asks which account your BAA covers and takes each key in a masked field, never in this chat. When it ends, this session runs on `phi/auto`.
+
+When the human asks how to work with PHI in pi, follow [Work that needs PHI in Codex and stock pi](#work-that-needs-phi-in-codex-and-stock-pi).
+
+## Work that needs PHI in Codex and stock pi
+
+phi-router keeps the root agent, the agent the human talks to, on the subscription. Where a message held PHI, the root agent reads a handle such as `[sealed h3]`. When the work needs that message read, the root agent hands a scoped task that names the handle to a pinned subagent on `phi/sealed`, which runs on the BAA account. phi-router checks the subagent's last answer, and sends an answer that still holds PHI back to the subagent with the reason, up to five times. Claude Code and [pi-harness](https://github.com/drsh4dow/pi-harness) run all of it. Codex and stock pi need a subagent system, which the human sets up. Tell the human what their harness needs:
+
+- Codex: setup installs the agent role `phi-sealed` on `phi/sealed`, in `agents/phi-sealed.toml` in Codex's folder, and Codex's `spawn_agent` tool starts it. phi-router puts the content behind each handle back for it. phi-router does not check the subagent's answer in Codex, so nothing asks it to rewrite. An answer that holds PHI reaches the root agent as a handle, which the root agent cannot read. Give `phi-sealed` tasks that ask for internal ids, counts, or the path of a local file.
+- Stock pi has no subagents. For work that needs PHI, switch the model to `phi/sealed`. The whole session then runs on the BAA account, and nothing checks its replies. Or install a subagent system, such as pi-harness, that starts each delegate as a pi process with the phi-router package, on the model `phi/sealed`, and with the environment variable `PHI_ROUTER_SESSION` set to the root agent's pi session id. In that delegate the phi-router package checks the last answer before the delegate ends, and replaces a withheld answer in the delegate's session. So the subagent system must read the delegate's answer from its session once it ends.
