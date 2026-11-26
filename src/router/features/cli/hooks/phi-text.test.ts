@@ -78,23 +78,23 @@ it.effect("the overflow notice says why the requests ran on the BAA account and 
 	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
 );
 
-it.effect(
-	"the status line shows pi's status bar entry, and the pinned subagent's runs once the status counts them",
-	() =>
-		Effect.sync(() => {
-			const status = statusOf(false);
+it.effect("the status line shows pi's status bar entry, and the pinned subagent's runs once there is one", () =>
+	Effect.sync(() => {
+		const status = statusOf(false);
 
-			assert.deepStrictEqual(
-				[
-					statusLine(status),
-					statusLine(Struct.assign(status, { pinned: { runs: 1 } })),
-					statusLine(Struct.assign(status, { pinned: { runs: 3 } })),
-				],
-				[
-					"phi · baa, model claude-sealed · 1 sealed · 2 cleared",
-					"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 1 pinned run",
-					"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 3 pinned runs",
-				],
-			);
-		}),
+		assert.deepStrictEqual(
+			[
+				statusLine(status),
+				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 0, runs: 0 } })),
+				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 0, runs: 1 } })),
+				statusLine(Struct.assign(status, { pinned: { gaveUp: 0, rewrites: 2, runs: 3 } })),
+			],
+			[
+				"phi · baa, model claude-sealed · 1 sealed · 2 cleared",
+				"phi · baa, model claude-sealed · 1 sealed · 2 cleared",
+				"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 1 pinned run",
+				"phi · baa, model claude-sealed · 1 sealed · 2 cleared · 3 pinned runs",
+			],
+		);
+	}),
 );
