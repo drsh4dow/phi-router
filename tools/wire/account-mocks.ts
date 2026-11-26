@@ -1,6 +1,6 @@
 import { Array, Effect, Function, Option, String as Str, Struct, pipe } from "effect";
 import type { Asked, Said } from "#router/client/mock-upstreams/index.ts";
-import { calling, resultOf, rewritten, said } from "./answer-checks.ts";
+import { calling, handleIn, resultOf, rewritten, said } from "./answer-checks.ts";
 import { delegated, lookUp, overdueFile, overdueId, quote } from "./account-turns.ts";
 import { mocked } from "#tools/route/mocked-router.ts";
 import { voidedSsn } from "./cases.ts";
@@ -23,8 +23,6 @@ const harmless =
 	'{"content":[{"text":"<severity>0</severity>","type":"text"}],"id":"msg_monitor","model":"mock","role":"assistant","stop_reason":"end_turn","type":"message","usage":{"input_tokens":1,"output_tokens":1}}';
 
 const answered = 200;
-
-const stub = /\[sealed (?<handle>h\d+)\]/u;
 
 interface Root {
 	readonly read: { readonly name: string; readonly input: string };
@@ -59,13 +57,7 @@ const rootTurn = (root: Root, task: Task, { body, last }: Asked): Said => {
 		return said([`The pinned subagent returned: ${last}`]);
 	}
 
-	const sealedHandle = pipe(
-		Option.fromNullishOr(stub.exec(last)),
-		Option.flatMapNullishOr(({ groups }) => groups),
-		Option.flatMapNullishOr(({ handle }) => handle),
-	);
-
-	return Option.match(sealedHandle, {
+	return Option.match(handleIn(last), {
 		onNone: () => said([`The file says: ${last}`]),
 		onSome: (handle) => calling(Struct.assign(root.handOff(task, handle), { id: handOff })),
 	});
