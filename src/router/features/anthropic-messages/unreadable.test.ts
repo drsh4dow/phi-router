@@ -192,6 +192,75 @@ const redactedFromOther = Effect.gen(function* redactedFromOther() {
 	assert.notInclude(toOpen, "OTHER-DATA");
 });
 
+const clearedAtNextPrompt = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":[{"type":"text","text":"hello there"}]},{"role":"system","content":[{"type":"text","text":"# Environment\n - Platform: linux","cache_control":{"type":"ephemeral","ttl":"1h"}}],"clear_at":"next_user_message"}],"max_tokens":1000}`;
+
+const toolsChanged = String.raw`{"model":"phi/auto","messages":[{"role":"user","content":"hello there"},{"role":"system","content":[{"type":"text","text":"# Environment"},{"type":"tool_addition","tool":{"type":"tool_definition","definition":{"name":"find_note","description":"Finds a note.","input_schema":{"type":"object"}}}},{"type":"tool_removal","tool":{"type":"tool_reference","name":"old_tool"},"cache_control":{"type":"ephemeral","ttl":"1h"}}]}],"max_tokens":1000}`;
+
+const noteOf = (messages: readonly Message[]): string =>
+	pipe(
+		messages,
+		Array.flatMap((message) => {
+			if (message.role === "system" && Array.isReadonlyArrayEmpty(message.sections)) {
+				return [message.content];
+			}
+
+			return [];
+		}),
+		Array.join(""),
+	);
+
+const noteReadWhole = Effect.fnUntraced(function* noteReadWhole(body: string, judged: readonly string[]) {
+	const request = yield* decodeRequest(body, nobodyWrote, "claude");
+	const toOpen = yield* request.encode(clean(request));
+	const received = yield* decodeBody(toOpen, strict);
+	const original = yield* decodeBody(body, strict);
+
+	for (const text of judged) {
+		assert.include(noteOf(request.messages), text);
+	}
+
+	assert.deepStrictEqual(received.messages, original.messages);
+	assert.notInclude(toOpen, stubs.unknown);
+});
+
+const sealedToolNote = Effect.gen(function* sealedToolNote() {
+	const request = yield* decodeRequest(toolsChanged, nobodyWrote, "claude");
+
+	const guarded = pipe(
+		request.messages,
+		Array.map((message): Message => {
+			if (message.role === "system" && Array.isReadonlyArrayEmpty(message.sections)) {
+				return { content: stubs.sealed, role: "system", sections: [], tools: [] };
+			}
+
+			return message;
+		}),
+	);
+
+	const toOpen = yield* request.encode({ lane: "clean", messages: guarded, upstreamModel: target });
+
+	assert.include(toOpen, stubs.sealed);
+	assert.notInclude(toOpen, "find_note");
+	assert.notInclude(toOpen, "old_tool");
+});
+
+it.layer(Digest.layerWebCrypto)("harness notes Claude Code 2.1.332 sends", (test) => {
+	test.effect.fails(
+		"a note marked to clear at the next prompt reaches an open account whole, and the judge reads it",
+		() => noteReadWhole(clearedAtNextPrompt, ["# Environment\n - Platform: linux"]),
+	);
+
+	test.effect.fails(
+		"a note that adds and removes tools reaches an open account whole, and the judge reads every tool",
+		() => noteReadWhole(toolsChanged, ["# Environment", "find_note", "Finds a note.", "old_tool"]),
+	);
+
+	test.effect(
+		"a sealed note that adds and removes tools reaches an open account as its stub alone",
+		() => sealedToolNote,
+	);
+});
+
 it.layer(Digest.layerWebCrypto)("content the codec cannot read", (test) => {
 	test.effect(
 		"a member the clean lane would carry, outside its shape, refuses the clean lane and leaves for the BAA as it came",
