@@ -195,6 +195,14 @@ const overflowMark = (
 		onSome: flow(markOf, Option.some),
 	});
 
+const cut = (text: string, width: number): string => {
+	if (text.length <= width) {
+		return text;
+	}
+
+	return `${Str.slice(none, Math.max(width - one, none))(text)}…`;
+};
+
 const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait?: VersionWait) {
 	const pinned = Option.fromUndefinedOr(status.pinned);
 
@@ -236,14 +244,9 @@ const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait
 		return counted;
 	}
 
-	const uncounted = row(account, notices);
-	const over = uncounted.length - columns;
+	const over = row(account, notices).length - columns;
 
-	if (over <= none) {
-		return uncounted;
-	}
-
-	return row(`${Str.slice(none, Math.max(account.length - over - one, none))(account)}…`, notices);
+	return cut(row(cut(account, account.length - over), notices), columns);
 });
 
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>

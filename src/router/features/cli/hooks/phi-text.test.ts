@@ -1,4 +1,4 @@
-import { DateTime, Effect, String as Str, Struct } from "effect";
+import { Array, DateTime, Effect, String as Str, Struct } from "effect";
 import { assert, it } from "@effect/vitest";
 import { overflowNotice, sealNotice, statusLine, statusText, withheldNotice } from "./phi-text.ts";
 import type { Reported } from "./phi-text.ts";
@@ -122,7 +122,7 @@ const waiting = { installed: "0.6.0", running: "0.5.1" };
 const columns = 80;
 
 it.effect(
-	"the status line marks the overflow until the stamp's HH:MM, or while the last request overflowed with no stamp, and no longer, the withheld answers and the version wait in 80 columns whatever the account's name, and /phi says each in full",
+	"the status line marks the overflow until the stamp's HH:MM, or while the last request overflowed with no stamp, and no longer, the withheld answers and the version wait in 80 columns whatever the account's name and the version, and /phi says each in full",
 	() =>
 		Effect.gen(function* marked() {
 			const line = yield* statusLine(noticed, waiting);
@@ -135,6 +135,13 @@ it.effect(
 					last: Struct.assign(ranLast, { account: "claude-baa-login-of-the-clinic-team" }),
 				}),
 				waiting,
+			);
+
+			const longVersion = yield* statusLine(
+				Struct.assign(noticed, {
+					last: Struct.assign(ranLast, { account: "claude-baa-login-of-the-clinic-team" }),
+				}),
+				Struct.assign(waiting, { installed: "0.6.0-rc.20261126.1234567890" }),
 			);
 
 			const unstamped = Struct.assign(noticed.accounts, {
@@ -153,18 +160,20 @@ it.effect(
 			assert.deepStrictEqual(
 				{
 					backAgain,
-					fits: [line.length <= columns, longNamed.length <= columns],
+					fits: Array.map([line, longNamed, longVersion], ({ length }) => length <= columns),
 					line,
 					longNamed,
+					longVersion,
 					reply,
 					roomy,
 					unanswered,
 				},
 				{
 					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
-					fits: [true, true],
+					fits: [true, true, true],
 					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					longNamed: "phi · claude-baa-… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
+					longVersion: "phi · … · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0-rc.20261126.12345…",
 					reply: [
 						"session s-1",
 						"Last request: claude-2, model claude-opus",
