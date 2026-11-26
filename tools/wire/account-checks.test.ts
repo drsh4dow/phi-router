@@ -146,6 +146,10 @@ const cleared = handBack(
 	'{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"p-4821"}]}}',
 );
 
+const wrapped = handBack(
+	String.raw`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"[Subagent hand-back] The text below is the final report of a subagent.\n\np-4821"}]}}`,
+);
+
 const fallback = handBack(
 	'{"type":"system","subtype":"task_notification","tool_use_id":"toolu_1","status":"failed","summary":"Agent stopped"}',
 );
@@ -166,11 +170,13 @@ const received = Effect.sync(() => {
 	assert.deepStrictEqual(
 		[
 			noteOn(Struct.assign(auto, { turns: cleared })),
+			noteOn(Struct.assign(auto, { turns: wrapped })),
 			noteOn(Struct.assign(auto, { turns: fallback })),
 			noteOn(Struct.assign(auto, { pinned: { gaveUp: 1, rewrites: 5, runs: 1 }, turns: cleared })),
 		],
 		[
 			'sealed answer in auto mode: the pinned subagent ran 1 times, with 1 rewrites and 0 answers withheld; the root agent received the cleared answer "p-4821"',
+			'sealed answer in auto mode: the pinned subagent ran 1 times, with 1 rewrites and 0 answers withheld; the root agent received the cleared answer "[Subagent hand-back] The text below is the final report of a subagent.',
 			'sealed answer in auto mode: the pinned subagent ran 1 times, with 1 rewrites and 0 answers withheld; the root agent received the harness\'s own fallback text "Agent stopped"',
 			"sealed answer in auto mode: the pinned subagent ran 1 times, with 5 rewrites and 1 answers withheld; the root agent received phi-router's withheld reply, the handle of the answer it could not clear",
 		],
