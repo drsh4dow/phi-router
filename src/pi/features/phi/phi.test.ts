@@ -252,7 +252,7 @@ it.effect("after each turn the status bar shows the last request, and a turn tha
 		assert.deepStrictEqual(noticesIn(shown), [
 			[
 				"warning",
-				"phi-router: 1 message held patient identifiers and ran only on the BAA account. Last request: baa, model claude-baa.",
+				"phi-router: 1 message held patient identifiers. The open account sees a handle in place of each. Last request: baa, model claude-baa.",
 			],
 		]);
 	}),
@@ -272,7 +272,7 @@ it.effect("a turn that sealed in a session pi has not shown yet is announced fro
 		assert.deepStrictEqual(noticesIn(shown), [
 			[
 				"warning",
-				"phi-router: 2 messages held patient identifiers and ran only on the BAA account. Last request: baa, model claude-baa.",
+				"phi-router: 2 messages held patient identifiers. The open account sees a handle in place of each. Last request: baa, model claude-baa.",
 			],
 		]);
 	}),

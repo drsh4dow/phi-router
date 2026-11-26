@@ -82,7 +82,7 @@ const countOf = (count: number, noun: string): string => {
 };
 
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>
-	`phi-router: ${countOf(sealed.count, "message")} held patient identifiers and ran only on the BAA account. Last request: ${lastOf(sealed.status)}.`;
+	`phi-router: ${countOf(sealed.count, "message")} held patient identifiers. The open account sees a handle in place of each. Last request: ${lastOf(sealed.status)}.`;
 
 const subscriptions = {
 	false: { are: "is", yours: "your subscription" },

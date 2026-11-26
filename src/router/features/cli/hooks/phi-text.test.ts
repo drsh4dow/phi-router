@@ -42,13 +42,13 @@ it.effect(
 			assert.deepStrictEqual(texts, [
 				{
 					notice:
-						"phi-router: 1 message held patient identifiers and ran only on the BAA account. Last request: baa, model claude-sealed.",
+						"phi-router: 1 message held patient identifiers. The open account sees a handle in place of each. Last request: baa, model claude-sealed.",
 					status:
 						"phi-router, session s-1\nLast request: baa, model claude-sealed\nMessages: 1 sealed, 2 cleared\nClean lane: open, open-2 (rate-limited until 14:30)\nSealed lane: baa",
 				},
 				{
 					notice:
-						"phi-router: 1 message held patient identifiers and ran only on the BAA account. Last request: baa, model claude-sealed, a substitute for the requested model.",
+						"phi-router: 1 message held patient identifiers. The open account sees a handle in place of each. Last request: baa, model claude-sealed, a substitute for the requested model.",
 					status:
 						"phi-router, session s-1\nLast request: baa, model claude-sealed, a substitute for the requested model\nMessages: 1 sealed, 2 cleared\nClean lane: open, open-2 (rate-limited until 14:30)\nSealed lane: baa",
 				},
