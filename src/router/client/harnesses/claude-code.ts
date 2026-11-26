@@ -13,9 +13,9 @@ import {
 	Struct,
 	pipe,
 } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
 import { rewritePrivately, writePrivately } from "#router/client/private-file.ts";
-import { ChildProcess } from "effect/process";
 import { rewritten } from "./codex.ts";
 
 const SettingsFile = Schema.fromJsonString(Schema.JsonObject, { space: 2 });
@@ -278,10 +278,17 @@ const commandOf = Effect.fnUntraced(function* commandOf(asked: Asked) {
 
 const claudeTurn = harnessTurn(commandOf);
 
+const claudeVersion = Effect.gen(function* claudeVersion() {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
+	return yield* spawner.string(ChildProcess.make("claude", ["--version"], { stdin: "ignore" }));
+});
+
 export {
 	claudeMarketplace,
 	claudeTurn,
 	claudePlugin,
+	claudeVersion,
 	claudePluginData,
 	configFolder as claudeFolder,
 	followedMarketplace,
