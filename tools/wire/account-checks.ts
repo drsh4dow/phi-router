@@ -74,16 +74,19 @@ const noCanaryIn = (step: StepRan): Check => {
 	};
 };
 
-const toolResultChecks = (step: StepRan): readonly Check[] => [
+const handedOffChecks = (step: StepRan, own: Check): readonly Check[] => [
 	exited(step),
 	stayedOpen(step),
 	pinnedRan(step),
-	{
-		name: `${step.name}: the root agent's answer names ${overdueId}`,
-		ok: pipe(answersOf(step), Array.some(Str.includes(overdueId))),
-	},
+	own,
 	noCanaryIn(step),
 ];
+
+const toolResultChecks = (step: StepRan): readonly Check[] =>
+	handedOffChecks(step, {
+		name: `${step.name}: the root agent's answer names ${overdueId}`,
+		ok: Array.some(answersOf(step), Str.includes(overdueId)),
+	});
 
 const promptLines = 2;
 
@@ -107,16 +110,11 @@ const stepChecks = {
 			),
 		},
 	],
-	"sealed answer": (step: StepRan): readonly Check[] => [
-		exited(step),
-		stayedOpen(step),
-		pinnedRan(step),
-		{
+	"sealed answer": (step: StepRan): readonly Check[] =>
+		handedOffChecks(step, {
 			name: "sealed answer: the answer check rewrote the pinned subagent's answer at least once",
 			ok: step.pinned.rewrites >= atLeastOnce,
-		},
-		noCanaryIn(step),
-	],
+		}),
 	"sealed answer in auto mode": (step: StepRan): readonly Check[] => [noCanaryIn(step)],
 	"tool result": (step: StepRan): readonly Check[] => toolResultChecks(step),
 	"tool result through pi-harness": (step: StepRan): readonly Check[] => toolResultChecks(step),
