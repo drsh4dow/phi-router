@@ -4,7 +4,7 @@ set -u
 repo=$(cd "$(dirname "$0")/../../.." && pwd)
 evidence=${1:-$(mktemp -d /tmp/phi-verify-router-XXXXXX)}
 bun=${PHI_BUN:-bun}
-minutes=10
+minutes=20
 dollars=2
 mkdir -p "$evidence"
 cd "$repo" || exit 1
@@ -40,7 +40,7 @@ for harness in pi claude codex; do
 	step "wire-$harness" offline "$bun" tools/wire/run.ts "$harness" "$evidence/wire-$harness.json"
 done
 step border offline node_modules/.bin/vitest run tools/route/border.test.ts tools/route/codex-border.test.ts
-for harness in pi claude codex; do
+for harness in pi claude codex pi-harness; do
 	step "accounts-$harness" "$bun" tools/wire/accounts.ts "$harness"
 done
 
