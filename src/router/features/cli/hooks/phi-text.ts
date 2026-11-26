@@ -211,16 +211,26 @@ const statusLine = Effect.fnUntraced(function* statusLine(status: Reported, wait
 		Option.match({ onNone: () => "none yet", onSome: ({ account: name }) => name }),
 	);
 
-	const named = ["phi", account, `${String(status.sealed)} sealed`];
 	const notices = Array.getSomes([withheld, overflow, pending]);
 	const counts = [`${String(status.cleared)} cleared`, ...Option.toArray(runs)];
-	const counted = Array.join([...named, ...counts, ...notices], " · ");
+
+	const row = (name: string, shown: readonly string[]): string =>
+		Array.join(["phi", name, `${String(status.sealed)} sealed`, ...shown], " · ");
+
+	const counted = row(account, [...counts, ...notices]);
 
 	if (counted.length <= columns) {
 		return counted;
 	}
 
-	return Array.join([...named, ...notices], " · ");
+	const uncounted = row(account, notices);
+	const over = uncounted.length - columns;
+
+	if (over <= none) {
+		return uncounted;
+	}
+
+	return row(`${Str.slice(none, Math.max(account.length - over - one, none))(account)}…`, notices);
 });
 
 const sealNotice: (sealed: { readonly count: number; readonly status: Reported }) => string = (sealed) =>

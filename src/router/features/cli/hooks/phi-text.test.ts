@@ -102,13 +102,15 @@ it.effect("the status line names the last request's account, and the pinned suba
 	}).pipe(Effect.provideService(DateTime.CurrentTimeZone, utc)),
 );
 
+const ranLast = { account: "claude-2", model: "claude-opus", substitute: false };
+
 const noticed: Reported = {
 	accounts: {
 		clean: [{ name: "claude-1", rateLimitedUntil: back, vendor: "anthropic" }],
 		sealed: [{ name: "claude-2", vendor: "anthropic" }],
 	},
 	cleared: 15,
-	last: { account: "claude-2", model: "claude-opus", substitute: false },
+	last: ranLast,
 	overflowed: 36,
 	pinned: { cleared: [], gaveUp: 1, rewrites: 5, runs: 1, withheld: [] },
 	sealed: 0,
@@ -120,13 +122,20 @@ const waiting = { installed: "0.6.0", running: "0.5.1" };
 const columns = 80;
 
 it.effect(
-	"the status line marks the overflow until the stamp's HH:MM and no longer, the withheld answers and the version wait in 80 columns, and /phi says each in full",
+	"the status line marks the overflow until the stamp's HH:MM and no longer, the withheld answers and the version wait in 80 columns whatever the account's name, and /phi says each in full",
 	() =>
 		Effect.gen(function* marked() {
 			const line = yield* statusLine(noticed, waiting);
 			const text = yield* statusText(noticed, waiting);
 			const reply = Str.split(text, "\n");
 			const roomy = yield* statusLine(Struct.assign(noticed, { overflowed: 0 }));
+
+			const longNamed = yield* statusLine(
+				Struct.assign(noticed, {
+					last: Struct.assign(ranLast, { account: "claude-baa-login-of-the-clinic-team" }),
+				}),
+				waiting,
+			);
 
 			const backAgain = yield* statusLine(
 				Struct.assign(noticed, {
@@ -137,11 +146,19 @@ it.effect(
 			);
 
 			assert.deepStrictEqual(
-				{ backAgain, fits: line.length <= columns, line, reply, roomy },
+				{
+					backAgain,
+					fits: [line.length <= columns, longNamed.length <= columns],
+					line,
+					longNamed,
+					reply,
+					roomy,
+				},
 				{
 					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
-					fits: true,
+					fits: [true, true],
 					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
+					longNamed: "phi · claude-baa-… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					reply: [
 						"session s-1",
 						"Last request: claude-2, model claude-opus",
