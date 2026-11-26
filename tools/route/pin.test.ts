@@ -113,7 +113,7 @@ const statusOf = (seen: { readonly cleared: number; readonly account: string }):
 	cleared: seen.cleared,
 	last: { account: seen.account, model: fakes.targetModel, substitute: false },
 	overflowed: 0,
-	pinned: { gaveUp: 0, rewrites: 0, runs: 0, withheld: [] },
+	pinned: { cleared: [], gaveUp: 0, rewrites: 0, runs: 0, withheld: [] },
 	sealed: none,
 	session,
 });

@@ -1,1 +1,1 @@
-export { checkAnswer, withheldReply } from "./check.ts";
+export { answerKey, checkAnswer, withheldReply } from "./check.ts";

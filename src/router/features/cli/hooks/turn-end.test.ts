@@ -38,7 +38,7 @@ const statusOf = (routed: Routed): Effect.Success<ReturnType<SessionRequests["Se
 	cleared: 0,
 	last: { account: "baa", model: "claude-sealed", substitute: false },
 	overflowed: routed.overflowed,
-	pinned: { gaveUp: routed.gaveUp ?? withheldBy.none, rewrites: 0, runs: 1, withheld: [] },
+	pinned: { cleared: [], gaveUp: routed.gaveUp ?? withheldBy.none, rewrites: 0, runs: 1, withheld: [] },
 	sealed: routed.sealed,
 	session,
 });

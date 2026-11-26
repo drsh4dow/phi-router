@@ -25,7 +25,15 @@ const OpenAccount = Schema.Struct({
 
 const Withheld = Schema.Struct({ reply: Schema.String, subagent: Schema.String });
 
-const Pinned = Schema.Struct({ gaveUp: Count, rewrites: Count, runs: Count, withheld: Schema.Array(Withheld) });
+const ClearedAnswer = Schema.Struct({ key: Schema.String, subagent: Schema.String });
+
+const Pinned = Schema.Struct({
+	cleared: Schema.Array(ClearedAnswer),
+	gaveUp: Count,
+	rewrites: Count,
+	runs: Count,
+	withheld: Schema.Array(Withheld),
+});
 
 const Status = Schema.Struct({
 	accounts: Schema.Struct({ clean: Schema.Array(OpenAccount), sealed: Schema.Array(ConfiguredAccount) }),

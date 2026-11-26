@@ -27,6 +27,7 @@ import {
 	subagentChecksOf,
 } from "./phi-checks.ts";
 import { overflowing, stampClockIn, storedIn } from "./stored.ts";
+import { uncheckedChecksOf, uncheckedPlugins } from "./unchecked.ts";
 import { routerProcess } from "#tools/route/router-process.ts";
 
 const sealedWithRestoredChart = "Go on.";
@@ -54,14 +55,20 @@ const setUp = Effect.fnUntraced(function* setUp(run: Run) {
 	const routed = Effect.gen(function* routed() {
 		const router = yield* routerProcess(["bun", "src/router/main.ts"], env);
 
-		const turn = Effect.fnUntraced(function* turn(prompt: string, flags: readonly string[]) {
+		const turn = Effect.fnUntraced(function* turn(
+			prompt: string,
+			flags: readonly string[],
+			plugin: string = where.plugin,
+		) {
+			const at = Struct.assign(where, { plugin });
+
 			return yield* during(
 				() => received,
-				() => claudeTurn({ folders, place: where, prompt, router: router.url, session: flags }),
+				() => claudeTurn({ folders, place: at, prompt, router: router.url, session: flags }),
 			);
 		});
 
-		return { stop: router.kill, turn };
+		return { stop: router.kill, turn, url: router.url };
 	});
 
 	return { breaches, roots, routed, state, tasks };
@@ -114,7 +121,22 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 		{ concurrency: 1 },
 	);
 
-	const rewritten = [judged, withheld, toolFirst, listed] as const;
+	const unreached = yield* uncheckedPlugins(restarted.url);
+
+	const unchecked = yield* Effect.all(
+		[
+			restarted.turn(tasks.noRouter.asks, hookEvents, unreached.noRouter),
+			restarted.turn(tasks.failing.asks, hookEvents, unreached.failing),
+			restarted.turn(tasks.unreadable.asks, hookEvents, unreached.unreadable),
+			restarted.turn(tasks.inBackground.asks, hookEvents),
+			restarted.turn(tasks.failingInBackground.asks, hookEvents, unreached.failing),
+			restarted.turn(tasks.otherInBackground.asks, hookEvents),
+		],
+		{ concurrency: 1 },
+	);
+
+	const [noRouter, failing, unreadable, inBackground, failingInBackground, otherInBackground] = unchecked;
+	const rewritten = [judged, withheld, toolFirst, listed, ...unchecked] as const;
 
 	const overflow = yield* Effect.all(
 		[
@@ -186,26 +208,40 @@ const claudePlay = Effect.fnUntraced(function* claudePlay(run: Run) {
 
 	const handing = subagentChecksOf({ after, handedOff, harness: "claude" });
 
-	const rewrites = answerChecksOf({
+	const played = {
 		all,
 		canaries: left.canaries,
+		failing,
+		failingInBackground,
 		files,
 		handedOff,
 		ids: {
+			failing: tasks.failing.id,
+			failingInBackground: tasks.failingInBackground.id,
+			inBackground: tasks.inBackground.id,
 			judged: tasks.judged.id,
 			listed: tasks.listed.id,
 			lookUp: tasks.lookUp.id,
 			lookUpAgain: tasks.lookUpAgain.id,
+			noRouter: tasks.noRouter.id,
+			otherInBackground: tasks.otherInBackground.id,
 			toolFirst: tasks.toolFirst.id,
+			unreadable: tasks.unreadable.id,
 			withheld: tasks.withheld.id,
 		},
+		inBackground,
 		judged,
 		listed,
+		noRouter,
+		otherInBackground,
 		reopened,
 		status,
 		toolFirst,
+		unreadable,
 		withheld,
-	});
+	};
+
+	const rewrites = [...answerChecksOf(played), ...uncheckedChecksOf(played)];
 
 	return {
 		checks: yield* withCredentialRule(

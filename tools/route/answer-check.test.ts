@@ -1,11 +1,10 @@
-import { Array, Effect, Layer, Match, String as Str, pipe } from "effect";
+import { Array, Effect, Layer, Match, String as Str, Struct, pipe } from "effect";
 import { FetchHttpClient, HttpClientRequest } from "effect/http";
 import { SessionRequests, sessionPaths } from "#router/client/router-port/index.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, routed } from "./mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
 import type { Reply } from "#router/client/mock-upstreams/index.ts";
-import type { Unanswered } from "#router/client/router-port/index.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
 import { pinnedModel } from "#router/features/lanes/index.ts";
 
@@ -79,7 +78,7 @@ const checker = Effect.gen(function* checker() {
 	const requests = yield* SessionRequests;
 	const port = Number(new URL(url).port);
 
-	const checked = (subagent: string, answer: string): Effect.Effect<Checked, Unanswered> =>
+	const checked = (subagent: string, answer: string): ReturnType<typeof requests.answerCheck> =>
 		requests.answerCheck(port, { answer, session, subagent });
 
 	const status = requests.status(port, session);
@@ -116,7 +115,16 @@ const outcomes = Effect.gen(function* outcomes() {
 		judgedMessage,
 		"phi-router's judge scored it 1.00 for holding a direct identifier of a patient or member, most likely a real patient's or member's name (patient-name)",
 	);
-	assert.deepStrictEqual(counts.pinned, { gaveUp: 0, rewrites: 2, runs: 3, withheld: [] });
+
+	const pinned = yield* Effect.fromNullishOr(counts.pinned);
+
+	const clearedBy = pipe(
+		pinned.cleared,
+		Array.map(({ subagent }) => subagent),
+	);
+
+	assert.deepStrictEqual(clearedBy, ["agent-a"]);
+	assert.deepStrictEqual(Struct.omit(pinned, ["cleared"]), { gaveUp: 0, rewrites: 2, runs: 3, withheld: [] });
 });
 
 const gaveUp = Effect.gen(function* gaveUp() {
@@ -150,12 +158,13 @@ const gaveUp = Effect.gen(function* gaveUp() {
 	);
 	assert.deepStrictEqual([cleared, attemptOf(again)], [{ outcome: "cleared" }, firstAttempt]);
 	assert.deepStrictEqual(withheld.pinned, {
+		cleared: [],
 		gaveUp: 2,
 		rewrites: 5,
 		runs: 1,
 		withheld: [{ reply: seventh.reply, subagent: "agent-d" }],
 	});
-	assert.deepStrictEqual(counts.pinned, { gaveUp: 2, rewrites: 6, runs: 1, withheld: [] });
+	assert.deepStrictEqual(counts.pinned, { cleared: [], gaveUp: 2, rewrites: 6, runs: 1, withheld: [] });
 
 	const pinned = yield* bodyOf([{ role: "user", text: "Summarize h1 by internal ids." }]);
 	const asked = yield* post({ body: Str.replace('"model":"phi/auto"', `"model":"${pinnedModel}"`)(pinned), session });
@@ -188,7 +197,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClie
 	"the answer check",
 	(test) => {
 		test.effect(
-			"clears an answer with internal ids only, and asks for rewrite 1 of 5 naming the rule's kind and value or the judge's kind and score, with the way out, counted per subagent",
+			"clears an answer with internal ids only and lists it as cleared, and asks for rewrite 1 of 5 naming the rule's kind and value or the judge's kind and score, with the way out, counted per subagent",
 			() => outcomes,
 		);
 		test.effect(
