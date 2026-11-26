@@ -81,11 +81,10 @@ const countOf = (count: number, noun: string): string => {
 	return `${String(count)} ${noun}s`;
 };
 
-type Counted = Reported & { readonly pinned?: { readonly runs: number } };
-
-const statusLine = (status: Counted): string => {
+const statusLine = (status: Reported): string => {
 	const runs = pipe(
 		Option.fromUndefinedOr(status.pinned),
+		Option.filter(({ runs: count }) => count >= one),
 		Option.map(({ runs: count }) => countOf(count, "pinned run")),
 		Option.toArray,
 	);
