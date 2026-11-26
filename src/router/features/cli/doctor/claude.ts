@@ -69,7 +69,7 @@ const doctorClaude = Effect.fn("doctor claude")(function* doctorClaude(configDir
 	yield* reported(
 		"claude",
 		checks,
-		`The canary must reach the BAA mock alone, through the router the plugin's hook starts. Each FAIL line names what did not hold. When claude -p fails, run claude plugin install ${pluginId} again.`,
+		`The canary must reach the open mock only as a stub with its handle, through the router the plugin's hook starts. Each FAIL line names what did not hold. When claude -p fails, run claude plugin install ${pluginId} again.`,
 	);
 });
 
