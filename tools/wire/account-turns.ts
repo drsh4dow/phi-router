@@ -63,6 +63,13 @@ type Needs = ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | P
 
 const timedOut = -1;
 
+type Played = (prompt: string) => Effect.Effect<Turn, never, Needs>;
+
+const prompts = (started: Played, resumed: Played): Step => ({
+	name: "prompts",
+	play: Effect.all([started(clean), resumed(canary)], { concurrency: 1 }),
+});
+
 const turnsOn = {
 	claude: Effect.fnUntraced(function* claudeSteps(routed: Routed) {
 		const fs = yield* FileSystem.FileSystem;
@@ -83,7 +90,6 @@ const turnsOn = {
 				router: routed.url,
 				session: ["--output-format", "stream-json", "--verbose", ...flags],
 			}).pipe(
-				Effect.map(({ exitCode, printed }): Turn => ({ exitCode, printed })),
 				Effect.catchTag("TimeoutError", () => Effect.succeed({ exitCode: timedOut, printed: "" })),
 				Effect.orDie,
 			);
@@ -98,18 +104,10 @@ const turnsOn = {
 		const classifierThroughRouter = Struct.assign(routed.folders, { CLAUDE_CODE_AUTO_MODE_SERVER: "0" });
 
 		const steps: readonly Step[] = [
-			{
-				name: "prompts",
-				play: Effect.all(
-					[
-						turn(clean, ["--session-id", sessions.prompts], routed.folders),
-						turn(canary, ["--resume", sessions.prompts], routed.folders),
-					],
-					{
-						concurrency: 1,
-					},
-				),
-			},
+			prompts(
+				(prompt) => turn(prompt, ["--session-id", sessions.prompts], routed.folders),
+				(prompt) => turn(prompt, ["--resume", sessions.prompts], routed.folders),
+			),
 			{ name: "tool result", play: fresh(sessions.toolResult, lookUp, []) },
 			{ name: "sealed answer", play: fresh(sessions.sealedAnswer, quote, []) },
 			{
@@ -143,14 +141,12 @@ const turnsOn = {
 				Effect.orDie,
 			);
 
-		const steps: readonly Step[] = [
-			{
-				name: "prompts",
-				play: Effect.all([turn([...exec, clean]), turn([...exec, "resume", "--last", canary])], { concurrency: 1 }),
-			},
+		return [
+			prompts(
+				(prompt) => turn([...exec, prompt]),
+				(prompt) => turn([...exec, "resume", "--last", prompt]),
+			),
 		];
-
-		return steps;
 	}),
 	pi: Effect.fnUntraced(function* piSteps(routed: Routed) {
 		const path = yield* Path.Path;
@@ -160,19 +156,9 @@ const turnsOn = {
 		const flags = ["--model", "phi/auto", "--session-id", sessions.prompts, "--mode", "json"];
 
 		const turn = (prompt: string): Effect.Effect<Turn, never, Needs> =>
-			piRun(where, ["-e", extension, "-p", prompt, ...flags], { env }).pipe(
-				Effect.map(({ exitCode, printed }): Turn => ({ exitCode, printed })),
-				Effect.orDie,
-			);
+			piRun(where, ["-e", extension, "-p", prompt, ...flags], { env }).pipe(Effect.orDie);
 
-		const steps: readonly Step[] = [
-			{
-				name: "prompts",
-				play: Effect.all([turn(clean), turn(canary)], { concurrency: 1 }),
-			},
-		];
-
-		return steps;
+		return [prompts(turn, turn)];
 	}),
 	"pi-harness": Effect.fnUntraced(function* piHarnessSteps(routed: Routed) {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -214,14 +200,7 @@ const turnsOn = {
 			Effect.orDie,
 		);
 
-		const steps: readonly Step[] = [
-			{
-				name: "tool result through pi-harness",
-				play: turn.pipe(Effect.map(Array.of)),
-			},
-		];
-
-		return steps;
+		return [{ name: "tool result through pi-harness", play: turn.pipe(Effect.map(Array.of)) } satisfies Step];
 	}),
 } as const;
 
