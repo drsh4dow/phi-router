@@ -121,6 +121,10 @@ const waiting = { installed: "0.6.0", running: "0.5.1" };
 
 const columns = 80;
 
+const keycaps = 40;
+
+const keycapRan = Struct.assign(ranLast, { account: Str.repeat(keycaps)("#️⃣") });
+
 it.effect(
 	"the status line marks the overflow while the last request overflowed, till the stamp's HH:MM when one exists, and no longer, the withheld answers and the version wait in 80 columns whatever the account's name and the version, and /phi says each in full",
 	() =>
@@ -158,6 +162,8 @@ it.effect(
 				waiting,
 			);
 
+			const keycapNamed = yield* statusLine(Struct.assign(noticed, { last: keycapRan }), waiting);
+
 			const unstamped = Struct.assign(noticed.accounts, {
 				clean: [{ name: "claude-1", vendor: "anthropic" as const }],
 			});
@@ -190,6 +196,7 @@ it.effect(
 					backAgain,
 					emojiNamed,
 					fits: Array.map([line, longNamed, longVersion], ({ length }) => length <= columns),
+					keycapNamed,
 					line,
 					longNamed,
 					longVersion,
@@ -203,6 +210,7 @@ it.effect(
 					backAgain: "phi · claude-1 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
 					emojiNamed: "phi · 🚀 anthropi… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					fits: [true, true, true],
+					keycapNamed: "phi · #️⃣#️⃣#️⃣#️⃣#️⃣#… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					longNamed: "phi · claude-baa-… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					longVersion: "phi · … · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0-rc.20261126.12345…",

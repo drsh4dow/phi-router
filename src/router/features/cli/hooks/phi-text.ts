@@ -202,7 +202,13 @@ const punctuation = { first: "\u2000", last: "\u206F" };
 
 const zeroWidth = /\p{Mn}|\p{Me}/u;
 
+const emojiStyle = "\uFE0F";
+
 const cellsOfChar = (char: string): number => {
+	if (char === emojiStyle) {
+		return one;
+	}
+
 	if (zeroWidth.test(char)) {
 		return none;
 	}
