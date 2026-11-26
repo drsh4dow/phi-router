@@ -151,6 +151,13 @@ it.effect(
 				waiting,
 			);
 
+			const emojiNamed = yield* statusLine(
+				Struct.assign(noticed, {
+					last: Struct.assign(ranLast, { account: "🚀 anthropic-enterprise-subscription-team" }),
+				}),
+				waiting,
+			);
+
 			const unstamped = Struct.assign(noticed.accounts, {
 				clean: [{ name: "claude-1", vendor: "anthropic" as const }],
 			});
@@ -167,6 +174,7 @@ it.effect(
 			assert.deepStrictEqual(
 				{
 					backAgain,
+					emojiNamed,
 					fits: Array.map([line, longNamed, longVersion], ({ length }) => length <= columns),
 					line,
 					longNamed,
@@ -178,6 +186,7 @@ it.effect(
 				},
 				{
 					backAgain: "phi · claude-2 · 0 sealed · 15 cleared · 1 pinned run · 1 withheld",
+					emojiNamed: "phi · 🚀 anthropi… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					fits: [true, true, true],
 					line: "phi · claude-2 · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
 					longNamed: "phi · claude-baa-… · 0 sealed · 1 withheld · overflow till 14:30 · 0.6.0 pending",
