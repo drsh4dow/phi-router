@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Formatter, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, FileSystem, Formatter, Schema, String as Str, Struct, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
 import {
 	claudeFolders,
@@ -325,6 +325,36 @@ const recognized = Effect.gen(function* recognized() {
 	);
 }).pipe(Effect.scoped);
 
+const settingsJson = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Json));
+
+const offOver = Effect.fnUntraced(function* offOver(picker: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const { dir, env } = yield* claudeFolders;
+
+	yield* fs.writeFileString(settingsFile(dir), `{"modelPicker":${picker}}`);
+
+	const off = yield* phiRouter(claudeIn(dir).off, env);
+	const left = yield* fs.readFileString(settingsFile(dir)).pipe(Effect.flatMap(settingsJson));
+
+	return { exitCode: off.exitCode, left };
+});
+
+const malformed = Effect.gen(function* malformed() {
+	const stray = yield* offOver(
+		'{"options":[{"label":"Mine","model":"opus"},"stray",{"behavesAs":"claude-opus-5-5","model":"phi/auto"}]}',
+	);
+
+	const notAList = yield* offOver('{"options":"opus"}');
+
+	assert.deepStrictEqual<unknown>(
+		{ notAList, stray },
+		{
+			notAList: { exitCode: ok, left: { modelPicker: { options: "opus" } } },
+			stray: { exitCode: ok, left: { modelPicker: { options: [mine, "stray"] } } },
+		},
+	);
+}).pipe(Effect.scoped);
+
 const untouched = Effect.gen(function* untouched() {
 	const fs = yield* FileSystem.FileSystem;
 	const { dir, env } = yield* claudeFolders;
@@ -376,6 +406,11 @@ it.layer(NodeServices.layer)("on claude and off claude", (test) => {
 	test.effect(
 		"on adds picker rows that make phi/auto behave as the configured target model and phi/sealed as the sealed model, after the user's rows, follows a changed config, and off removes only its rows",
 		() => recognized,
+		patient,
+	);
+	test.effect(
+		"off keeps a picker entry that is not an object and leaves options that are not a list",
+		() => malformed,
 		patient,
 	);
 });
