@@ -44,15 +44,15 @@ Setup finds the keys you already have and asks only for the rest. Claude Code an
 
 ## Proof
 
-`bun run eval:recorded` replays a synthetic corpus through the router with the judge's recorded answers. It calls no API.
+`bun run eval:recorded` replays three draws of a synthetic corpus, from seeds 1729, 1730 and 1731, through the router with the judge's recorded answers. It calls no API.
 
-| Check                               | Result    |
-| ----------------------------------- | --------- |
-| PHI cases leaked to an open account | 0 of 458  |
-| Clean cases sealed anyway           | 42 of 352 |
-| Judge cost for 3,955 calls          | $0.9042   |
+| Check                               | Result       |
+| ----------------------------------- | ------------ |
+| PHI cases leaked to an open account | 0 of 1,374   |
+| Clean cases sealed anyway           | 122 of 1,056 |
+| Judge cost for 11,463 calls         | $2.4355      |
 
-The corpus covers 20 identifier kinds, such as names, SSNs and MRNs, in 12 formats, such as FHIR, HL7v2, SQL dumps and screenshots. Zero leaks in a sample is not a zero leak rate. For the 99 plain-text cases, the 95% upper bound is 0.0298. `bun run check` replays it on every pull request and fails on any leak.
+The corpus covers 20 identifier kinds, such as names, SSNs and MRNs, in 12 formats, such as FHIR, HL7v2, SQL dumps and screenshots. Each draw deals them afresh, so a policy tuned to one draw can still fail the next. Zero leaks in a sample is not a zero leak rate. For the 297 plain-text cases, the 95% upper bound is 0.0100. `bun run check` replays every draw on every pull request and fails on any leak.
 
 ## What it saves
 
