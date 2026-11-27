@@ -1,9 +1,10 @@
-import { Array, Context, Effect, Option, Record, Schema, pipe } from "effect";
+import { Array, Context, Effect, Option, Record, Schema, String as Str, pipe } from "effect";
 import { Callers, unnamed } from "./callers.ts";
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { Layer, Scope, Stream } from "effect";
 import type { Caller } from "./callers.ts";
 import type { HttpServerError } from "effect/http";
+import { callerHeader } from "./caller-token.ts";
 
 const badRequest = 400;
 
@@ -93,6 +94,19 @@ const callerIsThisUser = Effect.gen(function* callerIsThisUser() {
 	return yield* callers.isThisUser(caller);
 });
 
+const helloPath = "/api/hello";
+
+const tokenPresented = Effect.gen(function* tokenPresented() {
+	const callers = yield* Callers;
+	const request = yield* HttpServerRequest.HttpServerRequest;
+
+	if (Str.startsWith(helloPath)(request.url)) {
+		return true;
+	}
+
+	return yield* callers.tokenFine(request.headers[callerHeader] ?? "");
+});
+
 const serve = (paths: readonly Path[]): Layer.Layer<never, never, HttpServer.HttpServer | Callers> => {
 	const routes = pipe(
 		paths,
@@ -104,7 +118,7 @@ const serve = (paths: readonly Path[]): Layer.Layer<never, never, HttpServer.Htt
 		disableLogger: true,
 		middleware: (served) =>
 			Effect.gen(function* onlyThisUser() {
-				if (!(yield* callerIsThisUser)) {
+				if (!(yield* tokenPresented) || !(yield* callerIsThisUser)) {
 					return HttpServerResponse.text(notThisUser, { contentType: "application/json", status: forbidden });
 				}
 

@@ -1,7 +1,10 @@
-import { Array, Console, Effect, Record, Struct, pipe } from "effect";
+import { Array, Console, Effect, Option, Record, Struct, pipe } from "effect";
+import { callerHeader, ensuredToken } from "#router/client/router-port/index.ts";
 import {
+	callerReason,
 	claudeEnv,
 	claudeSettings,
+	customHeadersSetting,
 	exempted,
 	exemptionName,
 	exemptionReason,
@@ -14,6 +17,7 @@ import {
 	routerAddress,
 	shellLists,
 	statusLineCommand,
+	withCaller,
 } from "./settings.ts";
 import {
 	modelPickerStatement,
@@ -35,8 +39,15 @@ const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 	const settings = yield* userSettings(configDir);
 	const shell = yield* shellLists;
 	const exempt = exempted(routerAddress)({ settings: settings.env, shell });
+	const token = yield* ensuredToken;
+	const headers = Option.getOrElse(Record.get(settings.env, customHeadersSetting), () => "");
 
-	yield* rewriteEnv(configDir, Struct.assign(claudeEnv, exempt.set), exempt.unset);
+	const caller = Option.match(token, {
+		onNone: () => Record.empty<string, string>(),
+		onSome: (value) => Record.singleton(customHeadersSetting, withCaller(value)(headers)),
+	});
+
+	yield* rewriteEnv(configDir, Struct.assign(Struct.assign(claudeEnv, exempt.set), caller), exempt.unset);
 
 	const rows = yield* pickerRows;
 
@@ -46,6 +57,7 @@ const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 	const statusLineRemoved = yield* removeStatusLine(configDir, command);
 
 	return {
+		callerSent: Option.isSome(token),
 		exempt,
 		path: settings.path,
 		rows,
@@ -54,7 +66,7 @@ const switchedOn = Effect.fnUntraced(function* switchedOn(configDir: string) {
 });
 
 const on = Effect.fn("on claude")(function* on(configDir: string) {
-	const { exempt, path, rows, statusLineLines } = yield* switchedOn(configDir);
+	const { callerSent, exempt, path, rows, statusLineLines } = yield* switchedOn(configDir);
 
 	const lines = pipe(
 		claudeSettings,
@@ -79,7 +91,16 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 		],
 	});
 
-	const count = claudeSettings.length + Record.size(exempt.set) + Number(Array.isReadonlyArrayNonEmpty(rows));
+	const callerLines = Array.filter(
+		[`${customHeadersSetting}=${callerHeader}: (hidden)`, `  ${callerReason}`],
+		() => callerSent,
+	);
+
+	const count =
+		claudeSettings.length +
+		Record.size(exempt.set) +
+		Number(Array.isReadonlyArrayNonEmpty(rows)) +
+		Number(callerSent);
 
 	const wrote = `phi-router wrote ${String(count)} settings to ${path}`;
 
@@ -91,6 +112,7 @@ const on = Effect.fn("on claude")(function* on(configDir: string) {
 			[
 				wrote,
 				...lines,
+				...callerLines,
 				...exemptionLines,
 				...statusLineLines,
 				...pickerLines,

@@ -1,5 +1,13 @@
-import { Array, Console, Effect, pipe } from "effect";
-import { claudeSettings, exemptionName, phiModels, restored, statusLineCommand } from "./settings.ts";
+import { Array, Console, Effect, Struct, pipe } from "effect";
+import {
+	claudeSettings,
+	customHeadersSetting,
+	exemptionName,
+	phiModels,
+	restored,
+	statusLineCommand,
+	withoutCaller,
+} from "./settings.ts";
 import {
 	modelPickerStatement,
 	pickModels,
@@ -17,7 +25,9 @@ const names = pipe(
 const off = Effect.fn("off claude")(function* off(configDir: string) {
 	const settings = yield* userSettings(configDir);
 	const exempt = restored(settings.env);
-	const { changed, path } = yield* rewriteEnv(configDir, exempt.set, [...names, ...exempt.unset]);
+	const caller = withoutCaller(settings.env);
+	const set = Struct.assign(exempt.set, caller.set);
+	const { changed, path } = yield* rewriteEnv(configDir, set, [...names, ...exempt.unset, ...caller.unset]);
 	const command = yield* statusLineCommand(configDir);
 	const statusLineRemoved = yield* removeStatusLine(configDir, command);
 	const pickerRemoved = yield* pickModels(configDir, phiModels, []);
@@ -27,6 +37,7 @@ const off = Effect.fn("off claude")(function* off(configDir: string) {
 			changed,
 			Array.filter((name) => Array.contains(names, name)),
 		),
+		...Array.filter([customHeadersSetting], () => Array.contains(changed, customHeadersSetting)),
 		...Array.filter([statusLineStatement], () => statusLineRemoved),
 		...Array.filter([modelPickerStatement], () => pickerRemoved),
 	];

@@ -1,5 +1,8 @@
-import { Array, Context, Effect, FileSystem, Layer, Option, String as Str, Stream, pipe } from "effect";
+import { Array, Config, Context, Effect, FileSystem, Layer, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { Mac, SecureRandom } from "effect/crypto";
+import { Hex } from "effect/encoding";
+import { storedToken } from "./caller-token.ts";
 
 type Endpoint = `${string}:${number}`;
 
@@ -15,10 +18,20 @@ type Caller = Connection | typeof unnamed;
 interface Socket {
 	readonly local: Endpoint;
 	readonly remote: Endpoint;
-	readonly uid: number;
+	readonly owner: string;
+}
+
+interface Row {
+	readonly local: Endpoint;
+	readonly remote: Endpoint;
+	readonly pid: number;
 }
 
 const procTable = "/proc/net/tcp";
+
+const encoder = new TextEncoder();
+
+const macs = Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto));
 
 const procRow =
 	/^\s*\d+: (?<local>[\dA-F]{8}:[\dA-F]{4}) (?<remote>[\dA-F]{8}:[\dA-F]{4}) [\dA-F]{2} \S+ \S+ \S+ +(?<uid>\d+) /u;
@@ -30,7 +43,18 @@ const lsofUid = /^u(?<uid>\d+)$/u;
 
 const lsofSocket = /^n(?<localHost>\S+):(?<localPort>\d+)->(?<remoteHost>\S+):(?<remotePort>\d+)$/u;
 
-const lsofListed = 0;
+const netstatRow =
+	/^\s*TCP\s+(?<localHost>\d{1,3}(?:\.\d{1,3}){3}):(?<localPort>\d+)\s+(?<remoteHost>\d{1,3}(?:\.\d{1,3}){3}):(?<remotePort>\d+)\s+\S+\s+(?<pid>\d+)\s*$/u;
+
+const tasklistRow = /^"[^"]*","(?<pid>\d+)","[^"]*","[^"]*","[^"]*","[^"]*","(?<owner>[^"\\]+\\[^"\\]+)",/u;
+
+const undecoded = "\uFFFD";
+
+const idleProcess = 0;
+
+const windowsSeparator = "\\";
+
+const listedFine = 0;
 
 const hex = 16;
 
@@ -39,6 +63,8 @@ const groupsOf = (pattern: Readonly<RegExp>, text: string): Option.Option<Readon
 		Option.fromNullishOr(pattern.exec(text)),
 		Option.flatMap(({ groups }) => Option.fromNullishOr(groups)),
 	);
+
+const linesOf = Str.split(/\r?\n/u);
 
 const fromHex = (digits = ""): number => Number.parseInt(digits, hex);
 
@@ -51,7 +77,7 @@ const endpointOf = (printed: string): Option.Option<Endpoint> =>
 
 const procSocketOf = (line: string): Option.Option<Socket> =>
 	Option.flatMap(groupsOf(procRow, line), ({ local = "", remote = "", uid = "" }) =>
-		Option.all({ local: endpointOf(local), remote: endpointOf(remote), uid: Option.some(Number(uid)) }),
+		Option.all({ local: endpointOf(local), owner: Option.some(uid), remote: endpointOf(remote) }),
 	);
 
 const lsofSocketsOf = (block: string): readonly Socket[] => {
@@ -68,14 +94,48 @@ const lsofSocketsOf = (block: string): readonly Socket[] => {
 				onSome: (named): readonly Socket[] => [
 					{
 						local: `${localHost}:${Number(localPort)}`,
+						owner: named["uid"] ?? "",
 						remote: `${remoteHost}:${Number(remotePort)}`,
-						uid: Number(named["uid"]),
 					},
 				],
 			}),
 		),
 	);
 };
+
+const netstatRowOf = (line: string): Option.Option<Row> =>
+	Option.map(
+		groupsOf(netstatRow, line),
+		({ localHost = "", localPort = "", remoteHost = "", remotePort = "", pid = "" }): Row => ({
+			local: `${localHost}:${Number(localPort)}`,
+			pid: Number(pid),
+			remote: `${remoteHost}:${Number(remotePort)}`,
+		}),
+	);
+
+const ownerOf = (printed: string, pid: number): Option.Option<string> => {
+	const owners = pipe(
+		linesOf(printed),
+		Array.map((line) => groupsOf(tasklistRow, line)),
+		Array.getSomes,
+		Array.filter((row) => Number(row["pid"]) === pid),
+		Array.map(({ owner = "" }) => owner),
+	);
+
+	return Array.matchLeft(owners, {
+		onEmpty: () => Option.none(),
+		onNonEmpty: (owner, others) =>
+			Option.liftPredicate(owner, () => Array.isReadonlyArrayEmpty(others) && !Str.includes(undecoded)(owner)),
+	});
+};
+
+const endsOf = (rows: readonly Row[], { caller, router }: Connection): readonly Row[] =>
+	pipe(
+		rows,
+		Array.filter(
+			({ local, remote }) => (local === caller && remote === router) || (local === router && remote === caller),
+		),
+	);
 
 const heldByOneUser = (sockets: readonly Socket[], { caller, router }: Connection): boolean => {
 	const callerEnd = pipe(
@@ -88,15 +148,15 @@ const heldByOneUser = (sockets: readonly Socket[], { caller, router }: Connectio
 		Array.filter(({ local, remote }) => local === router && remote === caller),
 	);
 
-	const routerUid = Option.map(Array.head(routerEnd), ({ uid }) => uid);
+	const routerOwner = Option.map(Array.head(routerEnd), ({ owner }) => owner);
 	const both = [...callerEnd, ...routerEnd];
 
 	return (
 		Array.isReadonlyArrayNonEmpty(callerEnd) &&
-		Option.exists(routerUid, (expected) =>
+		Option.exists(routerOwner, (expected) =>
 			pipe(
 				both,
-				Array.every(({ uid }) => uid === expected),
+				Array.every(({ owner }) => owner === expected),
 			),
 		)
 	);
@@ -104,36 +164,105 @@ const heldByOneUser = (sockets: readonly Socket[], { caller, router }: Connectio
 
 const listPatience = "2 seconds";
 
+const defaultSystemRoot = String.raw`C:\Windows`;
+
 class Callers extends Context.Service<
 	Callers,
 	{
 		readonly isThisUser: (caller: Caller) => Effect.Effect<boolean>;
+		readonly tokenFine: (presented: string) => Effect.Effect<boolean>;
 	}
 >()("phi-router/router/client/router-port/callers") {
 	public static readonly layer = Layer.effect(
 		Callers,
 		Effect.gen(function* make() {
 			const fs = yield* FileSystem.FileSystem;
+			const path = yield* Path.Path;
 			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 			const hasProcTable = yield* Effect.orElseSucceed(fs.exists(procTable), () => false);
+			const onWindows = path.sep === windowsSeparator;
 
-			const listed = Effect.fnUntraced(function* listed({ router }: Connection) {
+			const systemRoot = yield* Effect.orElseSucceed(
+				Config.String("SystemRoot").pipe(Config.withDefault(defaultSystemRoot)),
+				() => defaultSystemRoot,
+			);
+
+			const system32 = path.join(systemRoot, "System32");
+
+			const printedBy = Effect.fnUntraced(function* printedBy(command: string, args: readonly string[]) {
+				const options = { forceKillAfter: "1 second", stderr: "ignore", stdin: "ignore" } as const;
+				const handle = yield* spawner.spawn(ChildProcess.make(command, args, options));
+				const printed = yield* Stream.mkString(Stream.decodeText(handle.stdout));
+				const exitCode = yield* handle.exitCode;
+
+				return Option.liftPredicate(printed, () => exitCode === listedFine);
+			});
+
+			const windowsOwnerOf = Effect.fnUntraced(function* windowsOwnerOf(pid: number) {
+				if (pid === idleProcess) {
+					return Option.none();
+				}
+
+				const tasklist = path.join(system32, "tasklist.exe");
+				const printed = yield* printedBy(tasklist, ["/v", "/fo", "csv", "/nh", "/fi", `PID eq ${pid}`]);
+
+				return pipe(
+					printed,
+					Option.flatMap((listing) => ownerOf(listing, pid)),
+				);
+			}, Effect.scoped);
+
+			const windowsListed = Effect.fnUntraced(function* windowsListed(connection: Connection) {
+				const table = yield* printedBy(path.join(system32, "netstat.exe"), ["-ano", "-p", "TCP"]);
+				const lines = linesOf(Option.getOrElse(table, () => ""));
+				const rows = endsOf(pipe(lines, Array.map(netstatRowOf), Array.getSomes), connection);
+
+				const pids = pipe(
+					rows,
+					Array.map(({ pid }) => pid),
+					Array.dedupe,
+				);
+
+				const owners = yield* Effect.forEach(
+					pids,
+					(pid) =>
+						Effect.map(
+							windowsOwnerOf(pid),
+							Option.map((owner) => ({ owner, pid })),
+						),
+					{ concurrency: "unbounded" },
+				);
+
+				return Option.match(Option.all(owners), {
+					onNone: (): readonly Socket[] => [],
+					onSome: (named) =>
+						pipe(
+							rows,
+							Array.flatMap(({ local, pid, remote }): readonly Socket[] =>
+								pipe(
+									named,
+									Array.findFirst((held) => held.pid === pid),
+									Option.match({ onNone: () => [], onSome: ({ owner }) => [{ local, owner, remote }] }),
+								),
+							),
+						),
+				});
+			}, Effect.scoped);
+
+			const listed = Effect.fnUntraced(function* listed(connection: Connection) {
 				if (hasProcTable) {
 					const table = yield* fs.readFileString(procTable);
 
 					return pipe(Str.split("\n")(table), Array.map(procSocketOf), Array.getSomes);
 				}
 
-				const options = { forceKillAfter: "1 second", stderr: "ignore", stdin: "ignore" } as const;
-				const handle = yield* spawner.spawn(ChildProcess.make("lsof", ["-nP", `-iTCP@${router}`, "-Fun"], options));
-				const printed = yield* Stream.mkString(Stream.decodeText(handle.stdout));
-				const exitCode = yield* handle.exitCode;
-
-				if (exitCode !== lsofListed) {
-					return [];
+				if (onWindows) {
+					return yield* windowsListed(connection);
 				}
 
-				return Array.flatMap(Str.split(/^p/mu)(printed), lsofSocketsOf);
+				const printed = yield* printedBy("lsof", ["-nP", `-iTCP@${connection.router}`, "-Fun"]);
+
+				return Array.flatMap(Str.split(/^p/mu)(Option.getOrElse(printed, () => "")), lsofSocketsOf);
 			}, Effect.scoped);
 
 			const heldByThisUser = (connection: Connection): Effect.Effect<boolean> =>
@@ -151,9 +280,38 @@ class Callers extends Context.Service<
 				return heldByThisUser(caller);
 			};
 
-			return Callers.of({ isThisUser });
+			const mac = yield* Mac.Mac;
+
+			const signed = Effect.fnUntraced(function* signed(held: string, message: string) {
+				const secret = yield* Mac.key(Mac.hmacSha256, encoder.encode(held));
+				const tag = yield* mac.sign(secret, encoder.encode(message));
+
+				return Hex.encode(tag);
+			});
+
+			const matches = Effect.fnUntraced(function* matches(presented: string) {
+				const held = yield* storedToken;
+				const given = yield* signed(held, presented);
+				const expected = yield* signed(held, held);
+
+				return given === expected;
+			});
+
+			const tokenFine = (presented: string): Effect.Effect<boolean> => {
+				if (!onWindows) {
+					return Effect.succeed(true);
+				}
+
+				return matches(presented).pipe(
+					Effect.provideService(FileSystem.FileSystem, fs),
+					Effect.provideService(Path.Path, path),
+					Effect.orElseSucceed(() => false),
+				);
+			};
+
+			return Callers.of({ isThisUser, tokenFine });
 		}),
-	);
+	).pipe(Layer.provide(macs));
 }
 
 export { Callers, unnamed };

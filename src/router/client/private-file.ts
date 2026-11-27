@@ -1,6 +1,273 @@
-import { Array, Effect, FileSystem, Order, Path, Random } from "effect";
+import {
+	Array,
+	Config,
+	Effect,
+	FileSystem,
+	MutableHashSet,
+	MutableRef,
+	Option,
+	Order,
+	Path,
+	PlatformError,
+	Random,
+	String as Str,
+	Stream,
+	pipe,
+} from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
+
+const windowsSeparator = "\\";
+
+const defaultSystemRoot = String.raw`C:\Windows`;
+
+const succeeded = 0;
+
+const grants = { file: "(F)", folder: "(OI)(CI)(F)" } as const;
+
+const sidPrefix = "S-1-";
+
+const currentUserSid = MutableRef.make(Option.none<string>());
+
+const restrictedAppendTargets = MutableHashSet.empty<string>();
+
+const privateFolders = MutableHashSet.empty<string>();
+
+const sharedFolders = MutableHashSet.empty<string>();
+
+const isWindows = (path: Readonly<Path.Path>): boolean => path.sep === windowsSeparator;
+
+const aclRefused = (target: string, description: string): PlatformError.PlatformError =>
+	PlatformError.badArgument({
+		description: `${target} could not be made private to the current user: ${description}`,
+		method: "restrictToCurrentUser",
+		module: "FileSystem",
+	});
+
+const systemTool = Effect.fnUntraced(function* systemTool(name: string) {
+	const path = yield* Path.Path;
+
+	const root = yield* Config.String("SystemRoot").pipe(
+		Config.withDefault(defaultSystemRoot),
+		Effect.orElseSucceed(() => defaultSystemRoot),
+	);
+
+	return path.join(root, "System32", name);
+});
+
+const printedBy = Effect.fnUntraced(function* printedBy(tool: string, args: readonly string[], target: string) {
+	const spawner = yield* Effect.serviceOption(ChildProcessSpawner.ChildProcessSpawner);
+
+	if (Option.isNone(spawner)) {
+		return yield* aclRefused(target, `no process spawner to run ${tool}`);
+	}
+
+	const handle = yield* spawner.value.spawn(ChildProcess.make(tool, args, { stdin: "ignore" }));
+	const printed = yield* Stream.mkString(Stream.decodeText(handle.all));
+	const exitCode = yield* handle.exitCode;
+
+	if (exitCode !== succeeded) {
+		return yield* aclRefused(target, `${tool} exited ${String(exitCode)}: ${Str.trim(printed)}`);
+	}
+
+	return printed;
+}, Effect.scoped);
+
+const sidIn = (printed: string): Option.Option<string> =>
+	pipe(
+		Str.trim(printed),
+		Str.split(","),
+		Array.last,
+		Option.map(Str.replaceAll('"', "")),
+		Option.filter(Str.startsWith(sidPrefix)),
+	);
+
+const userSid = Effect.fnUntraced(function* userSid(target: string) {
+	const known = MutableRef.get(currentUserSid);
+
+	if (Option.isSome(known)) {
+		return known.value;
+	}
+
+	const whoami = yield* systemTool("whoami.exe");
+	const printed = yield* printedBy(whoami, ["/user", "/fo", "csv", "/nh"], target);
+	const sid = sidIn(printed);
+
+	if (Option.isNone(sid)) {
+		return yield* aclRefused(target, `${whoami} printed no SID`);
+	}
+
+	MutableRef.set(currentUserSid, sid);
+
+	return sid.value;
+});
+
+const topmostMissing = (
+	folder: string,
+): Effect.Effect<Option.Option<string>, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> =>
+	Effect.gen(function* topmost() {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+
+		if (yield* fs.exists(folder)) {
+			return Option.none();
+		}
+
+		const parent = path.dirname(folder);
+
+		if (parent === folder) {
+			return Option.some(folder);
+		}
+
+		const above = yield* topmostMissing(parent);
+
+		return Option.orElseSome(above, () => folder);
+	});
+
+const daclOf = Effect.fnUntraced(function* daclOf(target: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-acl-" });
+	const saved = path.join(folder, "acl");
+	const icacls = yield* systemTool("icacls.exe");
+
+	yield* printedBy(icacls, [target, "/save", saved], target);
+
+	const bytes = yield* fs.readFile(saved);
+
+	return pipe(
+		new TextDecoder("utf-16le").decode(bytes),
+		Str.split("\n"),
+		Array.map(Str.trim),
+		Array.filter(Str.isNonEmpty),
+		Array.last,
+		Option.getOrElse(() => ""),
+	);
+}, Effect.scoped);
+
+const onlyOwner = {
+	file: (sid: string): string => `D:PAI(A;;FA;;;${sid})`,
+	folder: (sid: string): string => `D:PAI(A;OICI;FA;;;${sid})`,
+} as const;
+
+const restrictToCurrentUser = Effect.fnUntraced(function* restrictToCurrentUser(
+	target: string,
+	kind: keyof typeof grants,
+) {
+	const sid = yield* userSid(target);
+	const icacls = yield* systemTool("icacls.exe");
+
+	yield* printedBy(icacls, [target, "/inheritance:r", "/grant:r", `*${sid}:${grants[kind]}`], target);
+
+	const dacl = yield* daclOf(target);
+
+	if (dacl !== onlyOwner[kind](sid)) {
+		return yield* aclRefused(target, `another account keeps access to it (${dacl})`);
+	}
+
+	return dacl;
+});
+
+const stagingName = Random.nextInt.pipe(Effect.map((unique) => `.phi-router-${String(unique)}`));
+
+const staged = Effect.fnUntraced(function* staged(folder: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const name = yield* stagingName;
+	const staging = path.join(folder, name);
+
+	yield* Effect.acquireRelease(fs.makeDirectory(staging), () =>
+		Effect.ignore(fs.remove(staging, { recursive: true })),
+	);
+	yield* restrictToCurrentUser(staging, "folder");
+
+	const inside = yield* fs.readDirectory(staging);
+
+	if (Array.isReadonlyArrayNonEmpty(inside)) {
+		return yield* aclRefused(staging, "another account wrote in it before it was made private");
+	}
+
+	return staging;
+});
+
+const passesPrivacyOn = Effect.fnUntraced(function* passesPrivacyOn(folder: string) {
+	const sid = yield* userSid(folder);
+	const dacl = yield* daclOf(folder);
+
+	return Array.contains([`D:PAI(A;OICI;FA;;;${sid})`, `D:AI(A;OICIID;FA;;;${sid})`], dacl);
+});
+
+const madeTopmost = Effect.fnUntraced(function* madeTopmost(folder: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const staging = yield* staged(path.dirname(folder));
+
+	yield* fs.rename(staging, folder);
+}, Effect.scoped);
+
+const madeOnWindows = Effect.fnUntraced(function* madeOnWindows(folder: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const resolved = path.resolve(folder);
+
+	if (MutableHashSet.has(privateFolders, resolved) && (yield* fs.exists(resolved))) {
+		return true;
+	}
+
+	if (MutableHashSet.has(sharedFolders, resolved)) {
+		yield* fs.makeDirectory(resolved, { mode: privateModes.folder, recursive: true });
+
+		return false;
+	}
+
+	const missing = yield* topmostMissing(resolved);
+
+	if (Option.isSome(missing)) {
+		yield* madeTopmost(missing.value);
+	}
+
+	yield* fs.makeDirectory(resolved, { mode: privateModes.folder, recursive: true });
+
+	const inherits = Option.isSome(missing) || (yield* passesPrivacyOn(resolved));
+
+	if (inherits) {
+		MutableHashSet.add(privateFolders, resolved);
+	} else {
+		MutableHashSet.remove(privateFolders, resolved);
+		MutableHashSet.add(sharedFolders, resolved);
+	}
+
+	return inherits;
+});
+
+const madePrivately = Effect.fnUntraced(function* madePrivately(folder: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+
+	if (isWindows(path)) {
+		return yield* madeOnWindows(folder);
+	}
+
+	yield* fs.makeDirectory(folder, { mode: privateModes.folder, recursive: true });
+
+	return true;
+});
+
+const writtenThroughStaging = Effect.fnUntraced(function* writtenThroughStaging(
+	file: string,
+	bytes: readonly number[],
+	mode: number,
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const staging = yield* staged(path.dirname(file));
+	const temp = path.join(staging, path.basename(file));
+
+	yield* fs.writeFile(temp, Uint8Array.from(bytes), { flag: "wx", mode });
+	yield* fs.rename(temp, file);
+	yield* restrictToCurrentUser(file, "file");
+}, Effect.scoped);
 
 const writePrivately = Effect.fnUntraced(function* writePrivately(
 	file: string,
@@ -11,7 +278,11 @@ const writePrivately = Effect.fnUntraced(function* writePrivately(
 	const path = yield* Path.Path;
 	const temp = yield* Random.nextInt.pipe(Effect.map((unique) => `${file}.${String(unique)}.tmp`));
 
-	yield* fs.makeDirectory(path.dirname(file), { mode: privateModes.folder, recursive: true });
+	const inherits = yield* madePrivately(path.dirname(file));
+
+	if (!inherits) {
+		return yield* writtenThroughStaging(file, Array.fromIterable(new TextEncoder().encode(text)), mode);
+	}
 
 	const handle = yield* fs.open(temp, { flag: "wx", mode: privateModes.file });
 
@@ -22,20 +293,33 @@ const writePrivately = Effect.fnUntraced(function* writePrivately(
 		yield* fs.chmod(temp, mode);
 	}
 
-	yield* fs.rename(temp, file);
+	return yield* fs.rename(temp, file);
 }, Effect.scoped);
 
 const folderPrivately = Effect.fnUntraced(function* folderPrivately(folder: string) {
-	const fs = yield* FileSystem.FileSystem;
-
-	yield* fs.makeDirectory(folder, { mode: privateModes.folder, recursive: true });
+	yield* madePrivately(folder);
 });
 
 const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string, text: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 
-	yield* fs.makeDirectory(path.dirname(file), { mode: privateModes.folder, recursive: true });
+	const inherits = yield* madePrivately(path.dirname(file));
+
+	const exists = yield* fs.exists(file);
+
+	if (!inherits && !exists) {
+		yield* writtenThroughStaging(file, [], privateModes.file);
+	}
+
+	if (!inherits && exists && !MutableHashSet.has(restrictedAppendTargets, path.resolve(file))) {
+		yield* restrictToCurrentUser(file, "file");
+	}
+
+	if (!inherits) {
+		MutableHashSet.add(restrictedAppendTargets, path.resolve(file));
+	}
+
 	yield* fs.writeFileString(file, text, { flag: "a", mode: privateModes.file });
 });
 
@@ -70,8 +354,7 @@ const copyPrivately = Effect.fnUntraced(function* copyPrivately(from: string, to
 	const path = yield* Path.Path;
 	const listed = yield* fs.readDirectory(from, { recursive: true });
 	const entries = Array.sort(listed, Order.String);
-
-	yield* fs.makeDirectory(to, { mode: privateModes.folder, recursive: true });
+	const inherits = yield* madePrivately(to);
 
 	yield* Effect.forEach(
 		entries,
@@ -84,7 +367,11 @@ const copyPrivately = Effect.fnUntraced(function* copyPrivately(from: string, to
 
 			const bytes = yield* fs.readFile(path.join(from, entry));
 
-			return yield* fs.writeFile(path.join(to, entry), bytes, { flag: "wx", mode: copyMode(info) });
+			if (inherits) {
+				return yield* fs.writeFile(path.join(to, entry), bytes, { flag: "wx", mode: copyMode(info) });
+			}
+
+			return yield* writtenThroughStaging(path.join(to, entry), Array.fromIterable(bytes), copyMode(info));
 		}),
 		{ concurrency: 1, discard: true },
 	);

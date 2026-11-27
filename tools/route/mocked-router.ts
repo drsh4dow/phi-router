@@ -22,8 +22,7 @@ import { NodeHttpServer } from "@effect/platform-node";
 import { Router } from "#router/features/route/index.ts";
 import { VerdictStore } from "#router/client/verdict-store.ts";
 import { mockOn } from "#tools/judge/configured.ts";
-
-const privateModes = { file: 0o600, folder: 0o700 } as const;
+import { writePrivately } from "#router/client/private-file.ts";
 
 const nothingListens = Effect.scoped(
 	Effect.map(Layer.build(NodeHttpServer.layerTest), (server) =>
@@ -124,8 +123,7 @@ const configured = Effect.fnUntraced(function* configured(
 		),
 	);
 
-	yield* fs.makeDirectory(path.join(config, "phi-router"), { mode: privateModes.folder });
-	yield* fs.writeFileString(path.join(config, "phi-router", "config.json"), file, { mode: privateModes.file });
+	yield* writePrivately(path.join(config, "phi-router", "config.json"), file);
 
 	const env = {
 		PHI_TEST_BAA_KEY: fakes.baaKey,

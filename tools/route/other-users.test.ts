@@ -14,7 +14,7 @@ const status = { forbidden: 403, ok: 200 } as const;
 
 const refusedRequests = 5;
 
-const anotherUser = Callers.of({ isThisUser: () => Effect.succeed(false) });
+const anotherUser = Callers.of({ isThisUser: () => Effect.succeed(false), tokenFine: () => Effect.succeed(true) });
 
 const lease = HttpClientRequest.bodyText(HttpClientRequest.post("/phi-router/leases"), "{}", "application/json");
 

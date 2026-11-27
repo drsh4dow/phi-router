@@ -2,6 +2,7 @@ import { Context, Effect, Layer, Schema, Struct } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { ChildProcessSpawner } from "effect/process";
 import { Pid } from "#shared/cli.ts";
+import { callerHeaders } from "./caller-token.ts";
 import { loopback } from "./server.ts";
 import { realFolder } from "#router/client/processes.ts";
 
@@ -47,7 +48,10 @@ class LeaseRequests extends Context.Service<
 						Schema.encodeEffect(LeaseRequestJson)(Struct.assign(request, { folder })),
 					);
 
+					const headers = yield* callerHeaders;
+
 					const sent = HttpClientRequest.post(`http://${loopback}:${String(port)}${leasePath}`).pipe(
+						HttpClientRequest.setHeaders(headers),
 						HttpClientRequest.bodyText(body, "application/json"),
 					);
 

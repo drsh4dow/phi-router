@@ -1,3 +1,5 @@
+export { callerHeader, ensuredToken } from "./caller-token.ts";
+
 export { Callers, unnamed } from "./callers.ts";
 
 export { LeaseRequestJson, LeaseRequests, leasePath, statusOf } from "./lease-request.ts";
