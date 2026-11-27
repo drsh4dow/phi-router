@@ -196,6 +196,8 @@ const refusedOnWindows = Effect.gen(function* refusedOnWindows() {
 	assert.deepStrictEqual({ failed: Exit.isFailure(written), left }, { failed: true, left: [] });
 });
 
+const succeeded = 0;
+
 const sharedOnWindows = Effect.gen(function* sharedOnWindows() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -205,8 +207,10 @@ const sharedOnWindows = Effect.gen(function* sharedOnWindows() {
 
 	yield* fs.writeFileString(log, "old\n");
 	yield* fs.writeFileString(store, "old");
-	yield* grantedToEveryone(log);
-	yield* grantedToEveryone(store);
+
+	const granted = [yield* grantedToEveryone(log), yield* grantedToEveryone(store)];
+
+	assert.deepStrictEqual(pipe(granted, Array.map(Number)), [succeeded, succeeded]);
 
 	const appended = yield* Effect.exit(appendPrivately(log, canary));
 	const written = yield* Effect.exit(writePrivately(store, canary));
