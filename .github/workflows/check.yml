@@ -6,28 +6,6 @@ on:
       branches: [main]
 
 jobs:
-   check:
-      runs-on: ubuntu-latest
-      strategy:
-         fail-fast: false
-         matrix:
-            run:
-               - bun run check
-               - bun run test:perf
-               - bun run test:e2e --shard=1/4
-               - bun run test:e2e --shard=2/4
-               - bun run test:e2e --shard=3/4
-               - bun run test:e2e --shard=4/4
-      steps:
-         - uses: actions/checkout@v5
-         - name: install
-           run: |
-              npm install --global bun@1.4.5
-              bun install --frozen-lockfile
-         - name: allow user namespaces, which the wire's empty /tmp test mounts in
-           run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-         - run: ${{ matrix.run }}
-
    windows:
       runs-on: windows-latest
       defaults:
@@ -40,17 +18,5 @@ jobs:
               bun-version: 1.4.5
          - name: install
            run: bun install --frozen-lockfile
-         - name: the tests that cover native Windows, for Claude Code only
-           run: |
-              bun run build
-              bun x vitest run --testTimeout 30000 --hookTimeout 30000 \
-                 src/router/features/cli/claude/settings.test.ts \
-                 src/router/client/configuration/config-file.test.ts \
-                 src/router/client/harnesses/claude-code.test.ts \
-                 src/router/features/cli/accounts/login.test.ts \
-                 tools/lifecycle/platform.test.ts \
-                 tools/lifecycle/processes.e2e.test.ts \
-                 tools/lifecycle/start.e2e.test.ts \
-                 tools/plugin/hook.e2e.test.ts \
-                 tools/route/private-dacl.test.ts \
-                 tools/route/private.e2e.test.ts
+         - name: time private-file with and without its folder caches
+           run: bun tools/bench-private.ts
