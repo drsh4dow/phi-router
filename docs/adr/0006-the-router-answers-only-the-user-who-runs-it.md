@@ -26,9 +26,9 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
 
 - On Windows the owner check alone leaves a gap: a socket can outlive the process id netstat lists for it.
 - To close it, every request except `/api/hello` and the port proof must also carry `x-phi-router-caller`.
-   - The header holds a 64-hex token that `serve` creates at `<state>/phi-router/caller-token` before it listens.
+   - The header holds a 64-hex token that `serve` creates at `<state>/phi-router/caller-token` before it listens, only when no such file exists. A file it cannot read or decode stops `serve` and `phi-router on claude`, so the token Claude Code holds is never replaced behind its back.
    - The token file is written through `writePrivately`, so its DACL names only the current user.
-   - `phi-router claude on` writes the header into `ANTHROPIC_CUSTOM_HEADERS` in Claude Code's `settings.json`, after any headers the developer set. Claude Code sends it on every `POST /v1/messages`. `phi-router claude off` removes only that line.
+   - `phi-router on claude` writes the header into `ANTHROPIC_CUSTOM_HEADERS` in Claude Code's `settings.json`, after any headers the developer set. Claude Code sends it on every `POST /v1/messages`. `phi-router off claude` removes only that line.
 - The router checks the token before it lists processes, so a request without it costs no netstat or tasklist.
    - It compares an HMAC of the presented token against an HMAC of the stored one, so the comparison takes the same time either way.
    - A missing or wrong token gets 403, and so does a token file the router cannot read.
