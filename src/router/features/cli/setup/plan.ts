@@ -118,11 +118,11 @@ const enterpriseQuestion = (account: string | undefined): Question => ({
 
 const everydayQuestion: Question = {
 	choices: [
-		{ id: "subscription", label: "Claude Pro or Max" },
-		{ id: "nothing", label: "Nothing else" },
+		{ id: "subscription", label: "Sign in to my Claude Pro or Max" },
+		{ id: "none", label: "I don't have one" },
 	],
 	id: "everyday",
-	text: "What do you use for everyday work?",
+	text: "phi-router runs everyday work on a Claude Pro or Max subscription, outside your BAA. Where is yours?",
 };
 
 const foundChoices = (found: Found, vendor: Vendor): Question["choices"] =>
@@ -225,8 +225,8 @@ const enterpriseSides = (found: Found, answers: Answers, account: string | undef
 		return ask(everydayQuestion);
 	}
 
-	if (everyday.value === "nothing") {
-		return stop(stops.onlyBaa);
+	if (everyday.value === "none") {
+		return stop(stops.noSubscription);
 	}
 
 	return { baa: { kind: "harnessFolder", label }, kind: "sides", open: { kind: "signIn", role: "open" } };
