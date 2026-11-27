@@ -1,10 +1,10 @@
 import { Array, Effect, Exit, FileSystem, Layer, Order, Path, String as Str, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import { appendPrivately, isPrivateDacl, writePrivately } from "#router/client/private-file.ts";
+import { appendPrivately, daclOf, isPrivateDacl, userSid, writePrivately } from "#router/client/private-file.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "./mocked-router.ts";
-import { currentUserSid, daclOf, privacyUnder, systemTool } from "./private.ts";
+import { grantedToEveryone, privacyUnder } from "./private.ts";
 import { NodeServices } from "@effect/platform-node";
 import { callerHeader } from "#router/client/router-port/index.ts";
 import { routerProcess } from "./router-process.ts";
@@ -155,7 +155,7 @@ const sealedOnWindows = Effect.gen(function* sealedOnWindows() {
 	yield* writePrivately(file, canary);
 	yield* writePrivately(outside, canary);
 
-	const sid = yield* currentUserSid;
+	const sid = yield* userSid(root);
 	const named = [path.join(root, "phi-router"), folder, file, outside];
 	const acls = yield* Effect.forEach(named, daclOf, { concurrency: 1 });
 	const texts = yield* Effect.forEach([file, outside], (written) => fs.readFileString(written), { concurrency: 1 });
@@ -196,16 +196,6 @@ const refusedOnWindows = Effect.gen(function* refusedOnWindows() {
 	assert.deepStrictEqual({ failed: Exit.isFailure(written), left }, { failed: true, left: [] });
 });
 
-const everyone = "*S-1-1-0:(R)";
-
-const grantedToEveryone = Effect.fnUntraced(function* grantedToEveryone(file: string) {
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const icacls = yield* systemTool("icacls.exe");
-	const handle = yield* spawner.spawn(ChildProcess.make(icacls, [file, "/grant", everyone], { stdin: "ignore" }));
-
-	return yield* handle.exitCode;
-}, Effect.scoped);
-
 const sharedOnWindows = Effect.gen(function* sharedOnWindows() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -220,7 +210,7 @@ const sharedOnWindows = Effect.gen(function* sharedOnWindows() {
 
 	const appended = yield* Effect.exit(appendPrivately(log, canary));
 	const written = yield* Effect.exit(writePrivately(store, canary));
-	const sid = yield* currentUserSid;
+	const sid = yield* userSid(store);
 	const storeAcl = yield* daclOf(store);
 	const left = yield* fs.readDirectory(folder);
 	const logText = yield* fs.readFileString(log);
