@@ -2,6 +2,7 @@ import { Effect, FileSystem, Option, Path, Schema } from "effect";
 import { Hex } from "effect/encoding";
 import { SecureRandom } from "effect/crypto";
 import { UserDirectories } from "effect/persistence";
+import { isWindows } from "#router/client/platform.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
 const callerHeader = "x-phi-router-caller";
@@ -9,8 +10,6 @@ const callerHeader = "x-phi-router-caller";
 const tokenBytes = 32;
 
 const Token = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u));
-
-const windowsSeparator = "\\";
 
 class TokenGarbled extends Schema.TaggedError<TokenGarbled, { readonly brand: unique symbol }>()("TokenGarbled", {
 	file: Schema.String,
@@ -20,7 +19,7 @@ class TokenGarbled extends Schema.TaggedError<TokenGarbled, { readonly brand: un
 	}
 }
 
-const tokenUsed = (path: Path.Path): boolean => path.sep === windowsSeparator;
+const tokenUsed = isWindows;
 
 const tokenFile = Effect.gen(function* tokenFile() {
 	const directories = yield* UserDirectories.UserDirectories;

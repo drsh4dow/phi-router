@@ -1,8 +1,8 @@
 import { Array, Effect, FileSystem, Path, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { daclOf, isPrivateDacl, userSid } from "#router/client/private-file.ts";
+import { isWindows, systemTool } from "#router/client/platform.ts";
 import type { DaclTarget } from "#router/client/private-file.ts";
-import { systemTool } from "#router/client/platform.ts";
 
 const fileTypeBit = 0o1000;
 
@@ -11,8 +11,6 @@ const permissionsOf = (mode: number): number => mode % fileTypeBit;
 const octal = 8;
 
 const modes = { file: 0o600, folder: 0o700 } as const;
-
-const windowsSeparator = "\\";
 
 const daclTargets: Readonly<Record<keyof typeof modes, readonly DaclTarget[]>> = {
 	file: ["file", "inheritedFile"],
@@ -40,7 +38,7 @@ const grantedToEveryone = Effect.fnUntraced(function* grantedToEveryone(file: st
 const privacyUnder = Effect.fnUntraced(function* privacyUnder(roots: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const windows = path.sep === windowsSeparator;
+	const windows = isWindows(path);
 
 	const under = Effect.fnUntraced(function* under(root: string) {
 		const names = yield* fs.readDirectory(root, { recursive: true });

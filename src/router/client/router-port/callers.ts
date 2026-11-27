@@ -1,9 +1,9 @@
 import { Array, Context, Effect, FileSystem, Layer, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Mac, SecureRandom } from "effect/crypto";
+import { isWindows, systemTool } from "#router/client/platform.ts";
+import { storedToken, tokenUsed } from "./caller-token.ts";
 import { Hex } from "effect/encoding";
-import { storedToken } from "./caller-token.ts";
-import { systemTool } from "#router/client/platform.ts";
 
 type Endpoint = `${string}:${number}`;
 
@@ -52,8 +52,6 @@ const tasklistRow = /^"[^"]*","(?<pid>\d+)","[^"]*","[^"]*","[^"]*","[^"]*","(?<
 const undecoded = "\uFFFD";
 
 const idleProcess = 0;
-
-const windowsSeparator = "\\";
 
 const listedFine = 0;
 
@@ -179,7 +177,7 @@ class Callers extends Context.Service<
 			const path = yield* Path.Path;
 			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 			const hasProcTable = yield* Effect.orElseSucceed(fs.exists(procTable), () => false);
-			const onWindows = path.sep === windowsSeparator;
+			const onWindows = isWindows(path);
 
 			const tasklist = yield* systemTool("tasklist.exe");
 			const netstat = yield* systemTool("netstat.exe");
@@ -292,7 +290,7 @@ class Callers extends Context.Service<
 			});
 
 			const tokenFine = (presented: string): Effect.Effect<boolean> => {
-				if (!onWindows) {
+				if (!tokenUsed(path)) {
 					return Effect.succeed(true);
 				}
 

@@ -14,11 +14,9 @@ import {
 	pipe,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { systemTool } from "./platform.ts";
+import { isWindows, systemTool } from "./platform.ts";
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
-
-const windowsSeparator = "\\";
 
 const succeeded = 0;
 
@@ -33,8 +31,6 @@ const restrictedAppendTargets = MutableHashSet.empty<string>();
 const privateFolders = MutableHashSet.empty<string>();
 
 const sharedFolders = MutableHashSet.empty<string>();
-
-const isWindows = (path: Readonly<Path.Path>): boolean => path.sep === windowsSeparator;
 
 const aclRefused = (target: string, description: string): PlatformError.PlatformError =>
 	PlatformError.badArgument({
