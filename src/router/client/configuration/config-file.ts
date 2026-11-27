@@ -20,7 +20,11 @@ interface SettingsBesideLanes {
 
 const absent = Schema.optionalKey(Schema.Never);
 
-const AbsolutePath = Schema.String.check(Schema.isPattern(/^\//u));
+const isAbsolutePath = Schema.isPattern(/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\])/u, {
+	expected: String.raw`a string matching the RegExp ^\/`,
+});
+
+const AbsolutePath = Schema.String.check(isAbsolutePath);
 
 const KeyedByEnv = Schema.Struct({
 	endpoint: Schema.String,
@@ -104,6 +108,6 @@ class Configuration extends Context.Service<Configuration, SettingsBesideLanes>(
 	).pipe(Layer.provide(UserDirectories.layer));
 }
 
-export { Configuration, absent, configFile, configText, configuredJudge };
+export { Configuration, absent, configFile, configText, configuredJudge, isAbsolutePath };
 
 export type { KeySource, NamedJudge };

@@ -23,7 +23,7 @@ const opensBrowser = Effect.gen(function* opensBrowser() {
 		concurrency: 1,
 	});
 
-	return os === "darwin" || pipe(values, Array.some(Str.isNonEmpty));
+	return os === "darwin" || os === "win32" || pipe(values, Array.some(Str.isNonEmpty));
 });
 
 const canLogIn = Effect.fnUntraced(function* canLogIn({ withBrowser }: { readonly withBrowser: boolean }) {

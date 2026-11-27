@@ -15,6 +15,8 @@ Setup runs in this window. A key must never enter this chat, because the chat go
    - `ready`: run `npx phi-router setup claude --apply --answers '<json>'` with the same JSON, and a 10-minute timeout, because a sign-in waits for the browser.
 3. Say the last line the apply step printed. When it asks the human to paste keys or to sign in, end your turn, and when they say done, run step 2's `--apply` command again.
 
+On Windows, run these commands with the Bash tool, not PowerShell, which strips the quotes inside `--answers`. phi-router runs there without WSL.
+
 If `npx` is not found, type `bunx` instead. If the human pastes a key in this chat, do not repeat it, use it, or write it anywhere. Tell them the key went to their subscription's vendor with this chat, so they must revoke it where they got it and paste a new one in `/plugin configure phi-router`. If they ask for something else, such as a second subscription, a key in a password manager, or another model, point them to its section in [Accounts](https://github.com/drsh4dow/phi-router/blob/main/docs/accounts.md).
 
 ## Codex

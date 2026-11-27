@@ -1,5 +1,5 @@
 import { Array, Effect, FileSystem, Option, Predicate, Schema, Struct, pipe } from "effect";
-import { absent, configFile } from "./config-file.ts";
+import { absent, configFile, isAbsolutePath } from "./config-file.ts";
 import type { KeySource } from "./config-file.ts";
 import { UserDirectories } from "effect/persistence";
 
@@ -53,7 +53,7 @@ const perVendor = Schema.Struct({
 	openai: Schema.optionalKey(Schema.NonEmptyString),
 });
 
-const absolutePath = Schema.NonEmptyString.check(Schema.isPattern(/^\//u));
+const absolutePath = Schema.NonEmptyString.check(isAbsolutePath);
 
 const noCredential = { forwarded: absent, keyCommand: absent, keyEnv: absent, keyFile: absent, loginFolder: absent };
 

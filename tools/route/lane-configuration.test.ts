@@ -154,6 +154,50 @@ const refused = Effect.gen(function* refused() {
 	assert.deepStrictEqual(lanes, Array.replicate(Option.none(), files.length));
 });
 
+const windowsFolders = [
+	String.raw`C:\Users\u\phi-logins\codex-2`,
+	"D:/phi-logins/codex-2",
+	String.raw`\\host\share\codex-2`,
+];
+
+const windowsRelative = [
+	String.raw`phi-logins\codex-2`,
+	String.raw`C:phi-logins\codex-2`,
+	String.raw`\phi-logins\codex-2`,
+];
+
+const folderPaths = Effect.fnUntraced(function* folderPaths(folders: readonly string[]) {
+	return yield* Effect.forEach(
+		folders,
+		(loginFolder) => {
+			const file = Struct.assign(both, {
+				clean: [accounts.anthropicOpen, accounts.openaiOpen],
+				sealed: [
+					Struct.assign(accounts.anthropicFile, { keyFile: String.raw`${loginFolder}\anthropic` }),
+					Struct.assign(accounts.codexFolder, { loginFolder }),
+				],
+			});
+
+			return Effect.map(
+				Effect.flatMap(jsonOf(file), (text) => configuredAs(text, ({ sealed }) => sealed.length)),
+				Option.isSome,
+			);
+		},
+		{ concurrency: 1 },
+	);
+});
+
+const windowsPaths = Effect.gen(function* windowsPaths() {
+	const absolute = yield* folderPaths(windowsFolders);
+	const relative = yield* folderPaths(windowsRelative);
+	const posix = yield* folderPaths(["/home/u/.local/share/phi-logins/codex-2", "phi-logins/codex-2"]);
+
+	assert.deepStrictEqual(
+		{ absolute, posix, relative },
+		{ absolute: [true, true, true], posix: [true, false], relative: [false, false, false] },
+	);
+});
+
 const lackingBaa = Struct.assign(accounts.anthropicBaa, { lacks: ["claude-haiku-5-5", "claude-target"] });
 
 const substitutes = Effect.gen(function* substitutes() {
@@ -196,6 +240,10 @@ it.layer(NodeServices.layer)("the lanes in config.json", (test) => {
 	test.effect(
 		"refuse a vendor missing from a lane, two accounts of one name, a relative login folder or key file, an account that names two credentials, an OpenAI OAuth key, an open account of either vendor that lacks a model and a BAA account that lacks its sealedModel or, with none, its target model",
 		() => refused,
+	);
+	test.effect(
+		"take a Windows drive or UNC login folder and key file as absolute, refuse a Windows relative or drive-relative one, and keep the POSIX rule",
+		() => windowsPaths,
 	);
 	test.effect(
 		"give each BAA account the models it lacks, and each vendor its sealedModel or else its targetModel, from a file with or without either field",

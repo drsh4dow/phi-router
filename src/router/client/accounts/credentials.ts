@@ -16,6 +16,7 @@ import {
 } from "effect";
 import type { KeySource, Vendor } from "#router/client/configuration/index.ts";
 import { LoginEnded, loginFolders } from "./login-folders.ts";
+import { forPlatform, homeFolder } from "#router/client/platform.ts";
 import type { Login } from "./login-folders.ts";
 
 class KeyUnreadable extends Schema.TaggedError<KeyUnreadable, { readonly brand: unique symbol }>()("KeyUnreadable", {
@@ -31,7 +32,8 @@ const succeeded = 0;
 
 const printedBy = Effect.fnUntraced(function* printedBy(command: string) {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const handle = yield* spawner.spawn(ChildProcess.make(command, { shell: "/bin/sh" }));
+	const shell = yield* forPlatform<boolean | string>({ posix: "/bin/sh", windows: true });
+	const handle = yield* spawner.spawn(ChildProcess.make(command, { shell }));
 	const stdout = yield* Stream.mkString(Stream.decodeText(Stream.drainFork(handle.stdout, handle.stderr)));
 	const exitCode = yield* handle.exitCode;
 	const key = Str.trim(stdout);
@@ -96,7 +98,7 @@ const unset = Option.getOrUndefined(Option.none<string>());
 const homeOf = Effect.fnUntraced(function* homeOf(folder: string, name: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const home = yield* Config.String("HOME");
+	const home = yield* homeFolder;
 	const own = yield* fs.realPath(path.join(home, name));
 	const given = yield* fs.realPath(folder);
 

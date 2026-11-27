@@ -108,6 +108,10 @@ const managedPlace = (os: string): string => {
 		return "/Library/Application Support/ClaudeCode/managed-settings.json";
 	}
 
+	if (os === "win32") {
+		return String.raw`C:\Program Files\ClaudeCode\managed-settings.json`;
+	}
+
 	return "/etc/claude-code/managed-settings.json";
 };
 

@@ -187,3 +187,19 @@ it.effect.each([
 		assert.deepStrictEqual(inlineOwner(user), Option.none());
 	}),
 );
+
+it.effect(
+	"on over a file with CRLF line ends keeps each of its lines, holds every setting, and off gives it back",
+	() =>
+		Effect.sync(() => {
+			const crlf = Str.replaceAll("\n", "\r\n")(user);
+			const on = switchedOn(crlf);
+
+			const holdsAll = pipe(codexSettings, Array.every(holds(on)));
+
+			assert.isTrue(holdsAll, on);
+			assert.strictEqual(switchedOn(on), on);
+			assert.strictEqual(switchedOff(on).text, crlf);
+			assert.strictEqual(switchedOff(switchedOn(user)).text, user);
+		}),
+);

@@ -15,7 +15,7 @@ import type {
 	SessionManager,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
-import { Array, Config, DateTime, Effect, Layer, Option, Record, String as Str, pipe } from "effect";
+import { Array, Config, DateTime, Effect, Layer, Option, Path, Record, String as Str, pipe } from "effect";
 import {
 	answerChecked,
 	answered,
@@ -37,7 +37,16 @@ import { Router } from "#pi/client/router.ts";
 import { piWire } from "#shared/pi.ts";
 import { setUp } from "#pi/features/setup/index.ts";
 
-const launcher = decodeURIComponent(new URL("../claude/bin/phi-router", import.meta.url).pathname);
+const launcherUrl = new URL("../claude/bin/phi-router", import.meta.url);
+
+const launched = Layer.unwrap(
+	Effect.gen(function* launched() {
+		const path = yield* Path.Path;
+		const launcher = yield* Effect.orDie(path.fromFileUrl(launcherUrl));
+
+		return Router.layer(launcher);
+	}),
+);
 
 const loginProvider = "anthropic";
 
@@ -45,10 +54,10 @@ const placeholderKey = "sk-ant-oat-phi-router";
 
 const router = (): Layer.Layer<Router | DateTime.CurrentTimeZone> => {
 	if ("Bun" in globalThis) {
-		return Layer.merge(Layer.provide(Router.layer(launcher), BunServices.layer), DateTime.layerCurrentZoneLocal);
+		return Layer.merge(Layer.provide(launched, BunServices.layer), DateTime.layerCurrentZoneLocal);
 	}
 
-	return Layer.merge(Layer.provide(Router.layer(launcher), NodeServices.layer), DateTime.layerCurrentZoneLocal);
+	return Layer.merge(Layer.provide(launched, NodeServices.layer), DateTime.layerCurrentZoneLocal);
 };
 
 const provider = (served: { readonly port: number; readonly models: typeof ModelsJson.Type }): ProviderConfig => ({

@@ -1,6 +1,7 @@
 import { Array, Config, Effect, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { PlatformError, Scope } from "effect";
+import { homeFolder } from "#router/client/platform.ts";
 import { loopback } from "#router/client/router-port/index.ts";
 
 type Turn =
@@ -55,7 +56,7 @@ const harnessFolder =
 		Effect.gen(function* folder() {
 			const path = yield* Path.Path;
 			const fromEnv = yield* Config.String(rule.variable).pipe(Config.withDefault(""));
-			const home = yield* Config.String("HOME");
+			const home = yield* homeFolder;
 
 			return pipe(
 				[named, fromEnv],
