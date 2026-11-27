@@ -1,18 +1,16 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, Struct, pipe } from "effect";
-import { CaseFromJsonLine, SyntheticIdentities, addedTextKinds, firstTextKinds } from "./manifest.ts";
+import { CaseFromJsonLine, SyntheticIdentities } from "./manifest.ts";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { buriedCount, planStrata } from "./plan.ts";
 import { cleanCase, planNegatives } from "./clean-cases.ts";
 import { cleanImageCases, imageCases, loadImages } from "./images.ts";
 import type { Case } from "./manifest.ts";
 import type { Images } from "./images.ts";
 import { phiCase } from "./phi-cases.ts";
+import { planStrata } from "./plan.ts";
 import { seeded } from "./random.ts";
 import { synthetic } from "./synthetic.ts";
 
 const defaultSeed = 1729;
-
-const addedSeedOffset = 1;
 
 const idDigits = 4;
 
@@ -27,7 +25,7 @@ const generate = ({ seed, images }: { readonly seed: number; readonly images: Re
 	const used = new Set<string>();
 
 	const text = pipe(
-		planStrata({ buried: buriedCount, kinds: firstTextKinds, rng }),
+		planStrata(rng),
 		Array.map((strata) => phiCase({ rng, strata, used })),
 	);
 
@@ -40,15 +38,8 @@ const generate = ({ seed, images }: { readonly seed: number; readonly images: Re
 
 	const cleanPictured = cleanImageCases({ images, rng });
 
-	const addedRng = seeded(seed + addedSeedOffset);
-
-	const added = pipe(
-		planStrata({ buried: 0, kinds: addedTextKinds, rng: addedRng }),
-		Array.map((strata) => phiCase({ rng: addedRng, strata, used })),
-	);
-
 	return pipe(
-		[...text, ...pictured, ...clean, ...cleanPictured, ...added],
+		[...text, ...pictured, ...clean, ...cleanPictured],
 		Array.map((item, index): Case => Struct.assign({ id: caseId(index) }, item)),
 	);
 };

@@ -256,6 +256,9 @@ The generated set of synthetic conversations with canaries that the leak gate ru
 **Case**:
 One conversation of the corpus, PHI or clean.
 
+**Draw**:
+The cases the corpus generator makes from one seed. The leak gate replays several draws, the default seed 1729 first, so a policy that fits one draw cannot pass it alone.
+
 **Capture**:
 The bytes of one request or reply recorded off a real harness binary, kept as a fixture.
 

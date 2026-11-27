@@ -22,31 +22,6 @@ const TextIdentifiers = Schema.Literals(
 
 const Identifier = Schema.Literals(coveredKinds);
 
-const firstTextKinds: Array.NonEmptyReadonlyArray<TextIdentifier> = [
-	identifierKind.patientName,
-	identifierKind.socialSecurityNumber,
-	identifierKind.birthDate,
-	identifierKind.streetAddress,
-	identifierKind.personalPhone,
-	identifierKind.personalEmail,
-	identifierKind.memberNumber,
-	identifierKind.medicareMedicaidNumber,
-	identifierKind.medicalRecordNumber,
-	identifierKind.driverLicense,
-	identifierKind.passportNumber,
-];
-
-const addedTextKinds: Array.NonEmptyReadonlyArray<TextIdentifier> = [
-	identifierKind.geographicDetail,
-	identifierKind.personalFax,
-	identifierKind.personalUrl,
-	identifierKind.ipAddress,
-	identifierKind.accountNumber,
-	identifierKind.certificateLicense,
-	identifierKind.vehicleIdentifier,
-	identifierKind.deviceIdentifier,
-];
-
 const TextCarriers = Schema.Literals([
 	"sql-dump",
 	"csv",
@@ -175,8 +150,6 @@ const transcriptOf = (messages: readonly Message[]): Transcript => pipe(messages
 
 export {
 	Carrier,
-	addedTextKinds,
-	firstTextKinds,
 	CaseFromJsonLine,
 	CleanCase,
 	Entry,

@@ -1,5 +1,5 @@
 import { Array, Option, Predicate, pipe } from "effect";
-import { Entry, TextCarriers, Transform } from "./manifest.ts";
+import { Entry, TextCarriers, TextIdentifiers, Transform } from "./manifest.ts";
 import type { PhiStrata, TextCarrier, TextIdentifier } from "./manifest.ts";
 import type { Random } from "./random.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
@@ -94,22 +94,16 @@ const dealer = <Value>(
 		);
 };
 
-interface PlanInput {
-	readonly rng: Random;
-	readonly kinds: Array.NonEmptyReadonlyArray<TextIdentifier>;
-	readonly buried: number;
-}
-
-const planStrata = ({ rng, kinds, buried }: PlanInput): readonly TextStrata[] => {
-	const total = kinds.length * perIdentifier;
+const planStrata = (rng: Random): readonly TextStrata[] => {
+	const total = TextIdentifiers.literals.length * perIdentifier;
 
 	const unburied = pipe(
 		Transform.literals,
 		Array.filter((transform) => transform !== "buried"),
 	);
 
-	const identifiers = deck(rng, kinds, total);
-	const transforms = [...Array.replicate("buried" as const, buried), ...deck(rng, unburied, total - buried)];
+	const identifiers = deck(rng, TextIdentifiers.literals, total);
+	const transforms = [...Array.replicate("buried" as const, buriedCount), ...deck(rng, unburied, total - buriedCount)];
 	const dealCarrier = dealer(rng, TextCarriers.literals, total);
 	const dealEntry = dealer(rng, Entry.literals, total);
 
@@ -123,6 +117,6 @@ const planStrata = ({ rng, kinds, buried }: PlanInput): readonly TextStrata[] =>
 	return rng.shuffle(plans);
 };
 
-export { buriedCount, planStrata };
+export { planStrata };
 
 export type { TextStrata };
