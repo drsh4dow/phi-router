@@ -16,6 +16,7 @@ const fiveSeconds = 5000;
 const done = { exitCode: 0, printed: "" };
 const none = 0;
 const oneRouter = 1;
+const noProcessHolds = 4_194_305;
 
 const claudeAt = Effect.fnUntraced(function* claudeAt(port: number) {
 	const client = yield* HttpClient.HttpClient;
@@ -156,12 +157,7 @@ const adopted = Effect.fnUntraced(function* adopted() {
 
 const ended = Effect.fnUntraced(function* ended() {
 	const here = yield* bundled().pipe(Effect.flatMap(world));
-	const gone = yield* instance();
-
-	yield* gone.end;
-	yield* TestClock.withLive(Effect.sleep("200 millis"));
-
-	const refused = yield* here.start(gone.pid);
+	const refused = yield* here.start(noProcessHolds);
 
 	assert.notStrictEqual(refused.exitCode, none);
 	assert.include(refused.printed, "the process is not running");
