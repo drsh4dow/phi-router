@@ -74,7 +74,8 @@ const stops = {
 	mac: "On macOS, phi-router can't add a second Claude sign-in yet: Claude Code keeps sign-ins in the Keychain, and phi-router reads only a file. Nothing changed.",
 	noJudge:
 		"The PHI check needs an OpenAI key covered by your BAA. Run setup again when you have one. Nothing changed.",
-	onlyBaa: "You don't need phi-router. Your only account is already covered by your BAA. Nothing changed.",
+	noSubscription:
+		"phi-router runs everyday work on a Claude Pro or Max subscription, so only patient data runs on Claude Enterprise. Get one at https://claude.com/pricing, then run setup again. Nothing changed.",
 	provider: (provider: string) => `phi-router doesn't support ${provider} yet. Nothing changed.`,
 	signedOut: (title: string, how: string) => `Sign in to ${title} first with ${how}. Nothing changed.`,
 } as const;

@@ -84,18 +84,7 @@ const SetupVendor = Schema.Literals(["anthropic", "openai"]);
 
 const QuestionId = Schema.Literals(["enterprise", "everyday", "baa", "judge", "another"]);
 
-const ChoiceId = Schema.Literals([
-	"yes",
-	"no",
-	"subscription",
-	"nothing",
-	"key",
-	"signIn",
-	"env",
-	"pi",
-	"saved",
-	"none",
-]);
+const ChoiceId = Schema.Literals(["yes", "no", "subscription", "key", "signIn", "env", "pi", "saved", "none"]);
 
 const Answer = Schema.optionalKey(ChoiceId);
 
