@@ -1,7 +1,7 @@
 import { Array, Effect, Exit, FileSystem, Layer, Order, Path, String as Str, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import { appendPrivately, writePrivately } from "#router/client/private-file.ts";
+import { appendPrivately, isPrivateDacl, writePrivately } from "#router/client/private-file.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "./mocked-router.ts";
 import { currentUserSid, daclOf, privacyUnder, systemTool } from "./private.ts";
@@ -160,18 +160,10 @@ const sealedOnWindows = Effect.gen(function* sealedOnWindows() {
 	const acls = yield* Effect.forEach(named, daclOf, { concurrency: 1 });
 	const texts = yield* Effect.forEach([file, outside], (written) => fs.readFileString(written), { concurrency: 1 });
 
-	assert.deepStrictEqual(
-		{ acls, texts },
-		{
-			acls: [
-				`D:PAI(A;OICI;FA;;;${sid})`,
-				`D:AI(A;OICIID;FA;;;${sid})`,
-				`D:AI(A;ID;FA;;;${sid})`,
-				`D:PAI(A;;FA;;;${sid})`,
-			],
-			texts: [canary, canary],
-		},
-	);
+	const targets = ["folder", "inheritedFolder", "inheritedFile", "file"] as const;
+	const privateAcls = Array.zipWith(targets, acls, (target, acl) => isPrivateDacl({ sid, target })(acl));
+
+	assert.deepStrictEqual({ privateAcls, texts }, { privateAcls: [true, true, true, true], texts: [canary, canary] });
 });
 
 const missingTarget = "phi-router-no-such-file";
@@ -238,14 +230,14 @@ const sharedOnWindows = Effect.gen(function* sharedOnWindows() {
 			appended: Exit.isFailure(appended),
 			left: Array.sort(left, Order.String),
 			logText,
-			storeAcl,
+			storeAcl: isPrivateDacl({ sid, target: "file" })(storeAcl),
 			written: Exit.isSuccess(written),
 		},
 		{
 			appended: true,
 			left: ["lanes.jsonl", "store.json"],
 			logText: "old\n",
-			storeAcl: `D:PAI(A;;FA;;;${sid})`,
+			storeAcl: true,
 			written: true,
 		},
 	);

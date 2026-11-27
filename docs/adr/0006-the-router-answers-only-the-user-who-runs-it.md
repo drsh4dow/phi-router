@@ -35,6 +35,13 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
 - `/api/hello` is exempt because Claude Code sends it without custom headers. It still passes the owner check.
 - On Linux and macOS no token is created or checked.
 
+### What a private file's DACL may name on Windows
+
+- A file or folder the router writes is private when its DACL is protected and its only ACEs grant full access to the current user, to SYSTEM (`SY`) or to the local Administrators group (`BA`).
+- SYSTEM and an elevated administrator can read every file anyway, through their backup and take-ownership privileges. A GitHub Actions runner leaves both ACEs on files its built-in Administrator creates.
+- `icacls /save` prints the built-in Administrator account (RID 500) as `LA`, not as its SID, so the router treats `LA` as that user.
+- Any other account, `Everyone` included, makes the router refuse the file.
+
 ## Considered options
 
 - A per-user secret in a header, set by `on claude`, `on codex` and the pi extension. Rejected because it needs every harness's settings to carry a secret and the CLI to write it, where the socket list needs no setting at all.

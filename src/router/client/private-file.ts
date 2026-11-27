@@ -146,10 +146,62 @@ const daclOf = Effect.fnUntraced(function* daclOf(target: string) {
 	);
 }, Effect.scoped);
 
-const onlyOwner = {
-	file: (sid: string): string => `D:PAI(A;;FA;;;${sid})`,
-	folder: (sid: string): string => `D:PAI(A;OICI;FA;;;${sid})`,
+const daclTargets = {
+	file: { flags: "", header: "D:PAI" },
+	folder: { flags: "OICI", header: "D:PAI" },
+	inheritedFile: { flags: "ID", header: "D:AI" },
+	inheritedFolder: { flags: "OICIID", header: "D:AI" },
 } as const;
+
+type DaclTarget = keyof typeof daclTargets;
+
+interface DaclOwner {
+	readonly sid: string;
+	readonly target: DaclTarget;
+}
+
+const trustedAccounts = ["SY", "BA"] as const;
+
+const builtinAdministrator = { alias: "LA", rid: "-500" } as const;
+
+const acePattern = /\([^)]*\)/gu;
+
+const ownNames = (sid: string): readonly string[] => {
+	if (Str.endsWith(builtinAdministrator.rid)(sid)) {
+		return [sid, builtinAdministrator.alias];
+	}
+
+	return [sid];
+};
+
+const isPrivateDacl =
+	(owner: DaclOwner) =>
+	(dacl: string): boolean => {
+		const { flags, header } = daclTargets[owner.target];
+		const names = ownNames(owner.sid);
+		const aceOf = (account: string): string => `(A;${flags};FA;;;${account})`;
+
+		const aces = pipe(
+			dacl,
+			Str.matchAll(acePattern),
+			Array.fromIterable,
+			Array.map(([ace]) => ace),
+		);
+
+		const allowed = Array.map([...names, ...trustedAccounts], aceOf);
+
+		return (
+			dacl === `${header}${Array.join(aces, "")}` &&
+			pipe(
+				names,
+				Array.some((name) => Array.contains(aces, aceOf(name))),
+			) &&
+			pipe(
+				aces,
+				Array.every((ace) => Array.contains(allowed, ace)),
+			)
+		);
+	};
 
 const restrictToCurrentUser = Effect.fnUntraced(function* restrictToCurrentUser(
 	target: string,
@@ -162,7 +214,7 @@ const restrictToCurrentUser = Effect.fnUntraced(function* restrictToCurrentUser(
 
 	const dacl = yield* daclOf(target);
 
-	if (dacl !== onlyOwner[kind](sid)) {
+	if (!isPrivateDacl({ sid, target: kind })(dacl)) {
 		return yield* aclRefused(target, `another account keeps access to it (${dacl})`);
 	}
 
@@ -195,7 +247,7 @@ const passesPrivacyOn = Effect.fnUntraced(function* passesPrivacyOn(folder: stri
 	const sid = yield* userSid(folder);
 	const dacl = yield* daclOf(folder);
 
-	return Array.contains([`D:PAI(A;OICI;FA;;;${sid})`, `D:AI(A;OICIID;FA;;;${sid})`], dacl);
+	return isPrivateDacl({ sid, target: "folder" })(dacl) || isPrivateDacl({ sid, target: "inheritedFolder" })(dacl);
 });
 
 const madeTopmost = Effect.fnUntraced(function* madeTopmost(folder: string) {
@@ -377,4 +429,4 @@ const copyPrivately = Effect.fnUntraced(function* copyPrivately(from: string, to
 	);
 });
 
-export { appendPrivately, copyPrivately, folderPrivately, rewritePrivately, writePrivately };
+export { appendPrivately, copyPrivately, folderPrivately, isPrivateDacl, rewritePrivately, writePrivately };
