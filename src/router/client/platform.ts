@@ -2,6 +2,8 @@ import { Config, Effect, Option, Path } from "effect";
 
 const windowsSeparator = "\\";
 
+const defaultSystemRoot = String.raw`C:\Windows`;
+
 const onWindows: Effect.Effect<boolean> = Effect.serviceOption(Path.Path).pipe(
 	Effect.map(Option.exists(({ sep }) => sep === windowsSeparator)),
 );
@@ -22,4 +24,15 @@ const homeFolder: Effect.Effect<string, Config.ConfigError> = forPlatform({
 	windows: Config.String("HOME").pipe(Config.orElse(() => Config.String("USERPROFILE"))),
 }).pipe(Effect.flatten);
 
-export { forPlatform, homeFolder };
+const systemTool = Effect.fnUntraced(function* systemTool(...names: readonly string[]) {
+	const path = yield* Path.Path;
+
+	const root = yield* Config.String("SystemRoot").pipe(
+		Config.withDefault(defaultSystemRoot),
+		Effect.orElseSucceed(() => defaultSystemRoot),
+	);
+
+	return path.join(root, "System32", ...names);
+});
+
+export { forPlatform, homeFolder, systemTool };
