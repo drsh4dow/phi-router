@@ -4,12 +4,14 @@ const windowsSeparator = "\\";
 
 const defaultSystemRoot = String.raw`C:\Windows`;
 
+const isWindows = (path: Readonly<Path.Path>): boolean => path.sep === windowsSeparator;
+
 const forPlatform = <Choice>(choices: {
 	readonly posix: Choice;
 	readonly windows: Choice;
 }): Effect.Effect<Choice, never, Path.Path> =>
-	Effect.map(Effect.service(Path.Path), ({ sep }) => {
-		if (sep === windowsSeparator) {
+	Effect.map(Effect.service(Path.Path), (path) => {
+		if (isWindows(path)) {
 			return choices.windows;
 		}
 
@@ -32,4 +34,4 @@ const systemTool = Effect.fnUntraced(function* systemTool(...names: readonly str
 	return path.join(root, "System32", ...names);
 });
 
-export { forPlatform, homeFolder, systemTool };
+export { forPlatform, homeFolder, isWindows, systemTool };
