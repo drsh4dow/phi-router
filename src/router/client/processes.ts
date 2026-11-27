@@ -47,50 +47,36 @@ const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const rowPattern =
 	/^(?<pid>\d+) +(?<state>\S+) +(?<started>(?<weekday>[A-Z][a-z]{2}) (?<month>[A-Z][a-z]{2}) +(?<day>\d{1,2}) (?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}) (?<year>\d{4}))$/u;
 
-const isReal = (started: Readonly<Record<string, string>>): boolean => {
-	const { day = "", hour = "", minute = "", month = "", second = "", weekday = "", year = "" } = started;
+const isRealDate =
+	(month: number, weekDay: (made: { readonly weekDay: number }) => number) =>
+	({ day = "", hour = "", minute = "", second = "", year = "" }: Readonly<Record<string, string>>): boolean => {
+		const parts = {
+			day: Number(day),
+			hour: Number(hour),
+			millisecond: 0,
+			minute: Number(minute),
+			month,
+			second: Number(second),
+			year: Number(year),
+		};
 
-	const parts = {
-		day: Number(day),
-		hour: Number(hour),
-		millisecond: 0,
-		minute: Number(minute),
-		month: monthsByNumber.indexOf(month),
-		second: Number(second),
-		year: Number(year),
+		return pipe(
+			DateTime.make(parts),
+			Option.map(DateTime.toPartsUtc),
+			Option.exists((made) => Equal.equals(made, Struct.assign(parts, { weekDay: weekDay(made) }))),
+		);
 	};
 
-	const named = Struct.assign(parts, { weekDay: weekdays.indexOf(weekday) });
-
-	return pipe(
-		DateTime.make(parts),
-		Option.map(DateTime.toPartsUtc),
-		Option.exists((made) => Equal.equals(made, named)),
+const isReal = (started: Readonly<Record<string, string>>): boolean =>
+	isRealDate(monthsByNumber.indexOf(started["month"] ?? ""), () => weekdays.indexOf(started["weekday"] ?? ""))(
+		started,
 	);
-};
 
 const instantPattern =
 	/^(?<pid>\d+) (?<started>(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})\.\d{7}Z)$/u;
 
-const isRealInstant = (started: Readonly<Record<string, string>>): boolean => {
-	const { day = "", hour = "", minute = "", month = "", second = "", year = "" } = started;
-
-	const parts = {
-		day: Number(day),
-		hour: Number(hour),
-		millisecond: 0,
-		minute: Number(minute),
-		month: Number(month),
-		second: Number(second),
-		year: Number(year),
-	};
-
-	return pipe(
-		DateTime.make(parts),
-		Option.map(DateTime.toPartsUtc),
-		Option.exists((made) => Equal.equals(made, Struct.assign(parts, { weekDay: made.weekDay }))),
-	);
-};
+const isRealInstant = (started: Readonly<Record<string, string>>): boolean =>
+	isRealDate(Number(started["month"] ?? ""), ({ weekDay }) => weekDay)(started);
 
 const succeeded = 0;
 
