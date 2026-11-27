@@ -32,7 +32,7 @@
 		"url": "git+https://github.com/drsh4dow/phi-router.git"
 	},
 	"bin": {
-		"phi-router": "plugins/claude/bin/phi-router"
+		"phi-router": "plugins/claude/npm-bin.mjs"
 	},
 	"files": [
 		"plugins",
