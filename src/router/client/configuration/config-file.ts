@@ -21,7 +21,7 @@ interface SettingsBesideLanes {
 const absent = Schema.optionalKey(Schema.Never);
 
 const isAbsolutePath = Schema.isPattern(/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\])/u, {
-	expected: String.raw`a string matching the RegExp ^\/`,
+	expected: "an absolute path",
 });
 
 const AbsolutePath = Schema.String.check(isAbsolutePath);
