@@ -3,4 +3,3 @@ package-lock.json -diff linguist-generated
 *.png binary
 *.jpg binary
 *.jar binary
-*.cmd text eol=crlf
