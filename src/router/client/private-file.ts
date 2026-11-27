@@ -3,7 +3,6 @@ import {
 	Effect,
 	FileSystem,
 	MutableHashSet,
-	MutableRef,
 	Option,
 	Order,
 	Path,
@@ -23,8 +22,6 @@ const succeeded = 0;
 const grants = { file: "(F)", folder: "(OI)(CI)(F)" } as const;
 
 const sidPrefix = "S-1-";
-
-const currentUserSid = MutableRef.make(Option.none<string>());
 
 const privateFolders = MutableHashSet.empty<string>();
 
@@ -58,12 +55,6 @@ const sidIn = (printed: string): Option.Option<string> =>
 	);
 
 const userSid = Effect.fnUntraced(function* userSid(target: string) {
-	const known = MutableRef.get(currentUserSid);
-
-	if (Option.isSome(known)) {
-		return known.value;
-	}
-
 	const whoami = yield* systemTool("whoami.exe");
 	const printed = yield* printedBy(whoami, ["/user", "/fo", "csv", "/nh"], target);
 	const sid = sidIn(printed);
@@ -71,8 +62,6 @@ const userSid = Effect.fnUntraced(function* userSid(target: string) {
 	if (Option.isNone(sid)) {
 		return yield* aclRefused(target, `${whoami} printed no SID`);
 	}
-
-	MutableRef.set(currentUserSid, sid);
 
 	return sid.value;
 });
