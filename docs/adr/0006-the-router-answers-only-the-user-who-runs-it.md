@@ -6,6 +6,34 @@ We chose this because the router holds the developer's credentials and state, an
 
 - **Linux.** `/proc/net/tcp` lists every IPv4 TCP socket of the network namespace with the uid that holds it, each user's included. The router reads it once per request and matches both ends by address and port.
 - **macOS.** There is no `/proc`. The router runs `lsof -nP -iTCP@<router end> -Fun`, which prints each process's uid and each connected socket. A user who is not root sees only the sockets of their own processes there, so another user's end is never listed and the request is refused. This was not run on macOS. It was run on Linux, where `lsof` behaves the same for a user who is not root.
+- **Windows.** The router knows it runs on Windows when the platform's path separator is `\`. The owner is the account of the process that holds each end. The router runs `netstat -ano -p TCP`, which lists every IPv4 TCP connection with its owning process id, keeps the rows whose local and remote ends are the request's two ends, and runs `tasklist /v /fo csv /nh /fi "PID eq <pid>"` once for each process id they name, all at once. The owner is the `DOMAIN\name` that tasklist prints for that process. Both tools run from `%SystemRoot%\System32` (`C:\Windows` when the variable is unset) by absolute path, so no program earlier on `PATH` can answer for them: on the machine this was built on, `whoami` on `PATH` resolved to Git's copy. The same rule then applies: a caller end must be listed, the router's own end gives the expected owner, and every listed row on either end must carry it.
+
+### Why netstat and tasklist on Windows
+
+Measured on Windows 10 22H2 with a loopback pair held by one process, five runs each: `netstat -ano -p TCP` took 31–46 ms, `tasklist /v` filtered to one process id 158–192 ms, `wmic process ... GetOwnerSid` 287–396 ms, PowerShell `Get-CimInstance Win32_Process` with `GetOwnerSid` 612–832 ms, and PowerShell `Get-NetTCPConnection` 963–1513 ms. The whole check, netstat and then two tasklists side by side, took 223–370 ms under Bun and 179–248 ms under Node, inside the 2 s limit with room to spare.
+
+- The owner's SID would be the stronger name, but no fast way gives it. `wmic` is deprecated and missing from newer Windows by default, and PowerShell pays its own start on every request, near the limit on a busy machine. Reading the SID through `OpenProcessToken` needs FFI, which the router cannot use: `bun:ffi` is a builtin the boundaries gate bans, and the router also runs under Node.
+- The account name is a safe stand-in because Windows prints it from the SID in the process's token, and one `DOMAIN\name` names one account at a time. The router compares the printed bytes: an owner with a byte the UTF-8 decoder could not read is refused, so two names in the console's code page never decode to the same text.
+
+### What Windows refuses
+
+- A process of another account. A user who is not an administrator cannot open it, and tasklist prints `N/A` (seen for `SYSTEM`, `DWM-1` and service processes here), which carries no `\` and is refused. An administrator sees the other account's name, which differs, and is refused too.
+- Process id 0, the owner netstat gives a closed `TIME_WAIT` end. tasklist names it `NT AUTHORITY\SYSTEM`, so the router never asks and refuses it.
+- A row netstat does not list, a process tasklist does not find, a tasklist that prints more than one row for the id, a row for another id, a netstat or tasklist that exits non-zero or cannot start, and a check that takes longer than 2 s.
+- A caller on IPv6. `-p TCP` lists IPv4 only, so a caller at `::1` or `::ffff:127.0.0.1` matches no row. Every harness connects to `127.0.0.1`.
+
+### The caller token on Windows
+
+- On Windows the owner check alone leaves a gap: a socket can outlive the process id netstat lists for it.
+- To close it, every request except `GET /api/hello` must also carry `x-phi-router-caller`.
+   - The header holds a 64-hex token that `serve` creates at `<state>/phi-router/caller-token` before it listens.
+   - The token file is written through `writePrivately`, so its DACL names only the current user.
+   - `phi-router claude on` writes the header into `ANTHROPIC_CUSTOM_HEADERS` in Claude Code's `settings.json`, after any headers the developer set. Claude Code sends it on every `POST /v1/messages`. `phi-router claude off` removes only that line.
+- The router checks the token before it lists processes, so a request without it costs no netstat or tasklist.
+   - It compares an HMAC of the presented token against an HMAC of the stored one, so the comparison takes the same time either way.
+   - A missing or wrong token gets 403, and so does a token file the router cannot read.
+- `/api/hello` is exempt because Claude Code sends it without custom headers. It still passes the owner check.
+- On Linux and macOS no token is created or checked.
 
 ## Considered options
 
@@ -21,4 +49,5 @@ We chose this because the router holds the developer's credentials and state, an
 - A process of the same user passes, a container run as that uid included. The check keeps other users out, not the developer's own processes.
 - Linux reads only `/proc/net/tcp`, so a caller on an IPv6 socket, such as one connected to `::ffff:127.0.0.1`, is refused. Every harness connects to `127.0.0.1` over IPv4.
 - The router reads the kernel's addresses as little-endian, which every machine it runs on is. On a big-endian Linux every request would be refused.
+- On Windows the list and the owners are read apart, so a process id could be reused between netstat and tasklist. A same-user process that ends and whose id another account's new process takes in those milliseconds would give that account's owner, which is refused. The reverse needs a socket of another account that outlives the process id netstat lists for it, as when a child process inherited it, and a new process of the developer's that takes that id in the same window. The owner check does not rule that out, so the caller token does: that process cannot read the developer's token file. Each request pays about 200–400 ms for three short processes.
 - Each file and folder the router writes under the XDG state folder is created with mode 0600 or 0700. `tools/route/private.e2e.test.ts` runs the router under umask 000 and fails on any other mode, and the wire run checks the XDG state and config folders the same way.

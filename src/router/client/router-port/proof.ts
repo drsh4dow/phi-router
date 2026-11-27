@@ -6,6 +6,7 @@ import { Hex } from "effect/encoding";
 import type { PlatformError } from "effect";
 import { Release } from "#router/primitives/release.ts";
 import { UserDirectories } from "effect/persistence";
+import { callerHeaders } from "./caller-token.ts";
 import { loopback } from "./server.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
@@ -29,7 +30,7 @@ const encoder = new TextEncoder();
 
 const bytesOf = (text: string): readonly number[] => Array.fromIterable(encoder.encode(text));
 
-const macs = Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto));
+const macs = Mac.layerWebCrypto.pipe(Layer.provideMerge(SecureRandom.layerWebCrypto));
 
 const hmacOf = Effect.fnUntraced(function* hmacOf(key: readonly number[], message: readonly number[]) {
 	const mac = yield* Mac.Mac;
@@ -39,13 +40,15 @@ const hmacOf = Effect.fnUntraced(function* hmacOf(key: readonly number[], messag
 	return Hex.encode(tag);
 });
 
+type Answering = FileSystem.FileSystem | Mac.Mac | SecureRandom.SecureRandom;
+
 const proofOf = Effect.fnUntraced(function* proofOf(secret: string, nonce: string, port: number) {
 	return yield* hmacOf(bytesOf(secret), bytesOf(`${nonce}:${String(port)}`));
 });
 
 const fresh = Effect.gen(function* fresh() {
-	const fs = yield* FileSystem.FileSystem;
-	const bytes = yield* Stream.mkUint8Array(fs.stream("/dev/urandom", { bytesToRead: randomBytes }));
+	const random = yield* SecureRandom.SecureRandom;
+	const bytes = yield* random.randomBytes(randomBytes);
 
 	return Hex.encode(bytes);
 });
@@ -60,7 +63,7 @@ const storedIn = Effect.fnUntraced(function* storedIn(file: string) {
 const rowOf = Effect.fnUntraced(function* rowOf(file: string, port: number, version: string | undefined) {
 	yield* storedIn(file).pipe(Effect.catch(() => fresh.pipe(Effect.flatMap((secret) => writePrivately(file, secret)))));
 
-	const services = yield* Effect.context<FileSystem.FileSystem | Mac.Mac>();
+	const services = yield* Effect.context<Answering>();
 
 	const answer: Row["answer"] = ({ query }) =>
 		pipe(
@@ -120,15 +123,16 @@ class Proofs extends Context.Service<
 			const client = yield* HttpClient.HttpClient;
 			const directories = yield* UserDirectories.UserDirectories;
 			const path = yield* Path.Path;
-			const services = yield* Effect.context<FileSystem.FileSystem | Path.Path | Mac.Mac>();
+			const services = yield* Effect.context<Answering | Path.Path>();
 			const state = yield* directories.state("phi-router");
 			const file = path.join(state, "secret");
 
 			const ask = (port: number): Effect.Effect<Proven> =>
 				Effect.gen(function* asked() {
 					const nonce = yield* fresh;
+					const headers = yield* callerHeaders;
 					const url = `http://${loopback}:${String(port)}${proofPath}`;
-					const sent = HttpClientRequest.get(url, { urlParams: { nonce } });
+					const sent = HttpClientRequest.get(url, { headers, urlParams: { nonce } });
 					const answered = yield* Effect.option(client.execute(sent));
 
 					if (Option.isNone(answered)) {

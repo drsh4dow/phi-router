@@ -1,9 +1,9 @@
 import { Array, Config, Effect, Option, Path, Record, String as Str, pipe } from "effect";
+import { callerHeader, loopback } from "#router/client/router-port/index.ts";
 import type { PickerRow } from "#router/client/harnesses/index.ts";
 import type { VendorLanes } from "#router/client/configuration/index.ts";
 import { claudePluginData } from "#router/client/harnesses/index.ts";
 import { configuredLanes } from "#router/client/configuration/index.ts";
-import { loopback } from "#router/client/router-port/index.ts";
 import { piWire } from "#shared/pi.ts";
 import { productPort } from "#shared/cli.ts";
 
@@ -158,6 +158,43 @@ const exempted =
 				}),
 		});
 
+const customHeadersSetting = "ANTHROPIC_CUSTOM_HEADERS";
+
+const callerReason =
+	"On Windows, Claude Code sends the router a token only your account can read, so another user's program cannot pass for you. Its value stays out of this output.";
+
+const isCallerLine = (line: string): boolean => Str.startsWith(`${callerHeader}:`)(Str.toLowerCase(Str.trim(line)));
+
+const headerLines = (headers: string): readonly string[] =>
+	pipe(headers, Str.split(/\r?\n/u), Array.filter(Str.isNonEmpty));
+
+const otherHeaderLines = (headers: string): readonly string[] =>
+	pipe(
+		headerLines(headers),
+		Array.filter((line) => !isCallerLine(line)),
+	);
+
+const withCaller =
+	(token: string) =>
+	(headers: string): string =>
+		Array.join([...otherHeaderLines(headers), `${callerHeader}: ${token}`], "\n");
+
+const withoutCaller = (env: Variables): EnvChange => {
+	const headers = Option.getOrElse(Record.get(env, customHeadersSetting), () => "");
+
+	if (!pipe(headerLines(headers), Array.some(isCallerLine))) {
+		return { set: {}, unset: [] };
+	}
+
+	const kept = otherHeaderLines(headers);
+
+	if (Array.isReadonlyArrayEmpty(kept)) {
+		return { set: {}, unset: [customHeadersSetting] };
+	}
+
+	return { set: { [customHeadersSetting]: Array.join(kept, "\n") }, unset: [] };
+};
+
 const launcherName = "phi-router";
 
 const shellQuoted = (text: string): string => `'${Str.replaceAll("'", String.raw`'\''`)(text)}'`;
@@ -215,7 +252,9 @@ const restored = (env: Variables): EnvChange => {
 };
 
 export {
+	callerReason,
 	claudeEnv,
+	customHeadersSetting,
 	claudeSettings,
 	exempted,
 	exemption,
@@ -234,6 +273,8 @@ export {
 	routerAddress,
 	shellLists,
 	statusLineCommand,
+	withCaller,
+	withoutCaller,
 };
 
 export type { NoProxyLists };

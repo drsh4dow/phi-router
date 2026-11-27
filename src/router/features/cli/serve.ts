@@ -1,4 +1,4 @@
-import { Callers, Listener, Proofs, listensOn } from "#router/client/router-port/index.ts";
+import { Callers, Listener, Proofs, ensuredToken, listensOn } from "#router/client/router-port/index.ts";
 import { Console, Effect, Layer, Option, Schedule, Schema, Scope } from "effect";
 import { Router } from "#router/features/route/index.ts";
 import { keyless } from "./no-baa-key.ts";
@@ -17,6 +17,9 @@ const bindRetry = { schedule: Schedule.spaced("50 millis"), times: 40 } as const
 
 const serve = Effect.fnUntraced(function* serve(port: number) {
 	const version = yield* Effect.option(ownVersion);
+
+	yield* ensuredToken;
+
 	const scope = yield* Scope.make();
 	const { on } = yield* Listener;
 	const server = yield* Layer.buildWithScope(on(port), scope).pipe(Effect.retry(bindRetry));
