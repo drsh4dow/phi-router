@@ -49,18 +49,22 @@ const zombieAndParent = Effect.fnUntraced(function* zombieAndParent() {
 
 const pidsOf = Array.map(({ pid }: LiveProcess) => pid);
 
-it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this machine", (test) => {
-	test.effect("a running pid reads the same start time twice, and a pid that ended or is a zombie is absent", () =>
-		Effect.gen(function* running() {
-			const processes = yield* Processes;
-			const ended = yield* endedPid();
-			const { alive, zombie } = yield* zombieAndParent();
-			const first = yield* processes.running([alive, ended, zombie]);
-			const again = yield* processes.running([alive]);
+const onWindows = process.platform === "win32";
 
-			assert.deepStrictEqual(pipe(first, Option.map(pidsOf)), Option.some([alive]));
-			assert.deepStrictEqual(again, first);
-		}).pipe(Effect.scoped),
+it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this machine", (test) => {
+	test.effect.skipIf(onWindows)(
+		"a running pid reads the same start time twice, and a pid that ended or is a zombie is absent",
+		() =>
+			Effect.gen(function* running() {
+				const processes = yield* Processes;
+				const ended = yield* endedPid();
+				const { alive, zombie } = yield* zombieAndParent();
+				const first = yield* processes.running([alive, ended, zombie]);
+				const again = yield* processes.running([alive]);
+
+				assert.deepStrictEqual(pipe(first, Option.map(pidsOf)), Option.some([alive]));
+				assert.deepStrictEqual(again, first);
+			}).pipe(Effect.scoped),
 	);
 });
 
@@ -140,13 +144,22 @@ const underCaller = (env: Readonly<Record<string, string>>): Layer.Layer<Process
 
 const startsOf = Option.map(Array.map(({ pid, started: at }: LiveProcess) => [pid, at] as const));
 
-const printedRead = Effect.fnUntraced(function* printedRead(printed: readonly string[], exitCode: number) {
-	const text = `${Array.join(printed, "\n")}\n`;
-	const built = yield* Layer.build(Layer.provide(Processes.layer, printing(text, exitCode)));
+const separatedBy = (sep: string): Layer.Layer<Path.Path> =>
+	Layer.effect(Path.Path, Path.Path.pipe(Effect.map((posix) => Path.make(Struct.assign(posix, { sep }))))).pipe(
+		Layer.provide(Path.layer),
+	);
+
+const readUnder = Effect.fnUntraced(function* readUnder(sep: string, text: string, exitCode: number) {
+	const spawned = Layer.provide(Processes.layer, Layer.merge(printing(text, exitCode), separatedBy(sep)));
+	const built = yield* Layer.build(spawned);
 	const read = yield* Context.get(built, Processes).running([leasedPid]);
 
 	return startsOf(read);
 }, Effect.scoped);
+
+const printedRead = Effect.fnUntraced(function* printedRead(printed: readonly string[], exitCode: number) {
+	return yield* readUnder("/", `${Array.join(printed, "\n")}\n`, exitCode);
+});
 
 const callerRead = Effect.fnUntraced(function* callerRead(
 	env: Readonly<Record<string, string>>,
@@ -237,10 +250,106 @@ const patient = { timeout: 30_000 };
 
 it.layer(NodeServices.layer)("what ps printed", (test) => {
 	test.effect("reads a row whose weekday fits its date, and nothing when a weekday does not", () => weekdayChecked);
-	test.effect("a running pid reads the same start time whatever the caller's time zone", () => anyZone);
-	test.effect("a ps that never answers and ignores SIGTERM is killed, and reads nothing", () => stubborn, patient);
-	test.effect(
+	test.effect.skipIf(onWindows)(
+		"a running pid reads the same start time whatever the caller's time zone",
+		() => anyZone,
+	);
+	test.effect.skipIf(onWindows)(
+		"a ps that never answers and ignores SIGTERM is killed, and reads nothing",
+		() => stubborn,
+		patient,
+	);
+	test.effect.skipIf(onWindows)(
 		"realFolder resolves a relative folder against the working folder whatever CDPATH holds, and gives one it cannot resolve as typed",
 		() => asTyped,
+	);
+});
+
+const windowsSeparator = "\\";
+
+const instant = "2026-11-21T10:45:11.4118080Z";
+
+const instantRows = {
+	leased: `${String(leasedPid)} ${instant}`,
+	notASecond: `${String(leasedPid)} 2026-02-30T10:45:11.4118080Z`,
+	querying: `${String(psPid)} ${instant}`,
+} as const;
+
+const failedExit = 1;
+
+const cimRead = Effect.fnUntraced(function* cimRead(printed: readonly string[], exitCode: number) {
+	return yield* readUnder(windowsSeparator, `${Array.join(printed, "\r\n")}\r\n`, exitCode);
+});
+
+const cimChecked = Effect.gen(function* cimChecked() {
+	const reads = yield* Effect.all(
+		{
+			failed: cimRead([instantRows.querying, instantRows.leased], failedExit),
+			listed: cimRead([instantRows.querying, instantRows.leased], listedExit),
+			notASecond: cimRead([instantRows.querying, instantRows.notASecond], listedExit),
+			psRow: cimRead([rows.ps, rows.leased], listedExit),
+			withoutItself: cimRead([instantRows.leased], listedExit),
+		},
+		{ concurrency: 1 },
+	);
+
+	assert.deepStrictEqual(reads, {
+		failed: Option.none(),
+		listed: Option.some([[leasedPid, instant] as const]),
+		notASecond: Option.none(),
+		psRow: Option.none(),
+		withoutItself: Option.none(),
+	});
+});
+
+it.effect(
+	"on Windows a read lists a pid with its creation instant only when the query exited 0, every line parsed, and its own row is there",
+	() => cimChecked,
+);
+
+const endedWindowsPid = Effect.fnUntraced(function* endedWindowsPid() {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const done = yield* spawner.spawn(ChildProcess.make("cmd.exe", ["/d", "/c", "exit 0"]));
+
+	yield* done.exitCode;
+
+	return Number(done.pid);
+});
+
+const windowsLive = Effect.gen(function* windowsLive() {
+	const processes = yield* Processes;
+	const ended = yield* endedWindowsPid();
+	const own = process.pid;
+	const first = yield* processes.running([own, ended]);
+	const again = yield* processes.running([own]);
+
+	assert.deepStrictEqual(pipe(first, Option.map(pidsOf)), Option.some([own]));
+	assert.deepStrictEqual(again, first);
+}).pipe(Effect.scoped);
+
+const windowsFolder = Effect.gen(function* windowsFolder() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const elsewhere = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-real-" });
+	const missing = path.join(elsewhere, "missing");
+	const tools = yield* fs.realPath(path.resolve("tools"));
+
+	const resolved = yield* Effect.all(
+		{ missing: realFolder(missing), relative: realFolder("tools") },
+		{ concurrency: 1 },
+	);
+
+	assert.deepStrictEqual(resolved, { missing, relative: tools });
+}).pipe(Effect.scoped);
+
+it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this Windows machine", (test) => {
+	test.effect.runIf(onWindows)(
+		"this process reads the same creation instant twice, and a pid that ended is absent",
+		() => windowsLive,
+		patient,
+	);
+	test.effect.runIf(onWindows)(
+		"realFolder resolves a relative folder natively, and gives one it cannot resolve as typed",
+		() => windowsFolder,
 	);
 });

@@ -1,6 +1,7 @@
 import {
 	Array,
 	Clock,
+	Config,
 	Context,
 	Effect,
 	FileSystem,
@@ -8,6 +9,7 @@ import {
 	Option,
 	Path,
 	Predicate,
+	Record,
 	Schedule,
 	Schema,
 	String as Str,
@@ -37,7 +39,7 @@ const bundled = Effect.fnUntraced(function* bundled(version?: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-bundle-" });
-	const entry = path.join(folder, "phi-router.js");
+	const entry = path.join(folder, "phi-router.mjs");
 	const source = path.resolve(import.meta.dirname, "../../src/router/main.ts");
 
 	yield* ran(["bun", "build", source, "--target", "node", "--outfile", entry], {});
@@ -72,18 +74,105 @@ const freePort = Effect.gen(function* freePort() {
 
 const instance = Effect.fnUntraced(function* instance() {
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-	const handle = yield* spawner.spawn(ChildProcess.make("sleep", ["300"]));
+	const handle = yield* spawner.spawn(ChildProcess.make("node", ["-e", "setTimeout(() => {}, 300_000)"]));
 
 	return { end: handle.kill({ killSignal: "SIGKILL" }), pid: Number(handle.pid) };
 });
 
 const serving = (entry: string, port: number): string => `${entry} serve --port ${String(port)}$`;
 
-const routersOn = Effect.fnUntraced(function* routersOn(entry: string, port: number) {
-	const { printed } = yield* ran(["pgrep", "-f", serving(entry, port)], {});
+const onWindows = process.platform === "win32";
 
-	return pipe(Str.split(Str.trim(printed), "\n"), Array.filter(Str.isNonEmpty), Array.map(Number));
+const windowsServing = (entry: string, port: number): string =>
+	`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${entry} serve --port ${String(port)}' } | ForEach-Object { $_.ProcessId }`;
+
+const listing = (entry: string, port: number): readonly [string, ...string[]] => {
+	if (onWindows) {
+		return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", windowsServing(entry, port)];
+	}
+
+	return ["pgrep", "-f", serving(entry, port)];
+};
+
+const routersOn = Effect.fnUntraced(function* routersOn(entry: string, port: number) {
+	const { printed } = yield* ran(listing(entry, port), {});
+
+	return pipe(Str.split(Str.trim(printed), /\r?\n/u), Array.filter(Str.isNonEmpty), Array.map(Number));
 });
+
+const windowsMatching = (fragment: string): string =>
+	`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${fragment}*' -and $_.ProcessId -ne $PID } | ForEach-Object { $_.ProcessId }`;
+
+const windowsBasicNames = ["APPDATA", "ComSpec", "LOCALAPPDATA", "PATHEXT", "SystemRoot", "TEMP", "TMP", "USERPROFILE"];
+
+const basicOf = (name: string): Effect.Effect<readonly (readonly [string, string])[]> =>
+	Config.String(name).pipe(
+		Effect.map((value) => [[name, value] as const]),
+		Effect.orElseSucceed(() => []),
+	);
+
+const windowsBasics = Effect.gen(function* windowsBasics() {
+	if (!onWindows) {
+		return {};
+	}
+
+	const found = yield* Effect.forEach(windowsBasicNames, basicOf, { concurrency: 1 });
+
+	return Record.fromEntries(Array.flatten(found));
+});
+
+const stopMatching = Effect.fnUntraced(function* stopMatching(fragment: string) {
+	if (!onWindows) {
+		return yield* ran(["pkill", "-9", "-f", fragment], {});
+	}
+
+	const { printed } = yield* ran(
+		["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", windowsMatching(fragment)],
+		{},
+	);
+
+	const pids = pipe(Str.split(Str.trim(printed), /\r?\n/u), Array.filter(Str.isNonEmpty));
+
+	return yield* ran(
+		[
+			"taskkill.exe",
+			"/F",
+			...pipe(
+				pids,
+				Array.flatMap((pid) => ["/PID", pid]),
+			),
+		],
+		{},
+	);
+});
+
+const stopRouters = Effect.fnUntraced(function* stopRouters(entry: string, port: number) {
+	if (!onWindows) {
+		return yield* ran(["pkill", "-9", "-f", serving(entry, port)], {});
+	}
+
+	const pids = yield* routersOn(entry, port);
+
+	return yield* ran(
+		[
+			"taskkill.exe",
+			"/F",
+			...pipe(
+				pids,
+				Array.flatMap((pid) => ["/PID", String(pid)]),
+			),
+		],
+		{},
+	);
+});
+
+const killedHard = (pid: number): ReturnType<typeof ran> => {
+	if (onWindows) {
+		return ran(["taskkill.exe", "/F", "/PID", String(pid)], {});
+	}
+
+	return ran(["kill", "-9", String(pid)], {});
+};
 
 const answers = Effect.fnUntraced(function* answers(port: number) {
 	const client = yield* HttpClient.HttpClient;
@@ -139,7 +228,7 @@ const world = Effect.fnUntraced(function* world(entry: string, more: Readonly<Re
 	const env = Struct.assign(Struct.assign(mockEnv, { HOME: home }), more);
 	const port = yield* freePort;
 
-	yield* Effect.addFinalizer(() => ran(["pkill", "-9", "-f", serving(entry, port)], {}).pipe(Effect.orDie));
+	yield* Effect.addFinalizer(() => stopRouters(entry, port).pipe(Effect.orDie));
 
 	const start = (pid: number, from = entry): ReturnType<typeof ran> =>
 		ran(
@@ -156,11 +245,14 @@ export {
 	bundled,
 	freePort,
 	instance,
+	killedHard,
 	leasedPids,
 	leasesIn,
 	portBelow,
 	ran,
 	refusedWithin,
 	routersOn,
+	stopMatching,
+	windowsBasics,
 	world,
 };

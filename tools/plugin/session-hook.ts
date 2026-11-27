@@ -14,7 +14,7 @@ import {
 	pipe,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { freePort, ran } from "#tools/lifecycle/launched.ts";
+import { freePort, stopMatching, windowsBasics } from "#tools/lifecycle/launched.ts";
 import { TestClock } from "effect/testing";
 import { mocked } from "#tools/route/mocked-router.ts";
 import { pluginCopy } from "./copied.ts";
@@ -50,6 +50,24 @@ const Events = Schema.Struct({
 const Hooks = Schema.fromJsonString(Schema.Struct({ hooks: Events }));
 
 const instanceScript = 'sh -c "$HOOK" >"$1" 2>"$2"; echo $? >"$3.part"; mv "$3.part" "$3"; exec sleep 300';
+
+const windowsInstanceLines = [
+	'const { spawnSync } = require("node:child_process");',
+	'const fs = require("node:fs");',
+	"const [out, err, code] = process.argv.slice(1);",
+	"const env = { ...process.env, CLAUDE_PID: String(process.pid) };",
+	'const stdio = ["inherit", fs.openSync(out, "w"), fs.openSync(err, "w")];',
+	'const hooked = spawnSync("sh", ["-c", process.env.HOOK], { env, stdio });',
+	String.raw`fs.writeFileSync(code + ".part", String(hooked.status) + "\n");`,
+	'fs.renameSync(code + ".part", code);',
+	"setTimeout(() => {}, 300_000);",
+];
+
+const instanceCommands: Readonly<Partial<Record<NodeJS.Platform, readonly [string, ...string[]]>>> = {
+	win32: ["node", "-e", Array.join(windowsInstanceLines, "\n")],
+};
+
+const instanceCommand = instanceCommands[process.platform] ?? ["sh", "-c", instanceScript, "instance"];
 
 const harnesses = {
 	claude: {
@@ -100,7 +118,8 @@ const underInstance = Effect.fnUntraced(function* underInstance(env: Readonly<Re
 	const files = yield* fs.makeTempDirectoryScoped({ prefix: "phi-hook-" });
 	const [out, err, code] = [`${files}/out`, `${files}/err`, `${files}/code`];
 	const options = { env, extendEnv: false, stdin: Stream.encodeText(Stream.make(stdin)) };
-	const instance = ChildProcess.make("sh", ["-c", instanceScript, "instance", out, err, code], options);
+	const [runtime, ...args] = instanceCommand;
+	const instance = ChildProcess.make(runtime, [...args, out, err, code], options);
 	const handle = yield* spawner.spawn(instance);
 
 	yield* fs
@@ -162,12 +181,15 @@ const hooked = Effect.fnUntraced(function* hooked({
 		Effect.tap((mocks) => secretKept(mocks.state)),
 	);
 
-	const [port, searchPath] = yield* Effect.all([freePort, Config.String("PATH")], { concurrency: 1 });
+	const [port, searchPath, basics] = yield* Effect.all([freePort, Config.String("PATH"), windowsBasics], {
+		concurrency: 1,
+	});
+
 	const config = yield* claudeConfig(userSettingsAddress, port);
 
-	yield* Effect.addFinalizer(() => ran(["pkill", "-9", "-f", copy], {}).pipe(Effect.orDie));
+	yield* Effect.addFinalizer(() => stopMatching(copy).pipe(Effect.orDie));
 
-	const base = Struct.assign(Struct.assign(world, instanceEnv), {
+	const base = Struct.assign(Struct.assign(Struct.assign(basics, world), instanceEnv), {
 		[harnesses[harness].pluginFolderVariable]: copy,
 		CLAUDE_CONFIG_DIR: config,
 		HOME: copy,

@@ -14,13 +14,14 @@ import {
 import type { ClaudeSettings } from "./configured.ts";
 import { FetchHttpClient } from "effect/http";
 import { NodeServices } from "@effect/platform-node";
+import { filePath } from "#tools/file-path.ts";
 import { pluginCopy } from "#tools/plugin/copied.ts";
 
 const patient = { timeout: 60_000 };
 
 const ok = 0;
 
-const standIn = new URL("stand-in.ts", import.meta.url).pathname;
+const standIn = filePath(new URL("stand-in.ts", import.meta.url));
 
 type Claude = "posts" | "silent" | "absent";
 

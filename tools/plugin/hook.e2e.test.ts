@@ -1,5 +1,5 @@
+import { Array, Effect, FileSystem, Layer, Option, String as Str, pipe } from "effect";
 import type { Blocking, Event, Harness, ModelAddress } from "./session-hook.ts";
-import { Effect, FileSystem, Layer, Option, String as Str } from "effect";
 import { answers, leasesIn, refusedWithin } from "#tools/lifecycle/launched.ts";
 import { assert, it } from "@effect/vitest";
 import { blockedBy, hookInputs, hooked, loopback, unset } from "./session-hook.ts";
@@ -146,15 +146,22 @@ const unreadable = Effect.gen(function* unreadable() {
 	assert.deepStrictEqual({ failed: exitCode !== "0\n", stdout }, { failed: true, stdout: "" });
 }).pipe(Effect.scoped);
 
+const everyLeasing = [
+	["claude", "SessionStart"],
+	["claude", "UserPromptSubmit"],
+	["codex", "SessionStart"],
+	["codex", "UserPromptSubmit"],
+	["claude", "PreCompact"],
+	["codex", "PreCompact"],
+] as const;
+
+const leasing = pipe(
+	everyLeasing,
+	Array.filter(([harness]) => harness === "claude" || process.platform !== "win32"),
+);
+
 it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the plugin's hooks", (test) => {
-	test.effect.each([
-		["claude", "SessionStart"],
-		["claude", "UserPromptSubmit"],
-		["codex", "SessionStart"],
-		["codex", "UserPromptSubmit"],
-		["claude", "PreCompact"],
-		["codex", "PreCompact"],
-	] as const)(
+	test.effect.each(leasing)(
 		"for %s's %s hook, with a router's model address, and proxies set that the router's address is not an exception of, proves the router, leases the instance with its session and folder, prints nothing, and the router ends with it",
 		([harness, event]) => leased(harness, event),
 		patient,

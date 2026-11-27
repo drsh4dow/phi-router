@@ -17,9 +17,10 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { freePort, ran } from "#tools/lifecycle/launched.ts";
 import { bundles } from "#tools/plugin/bundles.ts";
 import { fakes } from "#tools/route/mocked-router.ts";
+import { filePath } from "#tools/file-path.ts";
 import { succeeded } from "./checks.ts";
 
-const checkout = decodeURIComponent(new URL("../..", import.meta.url).pathname);
+const checkout = filePath(new URL("../..", import.meta.url));
 
 const githubRepository = "drsh4dow/phi-router";
 
@@ -85,7 +86,7 @@ const gitServed = Effect.fnUntraced(function* gitServed(where: SnapshotFolders) 
 	return address;
 });
 
-const entry = decodeURIComponent(new URL("../../src/router/main.ts", import.meta.url).pathname);
+const entry = filePath(new URL("../../src/router/main.ts", import.meta.url));
 
 const agentFolder = Effect.fnUntraced(function* agentFolder(agent: string) {
 	const fs = yield* FileSystem.FileSystem;
