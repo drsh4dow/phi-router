@@ -1,7 +1,7 @@
 import { Array, ConfigProvider, Effect, Option, pipe } from "effect";
 import { assert, it } from "@effect/vitest";
-import { leasedPid, portOf } from "./session-start.ts";
 import { loopback, productPort } from "#shared/cli.ts";
+import { portOf } from "./session-start.ts";
 import { providerSwitchOn } from "#router/features/cli/claude/index.ts";
 
 const port = String(productPort);
@@ -50,30 +50,5 @@ it.effect.each(switchedOn)(
 			const on = yield* Effect.provideService(providerSwitchOn, ConfigProvider.ConfigProvider, environment);
 
 			assert.deepStrictEqual(on, Option.some(name));
-		}),
-);
-
-const hookShells = [
-	{ claude: true, given: 4242, harness: { CLAUDE_PID: "7311" }, leased: 4242 },
-	{ claude: true, given: 1, harness: { CLAUDE_PID: "7311" }, leased: 7311 },
-	{ claude: true, given: 1, harness: {}, leased: 1 },
-	{ claude: true, given: 1, harness: { CLAUDE_PID: "0" }, leased: 1 },
-	{ claude: true, given: 1, harness: { CLAUDE_PID: "pid" }, leased: 1 },
-	{ claude: false, given: 1, harness: { CLAUDE_PID: "7311" }, leased: 1 },
-] as const;
-
-it.effect.each(hookShells)(
-	"a hook shell that names parent $given, with $harness and claude $claude, leases pid $leased, as Git Bash names 1 for a Windows parent",
-	({ claude, given, harness, leased }) =>
-		Effect.gen(function* leases() {
-			const environment = ConfigProvider.fromUnknown(harness);
-
-			const pid = yield* Effect.provideService(
-				leasedPid({ claude, pid: given }),
-				ConfigProvider.ConfigProvider,
-				environment,
-			);
-
-			assert.strictEqual(pid, leased);
 		}),
 );

@@ -6,7 +6,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\" 1>&2"
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"${CLAUDE_PID:-$PPID}\" --address \"$ANTHROPIC_BASE_URL\" 1>&2"
 					}
 				]
 			}
@@ -16,7 +16,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\" 1>&2 || exit 2",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"${CLAUDE_PID:-$PPID}\" --address \"$ANTHROPIC_BASE_URL\" 1>&2 || exit 2",
 						"onFailure": "block"
 					},
 					{
@@ -75,7 +75,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"$PPID\" --address \"$ANTHROPIC_BASE_URL\" 1>&2",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/phi-router\" session-start --claude --pid \"${CLAUDE_PID:-$PPID}\" --address \"$ANTHROPIC_BASE_URL\" 1>&2",
 						"onFailure": "block"
 					}
 				]
