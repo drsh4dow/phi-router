@@ -14,7 +14,7 @@ import {
 	pipe,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import type { PlatformError, Scope } from "effect";
+import type { Path, PlatformError, Scope } from "effect";
 import { forPlatform, systemTool } from "./platform.ts";
 import type { Pid } from "#shared/cli.ts";
 
@@ -113,19 +113,16 @@ const shellRealFolder = (folder: string): Effect.Effect<string, never, ChildProc
 		Effect.orElseSucceed(() => folder),
 	);
 
-const nativeRealFolder = (folder: string): Effect.Effect<string> =>
-	Effect.serviceOption(FileSystem.FileSystem).pipe(
-		Effect.flatMap(
-			Option.match({
-				onNone: () => Effect.succeed(folder),
-				onSome: (fs) => fs.realPath(folder),
-			}),
-		),
-		Effect.orElseSucceed(() => folder),
-	);
+const nativeRealFolder = (folder: string): Effect.Effect<string, never, FileSystem.FileSystem> =>
+	FileSystem.FileSystem.use((fs) => fs.realPath(folder)).pipe(Effect.orElseSucceed(() => folder));
 
-const realFolder = (folder: string): Effect.Effect<string, never, ChildProcessSpawner.ChildProcessSpawner> =>
-	forPlatform({ posix: shellRealFolder(folder), windows: nativeRealFolder(folder) }).pipe(Effect.flatten);
+const realFolder = (
+	folder: string,
+): Effect.Effect<string, never, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path> =>
+	forPlatform<Effect.Effect<string, never, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem>>({
+		posix: shellRealFolder(folder),
+		windows: nativeRealFolder(folder),
+	}).pipe(Effect.flatten);
 
 const rowOf = (line: string): Option.Option<PsRow> => {
 	const matched = rowPattern.exec(Str.trim(line));

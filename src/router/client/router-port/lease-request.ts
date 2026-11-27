@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import type { FileSystem, Path } from "effect";
 import { Pid, loopback } from "#shared/cli.ts";
 import type { ChildProcessSpawner } from "effect/process";
 import { Proofs } from "./proof.ts";
@@ -38,7 +39,10 @@ class LeaseRequests extends Context.Service<
 		Effect.gen(function* make() {
 			const client = yield* HttpClient.HttpClient;
 			const proofs = yield* Proofs;
-			const spawner = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
+
+			const spawner = yield* Effect.context<
+				ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
+			>();
 
 			const post = (port: number, request: typeof LeaseRequest.Type): Effect.Effect<Answered> =>
 				Effect.gen(function* posted() {

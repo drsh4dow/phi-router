@@ -1,25 +1,22 @@
-import { Config, Effect, Option, Path } from "effect";
+import { Config, Effect, Path } from "effect";
 
 const windowsSeparator = "\\";
 
 const defaultSystemRoot = String.raw`C:\Windows`;
 
-const onWindows: Effect.Effect<boolean> = Effect.serviceOption(Path.Path).pipe(
-	Effect.map(Option.exists(({ sep }) => sep === windowsSeparator)),
-);
+const forPlatform = <Choice>(choices: {
+	readonly posix: Choice;
+	readonly windows: Choice;
+}): Effect.Effect<Choice, never, Path.Path> =>
+	Effect.map(Effect.service(Path.Path), ({ sep }) => {
+		if (sep === windowsSeparator) {
+			return choices.windows;
+		}
 
-const forPlatform = <Choice>(choices: { readonly posix: Choice; readonly windows: Choice }): Effect.Effect<Choice> =>
-	onWindows.pipe(
-		Effect.map((windows) => {
-			if (windows) {
-				return choices.windows;
-			}
+		return choices.posix;
+	});
 
-			return choices.posix;
-		}),
-	);
-
-const homeFolder: Effect.Effect<string, Config.ConfigError> = forPlatform({
+const homeFolder: Effect.Effect<string, Config.ConfigError, Path.Path> = forPlatform({
 	posix: Config.String("HOME"),
 	windows: Config.String("HOME").pipe(Config.orElse(() => Config.String("USERPROFILE"))),
 }).pipe(Effect.flatten);
