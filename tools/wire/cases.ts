@@ -5,7 +5,7 @@ import type { Option } from "effect";
 import type { Run } from "./checks.ts";
 import { tokensOf } from "#tools/corpus/canary-tokens.ts";
 
-const phiCaseId = "h-0051";
+const phiCaseId = "h-0336";
 
 const voidedSsn = "078-05-1120";
 

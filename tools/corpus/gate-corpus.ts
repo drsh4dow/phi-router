@@ -5,7 +5,7 @@ import { evaluate } from "./evaluate.ts";
 import { loadImages } from "./images.ts";
 import { synthetic } from "./synthetic.ts";
 
-const gatedDraws = 1;
+const gatedDraws = 3;
 
 const gatedSeeds = Array.makeBy(gatedDraws, (index) => defaultSeed + index);
 
