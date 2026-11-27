@@ -147,6 +147,7 @@ const silent: readonly string[] = [
 	"exports/2025-03/eligibility/270_batch_0447.x12",
 	"dist/2025_v2_release-notes.pdf",
 	'{"resourceType": "Patient", "identifier": [{"type": {"coding": [{"code": "PI"}]}, "value": "PAT4471"}]}',
+	'{"resourceType": "Patient", "identifier": [{"value": "PAT4471", "type": {"coding": [{"code": "PI"}]}}]}',
 	'{"subject": {"type": "Patient", "reference": "Patient/8812"}, "telecom": [{"system": "phone", "value": "x1234"}]}',
 	'{"resourceType": "Patient", "identifier": [{"system": "https://acme.example/patient-id", "value": "550e8400-e29b-41d4-a716-446655440000"}]}',
 	"exports/2025-03/scans/96402_010 427 114 scan.pdf",

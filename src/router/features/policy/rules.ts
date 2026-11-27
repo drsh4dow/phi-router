@@ -13,7 +13,11 @@ const patientResource = String.raw`"\p{L}{10,14}"\s*:\s*"Patient"`;
 
 const filledValue = String.raw`"value"\s*:\s*"[^"\s]`;
 
-const untypedCode = String.raw`"identifier"\s*:\s*\[(?:(?!"type")[^\]])*?"(?=[A-Z\d-]{6,}")(?=[A-Z-]*\d)(?=[\d-]*[A-Z])`;
+const codeNear = 500;
+
+const untypedField = String.raw`(?:(?!"type")[^{}]){0,${String(codeNear)}}`;
+
+const untypedCode = String.raw`"identifier"\s*:\s*\[[^\]]{0,${String(codeNear)}}?\{${untypedField}?"(?=[A-Z\d-]{6,}")(?=[A-Z-]*\d)(?=[\d-]*[A-Z])${untypedField}\}`;
 
 const personalCode = String.raw`"code"\s*:\s*"(?:DL|PPN|DP|SS|MR|MRT|MB|SN|MA|MC|AN|BCT)"`;
 
@@ -28,11 +32,9 @@ const hl7Pid = new RegExp(
 );
 
 const fhirPatient = new RegExp(
-	String.raw`${patientResource}(?:(?!"resourceType")[\s\S]){0,3000}?(?:"birthDate"\s*:\s*"\d{4}-\d\d-\d\d"|"family"\s*:\s*"\p{L}|"given"\s*:\s*\[\s*"\p{L}|"name"\s*:\s*\[[^\]]*?"text"\s*:\s*"\p{L}|"telecom"\s*:\s*\[[^\]]*?${filledValue}|${untypedCode}|${personalSystem}[^{}]*?${filledValue}|${filledValue}[^"]*"[^{}]*?${personalSystem})`,
+	String.raw`${patientResource}(?:(?!"resourceType")[\s\S]){0,3000}?(?:"birthDate"\s*:\s*"\d{4}-\d\d-\d\d"|"family"\s*:\s*"\p{L}|"given"\s*:\s*\[\s*"\p{L}|"name"\s*:\s*\[[^\]]{0,${String(codeNear)}}?"text"\s*:\s*"\p{L}|"telecom"\s*:\s*\[[^\]]{0,${String(codeNear)}}?${filledValue}|${untypedCode}|${personalSystem}[^{}]*?${filledValue}|${filledValue}[^"]*"[^{}]*?${personalSystem})`,
 	"u",
 );
-
-const codeNear = 500;
 
 const fhirCodedId = new RegExp(
 	String.raw`^(?=[\s\S]*${patientResource})[\s\S]*?(?:${personalCode}[\s\S]{0,${String(codeNear)}}?${filledValue}|${filledValue}[\s\S]{0,${String(codeNear)}}?${personalCode})`,
