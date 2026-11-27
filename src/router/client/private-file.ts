@@ -15,6 +15,8 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { isWindows, systemTool } from "./platform.ts";
 
+type PrivateWriting = ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path;
+
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
 const succeeded = 0;
@@ -390,3 +392,5 @@ export {
 	userSid,
 	writePrivately,
 };
+
+export type { PrivateWriting };
