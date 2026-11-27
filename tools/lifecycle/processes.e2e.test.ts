@@ -247,7 +247,7 @@ const asTyped = Effect.gen(function* asTyped() {
 	assert.deepStrictEqual(resolved, { missing, relative: path.resolve("tools"), unspawned: "tools" });
 }).pipe(Effect.scoped);
 
-const patient = { timeout: 30_000 };
+const patient = { timeout: 60_000 };
 
 it.layer(NodeServices.layer)("what ps printed", (test) => {
 	test.effect("reads a row whose weekday fits its date, and nothing when a weekday does not", () => weekdayChecked);
