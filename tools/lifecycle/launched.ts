@@ -86,15 +86,17 @@ interface Pattern {
 	readonly windows: string;
 }
 
+const likeLiteral = (text: string): string => Str.replaceAll(/[`*?[\]]/gu, "`$&")(text);
+
 const serving = (entry: string, port: number): Pattern => {
 	const command = `${entry} serve --port ${String(port)}`;
 
-	return { posix: `${command}$`, windows: `*${command}` };
+	return { posix: `${command}$`, windows: `*${likeLiteral(command)}` };
 };
 
 const listing = (pattern: Pattern): readonly [string, ...string[]] => {
 	if (onWindows) {
-		const query = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '${pattern.windows}' -and $_.ProcessId -ne $PID } | ForEach-Object { $_.ProcessId }`;
+		const query = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '${Str.replaceAll("'", "''")(pattern.windows)}' -and $_.ProcessId -ne $PID } | ForEach-Object { $_.ProcessId }`;
 
 		return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", query];
 	}
@@ -148,7 +150,7 @@ const stopped = Effect.fnUntraced(function* stopped(pattern: Pattern) {
 });
 
 const stopMatching = (fragment: string): ReturnType<typeof stopped> =>
-	stopped({ posix: fragment, windows: `*${fragment}*` });
+	stopped({ posix: fragment, windows: `*${likeLiteral(fragment)}*` });
 
 const killedHard = (pid: number): ReturnType<typeof ran> => {
 	if (onWindows) {
