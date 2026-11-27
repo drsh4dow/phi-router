@@ -1,5 +1,6 @@
 import { Array, Context, Effect, FileSystem, Layer, Option, Path, Record, Schema, Semaphore, Struct } from "effect";
 import { Base64Url } from "effect/encoding";
+import type { ChildProcessSpawner } from "effect/process";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "./private-file.ts";
@@ -28,7 +29,11 @@ interface Known {
 	readonly openWrote: (key: string) => boolean;
 }
 
-type Services = FileSystem.FileSystem | Path.Path | UserDirectories.UserDirectories;
+type Services =
+	| ChildProcessSpawner.ChildProcessSpawner
+	| FileSystem.FileSystem
+	| Path.Path
+	| UserDirectories.UserDirectories;
 
 const oneWriter = 1;
 

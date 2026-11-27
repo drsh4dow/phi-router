@@ -63,7 +63,11 @@ const fileKey = Effect.fnUntraced(function* fileKey(file: string) {
 
 const readKey = Effect.fn("readKey")(function* readKey(
 	source: KeySource,
-): Effect.fn.Return<Redacted.Redacted, KeyUnreadable, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem> {
+): Effect.fn.Return<
+	Redacted.Redacted,
+	KeyUnreadable,
+	ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
+> {
 	if ("keyEnv" in source) {
 		return yield* Effect.mapError(Config.Redacted(source.keyEnv), (cause) =>
 			KeyUnreadable.make({ cause, source: `keyEnv ${source.keyEnv}` }),

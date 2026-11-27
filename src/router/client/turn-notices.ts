@@ -1,6 +1,7 @@
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import type { Option, PlatformError } from "effect";
 import { Base64Url } from "effect/encoding";
+import { ChildProcessSpawner } from "effect/process";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "./private-file.ts";
 
@@ -30,6 +31,7 @@ class TurnNotices extends Context.Service<
 			const directories = yield* UserDirectories.UserDirectories;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
+			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 			const state = yield* directories.state("phi-router");
 			const fileOf = (session: string): string => path.join(state, "notices", `${Base64Url.encode(session)}.json`);
 
@@ -49,6 +51,7 @@ class TurnNotices extends Context.Service<
 				yield* writePrivately(fileOf(session), written).pipe(
 					Effect.provideService(FileSystem.FileSystem, fs),
 					Effect.provideService(Path.Path, path),
+					Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
 				);
 			});
 

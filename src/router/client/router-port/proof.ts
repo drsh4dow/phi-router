@@ -128,7 +128,7 @@ class Proofs extends Context.Service<
 			const client = yield* HttpClient.HttpClient;
 			const directories = yield* UserDirectories.UserDirectories;
 			const path = yield* Path.Path;
-			const services = yield* Effect.context<Answering | Path.Path>();
+			const services = yield* Effect.context<Answering | Path.Path | Effect.Services<ReturnType<typeof rowOf>>>();
 			const state = yield* directories.state("phi-router");
 			const file = path.join(state, "secret");
 

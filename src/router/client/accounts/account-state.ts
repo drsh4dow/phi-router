@@ -1,4 +1,5 @@
 import { Array, Context, DateTime, Effect, FileSystem, Layer, Path, Record, Schema, Semaphore, pipe } from "effect";
+import { ChildProcessSpawner } from "effect/process";
 import type { PlatformError } from "effect";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "#router/client/private-file.ts";
@@ -26,6 +27,7 @@ class AccountState extends Context.Service<
 			const directories = yield* UserDirectories.UserDirectories;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
+			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 			const writing = yield* Semaphore.make(oneWriter);
 			const state = yield* directories.state("phi-router");
 			const file = path.join(state, "accounts.json");
@@ -56,6 +58,7 @@ class AccountState extends Context.Service<
 				yield* writePrivately(file, text).pipe(
 					Effect.provideService(FileSystem.FileSystem, fs),
 					Effect.provideService(Path.Path, path),
+					Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
 				);
 			}, Semaphore.withPermit(writing));
 

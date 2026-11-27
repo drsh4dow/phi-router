@@ -44,13 +44,8 @@ const aclRefused = (target: string, description: string): PlatformError.Platform
 	});
 
 const printedBy = Effect.fnUntraced(function* printedBy(tool: string, args: readonly string[], target: string) {
-	const spawner = yield* Effect.serviceOption(ChildProcessSpawner.ChildProcessSpawner);
-
-	if (Option.isNone(spawner)) {
-		return yield* aclRefused(target, `no process spawner to run ${tool}`);
-	}
-
-	const handle = yield* spawner.value.spawn(ChildProcess.make(tool, args, { stdin: "ignore" }));
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const handle = yield* spawner.spawn(ChildProcess.make(tool, args, { stdin: "ignore" }));
 	const printed = yield* Stream.mkString(Stream.decodeText(handle.all));
 	const exitCode = yield* handle.exitCode;
 
