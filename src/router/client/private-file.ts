@@ -1,6 +1,5 @@
 import {
 	Array,
-	Config,
 	Effect,
 	FileSystem,
 	MutableHashSet,
@@ -15,12 +14,11 @@ import {
 	pipe,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { systemTool } from "./platform.ts";
 
 const privateModes = { file: 0o600, folder: 0o700 } as const;
 
 const windowsSeparator = "\\";
-
-const defaultSystemRoot = String.raw`C:\Windows`;
 
 const succeeded = 0;
 
@@ -44,17 +42,6 @@ const aclRefused = (target: string, description: string): PlatformError.Platform
 		method: "restrictToCurrentUser",
 		module: "FileSystem",
 	});
-
-const systemTool = Effect.fnUntraced(function* systemTool(name: string) {
-	const path = yield* Path.Path;
-
-	const root = yield* Config.String("SystemRoot").pipe(
-		Config.withDefault(defaultSystemRoot),
-		Effect.orElseSucceed(() => defaultSystemRoot),
-	);
-
-	return path.join(root, "System32", name);
-});
 
 const printedBy = Effect.fnUntraced(function* printedBy(tool: string, args: readonly string[], target: string) {
 	const spawner = yield* Effect.serviceOption(ChildProcessSpawner.ChildProcessSpawner);
