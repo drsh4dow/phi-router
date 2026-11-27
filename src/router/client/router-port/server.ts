@@ -103,7 +103,7 @@ const tokenPresented = Effect.fnUntraced(function* tokenPresented(path: string) 
 	const callers = yield* Callers;
 	const request = yield* HttpServerRequest.HttpServerRequest;
 
-	if (path === helloPath || path === proofPath) {
+	if (path === proofPath) {
 		return true;
 	}
 
@@ -123,6 +123,10 @@ const serve = (paths: readonly Path[]): Layer.Layer<never, never, HttpServer.Htt
 			Effect.gen(function* onlyThisUser() {
 				const request = yield* HttpServerRequest.HttpServerRequest;
 				const [path] = Str.split("?")(request.url);
+
+				if (path === helloPath) {
+					return yield* served;
+				}
 
 				if (!(yield* tokenPresented(path)) || !(yield* callerIsThisUser)) {
 					return refused;
