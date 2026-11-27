@@ -1,9 +1,8 @@
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import { Pid, loopback } from "#shared/cli.ts";
 import type { ChildProcessSpawner } from "effect/process";
-import { Pid } from "#shared/cli.ts";
-import { callerHeaders } from "./caller-token.ts";
-import { loopback } from "./server.ts";
+import { Proofs } from "./proof.ts";
 import { realFolder } from "#router/client/processes.ts";
 
 const LeaseRequest = Schema.Struct({ folder: Schema.String, pid: Pid, session: Schema.NonEmptyString });
@@ -38,6 +37,7 @@ class LeaseRequests extends Context.Service<
 		LeaseRequests,
 		Effect.gen(function* make() {
 			const client = yield* HttpClient.HttpClient;
+			const proofs = yield* Proofs;
 			const spawner = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
 
 			const post = (port: number, request: typeof LeaseRequest.Type): Effect.Effect<Answered> =>
@@ -48,7 +48,7 @@ class LeaseRequests extends Context.Service<
 						Schema.encodeEffect(LeaseRequestJson)(Struct.assign(request, { folder })),
 					);
 
-					const headers = yield* callerHeaders;
+					const headers = yield* proofs.callerHeaders(port);
 
 					const sent = HttpClientRequest.post(`http://${loopback}:${String(port)}${leasePath}`).pipe(
 						HttpClientRequest.setHeaders(headers),
@@ -65,7 +65,7 @@ class LeaseRequests extends Context.Service<
 
 			return LeaseRequests.of({ post });
 		}),
-	).pipe(Layer.provide(FetchHttpClient.layer));
+	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Proofs.layer)));
 }
 
 export { LeaseRequest, LeaseRequestJson, LeaseRequests, leasePath, statusOf };

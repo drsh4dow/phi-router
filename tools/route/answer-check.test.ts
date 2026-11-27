@@ -193,7 +193,7 @@ const unreadable = Effect.gen(function* unreadable() {
 	assert.strictEqual(response.status, unreadableStatus);
 });
 
-it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClient.layer))(
+it.layer(Layer.provideMerge(Layer.mergeAll(SessionRequests.layer, FetchHttpClient.layer), NodeServices.layer))(
 	"the answer check",
 	(test) => {
 		test.effect(

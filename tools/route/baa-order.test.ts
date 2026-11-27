@@ -166,7 +166,7 @@ const lackingLast = Effect.gen(function* lackingLast() {
 	);
 });
 
-it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClient.layer))(
+it.layer(Layer.provideMerge(Layer.mergeAll(SessionRequests.layer, FetchHttpClient.layer), NodeServices.layer))(
 	"the sealed walk",
 	(test) => {
 		test.effect(

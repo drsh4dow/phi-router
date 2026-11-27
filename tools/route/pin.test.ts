@@ -257,7 +257,7 @@ const modes = Effect.gen(function* modes() {
 	);
 }).pipe(Effect.scoped);
 
-it.layer(Layer.mergeAll(NodeServices.layer, SessionRequests.layer, FetchHttpClient.layer))(
+it.layer(Layer.provideMerge(Layer.mergeAll(SessionRequests.layer, FetchHttpClient.layer), NodeServices.layer))(
 	"pin and fixtures",
 	(test) => {
 		test.effect(

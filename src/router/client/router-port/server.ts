@@ -5,6 +5,7 @@ import type { Layer, Scope, Stream } from "effect";
 import type { Caller } from "./callers.ts";
 import type { HttpServerError } from "effect/http";
 import { callerHeader } from "./caller-token.ts";
+import { proofPath } from "./proof.ts";
 
 const badRequest = 400;
 
@@ -96,11 +97,13 @@ const callerIsThisUser = Effect.gen(function* callerIsThisUser() {
 
 const helloPath = "/api/hello";
 
-const tokenPresented = Effect.gen(function* tokenPresented() {
+const refused = HttpServerResponse.text(notThisUser, { contentType: "application/json", status: forbidden });
+
+const tokenPresented = Effect.fnUntraced(function* tokenPresented(path: string) {
 	const callers = yield* Callers;
 	const request = yield* HttpServerRequest.HttpServerRequest;
 
-	if (Str.startsWith(helloPath)(request.url)) {
+	if (path === helloPath || path === proofPath) {
 		return true;
 	}
 
@@ -118,8 +121,11 @@ const serve = (paths: readonly Path[]): Layer.Layer<never, never, HttpServer.Htt
 		disableLogger: true,
 		middleware: (served) =>
 			Effect.gen(function* onlyThisUser() {
-				if (!(yield* tokenPresented) || !(yield* callerIsThisUser)) {
-					return HttpServerResponse.text(notThisUser, { contentType: "application/json", status: forbidden });
+				const request = yield* HttpServerRequest.HttpServerRequest;
+				const [path] = Str.split("?")(request.url);
+
+				if (!(yield* tokenPresented(path)) || !(yield* callerIsThisUser)) {
+					return refused;
 				}
 
 				return yield* served;

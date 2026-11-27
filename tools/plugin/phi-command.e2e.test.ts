@@ -230,7 +230,7 @@ const failsClosed = Effect.gen(function* failsClosed() {
 	);
 }).pipe(Effect.scoped);
 
-it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, SessionRequests.layer))(
+it.layer(Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, SessionRequests.layer), NodeServices.layer))(
 	"the plugin's /phi hook",
 	(test) => {
 		test.effect(

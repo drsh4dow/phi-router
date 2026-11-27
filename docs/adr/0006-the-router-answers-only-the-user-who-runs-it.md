@@ -25,7 +25,7 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
 ### The caller token on Windows
 
 - On Windows the owner check alone leaves a gap: a socket can outlive the process id netstat lists for it.
-- To close it, every request except `GET /api/hello` must also carry `x-phi-router-caller`.
+- To close it, every request except `/api/hello` and the port proof must also carry `x-phi-router-caller`.
    - The header holds a 64-hex token that `serve` creates at `<state>/phi-router/caller-token` before it listens.
    - The token file is written through `writePrivately`, so its DACL names only the current user.
    - `phi-router claude on` writes the header into `ANTHROPIC_CUSTOM_HEADERS` in Claude Code's `settings.json`, after any headers the developer set. Claude Code sends it on every `POST /v1/messages`. `phi-router claude off` removes only that line.
@@ -33,7 +33,9 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
    - It compares an HMAC of the presented token against an HMAC of the stored one, so the comparison takes the same time either way.
    - A missing or wrong token gets 403, and so does a token file the router cannot read.
 - `/api/hello` is exempt because Claude Code sends it without custom headers. It still passes the owner check.
-- On Linux and macOS no token is created or checked.
+- The port proof is exempt from the token, not from the owner check. Its answer is an HMAC of the caller's own nonce, so it gives a caller nothing.
+- A client sends the token only to a listener that passed the port proof on that port, so a listener that took the port first (ADR 0002) never receives it. On Windows each session and lease request therefore asks for the proof first. `Proofs.callerHeaders` in `src/router/client/router-port/proof.ts` is the one place that turns a proven port into the header.
+- On Linux and macOS no token is created, sent or checked.
 
 ### What a private file's DACL may name on Windows
 
@@ -44,7 +46,7 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
 
 ## Considered options
 
-- A per-user secret in a header, set by `on claude`, `on codex` and the pi extension. Rejected because it needs every harness's settings to carry a secret and the CLI to write it, where the socket list needs no setting at all.
+- A per-user secret in a header, set by `on claude`, `on codex` and the pi extension. Rejected on Linux and macOS because it needs every harness's settings to carry a secret and the CLI to write it, where the socket list needs no setting at all. Adopted on Windows, for Claude Code only, because there the socket list cannot rule out a socket that outlives its process id (see the caller token above). The proof path is exempt, and a client sends the token only after a proof.
 - `lsof` on Linux too. Rejected because a machine without `lsof` would refuse every request, and each request would pay a subprocess where reading `/proc/net/tcp` takes a few milliseconds.
 - Keep Bun's own HTTP server. Rejected because Effect's request carries the caller's address but not its port, and Bun's server keeps the port in a private field. The entry file now builds Node's `http` server on both runtimes, so `request.source.socket` names both ends. Bun runs Node's server through its own compatibility layer. So HTTP alone does not come from the runtime's own platform layer.
 - A check in each row's handler. Rejected because a row could skip it and a path the table lacks would never reach it.
