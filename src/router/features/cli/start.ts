@@ -5,11 +5,12 @@ import type { Harness } from "#router/features/border/index.ts";
 import { Pid } from "#shared/cli.ts";
 import { Platform } from "./platform.ts";
 import { Processes } from "#router/client/processes.ts";
+import { forPlatform } from "#router/client/platform.ts";
 import { noBaaKeyExit } from "./no-baa-key.ts";
 import { stopLines } from "#router/features/route/index.ts";
 import { versionWait } from "./newer-plugin.ts";
 
-const leaseTakenWithin = "10 seconds";
+const leaseTakenWithin = { posix: "10 seconds", windows: "40 seconds" } as const;
 
 const pause = "50 millis";
 
@@ -56,6 +57,7 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 	const requests = yield* LeaseRequests;
 	const processes = yield* Processes;
 	const proofs = yield* Proofs;
+	const takenWithin = yield* forPlatform(leaseTakenWithin);
 	const router = yield* Ref.make<Option.Option<string>>(Option.none());
 
 	const failed = (reason: typeof Reason.Type): StartFailed =>
@@ -97,7 +99,7 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 		Effect.tap((asked) => Effect.when(unanswered, Effect.succeed(asked === "unanswered"))),
 		Effect.repeat({ schedule: Schedule.spaced(pause), until: settled }),
 		Effect.timeoutOrElse({
-			duration: leaseTakenWithin,
+			duration: takenWithin,
 			orElse: () => Effect.fail(failed("notStarted")),
 		}),
 	);

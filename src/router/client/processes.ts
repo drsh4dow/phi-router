@@ -29,7 +29,7 @@ interface PsRow extends LiveProcess {
 	readonly zombie: boolean;
 }
 
-const patience = { posix: "2 seconds", windows: "10 seconds" } as const;
+const patience = { posix: "2 seconds", windows: "30 seconds" } as const;
 
 const listing = 'exec ps -o pid=,stat=,lstart= -p "$$$1"';
 
