@@ -221,11 +221,13 @@ const staged = Effect.fnUntraced(function* staged(folder: string) {
 	return staging;
 });
 
-const passesPrivacyOn = Effect.fnUntraced(function* passesPrivacyOn(folder: string) {
-	const sid = yield* userSid(folder);
-	const dacl = yield* daclOf(folder);
+const inheritedTargets = { file: "inheritedFile", folder: "inheritedFolder" } as const;
 
-	return isPrivateDacl({ sid, target: "folder" })(dacl) || isPrivateDacl({ sid, target: "inheritedFolder" })(dacl);
+const passesPrivacyOn = Effect.fnUntraced(function* passesPrivacyOn(target: string, kind: keyof typeof grants) {
+	const sid = yield* userSid(target);
+	const dacl = yield* daclOf(target);
+
+	return isPrivateDacl({ sid, target: kind })(dacl) || isPrivateDacl({ sid, target: inheritedTargets[kind] })(dacl);
 });
 
 const madeTopmost = Effect.fnUntraced(function* madeTopmost(folder: string) {
@@ -259,7 +261,7 @@ const madeOnWindows = Effect.fnUntraced(function* madeOnWindows(folder: string) 
 
 	yield* fs.makeDirectory(resolved, { mode: privateModes.folder, recursive: true });
 
-	const inherits = Option.isSome(missing) || (yield* passesPrivacyOn(resolved));
+	const inherits = Option.isSome(missing) || (yield* passesPrivacyOn(resolved, "folder"));
 
 	if (inherits) {
 		MutableHashSet.add(privateFolders, resolved);
@@ -413,9 +415,8 @@ export {
 	daclOf,
 	folderPrivately,
 	isPrivateDacl,
+	passesPrivacyOn,
 	rewritePrivately,
 	userSid,
 	writePrivately,
 };
-
-export type { DaclTarget };

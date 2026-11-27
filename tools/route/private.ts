@@ -1,8 +1,7 @@
 import { Array, Effect, FileSystem, Path, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { daclOf, isPrivateDacl, userSid } from "#router/client/private-file.ts";
+import { daclOf, passesPrivacyOn } from "#router/client/private-file.ts";
 import { isWindows, systemTool } from "#router/client/platform.ts";
-import type { DaclTarget } from "#router/client/private-file.ts";
 
 const fileTypeBit = 0o1000;
 
@@ -11,11 +10,6 @@ const permissionsOf = (mode: number): number => mode % fileTypeBit;
 const octal = 8;
 
 const modes = { file: 0o600, folder: 0o700 } as const;
-
-const daclTargets: Readonly<Record<keyof typeof modes, readonly DaclTarget[]>> = {
-	file: ["file", "inheritedFile"],
-	folder: ["folder", "inheritedFolder"],
-};
 
 const kindOf = (type: FileSystem.File.Type): keyof typeof modes => {
 	if (type === "Directory") {
@@ -54,16 +48,9 @@ const privacyUnder = Effect.fnUntraced(function* privacyUnder(roots: readonly st
 		const kind = kindOf(info.type);
 
 		if (windows) {
-			const sid = yield* userSid(named);
 			const dacl = yield* daclOf(named);
 
-			return {
-				isPrivate: pipe(
-					daclTargets[kind],
-					Array.some((target) => isPrivateDacl({ sid, target })(dacl)),
-				),
-				shown: `${named} ${dacl}`,
-			};
+			return { isPrivate: yield* passesPrivacyOn(named, kind), shown: `${named} ${dacl}` };
 		}
 
 		return {
