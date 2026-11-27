@@ -1,14 +1,6 @@
 #!/bin/sh
-self=$0
-while [ -L "$self" ]; do
-	link=$(readlink "$self")
-	case $link in
-	/*) self=$link ;;
-	*) self=${self%/*}/$link ;;
-	esac
-done
-case $self in
-*/*) here=${self%/*} ;;
+case $0 in
+*/*) here=${0%/*} ;;
 *) here=. ;;
 esac
 if [ ! -f "$here/../phi-router.mjs" ]; then
