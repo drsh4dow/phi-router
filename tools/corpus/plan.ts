@@ -1,5 +1,5 @@
 import { Array, Option, Predicate, pipe } from "effect";
-import { Entry, TextCarriers, TextIdentifiers, Transform } from "./manifest.ts";
+import { Entry, TextCarriers, Transform } from "./manifest.ts";
 import type { PhiStrata, TextCarrier, TextIdentifier } from "./manifest.ts";
 import type { Random } from "./random.ts";
 import { identifierKind } from "#router/features/policy/index.ts";
@@ -31,6 +31,8 @@ const unrealisticSplits: readonly Rule[] = [
 	{ carrier: "x12-837", transform: "split" },
 ];
 
+const unrealisticFileNames: readonly Rule[] = [{ carrier: "file-name", identifier: identifierKind.personalUrl }];
+
 const unrealisticBaaReplies: readonly Rule[] = [
 	{ entry: "ent-reply", transform: "split" },
 	{ entry: "ent-reply", transform: "buried" },
@@ -38,7 +40,13 @@ const unrealisticBaaReplies: readonly Rule[] = [
 	{ entry: "ent-reply", transform: "gzip-hex" },
 ];
 
-const unrealistic = [...unrealisticCarriers, ...unrealisticSummaries, ...unrealisticSplits, ...unrealisticBaaReplies];
+const unrealistic = [
+	...unrealisticCarriers,
+	...unrealisticSummaries,
+	...unrealisticSplits,
+	...unrealisticFileNames,
+	...unrealisticBaaReplies,
+];
 
 const axes = ["identifier", "carrier", "transform", "entry"] as const;
 
@@ -86,16 +94,22 @@ const dealer = <Value>(
 		);
 };
 
-const planStrata = (rng: Random): readonly TextStrata[] => {
-	const total = TextIdentifiers.literals.length * perIdentifier;
+interface PlanInput {
+	readonly rng: Random;
+	readonly kinds: Array.NonEmptyReadonlyArray<TextIdentifier>;
+	readonly buried: number;
+}
+
+const planStrata = ({ rng, kinds, buried }: PlanInput): readonly TextStrata[] => {
+	const total = kinds.length * perIdentifier;
 
 	const unburied = pipe(
 		Transform.literals,
 		Array.filter((transform) => transform !== "buried"),
 	);
 
-	const identifiers = deck(rng, TextIdentifiers.literals, total);
-	const transforms = [...Array.replicate("buried" as const, buriedCount), ...deck(rng, unburied, total - buriedCount)];
+	const identifiers = deck(rng, kinds, total);
+	const transforms = [...Array.replicate("buried" as const, buried), ...deck(rng, unburied, total - buried)];
 	const dealCarrier = dealer(rng, TextCarriers.literals, total);
 	const dealEntry = dealer(rng, Entry.literals, total);
 
@@ -109,6 +123,6 @@ const planStrata = (rng: Random): readonly TextStrata[] => {
 	return rng.shuffle(plans);
 };
 
-export { planStrata };
+export { buriedCount, planStrata };
 
 export type { TextStrata };

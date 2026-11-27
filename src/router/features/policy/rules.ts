@@ -35,6 +35,9 @@ const fhirCodedId = new RegExp(
 
 const x12Member = /ISA\*[\s\S]{0,4000}?NM1\*(?:IL|QC)\*[12]\*(?:\p{L}|(?:[^*~\r\n]*\*){6}[\p{L}\p{N}])/u;
 
+const fileNamePhone =
+	/(?<![\w-])\d{1,9}_(?:\(\d{3}\) ?|\d{3}[ .-]?)\d{3}[ .-]?\d{4}_[\p{L}\p{N}_-]*\p{L}[\p{L}\p{N}_-]*\.[A-Za-z]{2,5}(?!\w)/u;
+
 interface Rule {
 	readonly id: string;
 	readonly kind: IdentifierKind;
@@ -48,6 +51,7 @@ const rules = [
 	{ id: "fhir-patient", kind: "patient-name", pattern: fhirPatient },
 	{ id: "fhir-coded-id", kind: "patient-name", pattern: fhirCodedId },
 	{ id: "x12-member", kind: "member-number", pattern: x12Member },
+	{ id: "file-name-phone", kind: "personal-phone", pattern: fileNamePhone },
 ] as const satisfies readonly Rule[];
 
 type RuleId = (typeof rules)[number]["id"];
