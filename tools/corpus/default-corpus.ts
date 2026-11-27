@@ -61,6 +61,6 @@ const idsOf = (cases: readonly Case[]): readonly string[] =>
 		Array.map(({ id }) => id),
 	);
 
-export { DefaultCorpus, defaultCorpus, idsOf, textsOf };
+export { DefaultCorpus, idsOf, textsOf };
 
 export type { Phi };
