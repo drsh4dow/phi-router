@@ -86,6 +86,28 @@ const enterpriseClaude: Found = {
 	vendor: "anthropic",
 };
 
+it.effect(
+	"an Enterprise login the BAA covers asks where the Claude Pro or Max subscription for everyday work is, and none stops with where to get one",
+	() =>
+		Effect.sync(() => {
+			assert.deepStrictEqual(plan({ answers: { enterprise: "yes" }, found: enterpriseClaude }), {
+				kind: "ask",
+				question: {
+					choices: [
+						{ id: "subscription", label: "Sign in to my Claude Pro or Max" },
+						{ id: "none", label: "I don't have one" },
+					],
+					id: "everyday",
+					text: "phi-router runs everyday work on a Claude Pro or Max subscription, outside your BAA. Where is yours?",
+				},
+			});
+			assert.deepStrictEqual(plan({ answers: { enterprise: "yes", everyday: "none" }, found: enterpriseClaude }), {
+				kind: "stop",
+				line: "phi-router runs everyday work on a Claude Pro or Max subscription, so only patient data runs on Claude Enterprise. Get one at https://claude.com/pricing, then run setup again. Nothing changed.",
+			});
+		}),
+);
+
 const signedInEveryday = { enterprise: "yes", everyday: "subscription", judge: "env" } as const;
 
 it.effect(
