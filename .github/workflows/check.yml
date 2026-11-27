@@ -49,6 +49,7 @@ jobs:
                  src/router/client/harnesses/claude-code.test.ts \
                  src/router/features/cli/accounts/login.test.ts \
                  tools/lifecycle/platform.test.ts \
+                 tools/lifecycle/processes.e2e.test.ts \
                  tools/lifecycle/start.e2e.test.ts \
                  tools/plugin/hook.e2e.test.ts \
                  tools/route/private-dacl.test.ts \
