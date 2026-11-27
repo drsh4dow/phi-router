@@ -1,4 +1,4 @@
-import { Array, Effect, Exit, FileSystem, Layer, Order, Path, String as Str, Struct, pipe } from "effect";
+import { Array, Effect, Exit, FileSystem, Layer, Order, Path, Predicate, String as Str, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { appendPrivately, daclOf, isPrivateDacl, userSid, writePrivately } from "#router/client/private-file.ts";
@@ -168,11 +168,17 @@ const sealedOnWindows = Effect.gen(function* sealedOnWindows() {
 
 const missingTarget = "phi-router-no-such-file";
 
-const icaclsRefusing = Effect.gen(function* icaclsRefusing() {
+const fileGrantsRefusing = Effect.gen(function* fileGrantsRefusing() {
 	const real = yield* ChildProcessSpawner.ChildProcessSpawner;
 
 	return ChildProcessSpawner.make((command) => {
-		if (ChildProcess.isStandardCommand(command) && Array.contains(command.args, "/inheritance:r")) {
+		if (
+			ChildProcess.isStandardCommand(command) &&
+			pipe(
+				command.args,
+				Array.some((arg) => Predicate.isString(arg) && Str.endsWith(":(F)")(arg)),
+			)
+		) {
 			return real.spawn(ChildProcess.make(command.command, [missingTarget], { stdin: "ignore" }));
 		}
 
@@ -184,7 +190,7 @@ const refusedOnWindows = Effect.gen(function* refusedOnWindows() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-refused-" });
-	const refusing = yield* icaclsRefusing;
+	const refusing = yield* fileGrantsRefusing;
 
 	const written = yield* writePrivately(path.join(folder, "czE.json"), canary).pipe(
 		Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, refusing),
