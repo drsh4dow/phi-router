@@ -1,13 +1,8 @@
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { Context, Effect, FileSystem, Layer, Option, Path, Record, Schema, String as Str, Stream } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import { LeaseRequestJson, LeaseRequests, callerHeader, leasePath } from "#router/client/router-port/index.ts";
-import type { HttpClientError } from "effect/http";
-import type { PlatformError } from "effect";
+import { ConfigProvider, Context, Effect, Layer, Path, String as Str, Stream } from "effect";
+import { LeaseRequests } from "#router/client/router-port/index.ts";
 
 const listening = "phi-router listens on ";
-
-const accepted = 200;
 
 const leased = Effect.fnUntraced(function* leased(url: string, folder: string) {
 	const built = yield* Layer.build(LeaseRequests.layer);
@@ -21,46 +16,6 @@ const leased = Effect.fnUntraced(function* leased(url: string, folder: string) {
 
 	return answered;
 }, Effect.scoped);
-
-const leasedWithToken = Effect.fnUntraced(function* leasedWithToken(url: string, folder: string, state: string) {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-	const token = yield* fs.readFileString(path.join(state, "phi-router", "caller-token"));
-	const body = yield* Schema.encodeEffect(LeaseRequestJson)({ folder, pid: process.pid, session: "tools" });
-
-	const sent = HttpClientRequest.post(`${url}${leasePath}`).pipe(
-		HttpClientRequest.setHeaders({ [callerHeader]: Str.trim(token) }),
-		HttpClientRequest.bodyText(body, "application/json"),
-	);
-
-	const built = yield* Layer.build(FetchHttpClient.layer);
-	const client = Context.get(built, HttpClient.HttpClient);
-	const answer = yield* client.execute(sent);
-
-	if (answer.status !== accepted) {
-		return yield* Effect.die(`the router at ${url} answered the test's lease with ${String(answer.status)}`);
-	}
-
-	return "accepted";
-}, Effect.scoped);
-
-const leasedOn = (
-	url: string,
-	folder: string,
-	env: Readonly<Record<string, string>>,
-): Effect.Effect<
-	string,
-	HttpClientError.HttpClientError | PlatformError.PlatformError | Schema.SchemaError,
-	FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
-> => {
-	const state = Record.get(env, "XDG_STATE_HOME");
-
-	if (process.platform === "win32" && Option.isSome(state)) {
-		return leasedWithToken(url, folder, state.value);
-	}
-
-	return leased(url, folder);
-};
 
 const routerProcess = Effect.fnUntraced(function* routerProcess(
 	command: readonly [string, ...string[]],
@@ -86,7 +41,9 @@ const routerProcess = Effect.fnUntraced(function* routerProcess(
 
 	const url = Str.slice(listening.length)(line);
 
-	yield* leasedOn(url, cwd, env);
+	const routerConfig = ConfigProvider.orElse(ConfigProvider.fromEnv({ env }), ConfigProvider.fromEnv());
+
+	yield* Effect.provideService(leased(url, cwd), ConfigProvider.ConfigProvider, routerConfig);
 
 	return { kill: handle.kill({ killSignal: "SIGKILL" }), url };
 });
