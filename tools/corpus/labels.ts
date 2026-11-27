@@ -83,6 +83,22 @@ const identifierLabels = {
 		pt: "Número da conta do paciente",
 		vi: "Số tài khoản bệnh nhân",
 	},
+	[identifierKind.claimNumber]: {
+		de: "Anspruchsnummer",
+		en: "Claim number",
+		es: "Número de reclamo",
+		fr: "Numéro de demande de remboursement",
+		pt: "Número da guia",
+		vi: "Số hồ sơ yêu cầu bồi thường",
+	},
+	[identifierKind.patientDate]: {
+		de: "Aufnahmedatum",
+		en: "Date of service",
+		es: "Fecha de atención",
+		fr: "Date de consultation",
+		pt: "Data do atendimento",
+		vi: "Ngày khám",
+	},
 	[identifierKind.certificateLicense]: {
 		de: "Nummer der Geburtsurkunde",
 		en: "Birth certificate number",

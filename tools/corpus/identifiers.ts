@@ -34,6 +34,8 @@ const streetNumbers = { foldedMaxIn: { de: 200, fr: 300, vi: 500 }, max: 9890, m
 
 const birthYears = { max: 2006, min: 1934 } as const;
 
+const serviceYears = { max: 2025, min: 2021 } as const;
+
 const englishIsoBirthDateShare = 0.4;
 
 const ssn = { area666Share: 0.15, areas: { max: 999, min: 900 }, groups: { max: 99, min: 1 } } as const;
@@ -104,27 +106,40 @@ const streetValue: Draw = ({ rng, lang }) => {
 	return forms[lang];
 };
 
-const dateValue: Draw = ({ rng, lang, carrier }) => {
-	const [year, monthOfYear, day] = [String(rng.between(birthYears.min, birthYears.max)), month(rng), dayOfMonth(rng)];
+const datedIn =
+	(years: { readonly min: number; readonly max: number }): Draw =>
+	({ rng, lang, carrier }) => {
+		const [year, monthOfYear, day] = [String(rng.between(years.min, years.max)), month(rng), dayOfMonth(rng)];
 
-	if (carrier === "hl7v2" || carrier === "x12-837") {
-		return `${year}${monthOfYear}${day}`;
-	}
+		if (carrier === "hl7v2" || carrier === "x12-837") {
+			return `${year}${monthOfYear}${day}`;
+		}
 
-	if (carrier === "fhir-json" || carrier === "file-name" || (lang === "en" && rng.chance(englishIsoBirthDateShare))) {
-		return `${year}-${monthOfYear}-${day}`;
-	}
+		if (
+			carrier === "fhir-json" ||
+			carrier === "file-name" ||
+			(lang === "en" && rng.chance(englishIsoBirthDateShare))
+		) {
+			return `${year}-${monthOfYear}-${day}`;
+		}
 
-	if (lang === "en") {
-		return `${monthOfYear}/${day}/${year}`;
-	}
+		if (lang === "en") {
+			return `${monthOfYear}/${day}/${year}`;
+		}
 
-	if (lang === "de") {
-		return `${day}.${monthOfYear}.${year}`;
-	}
+		if (lang === "de") {
+			return `${day}.${monthOfYear}.${year}`;
+		}
 
-	return `${day}/${monthOfYear}/${year}`;
-};
+		return `${day}/${monthOfYear}/${year}`;
+	};
+
+const dateValue = datedIn(birthYears);
+
+const serviceDateValue = datedIn(serviceYears);
+
+const claimValue: Draw = ({ rng }) =>
+	rng.pick([formatted(rng, "CLM^#########"), formatted(rng, "^##########-##"), formatted(rng, "PA@^#######")]);
 
 const areaCodes: Array.NonEmptyReadonlyArray<string> = ["971", "614", "412", "720", "919", "602", "786", "347"];
 
@@ -291,12 +306,14 @@ const draws = {
 	[identifierKind.accountNumber]: accountValue,
 	[identifierKind.birthDate]: dateValue,
 	[identifierKind.certificateLicense]: certificateValue,
+	[identifierKind.claimNumber]: claimValue,
 	[identifierKind.deviceIdentifier]: deviceValue,
 	[identifierKind.driverLicense]: driverLicenseValue,
 	[identifierKind.geographicDetail]: geographicValue,
 	[identifierKind.ipAddress]: ipValue,
 	[identifierKind.personalFax]: phoneValue,
 	[identifierKind.personalUrl]: urlValue,
+	[identifierKind.patientDate]: serviceDateValue,
 	[identifierKind.vehicleIdentifier]: vehicleValue,
 	[identifierKind.medicalRecordNumber]: mrnValue,
 	[identifierKind.medicareMedicaidNumber]: medicareMedicaidValue,

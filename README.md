@@ -46,13 +46,13 @@ Setup finds the keys you already have and asks only for the rest. Claude Code an
 
 `bun run eval:recorded` replays a synthetic corpus through the router with the judge's recorded answers. It calls no API.
 
-| Check                               | Result    |
-| ----------------------------------- | --------- |
-| PHI cases leaked to an open account | 0 of 458  |
-| Clean cases sealed anyway           | 42 of 352 |
-| Judge cost for 3,951 calls          | $0.9037   |
+| Check                               | Result     |
+| ----------------------------------- | ---------- |
+| PHI cases leaked to an open account | 0 of 502   |
+| Clean cases sealed anyway           | 113 of 352 |
+| Judge cost for 4,291 calls          | $0.8990    |
 
-The corpus covers 19 identifier kinds, such as names, SSNs and MRNs, in 12 formats, such as FHIR, HL7v2, SQL dumps and screenshots. Zero leaks in a sample is not a zero leak rate. For the 99 plain-text cases, the 95% upper bound is 0.0298. `bun run check` replays it on every pull request and fails on any leak.
+The corpus covers 21 identifier kinds, such as names, SSNs and MRNs, in 12 formats, such as FHIR, HL7v2, SQL dumps and screenshots. Zero leaks in a sample is not a zero leak rate. For the 105 plain-text cases, the 95% upper bound is 0.0281. `bun run check` replays it on every pull request and fails on any leak.
 
 ## What it saves
 
@@ -91,7 +91,7 @@ You keep this:
 
 ## FAQ
 
-**What counts as PHI?** A complete direct identifier of a real patient or member, of 21 kinds, from HIPAA's Safe Harbor list ([ADR 0017](docs/adr/0017-the-policy-names-the-safe-harbor-identifiers.md)): name, SSN, full date of birth, home address, city or ZIP code, personal phone, fax, email and URL, IP address, member number, Medicare or Medicaid number, MRN, account number, driver license, other certificate or license number, passport, vehicle identifier, device serial number, biometric identifier, and face photo. This is not a HIPAA certification. Internal ids, staff contacts, fragments and counts are not.
+**What counts as PHI?** A complete direct identifier of a real patient or member, of 23 kinds, from HIPAA's Safe Harbor list ([ADR 0017](docs/adr/0017-the-policy-names-the-safe-harbor-identifiers.md)): name, SSN, full date of birth, a date of service, admission, discharge or death, home address, city or ZIP code, personal phone, fax, email and URL, IP address, member number, Medicare or Medicaid number, MRN, claim, encounter or prior authorization number, account number, driver license, other certificate or license number, passport, vehicle identifier, device serial number, biometric identifier, and face photo. This is not a HIPAA certification. Internal ids, staff contacts, fragments and counts are not.
 
 **What does the judge see?** Each new part no rule sealed, alone, without the conversation ([ADR 0013](docs/adr/0013-the-judge-reads-a-piece-without-context.md)). It runs on OpenAI's Decisions API under your BAA. If it fails to answer, the part stays sealed.
 

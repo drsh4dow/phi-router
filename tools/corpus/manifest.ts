@@ -45,6 +45,8 @@ const addedTextKinds: Array.NonEmptyReadonlyArray<TextIdentifier> = [
 	identifierKind.certificateLicense,
 	identifierKind.vehicleIdentifier,
 	identifierKind.deviceIdentifier,
+	identifierKind.patientDate,
+	identifierKind.claimNumber,
 ];
 
 const TextCarriers = Schema.Literals([

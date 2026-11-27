@@ -28,4 +28,4 @@ This is not a HIPAA certification. A de-identification under Safe Harbor also re
 - A URL in a file name is unrealistic, since its slashes make it a path, so the plan never deals it.
 - The judge cleared a phone or fax number in a patient document's file name, and each prompt wording that caught it let an older case through. The rule `file-name-phone` catches it instead: an internal id, a ten-digit phone number, then words and an extension.
 - More pieces seal, so fewer requests stay on the open account. The pull request that added this reports the measured cost.
-- Dates other than a date of birth (C) and other unique codes (R) stay out of this decision. The policy still says that clinical dates count only next to a direct identifier, and that a health fact tied only to an internal id is not one.
+- Dates other than a date of birth (C) and other unique codes (R) stay out of this decision. [ADR 0018](0018-a-patient-date-or-claim-number-counts-on-its-own.md) takes them up on its own, so it can be dropped without this one.

@@ -101,6 +101,28 @@ const placements: Readonly<Record<TextIdentifier, Place>> = {
 	[identifierKind.vehicleIdentifier]: inPatient((value) => ({
 		identifier: [{ system: "http://example.org/fhir/sid/vehicle", value }],
 	})),
+	[identifierKind.patientDate]: (value, patientRef) => ({
+		ownResources: [
+			Rec.fromEntries([
+				["resourceType", "Encounter"],
+				["status", "finished"],
+				["subject", { reference: patientRef }],
+				["period", { start: value }],
+			]),
+		],
+		patientFields: {},
+	}),
+	[identifierKind.claimNumber]: (value, patientRef) => ({
+		ownResources: [
+			Rec.fromEntries([
+				["resourceType", "Claim"],
+				["status", "active"],
+				["identifier", [{ system: "http://example.org/fhir/sid/claim", value }]],
+				["patient", { reference: patientRef }],
+			]),
+		],
+		patientFields: {},
+	}),
 	[identifierKind.deviceIdentifier]: (value, patientRef) => ({
 		ownResources: [
 			Rec.fromEntries([

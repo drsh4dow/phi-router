@@ -24,6 +24,8 @@ type PidPlace = (value: string, state: string) => Readonly<Record<number, string
 const pidFields: Readonly<Record<TextIdentifier, PidPlace>> = {
 	[identifierKind.accountNumber]: (value) => ({ 18: value }),
 	[identifierKind.birthDate]: (value) => ({ 7: value }),
+	[identifierKind.claimNumber]: (value) => ({ 3: `${value}^^^NFH^VN` }),
+	[identifierKind.patientDate]: (value) => ({ 29: value }),
 	[identifierKind.certificateLicense]: (value) => ({ 3: `${value}^^^USA^BCT` }),
 	[identifierKind.deviceIdentifier]: (value) => ({ 3: `${value}^^^NFH^U` }),
 	[identifierKind.geographicDetail]: (value) => ({ 11: `^^${value}` }),

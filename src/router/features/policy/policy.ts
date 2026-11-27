@@ -5,6 +5,7 @@ const identifierKind = {
 	biometricIdentifier: "biometric",
 	birthDate: "birth-date",
 	certificateLicense: "certificate-license",
+	claimNumber: "claim-number",
 	deviceIdentifier: "device-identifier",
 	driverLicense: "driver-license",
 	facePhoto: "face-photo",
@@ -14,6 +15,7 @@ const identifierKind = {
 	medicareMedicaidNumber: "medicare-medicaid-number",
 	memberNumber: "member-number",
 	passportNumber: "passport",
+	patientDate: "patient-date",
 	patientName: "patient-name",
 	personalEmail: "personal-email",
 	personalFax: "personal-fax",
@@ -28,6 +30,7 @@ const identifierKinds = [
 	[identifierKind.patientName, "a real patient's or member's name"],
 	[identifierKind.socialSecurityNumber, "a Social Security number"],
 	[identifierKind.birthDate, "a full date of birth"],
+	[identifierKind.patientDate, "a patient's date of service, admission, discharge or death, with more than its year"],
 	[identifierKind.streetAddress, "a home street address"],
 	[
 		identifierKind.geographicDetail,
@@ -41,6 +44,7 @@ const identifierKinds = [
 	[identifierKind.memberNumber, "an insurance member or subscriber number"],
 	[identifierKind.medicareMedicaidNumber, "a Medicare or Medicaid number"],
 	[identifierKind.medicalRecordNumber, "a provider's medical record number"],
+	[identifierKind.claimNumber, "a claim, encounter or prior authorization number of a patient"],
 	[identifierKind.accountNumber, "a patient's account number, such as a billing or a patient account number"],
 	[identifierKind.driverLicense, "a driver license number"],
 	[
@@ -64,7 +68,8 @@ const identifierKindNames: readonly IdentifierKind[] = pipe(
 const defaults = [
 	"Insurance member numbers and a provider's medical record numbers count.",
 	"A real patient's or member's name counts even with no health facts.",
-	"Clinical dates other than a date of birth count only next to a direct identifier of the same person.",
+	"A date tied to a patient counts when it holds more than its year: a date of service, admission, discharge or death, as well as a date of birth. An age over 89 counts.",
+	"A claim, encounter or prior authorization number counts, since a payer or provider assigned it to one patient.",
 ] as const;
 
 const counterExamples = [

@@ -7,7 +7,7 @@ ignores:
    - tools/oxlint/anti-slop/**
    - tools/gates/fixtures/**
 rule:
-   regex: "^(patient-name|ssn|birth-date|street-address|geographic-detail|personal-phone|personal-fax|personal-email|personal-url|ip-address|member-number|medicare-medicaid-number|mrn|account-number|driver-license|certificate-license|passport|vehicle-identifier|device-identifier|biometric|face-photo)$"
+   regex: "^(patient-name|ssn|birth-date|patient-date|street-address|geographic-detail|personal-phone|personal-fax|personal-email|personal-url|ip-address|member-number|medicare-medicaid-number|mrn|claim-number|account-number|driver-license|certificate-license|passport|vehicle-identifier|device-identifier|biometric|face-photo)$"
    any:
       - kind: string_fragment
       - kind: property_identifier

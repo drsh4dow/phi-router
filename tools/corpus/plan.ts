@@ -28,6 +28,7 @@ const unrealisticSummaries: readonly Rule[] = [
 
 const unrealisticSplits: readonly Rule[] = [
 	{ identifier: identifierKind.birthDate, transform: "split" },
+	{ identifier: identifierKind.patientDate, transform: "split" },
 	{ carrier: "x12-837", transform: "split" },
 ];
 
