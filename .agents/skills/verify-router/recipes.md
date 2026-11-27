@@ -74,7 +74,7 @@ recipes/iso.sh refusals-pi refusals.sh pi
 ```
 == no config.json
 This hook comes from the phi-router@phi-router plugin.
-[".../plugins/claude/bin/phi-router" session-start --claude --pid "$PPID" --address "$ANTHROPIC_BASE_URL" 1>&2 || exit 2]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
+[".../plugins/claude/bin/phi-router" session-start --claude --pid "${CLAUDE_PID:-$PPID}" --address "$ANTHROPIC_BASE_URL" 1>&2 || exit 2]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
 == a config.json whose key file is missing
 This hook comes from the phi-router@phi-router plugin.
 [...]: phi-router stopped this message. It is missing your BAA key or the OpenAI key for its PHI check. Nothing left your computer. Run in a terminal: npx phi-router setup claude
