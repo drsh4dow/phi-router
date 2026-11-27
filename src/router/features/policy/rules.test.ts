@@ -71,6 +71,8 @@ const fires: readonly (readonly [RuleId, string])[] = [
 	["file-name-phone", "exports/outbox/7340_5035550147_copd_discharge-summary.pdf"],
 	["file-name-phone", "scans/2448_(412) 555-0119_asthma_referral.pdf"],
 	["file-name-phone", '{"files": ["outbox/88_412-555-0119_type-2-diabetes_lab-results.pdf"]}'],
+	["file-name-phone", "exports/2025-02/referrals/scan_6025550167_type-2-diabetes-mellitus_lab-results.pdf"],
+	["file-name-phone", "scans/jane-doe_602-555-0167_lab-results.pdf"],
 ];
 
 it.effect.each(fires)("%s fires on %s", ([rule, text]) =>
@@ -106,6 +108,7 @@ const silent: readonly string[] = [
 	"exports/2025-03/claims_batch_0447.csv",
 	"logs/20250314_1200_export.log",
 	"build/5035550147_bundle.js",
+	"backups/db_1700000000_nightly.tar",
 ];
 
 it.effect.each(silent)("no rule fires on %s", (text) =>

@@ -26,6 +26,6 @@ This is not a HIPAA certification. A de-identification under Safe Harbor also re
 - The policy version changes, so every stored verdict is judged again, and `tools/corpus/recordings.jsonl` is recorded again with `bun run eval:live -- --record`.
 - The corpus draws each new text kind 22 times from a seed of its own and puts those cases after the others, so every case the corpus had before stays byte for byte the same. `biometric` has no case: no text draw is a realistic biometric.
 - A URL in a file name is unrealistic, since its slashes make it a path, so the plan never deals it.
-- The judge cleared a phone or fax number in a patient document's file name, and each prompt wording that caught it let an older case through. The rule `file-name-phone` catches it instead: an internal id, a ten-digit phone number, then words and an extension.
+- The judge cleared a phone or fax number in a patient document's file name, and each prompt wording that caught it let an older case through. The rule `file-name-phone` catches it instead: a ten-digit North American phone number after a name segment and an underscore, then words and an extension.
 - More pieces seal, so fewer requests stay on the open account. The pull request that added this reports the measured cost.
 - Dates other than a date of birth (C) and other unique codes (R) stay out of this decision. The policy still says that clinical dates count only next to a direct identifier, and that a health fact tied only to an internal id is not one.

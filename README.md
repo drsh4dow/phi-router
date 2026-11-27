@@ -50,7 +50,7 @@ Setup finds the keys you already have and asks only for the rest. Claude Code an
 | ----------------------------------- | --------- |
 | PHI cases leaked to an open account | 0 of 458  |
 | Clean cases sealed anyway           | 42 of 352 |
-| Judge cost for 3,951 calls          | $0.9037   |
+| Judge cost for 3,955 calls          | $0.9042   |
 
 The corpus covers 20 identifier kinds, such as names, SSNs and MRNs, in 12 formats, such as FHIR, HL7v2, SQL dumps and screenshots. Zero leaks in a sample is not a zero leak rate. For the 99 plain-text cases, the 95% upper bound is 0.0298. `bun run check` replays it on every pull request and fails on any leak.
 
