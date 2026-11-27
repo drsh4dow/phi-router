@@ -327,6 +327,7 @@ const windowsLive = Effect.gen(function* windowsLive() {
 			schedule: Schedule.spaced("200 millis"),
 			until: (listed) => !Option.exists(listed, (live) => Array.contains(pidsOf(live), ended)),
 		}),
+		TestClock.withLive,
 	);
 
 	const again = yield* processes.running([own]);
