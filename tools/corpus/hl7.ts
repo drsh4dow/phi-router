@@ -22,7 +22,15 @@ const states: Array.NonEmptyReadonlyArray<string> = ["OR", "WA", "TX", "FL", "AZ
 type PidPlace = (value: string, state: string) => Readonly<Record<number, string>>;
 
 const pidFields: Readonly<Record<TextIdentifier, PidPlace>> = {
+	[identifierKind.accountNumber]: (value) => ({ 18: value }),
 	[identifierKind.birthDate]: (value) => ({ 7: value }),
+	[identifierKind.certificateLicense]: (value) => ({ 3: `${value}^^^USA^BCT` }),
+	[identifierKind.deviceIdentifier]: (value) => ({ 3: `${value}^^^NFH^U` }),
+	[identifierKind.geographicDetail]: (value) => ({ 11: `^^${value}` }),
+	[identifierKind.ipAddress]: (value) => ({ 13: `^NET^Internet^${value}` }),
+	[identifierKind.personalFax]: (value) => ({ 13: `${value}^PRN^FX` }),
+	[identifierKind.personalUrl]: (value) => ({ 13: `^NET^Internet^${value}` }),
+	[identifierKind.vehicleIdentifier]: (value) => ({ 3: `${value}^^^USA^U` }),
 	[identifierKind.driverLicense]: (value, state) => ({ 20: `${value}^${state}` }),
 	[identifierKind.medicalRecordNumber]: (value) => ({ 3: `${value}^^^NFH^MR` }),
 	[identifierKind.medicareMedicaidNumber]: (value) => ({ 3: `${value}^^^CMS^MC` }),

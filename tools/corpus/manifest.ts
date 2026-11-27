@@ -2,16 +2,50 @@ import { Array, Schema, pipe } from "effect";
 import { identifierKind, identifierKindNames } from "#router/features/policy/index.ts";
 import type { IdentifierKind } from "#router/features/policy/index.ts";
 
-type TextIdentifier = Exclude<IdentifierKind, typeof identifierKind.facePhoto>;
+type Uncovered = typeof identifierKind.biometricIdentifier;
+
+type CoveredIdentifier = Exclude<IdentifierKind, Uncovered>;
+
+type TextIdentifier = Exclude<CoveredIdentifier, typeof identifierKind.facePhoto>;
+
+const coveredKinds = pipe(
+	identifierKindNames,
+	Array.filter((kind): kind is CoveredIdentifier => kind !== identifierKind.biometricIdentifier),
+);
 
 const TextIdentifiers = Schema.Literals(
 	pipe(
-		identifierKindNames,
+		coveredKinds,
 		Array.filter((kind): kind is TextIdentifier => kind !== identifierKind.facePhoto),
 	),
 );
 
-const Identifier = Schema.Literals(identifierKindNames);
+const Identifier = Schema.Literals(coveredKinds);
+
+const firstTextKinds: Array.NonEmptyReadonlyArray<TextIdentifier> = [
+	identifierKind.patientName,
+	identifierKind.socialSecurityNumber,
+	identifierKind.birthDate,
+	identifierKind.streetAddress,
+	identifierKind.personalPhone,
+	identifierKind.personalEmail,
+	identifierKind.memberNumber,
+	identifierKind.medicareMedicaidNumber,
+	identifierKind.medicalRecordNumber,
+	identifierKind.driverLicense,
+	identifierKind.passportNumber,
+];
+
+const addedTextKinds: Array.NonEmptyReadonlyArray<TextIdentifier> = [
+	identifierKind.geographicDetail,
+	identifierKind.personalFax,
+	identifierKind.personalUrl,
+	identifierKind.ipAddress,
+	identifierKind.accountNumber,
+	identifierKind.certificateLicense,
+	identifierKind.vehicleIdentifier,
+	identifierKind.deviceIdentifier,
+];
 
 const TextCarriers = Schema.Literals([
 	"sql-dump",
@@ -141,6 +175,8 @@ const transcriptOf = (messages: readonly Message[]): Transcript => pipe(messages
 
 export {
 	Carrier,
+	addedTextKinds,
+	firstTextKinds,
 	CaseFromJsonLine,
 	CleanCase,
 	Entry,

@@ -12,7 +12,7 @@ it.layer(Digest.layerWebCrypto)("policyVersion", (test) => {
 		Effect.gen(function* pinned() {
 			const version = yield* policyVersion(decisions);
 
-			assert.strictEqual(version, "82f545db788137e72892b106fcad966c71f7d77ab3c7dcd683751dc57d8cdbf8");
+			assert.strictEqual(version, "0e780dd82e617c29536af00c70d8cd8904decac256a2a4f4b743dcfa1da042d8");
 		}),
 	);
 

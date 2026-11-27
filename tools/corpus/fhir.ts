@@ -71,8 +71,47 @@ const placements: Readonly<Record<TextIdentifier, Place>> = {
 			]),
 		],
 	})),
+	[identifierKind.geographicDetail]: inPatient((value) => ({
+		address: [
+			Rec.fromEntries([
+				["use", "home"],
+				["text", value],
+				["country", "US"],
+			]),
+		],
+	})),
 	[identifierKind.personalPhone]: inPatient((value) => telecom("phone", value)),
+	[identifierKind.personalFax]: inPatient((value) => telecom("fax", value)),
 	[identifierKind.personalEmail]: inPatient((value) => telecom("email", value)),
+	[identifierKind.personalUrl]: inPatient((value) => telecom("url", value)),
+	[identifierKind.ipAddress]: inPatient((value) => ({
+		extension: [
+			Rec.fromEntries([
+				["url", "http://example.org/fhir/StructureDefinition/last-login-ip"],
+				["valueString", value],
+			]),
+		],
+	})),
+	[identifierKind.accountNumber]: inPatient((value) => ({
+		identifier: [v2Identifier("AN", "urn:oid:2.16.840.1.113883.3.4471.2", value)],
+	})),
+	[identifierKind.certificateLicense]: inPatient((value) => ({
+		identifier: [v2Identifier("BCT", "urn:oid:2.16.840.1.113883.4.3.41.9", value)],
+	})),
+	[identifierKind.vehicleIdentifier]: inPatient((value) => ({
+		identifier: [{ system: "http://example.org/fhir/sid/vehicle", value }],
+	})),
+	[identifierKind.deviceIdentifier]: (value, patientRef) => ({
+		ownResources: [
+			Rec.fromEntries([
+				["resourceType", "Device"],
+				["status", "active"],
+				["serialNumber", value],
+				["patient", { reference: patientRef }],
+			]),
+		],
+		patientFields: {},
+	}),
 	[identifierKind.socialSecurityNumber]: inPatient((value) => ({
 		identifier: [{ system: "http://hl7.org/fhir/sid/us-ssn", value }],
 	})),

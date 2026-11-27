@@ -1,18 +1,27 @@
 import { Array, pipe } from "effect";
 
 const identifierKind = {
+	accountNumber: "account-number",
+	biometricIdentifier: "biometric",
 	birthDate: "birth-date",
+	certificateLicense: "certificate-license",
+	deviceIdentifier: "device-identifier",
 	driverLicense: "driver-license",
 	facePhoto: "face-photo",
+	geographicDetail: "geographic-detail",
+	ipAddress: "ip-address",
 	medicalRecordNumber: "mrn",
 	medicareMedicaidNumber: "medicare-medicaid-number",
 	memberNumber: "member-number",
 	passportNumber: "passport",
 	patientName: "patient-name",
 	personalEmail: "personal-email",
+	personalFax: "personal-fax",
 	personalPhone: "personal-phone",
+	personalUrl: "personal-url",
 	socialSecurityNumber: "ssn",
 	streetAddress: "street-address",
+	vehicleIdentifier: "vehicle-identifier",
 } as const;
 
 const identifierKinds = [
@@ -20,13 +29,28 @@ const identifierKinds = [
 	[identifierKind.socialSecurityNumber, "a Social Security number"],
 	[identifierKind.birthDate, "a full date of birth"],
 	[identifierKind.streetAddress, "a home street address"],
+	[
+		identifierKind.geographicDetail,
+		"the city, county, ZIP code or geocode of where a patient lives (the first three digits of a ZIP code alone do not count)",
+	],
 	[identifierKind.personalPhone, "a personal phone number"],
+	[identifierKind.personalFax, "a personal fax number"],
 	[identifierKind.personalEmail, "a personal email address"],
+	[identifierKind.personalUrl, "a URL of a patient's own web page or profile"],
+	[identifierKind.ipAddress, "an IP address of a patient's device or connection"],
 	[identifierKind.memberNumber, "an insurance member or subscriber number"],
 	[identifierKind.medicareMedicaidNumber, "a Medicare or Medicaid number"],
 	[identifierKind.medicalRecordNumber, "a provider's medical record number"],
+	[identifierKind.accountNumber, "a patient's account number, such as a billing or a patient account number"],
 	[identifierKind.driverLicense, "a driver license number"],
+	[
+		identifierKind.certificateLicense,
+		"another certificate or license number of a patient, such as a birth certificate number",
+	],
 	[identifierKind.passportNumber, "a passport number"],
+	[identifierKind.vehicleIdentifier, "a patient's vehicle identification number or license plate"],
+	[identifierKind.deviceIdentifier, "a serial number or device identifier of a patient's device, such as an implant"],
+	[identifierKind.biometricIdentifier, "a patient's fingerprint, voiceprint or other biometric identifier"],
 	[identifierKind.facePhoto, "a face photo, or an image that shows any of these"],
 ] as const;
 

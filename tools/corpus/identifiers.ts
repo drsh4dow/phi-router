@@ -1,6 +1,6 @@
 import { Array, Number as Num, Option, Record, String as Str, pipe } from "effect";
+import type { ByLang, Lang, PersonName } from "./people.ts";
 import type { Carrier, TextIdentifier } from "./manifest.ts";
-import type { Lang, PersonName } from "./people.ts";
 import { ascii, drawName, fullName } from "./people.ts";
 import { dayOfMonth, month, two } from "./record.ts";
 import type { Random } from "./random.ts";
@@ -45,6 +45,12 @@ const medicareMedicaidFormats = { mbi: "^@*#@*#@@##", newYorkMedicaidClientId: "
 const mbiShareOfMedicareMedicaid = 0.6;
 
 const letterFirstPassportShare = 0.5;
+
+const oneInFour = 0.25;
+
+const ipv6Group = 4;
+
+const zipDigits = 5;
 
 const formatIn =
 	(alphabets: Symbols) =>
@@ -202,9 +208,96 @@ const mrnValue: Draw = ({ rng }) =>
 
 const memberNumberValue: Draw = ({ rng }) => formatted(rng, "@@@#########");
 
+const accountValue: Draw = ({ rng }) =>
+	rng.pick([formatted(rng, "ACCT########"), formatted(rng, "^#########"), formatted(rng, "PA-#######")]);
+
+const certificateValue: Draw = ({ rng }) =>
+	rng.pick([formatted(rng, "^##-####-######"), formatted(rng, "@@^######"), formatted(rng, "BC^#######")]);
+
+const vehicleValue: Draw = ({ rng }) => rng.pick([formatted(rng, "*****************"), formatted(rng, "@@@-####")]);
+
+const deviceValue: Draw = ({ rng }) =>
+	rng.pick([formatted(rng, "(01)##############(21)@#####"), formatted(rng, "SN-**********")]);
+
+const documentationNetworks: Array.NonEmptyReadonlyArray<string> = ["192.0.2", "198.51.100", "203.0.113"];
+
+const ipValue: Draw = ({ rng }) => {
+	const lastOctet = { max: 254, min: 2 } as const;
+
+	if (rng.chance(oneInFour)) {
+		return `2001:db8:${rng.chars("0123456789abcdef", ipv6Group)}::${rng.chars("0123456789abcdef", ipv6Group)}`;
+	}
+
+	return `${rng.pick(documentationNetworks)}.${String(rng.between(lastOctet.min, lastOctet.max))}`;
+};
+
+const urlValue: Draw = ({ rng, lang }) => {
+	const name = drawName(lang)(rng);
+	const handle = Str.replaceAll(" ", "")(Str.toLowerCase(ascii(`${name.given}${name.family}`)));
+
+	return rng.pick([
+		`https://${handle}.example.net/`,
+		`https://social.example/@${handle}${formatted(rng, "##")}`,
+		`https://www.example.org/~${handle}`,
+	]);
+};
+
+const towns = {
+	de: [
+		["Freiburg", "79"],
+		["Kassel", "34"],
+		["Erfurt", "99"],
+	],
+	en: [
+		["Bend, OR", "977"],
+		["Ames, IA", "500"],
+		["Durango, CO", "813"],
+		["Hilo, HI", "967"],
+	],
+	es: [
+		["Segovia", "40"],
+		["Cuenca", "16"],
+		["Lugo", "27"],
+	],
+	fr: [
+		["Annecy", "74"],
+		["Colmar", "68"],
+		["Niort", "79"],
+	],
+	pt: [
+		["Londrina", "86"],
+		["Joinville", "89"],
+		["Petrópolis", "25"],
+	],
+	vi: [
+		["Huế", "53"],
+		["Đà Lạt", "67"],
+		["Quy Nhơn", "55"],
+	],
+} satisfies ByLang<Array.NonEmptyReadonlyArray<readonly [string, string]>>;
+
+const geographicValue: Draw = ({ rng, lang }) => {
+	const [town, zipStart] = rng.pick(towns[lang]);
+	const zip = `${zipStart}${rng.digits(zipDigits - zipStart.length)}`;
+
+	if (lang === "en") {
+		return `${town} ${zip}`;
+	}
+
+	return `${zip} ${town}`;
+};
+
 const draws = {
+	[identifierKind.accountNumber]: accountValue,
 	[identifierKind.birthDate]: dateValue,
+	[identifierKind.certificateLicense]: certificateValue,
+	[identifierKind.deviceIdentifier]: deviceValue,
 	[identifierKind.driverLicense]: driverLicenseValue,
+	[identifierKind.geographicDetail]: geographicValue,
+	[identifierKind.ipAddress]: ipValue,
+	[identifierKind.personalFax]: phoneValue,
+	[identifierKind.personalUrl]: urlValue,
+	[identifierKind.vehicleIdentifier]: vehicleValue,
 	[identifierKind.medicalRecordNumber]: mrnValue,
 	[identifierKind.medicareMedicaidNumber]: medicareMedicaidValue,
 	[identifierKind.memberNumber]: memberNumberValue,
