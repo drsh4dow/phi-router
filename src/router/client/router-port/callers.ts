@@ -1,8 +1,9 @@
-import { Array, Config, Context, Effect, FileSystem, Layer, Option, Path, String as Str, Stream, pipe } from "effect";
+import { Array, Context, Effect, FileSystem, Layer, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Mac, SecureRandom } from "effect/crypto";
 import { Hex } from "effect/encoding";
 import { storedToken } from "./caller-token.ts";
+import { systemTool } from "#router/client/platform.ts";
 
 type Endpoint = `${string}:${number}`;
 
@@ -164,8 +165,6 @@ const heldByOneUser = (sockets: readonly Socket[], { caller, router }: Connectio
 
 const listPatience = "2 seconds";
 
-const defaultSystemRoot = String.raw`C:\Windows`;
-
 class Callers extends Context.Service<
 	Callers,
 	{
@@ -182,12 +181,8 @@ class Callers extends Context.Service<
 			const hasProcTable = yield* Effect.orElseSucceed(fs.exists(procTable), () => false);
 			const onWindows = path.sep === windowsSeparator;
 
-			const systemRoot = yield* Effect.orElseSucceed(
-				Config.String("SystemRoot").pipe(Config.withDefault(defaultSystemRoot)),
-				() => defaultSystemRoot,
-			);
-
-			const system32 = path.join(systemRoot, "System32");
+			const tasklist = yield* systemTool("tasklist.exe");
+			const netstat = yield* systemTool("netstat.exe");
 
 			const printedBy = Effect.fnUntraced(function* printedBy(command: string, args: readonly string[]) {
 				const options = { forceKillAfter: "1 second", stderr: "ignore", stdin: "ignore" } as const;
@@ -203,7 +198,6 @@ class Callers extends Context.Service<
 					return Option.none();
 				}
 
-				const tasklist = path.join(system32, "tasklist.exe");
 				const printed = yield* printedBy(tasklist, ["/v", "/fo", "csv", "/nh", "/fi", `PID eq ${pid}`]);
 
 				return pipe(
@@ -213,7 +207,7 @@ class Callers extends Context.Service<
 			}, Effect.scoped);
 
 			const windowsListed = Effect.fnUntraced(function* windowsListed(connection: Connection) {
-				const table = yield* printedBy(path.join(system32, "netstat.exe"), ["-ano", "-p", "TCP"]);
+				const table = yield* printedBy(netstat, ["-ano", "-p", "TCP"]);
 				const lines = linesOf(Option.getOrElse(table, () => ""));
 				const rows = endsOf(pipe(lines, Array.map(netstatRowOf), Array.getSomes), connection);
 
