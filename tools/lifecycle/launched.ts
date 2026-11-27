@@ -79,29 +79,40 @@ const instance = Effect.fnUntraced(function* instance() {
 	return { end: handle.kill({ killSignal: "SIGKILL" }), pid: Number(handle.pid) };
 });
 
-const serving = (entry: string, port: number): string => `${entry} serve --port ${String(port)}$`;
-
 const onWindows = process.platform === "win32";
 
-const windowsServing = (entry: string, port: number): string =>
-	`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${entry} serve --port ${String(port)}' } | ForEach-Object { $_.ProcessId }`;
+interface Pattern {
+	readonly posix: string;
+	readonly windows: string;
+}
 
-const listing = (entry: string, port: number): readonly [string, ...string[]] => {
-	if (onWindows) {
-		return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", windowsServing(entry, port)];
-	}
+const serving = (entry: string, port: number): Pattern => {
+	const command = `${entry} serve --port ${String(port)}`;
 
-	return ["pgrep", "-f", serving(entry, port)];
+	return { posix: `${command}$`, windows: `*${command}` };
 };
 
-const routersOn = Effect.fnUntraced(function* routersOn(entry: string, port: number) {
-	const { printed } = yield* ran(listing(entry, port), {});
+const listing = (pattern: Pattern): readonly [string, ...string[]] => {
+	if (onWindows) {
+		const query = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '${pattern.windows}' -and $_.ProcessId -ne $PID } | ForEach-Object { $_.ProcessId }`;
 
-	return pipe(Str.split(Str.trim(printed), /\r?\n/u), Array.filter(Str.isNonEmpty), Array.map(Number));
+		return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", query];
+	}
+
+	return ["pgrep", "-f", pattern.posix];
+};
+
+const pidsOf = Effect.fnUntraced(function* pidsOf(pattern: Pattern) {
+	const { printed } = yield* ran(listing(pattern), {});
+
+	return pipe(Str.split(Str.trim(printed), /\r?\n/u), Array.filter(Str.isNonEmpty));
 });
 
-const windowsMatching = (fragment: string): string =>
-	`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${fragment}*' -and $_.ProcessId -ne $PID } | ForEach-Object { $_.ProcessId }`;
+const routersOn = Effect.fnUntraced(function* routersOn(entry: string, port: number) {
+	const pids = yield* pidsOf(serving(entry, port));
+
+	return pipe(pids, Array.map(Number));
+});
 
 const windowsBasicNames = ["APPDATA", "ComSpec", "LOCALAPPDATA", "PATHEXT", "SystemRoot", "TEMP", "TMP", "USERPROFILE"];
 
@@ -121,50 +132,23 @@ const windowsBasics = Effect.gen(function* windowsBasics() {
 	return Record.fromEntries(Array.flatten(found));
 });
 
-const stopMatching = Effect.fnUntraced(function* stopMatching(fragment: string) {
+const stopped = Effect.fnUntraced(function* stopped(pattern: Pattern) {
 	if (!onWindows) {
-		return yield* ran(["pkill", "-9", "-f", fragment], {});
+		return yield* ran(["pkill", "-9", "-f", pattern.posix], {});
 	}
 
-	const { printed } = yield* ran(
-		["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", windowsMatching(fragment)],
-		{},
+	const pids = yield* pidsOf(pattern);
+
+	const named = pipe(
+		pids,
+		Array.flatMap((pid) => ["/PID", pid]),
 	);
 
-	const pids = pipe(Str.split(Str.trim(printed), /\r?\n/u), Array.filter(Str.isNonEmpty));
-
-	return yield* ran(
-		[
-			"taskkill.exe",
-			"/F",
-			...pipe(
-				pids,
-				Array.flatMap((pid) => ["/PID", pid]),
-			),
-		],
-		{},
-	);
+	return yield* ran(["taskkill.exe", "/F", ...named], {});
 });
 
-const stopRouters = Effect.fnUntraced(function* stopRouters(entry: string, port: number) {
-	if (!onWindows) {
-		return yield* ran(["pkill", "-9", "-f", serving(entry, port)], {});
-	}
-
-	const pids = yield* routersOn(entry, port);
-
-	return yield* ran(
-		[
-			"taskkill.exe",
-			"/F",
-			...pipe(
-				pids,
-				Array.flatMap((pid) => ["/PID", String(pid)]),
-			),
-		],
-		{},
-	);
-});
+const stopMatching = (fragment: string): ReturnType<typeof stopped> =>
+	stopped({ posix: fragment, windows: `*${fragment}*` });
 
 const killedHard = (pid: number): ReturnType<typeof ran> => {
 	if (onWindows) {
@@ -228,7 +212,7 @@ const world = Effect.fnUntraced(function* world(entry: string, more: Readonly<Re
 	const env = Struct.assign(Struct.assign(mockEnv, { HOME: home }), more);
 	const port = yield* freePort;
 
-	yield* Effect.addFinalizer(() => stopRouters(entry, port).pipe(Effect.orDie));
+	yield* Effect.addFinalizer(() => stopped(serving(entry, port)).pipe(Effect.orDie));
 
 	const start = (pid: number, from = entry): ReturnType<typeof ran> =>
 		ran(
