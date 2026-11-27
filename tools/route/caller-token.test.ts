@@ -11,7 +11,15 @@ import {
 	Ref,
 	Struct,
 } from "effect";
-import { Callers, Proofs, SessionRequests, callerHeader, listensOn, serve } from "#router/client/router-port/index.ts";
+import {
+	Callers,
+	Proofs,
+	SessionRequests,
+	callerHeader,
+	ensuredToken,
+	listensOn,
+	serve,
+} from "#router/client/router-port/index.ts";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
@@ -243,6 +251,25 @@ const tokenSent = Effect.gen(function* tokenSent() {
 	yield* Effect.provideService(sentTo, ConfigProvider.ConfigProvider, config);
 });
 
+const garbled = "not a token";
+
+const garbledKept = Effect.gen(function* garbledKept() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const { config, folder } = yield* stateHolding({ "caller-token": garbled });
+
+	const answered = yield* ensuredToken.pipe(
+		Effect.as("a token"),
+		Effect.catchTag("TokenGarbled", () => Effect.succeed("refused")),
+		Effect.provideServiceEffect(Path.Path, windowsPathOf),
+		Effect.provideService(ConfigProvider.ConfigProvider, config),
+	);
+
+	const kept = yield* fs.readFileString(path.join(folder, "caller-token"));
+
+	assert.deepStrictEqual({ answered, kept }, { answered: "refused", kept: garbled });
+});
+
 it.layer(NodeServices.layer)("the caller token on Windows", (test) => {
 	test.effect(
 		"passes the stored token, and refuses a wrong or missing token or a token file the router cannot read; Linux asks for none",
@@ -255,5 +282,8 @@ it.layer(NodeServices.layer)("the caller token on Windows", (test) => {
 	test.effect(
 		"goes only to a listener that passed the port proof, never with the proof request, and never to another user's listener",
 		() => Effect.scoped(tokenSent),
+	);
+	test.effect("is never replaced when its file holds something else, which fails instead", () =>
+		Effect.scoped(garbledKept),
 	);
 });
