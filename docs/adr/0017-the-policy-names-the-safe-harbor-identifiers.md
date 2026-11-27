@@ -24,7 +24,7 @@ This is not a HIPAA certification. A de-identification under Safe Harbor also re
 ## Consequences
 
 - The policy version changes, so every stored verdict is judged again, and `tools/corpus/recordings.jsonl` is recorded again with `bun run eval:live -- --record`.
-- The corpus draws each new text kind 22 times from a seed of its own and puts those cases after the others, so every case the corpus had before stays byte for byte the same. `biometric` has no case: no text draw is a realistic biometric.
+- The corpus deals every text kind, the new ones included, from one plan per seed, so adding a kind re-draws every case. The leak gate replays several draws, so the policy is held to fresh cases, not only to the ones it was tuned on. `biometric` has no case: no text draw is a realistic biometric.
 - A URL in a file name is unrealistic, since its slashes make it a path, so the plan never deals it.
 - The judge cleared a phone or fax number in a patient document's file name, and each prompt wording that caught it let an older case through. The rule `file-name-phone` catches it instead: a ten-digit North American phone number after a name segment and an underscore, then words and an extension.
 - More pieces seal, so fewer requests stay on the open account. The pull request that added this reports the measured cost.
