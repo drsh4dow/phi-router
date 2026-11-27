@@ -1,9 +1,9 @@
 import { Array, Context, Effect, FileSystem, Layer, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { Mac, SecureRandom } from "effect/crypto";
-import { bytesOf, hmacOf } from "./proof.ts";
+import { bytesOf, hmacOf, macs } from "./proof.ts";
 import { isWindows, systemTool } from "#router/client/platform.ts";
 import { storedToken, tokenUsed } from "./caller-token.ts";
+import type { Mac } from "effect/crypto";
 
 type Endpoint = `${string}:${number}`;
 
@@ -29,8 +29,6 @@ interface Row {
 }
 
 const procTable = "/proc/net/tcp";
-
-const macs = Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto));
 
 const procRow =
 	/^\s*\d+: (?<local>[\dA-F]{8}:[\dA-F]{4}) (?<remote>[\dA-F]{8}:[\dA-F]{4}) [\dA-F]{2} \S+ \S+ \S+ +(?<uid>\d+) /u;

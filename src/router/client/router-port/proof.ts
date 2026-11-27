@@ -191,4 +191,4 @@ class Proofs extends Context.Service<
 	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, UserDirectories.layer, macs)));
 }
 
-export { Proofs, bytesOf, hmacOf, proofOf, proofPath };
+export { Proofs, bytesOf, hmacOf, macs, proofOf, proofPath };
