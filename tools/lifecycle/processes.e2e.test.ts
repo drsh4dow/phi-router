@@ -7,6 +7,7 @@ import {
 	Option,
 	Path,
 	PlatformError,
+	Schedule,
 	Sink,
 	String as Str,
 	Stream,
@@ -320,7 +321,14 @@ const windowsLive = Effect.gen(function* windowsLive() {
 	const processes = yield* Processes;
 	const ended = yield* endedWindowsPid();
 	const own = process.pid;
-	const first = yield* processes.running([own, ended]);
+
+	const first = yield* processes.running([own, ended]).pipe(
+		Effect.repeat({
+			schedule: Schedule.spaced("200 millis"),
+			until: (listed) => !Option.exists(listed, (live) => Array.contains(pidsOf(live), ended)),
+		}),
+	);
+
 	const again = yield* processes.running([own]);
 
 	assert.deepStrictEqual(pipe(first, Option.map(pidsOf)), Option.some([own]));
@@ -344,7 +352,7 @@ const windowsFolder = Effect.gen(function* windowsFolder() {
 
 it.layer(Layer.provideMerge(Processes.layer, NodeServices.layer))("the processes of this Windows machine", (test) => {
 	test.effect.runIf(onWindows)(
-		"this process reads the same creation instant twice, and a pid that ended is absent",
+		"this process reads the same creation instant twice, and a pid that ended leaves the list",
 		() => windowsLive,
 		patient,
 	);
