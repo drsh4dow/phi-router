@@ -18,7 +18,7 @@ const endOfInput = "\u0004";
 const questions = {
 	another: "Add another subscription?",
 	baa: "Which account does your BAA cover?",
-	everyday: "What do you use for everyday work?",
+	everyday: "phi-router runs everyday work on a Claude Pro or Max subscription, outside your BAA. Where is yours?",
 	openai: "Which OpenAI key does your BAA cover?",
 } as const;
 

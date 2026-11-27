@@ -86,8 +86,8 @@ const enterpriseSetUp = Effect.gen(function* enterpriseSetUp() {
 	);
 	assert.deepStrictEqual(firstPick({ question: coveredQuestion, shown: run.shown }), ["❯ Yes", "  No"]);
 	assert.deepStrictEqual(firstPick({ question: questions.everyday, shown: run.shown }), [
-		"❯ Claude Pro or Max",
-		"  Nothing else",
+		"❯ Sign in to my Claude Pro or Max",
+		"  I don't have one",
 	]);
 	assert.include(run.shown, enterpriseEnd);
 
@@ -152,9 +152,10 @@ const wrongSignIn = Effect.gen(function* wrongSignIn() {
 	assert.strictEqual(settings, ownSettings, "Claude Code's settings.json as it was");
 }).pipe(Effect.scoped);
 
-const onlyBaa = "You don't need phi-router. Your only account is already covered by your BAA. Nothing changed.";
+const noSubscriptionStop =
+	"phi-router runs everyday work on a Claude Pro or Max subscription, so only patient data runs on Claude Enterprise. Get one at https://claude.com/pricing, then run setup again. Nothing changed.";
 
-const nothingElse = Effect.gen(function* nothingElse() {
+const noSubscription = Effect.gen(function* noSubscription() {
 	const of = yield* world;
 
 	yield* withStatus(of, enterpriseStatus);
@@ -166,7 +167,7 @@ const nothingElse = Effect.gen(function* nothingElse() {
 	);
 
 	assert.notStrictEqual(run.exitCode, ok, run.shown);
-	assert.strictEqual(lastLine(run.shown), onlyBaa);
+	assert.strictEqual(lastLine(run.shown), noSubscriptionStop);
 	assert.deepStrictEqual(after, before, "nothing changed");
 }).pipe(Effect.scoped);
 
@@ -202,8 +203,8 @@ it.layer(layer)("setup signs in to Claude", (test) => {
 		patient,
 	);
 	test.effect(
-		"an Enterprise login the BAA covers with nothing else for everyday work stops: phi-router is not needed",
-		() => nothingElse,
+		"an Enterprise login the BAA covers with no Claude Pro or Max subscription stops with where to get one, before any change",
+		() => noSubscription,
 		patient,
 	);
 	test.effect(
