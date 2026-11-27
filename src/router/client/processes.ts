@@ -15,8 +15,8 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { PlatformError, Scope } from "effect";
+import { forPlatform, systemTool } from "./platform.ts";
 import type { Pid } from "#shared/cli.ts";
-import { forPlatform } from "./platform.ts";
 
 const Started = Schema.NonEmptyString;
 
@@ -29,7 +29,7 @@ interface PsRow extends LiveProcess {
 	readonly zombie: boolean;
 }
 
-const psPatience = "2 seconds";
+const patience = { posix: "2 seconds", windows: "10 seconds" } as const;
 
 const listing = 'exec ps -o pid=,stat=,lstart= -p "$$$1"';
 
@@ -170,28 +170,29 @@ const psListing: Listing = {
 	rowOf,
 };
 
-const cimFlags = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"] as const;
+const powershellFlags = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"] as const;
 
-const cimScript = (pids: readonly number[]): string => {
+const created = "[Management.ManagementDateTimeConverter]::ToDateTime($p.CreationDate).ToUniversalTime().ToString('o')";
+
+const wmiScript = (pids: readonly number[]): string => {
 	const others = pipe(
 		pids,
 		Array.map((pid) => ` OR ProcessId=${String(pid)}`),
 		Array.join(""),
 	);
 
-	const filter = `('ProcessId=' + $PID + '${others}')`;
-	const row = "'{0} {1}' -f $_.ProcessId, $_.CreationDate.ToUniversalTime().ToString('o')";
+	const query = `('SELECT ProcessId, CreationDate FROM Win32_Process WHERE ProcessId=' + $PID + '${others}')`;
 
-	return `$ErrorActionPreference = 'Stop'; Get-CimInstance Win32_Process -Filter ${filter} | ForEach-Object { ${row} }`;
+	return `$ErrorActionPreference = 'Stop'; foreach ($p in ([wmisearcher]${query}).Get()) { '{0} {1}' -f $p.ProcessId, ${created} }`;
 };
 
-const cimOptions = { forceKillAfter: "1 second", stderr: "ignore", stdin: "ignore" } as const;
+const wmiOptions = { forceKillAfter: "1 second", stderr: "ignore", stdin: "ignore" } as const;
 
-const cimListing: Listing = {
-	command: (pids) => ChildProcess.make("powershell.exe", [...cimFlags, cimScript(pids)], cimOptions),
+const wmiListing = (powershell: string): Listing => ({
+	command: (pids) => ChildProcess.make(powershell, [...powershellFlags, wmiScript(pids)], wmiOptions),
 	lines: (printed) => pipe(printed, Str.replace(/\r?\n$/u, ""), Str.split(/\r?\n/u)),
 	rowOf: instantRowOf,
-};
+});
 
 const provenRows =
 	(from: Listing) =>
@@ -225,7 +226,12 @@ class Processes extends Context.Service<
 		Processes,
 		Effect.gen(function* make() {
 			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-			const from = yield* forPlatform({ posix: psListing, windows: cimListing });
+			const readPatience = yield* forPlatform(patience);
+
+			const from = yield* forPlatform({
+				posix: Effect.succeed(psListing),
+				windows: Effect.map(systemTool("WindowsPowerShell", "v1.0", "powershell.exe"), wmiListing),
+			}).pipe(Effect.flatten);
 
 			const read = Effect.fnUntraced(function* read(pids: readonly (typeof Pid.Type)[]) {
 				const handle = yield* spawner.spawn(from.command(pids));
@@ -240,7 +246,7 @@ class Processes extends Context.Service<
 
 			const running = (pids: readonly (typeof Pid.Type)[]): Effect.Effect<Option.Option<readonly LiveProcess[]>> =>
 				read(pids).pipe(
-					Effect.timeout(psPatience),
+					Effect.timeout(readPatience),
 					Effect.catchCause(() => Effect.succeedNone),
 				);
 

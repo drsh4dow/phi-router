@@ -140,7 +140,7 @@ const callerSpawner = (env: Readonly<Record<string, string>>): Layer.Layer<Child
 	).pipe(Layer.provide(NodeServices.layer));
 
 const underCaller = (env: Readonly<Record<string, string>>): Layer.Layer<Processes> =>
-	Layer.provide(Processes.layer, callerSpawner(env));
+	Layer.provide(Processes.layer, Layer.merge(callerSpawner(env), Path.layer));
 
 const startsOf = Option.map(Array.map(({ pid, started: at }: LiveProcess) => [pid, at] as const));
 
