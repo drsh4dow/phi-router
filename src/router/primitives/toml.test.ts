@@ -26,6 +26,26 @@ const seen = pipe(
 	Array.map(({ end, kind, path, start, value }) => ({ kind, path, text: Str.slice(start, end)(file), value })),
 );
 
+it.effect("reads a file with CRLF line ends as the same statements, each keeping its own line ends", () =>
+	Effect.sync(() => {
+		const crlfOf = Str.replaceAll("\n", "\r\n");
+		const crlf = crlfOf(file);
+
+		const read = pipe(
+			statementsOf(crlf),
+			Array.map(({ end, kind, path, start, value }) => ({ kind, path, text: Str.slice(start, end)(crlf), value })),
+		);
+
+		assert.deepStrictEqual(
+			read,
+			pipe(
+				seen,
+				Array.map(({ kind, path, text, value }) => ({ kind, path, text: crlfOf(text), value: crlfOf(value) })),
+			),
+		);
+	}),
+);
+
 it.effect("reads each statement's kind, full key, value and lines, past comments, strings and brackets", () =>
 	Effect.sync(() => {
 		assert.deepStrictEqual(seen, [

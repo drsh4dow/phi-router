@@ -14,6 +14,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { behindDeadProxy, harnessFolder, harnessTurn } from "./turn.ts";
+import { forPlatform, homeFolder } from "#router/client/platform.ts";
 
 const fakeLogin = "phi-doctor-fake-login";
 
@@ -32,16 +33,19 @@ const namedAgentFolder = harnessFolder({ fallback: ".pi/agent", variable: "PI_CO
 
 const tilde = /^~(?=\/|$)/u;
 
+const windowsTilde = /^~(?=[/\\]|$)/u;
+
 const agentFolder = Effect.fnUntraced(function* agentFolder(named: string) {
 	const path = yield* Path.Path;
 	const folder = yield* namedAgentFolder(named);
-	const home = yield* Config.String("HOME");
+	const home = yield* homeFolder;
+	const leading = yield* forPlatform({ posix: tilde, windows: windowsTilde });
 
-	if (!tilde.test(folder)) {
+	if (!leading.test(folder)) {
 		return folder;
 	}
 
-	return path.join(home, Str.replace(tilde, "")(folder));
+	return path.join(home, Str.replace(leading, "")(folder));
 });
 
 const listed = Effect.fnUntraced(function* listed(agent: string) {
@@ -164,7 +168,7 @@ const printedKey = Effect.fnUntraced(
 	function* printedKey(agent: string, provider: string) {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const searchPath = yield* Config.String("PATH");
-		const home = yield* Config.String("HOME");
+		const home = yield* homeFolder;
 
 		const command = ChildProcess.make("pi", ["auth", "print-api-key", "--provider", provider], {
 			env: Struct.assign(offline, { HOME: home, PATH: searchPath, PI_CODING_AGENT_DIR: agent }),

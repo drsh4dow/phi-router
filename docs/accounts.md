@@ -4,7 +4,7 @@
 
 Setup reads what the machine already has: your harness's login, a key in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, a key pi holds, and the key files of an earlier setup. It asks which account your BAA covers and, for each role it could not fill, for a key at a hidden prompt or a login through the vendor's own `claude auth login`. A first run also offers to add another subscription. It stops and changes nothing when there is nothing to protect (your harness runs on an API key), when it needs a key you do not have, or when Claude Code runs on Bedrock, Vertex AI, Foundry or a gateway in `ANTHROPIC_BASE_URL`. A second run asks nothing and changes no file. This page covers every other way to set up accounts. Each section starts from a finished setup unless it says otherwise.
 
-Setup writes the accounts to `phi-router/config.json` in your config folder: `$XDG_CONFIG_HOME`, else `~/.config` on Linux and `~/Library/Application Support` on macOS. After a Claude Code setup with two pasted keys it reads:
+Setup writes the accounts to `phi-router/config.json` in your config folder: `$XDG_CONFIG_HOME`, else `~/.config` on Linux, `~/Library/Application Support` on macOS and `%APPDATA%` on Windows. After a Claude Code setup with two pasted keys it reads:
 
 ```json
 {

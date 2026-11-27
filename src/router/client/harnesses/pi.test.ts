@@ -1,8 +1,22 @@
 import type { Config, PlatformError } from "effect";
-import { ConfigProvider, Effect, Fiber, FileSystem, Layer, Option, Path, Redacted, Sink, Stream, pipe } from "effect";
+import {
+	ConfigProvider,
+	Effect,
+	Fiber,
+	FileSystem,
+	Layer,
+	Option,
+	Path,
+	Redacted,
+	Sink,
+	Stream,
+	Struct,
+	pipe,
+} from "effect";
 import { assert, it } from "@effect/vitest";
 import { ChildProcessSpawner } from "effect/process";
 import { TestClock } from "effect/testing";
+import { agentFolder } from "./pi.ts";
 import { storedKey } from "./index.ts";
 
 const anyPid = 1;
@@ -84,6 +98,37 @@ it.layer(agentOnDisk)("the Anthropic key pi stored", (test) => {
 	test.effect("is none when pi has not exited after 30 seconds", () =>
 		Effect.map(keyOf("hangs"), (key) => {
 			assert.strictEqual(key, "none");
+		}),
+	);
+});
+
+const profile = "/profile/dev";
+
+const folderUnder = Effect.fnUntraced(function* folderUnder(sep: string, env: Readonly<Record<string, string>>) {
+	const posix = yield* Path.Path;
+	const provider = ConfigProvider.fromEnv({ env });
+	const named = String.raw`~\agent`;
+	const folders = Effect.all({ backslash: agentFolder(named), slash: agentFolder("~/agent") }, { concurrency: 1 });
+	const configured = Effect.provideService(folders, ConfigProvider.ConfigProvider, provider);
+
+	return yield* Effect.provideService(configured, Path.Path, Path.make(Struct.assign(posix, { sep })));
+});
+
+it.layer(Path.layer)("pi's agent folder", (test) => {
+	test.effect("expands a leading ~ to the home folder, and on Windows also ~ before a backslash", () =>
+		Effect.gen(function* expanded() {
+			const folders = yield* Effect.all(
+				{
+					posix: folderUnder("/", { HOME: "/home/dev" }),
+					windows: folderUnder("\\", { USERPROFILE: profile }),
+				},
+				{ concurrency: 1 },
+			);
+
+			assert.deepStrictEqual(folders, {
+				posix: { backslash: String.raw`~\agent`, slash: "/home/dev/agent" },
+				windows: { backslash: String.raw`/profile/dev/\agent`, slash: "/profile/dev/agent" },
+			});
 		}),
 	);
 });
