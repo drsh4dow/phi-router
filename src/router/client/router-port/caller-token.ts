@@ -2,8 +2,8 @@ import { Effect, FileSystem, Option, Path, Schema } from "effect";
 import { Hex } from "effect/encoding";
 import { SecureRandom } from "effect/crypto";
 import { UserDirectories } from "effect/persistence";
+import { createPrivately } from "#router/client/private-file.ts";
 import { isWindows } from "#router/client/platform.ts";
-import { writePrivately } from "#router/client/private-file.ts";
 
 const callerHeader = "x-phi-router-caller";
 
@@ -44,9 +44,10 @@ const freshToken = Effect.fnUntraced(
 		const bytes = yield* random.randomBytes(tokenBytes);
 		const made = Hex.encode(bytes);
 
-		yield* writePrivately(file, made);
-
-		return made;
+		return yield* createPrivately(file, made).pipe(
+			Effect.as(made),
+			Effect.catchReason("PlatformError", "AlreadyExists", () => readToken(file)),
+		);
 	},
 	Effect.provideService(SecureRandom.SecureRandom, SecureRandom.make(SecureRandom.randomBytesUnsafe)),
 );

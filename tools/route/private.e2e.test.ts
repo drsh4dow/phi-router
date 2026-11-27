@@ -1,7 +1,14 @@
 import { Array, Effect, Exit, FileSystem, Layer, Order, Path, Predicate, String as Str, Struct, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import { appendPrivately, daclOf, isPrivateDacl, userSid, writePrivately } from "#router/client/private-file.ts";
+import {
+	appendPrivately,
+	createPrivately,
+	daclOf,
+	isPrivateDacl,
+	userSid,
+	writePrivately,
+} from "#router/client/private-file.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest, mocked } from "./mocked-router.ts";
 import { grantedToEveryone, privacyUnder } from "./private.ts";
@@ -202,6 +209,25 @@ const refusedOnWindows = Effect.gen(function* refusedOnWindows() {
 	assert.deepStrictEqual({ failed: Exit.isFailure(written), left }, { failed: true, left: [] });
 });
 
+const createdOnce = Effect.gen(function* createdOnce() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-created-" });
+	const file = path.join(folder, "caller-token");
+
+	yield* createPrivately(file, "first");
+
+	const again = yield* createPrivately(file, canary).pipe(
+		Effect.as("created"),
+		Effect.catchReason("PlatformError", "AlreadyExists", () => Effect.succeed("already there")),
+	);
+
+	const left = yield* fs.readDirectory(folder);
+	const text = yield* fs.readFileString(file);
+
+	assert.deepStrictEqual({ again, left, text }, { again: "already there", left: ["caller-token"], text: "first" });
+});
+
 const appendedTwiceOnWindows = Effect.gen(function* appendedTwiceOnWindows() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -270,6 +296,11 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the router's f
 		patient,
 	);
 	test.effect("a write cut off before its rename leaves the old file whole", () => cutBeforeRename);
+	test.effect(
+		"a create of a file that already exists fails, and leaves the file whole and no temporary file beside it",
+		() => createdOnce,
+		patient,
+	);
 	test.effect(
 		"the first append to a file in a folder that does not exist yet makes it 0600 in 0700, or on Windows grants only the current user",
 		() => appendedFirst,

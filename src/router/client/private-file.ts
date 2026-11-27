@@ -394,6 +394,7 @@ const copyPrivately = Effect.fnUntraced(function* copyPrivately(from: string, to
 export {
 	appendPrivately,
 	copyPrivately,
+	createPrivately,
 	daclOf,
 	folderPrivately,
 	isPrivateDacl,
