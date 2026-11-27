@@ -1,5 +1,8 @@
-import { Array, Config, Effect, FileSystem, Option, Path, String as Str, pipe } from "effect";
+import { Array, Effect, FileSystem, Path, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { daclOf, isPrivateDacl, userSid } from "#router/client/private-file.ts";
+import type { DaclTarget } from "#router/client/private-file.ts";
+import { systemTool } from "#router/client/platform.ts";
 
 const fileTypeBit = 0o1000;
 
@@ -11,119 +14,33 @@ const modes = { file: 0o600, folder: 0o700 } as const;
 
 const windowsSeparator = "\\";
 
-const defaultSystemRoot = String.raw`C:\Windows`;
+const daclTargets: Readonly<Record<keyof typeof modes, readonly DaclTarget[]>> = {
+	file: ["file", "inheritedFile"],
+	folder: ["folder", "inheritedFolder"],
+};
 
-const allowed = "A";
-
-const entriesAfterHeader = 1;
-
-const systemTool = Effect.fnUntraced(function* systemTool(name: string) {
-	const path = yield* Path.Path;
-
-	const root = yield* Config.String("SystemRoot").pipe(
-		Config.withDefault(defaultSystemRoot),
-		Effect.orElseSucceed(() => defaultSystemRoot),
-	);
-
-	return path.join(root, "System32", name);
-});
-
-const printedBy = Effect.fnUntraced(function* printedBy(tool: string, args: readonly string[]) {
-	const spawner = yield* Effect.serviceOption(ChildProcessSpawner.ChildProcessSpawner);
-
-	if (Option.isNone(spawner)) {
-		return yield* Effect.die(`no process spawner to run ${tool}`);
+const kindOf = (type: FileSystem.File.Type): keyof typeof modes => {
+	if (type === "Directory") {
+		return "folder";
 	}
 
-	return yield* spawner.value.string(ChildProcess.make(tool, args, { stdin: "ignore" }));
-});
+	return "file";
+};
 
-const currentUserSid = Effect.gen(function* currentUserSid() {
-	const whoami = yield* systemTool("whoami.exe");
-	const printed = yield* printedBy(whoami, ["/user", "/fo", "csv", "/nh"]);
+const everyone = "*S-1-1-0:(R)";
 
-	return pipe(
-		Str.trim(printed),
-		Str.split(","),
-		Array.last,
-		Option.map(Str.replaceAll('"', "")),
-		Option.getOrElse(() => ""),
-	);
-});
-
-const daclOf = Effect.fnUntraced(function* daclOf(named: string) {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-acl-" });
-	const saved = path.join(folder, "acl");
+const grantedToEveryone = Effect.fnUntraced(function* grantedToEveryone(file: string) {
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const icacls = yield* systemTool("icacls.exe");
+	const handle = yield* spawner.spawn(ChildProcess.make(icacls, [file, "/grant", everyone], { stdin: "ignore" }));
 
-	yield* printedBy(icacls, [named, "/save", saved]);
-
-	const bytes = yield* fs.readFile(saved);
-
-	return pipe(
-		new TextDecoder("utf-16le").decode(bytes),
-		Str.split("\n"),
-		Array.map(Str.trim),
-		Array.filter(Str.isNonEmpty),
-		Array.last,
-		Option.getOrElse(() => ""),
-	);
+	return yield* handle.exitCode;
 }, Effect.scoped);
-
-const trustedAccounts = ["SY", "BA"];
-
-const builtinAdministrator = { alias: "LA", rid: "-500" } as const;
-
-const userNames = (sid: string): readonly string[] => {
-	if (Str.endsWith(builtinAdministrator.rid)(sid)) {
-		return [sid, builtinAdministrator.alias];
-	}
-
-	return [sid];
-};
-
-const grantee = (fields: readonly string[]): string => Option.getOrElse(Array.last(fields), () => "");
-
-const grantsOnlyTo = (dacl: string, sid: string): boolean => {
-	const names = userNames(sid);
-	const accepted = [...names, ...trustedAccounts];
-
-	const entries = pipe(
-		Str.split("(")(dacl),
-		Array.drop(entriesAfterHeader),
-		Array.map(Str.replaceAll(")", "")),
-		Array.map(Str.split(";")),
-	);
-
-	return (
-		pipe(
-			entries,
-			Array.some((fields) => Array.contains(names, grantee(fields))),
-		) &&
-		pipe(
-			entries,
-			Array.every(
-				(fields) => Array.head(fields).pipe(Option.contains(allowed)) && Array.contains(accepted, grantee(fields)),
-			),
-		)
-	);
-};
-
-const windowsUser = Effect.fnUntraced(function* windowsUser(windows: boolean) {
-	if (windows) {
-		return yield* currentUserSid;
-	}
-
-	return "";
-});
 
 const privacyUnder = Effect.fnUntraced(function* privacyUnder(roots: readonly string[]) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const windows = path.sep === windowsSeparator;
-	const sid = yield* windowsUser(windows);
 
 	const under = Effect.fnUntraced(function* under(root: string) {
 		const names = yield* fs.readDirectory(root, { recursive: true });
@@ -135,20 +52,26 @@ const privacyUnder = Effect.fnUntraced(function* privacyUnder(roots: readonly st
 	});
 
 	const seenAt = Effect.fnUntraced(function* seenAt(named: string) {
+		const info = yield* fs.stat(named);
+		const kind = kindOf(info.type);
+
 		if (windows) {
+			const sid = yield* userSid(named);
 			const dacl = yield* daclOf(named);
 
-			return { isPrivate: grantsOnlyTo(dacl, sid), shown: `${named} ${dacl}` };
+			return {
+				isPrivate: pipe(
+					daclTargets[kind],
+					Array.some((target) => isPrivateDacl({ sid, target })(dacl)),
+				),
+				shown: `${named} ${dacl}`,
+			};
 		}
 
-		const info = yield* fs.stat(named);
-		const shown = `${named} ${permissionsOf(info.mode).toString(octal)}`;
-
-		if (info.type === "Directory") {
-			return { isPrivate: permissionsOf(info.mode) === modes.folder, shown };
-		}
-
-		return { isPrivate: permissionsOf(info.mode) === modes.file, shown };
+		return {
+			isPrivate: permissionsOf(info.mode) === modes[kind],
+			shown: `${named} ${permissionsOf(info.mode).toString(octal)}`,
+		};
 	});
 
 	const listed = yield* Effect.forEach(roots, under, { concurrency: 1 });
@@ -169,4 +92,4 @@ const privacyUnder = Effect.fnUntraced(function* privacyUnder(roots: readonly st
 	};
 });
 
-export { currentUserSid, daclOf, privacyUnder, systemTool };
+export { grantedToEveryone, privacyUnder };
