@@ -1,9 +1,9 @@
 import { Array, Context, Effect, FileSystem, Layer, Option, Path, String as Str, Stream, pipe } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Mac, SecureRandom } from "effect/crypto";
+import { bytesOf, hmacOf } from "./proof.ts";
 import { isWindows, systemTool } from "#router/client/platform.ts";
 import { storedToken, tokenUsed } from "./caller-token.ts";
-import { Hex } from "effect/encoding";
 
 type Endpoint = `${string}:${number}`;
 
@@ -29,8 +29,6 @@ interface Row {
 }
 
 const procTable = "/proc/net/tcp";
-
-const encoder = new TextEncoder();
 
 const macs = Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto));
 
@@ -163,6 +161,14 @@ const heldByOneUser = (sockets: readonly Socket[], { caller, router }: Connectio
 
 const listPatience = "2 seconds";
 
+const tokenMatches = Effect.fnUntraced(function* tokenMatches(presented: string) {
+	const held = yield* storedToken;
+	const given = yield* hmacOf(bytesOf(held), bytesOf(presented));
+	const expected = yield* hmacOf(bytesOf(held), bytesOf(held));
+
+	return given === expected;
+});
+
 class Callers extends Context.Service<
 	Callers,
 	{
@@ -272,31 +278,15 @@ class Callers extends Context.Service<
 				return heldByThisUser(caller);
 			};
 
-			const mac = yield* Mac.Mac;
-
-			const signed = Effect.fnUntraced(function* signed(held: string, message: string) {
-				const secret = yield* Mac.key(Mac.hmacSha256, encoder.encode(held));
-				const tag = yield* mac.sign(secret, encoder.encode(message));
-
-				return Hex.encode(tag);
-			});
-
-			const matches = Effect.fnUntraced(function* matches(presented: string) {
-				const held = yield* storedToken;
-				const given = yield* signed(held, presented);
-				const expected = yield* signed(held, held);
-
-				return given === expected;
-			});
+			const services = yield* Effect.context<FileSystem.FileSystem | Path.Path | Mac.Mac>();
 
 			const tokenFine = (presented: string): Effect.Effect<boolean> => {
 				if (!tokenUsed(path)) {
 					return Effect.succeed(true);
 				}
 
-				return matches(presented).pipe(
-					Effect.provideService(FileSystem.FileSystem, fs),
-					Effect.provideService(Path.Path, path),
+				return tokenMatches(presented).pipe(
+					Effect.provideContext(services),
 					Effect.orElseSucceed(() => false),
 				);
 			};
