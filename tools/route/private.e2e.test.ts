@@ -202,6 +202,26 @@ const refusedOnWindows = Effect.gen(function* refusedOnWindows() {
 	assert.deepStrictEqual({ failed: Exit.isFailure(written), left }, { failed: true, left: [] });
 });
 
+const appendedTwiceOnWindows = Effect.gen(function* appendedTwiceOnWindows() {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const folder = yield* fs.makeTempDirectoryScoped({ prefix: "phi-router-appended-" });
+	const log = path.join(folder, "lanes.jsonl");
+
+	yield* appendPrivately(log, "first\n");
+	yield* appendPrivately(log, "second\n");
+
+	const sid = yield* userSid(log);
+	const acl = yield* daclOf(log);
+	const left = yield* fs.readDirectory(folder);
+	const text = yield* fs.readFileString(log);
+
+	assert.deepStrictEqual(
+		{ left, private: isPrivateDacl({ sid, target: "file" })(acl), text },
+		{ left: ["lanes.jsonl"], private: true, text: "first\nsecond\n" },
+	);
+});
+
 const succeeded = 0;
 
 const sharedOnWindows = Effect.gen(function* sharedOnWindows() {
@@ -258,6 +278,11 @@ it.layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer))("the router's f
 	test.effect.skipIf(!onWindows)(
 		"on Windows, a private file grants only the current user: by inheritance in a folder it created private, and with no inherited entry in a folder that was already there",
 		() => sealedOnWindows,
+		patient,
+	);
+	test.effect.skipIf(!onWindows)(
+		"on Windows, the first append to a missing file in a folder that is not private creates it for the current user only, and the next append adds to it",
+		() => appendedTwiceOnWindows,
 		patient,
 	);
 	test.effect.skipIf(!onWindows)(

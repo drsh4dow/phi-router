@@ -308,6 +308,16 @@ const writePrivately = Effect.fnUntraced(function* writePrivately(
 	return yield* fs.rename(temp, file);
 }, Effect.scoped);
 
+const createPrivately = Effect.fnUntraced(function* createPrivately(file: string, text: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const temp = yield* Random.nextInt.pipe(Effect.map((unique) => `${file}.${String(unique)}.new`));
+
+	const removed = Effect.ignore(fs.remove(temp));
+
+	yield* writePrivately(temp, text);
+	yield* fs.link(temp, file).pipe(Effect.ensuring(removed));
+});
+
 const folderPrivately = Effect.fnUntraced(function* folderPrivately(folder: string) {
 	yield* madePrivately(folder);
 });
@@ -318,10 +328,10 @@ const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string
 
 	const inherits = yield* madePrivately(path.dirname(file));
 
-	if (!inherits && (yield* fs.exists(file))) {
-		yield* restrictToCurrentUser(file, "file");
-	} else if (!inherits) {
-		yield* writtenThroughStaging(file, [], privateModes.file);
+	if (!inherits) {
+		yield* createPrivately(file, "").pipe(
+			Effect.catchReason("PlatformError", "AlreadyExists", () => restrictToCurrentUser(file, "file")),
+		);
 	}
 
 	yield* fs.writeFileString(file, text, { flag: "a", mode: privateModes.file });
