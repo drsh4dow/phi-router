@@ -16,10 +16,10 @@ import {
 import { Handle, handleAt } from "#router/primitives/handle.ts";
 import { folderPrivately, writePrivately } from "./private-file.ts";
 import { Base64Url } from "effect/encoding";
-import type { ChildProcessSpawner } from "effect/process";
 import { Count } from "#shared/cli.ts";
 import type { Pinned } from "#shared/cli.ts";
 import type { PlatformError } from "effect";
+import type { PrivateWriting } from "./private-file.ts";
 import { UserDirectories } from "effect/persistence";
 
 const none = 0;
@@ -49,11 +49,7 @@ type StoredFile = typeof Stored.Type;
 
 type StoreFailed = PlatformError.PlatformError | Schema.SchemaError;
 
-type Services =
-	| ChildProcessSpawner.ChildProcessSpawner
-	| FileSystem.FileSystem
-	| Path.Path
-	| UserDirectories.UserDirectories;
+type Services = PrivateWriting | UserDirectories.UserDirectories;
 
 interface Sealed {
 	readonly partOf: (handle: typeof Handle.Type) => Option.Option<Part>;

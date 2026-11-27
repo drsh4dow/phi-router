@@ -12,8 +12,8 @@ import {
 	Struct,
 	pipe,
 } from "effect";
-import { ChildProcessSpawner } from "effect/process";
 import type { PlatformError } from "effect";
+import type { PrivateWriting } from "./private-file.ts";
 import { UserDirectories } from "effect/persistence";
 import { appendPrivately } from "./private-file.ts";
 
@@ -64,16 +64,12 @@ class LaneLog extends Context.Service<
 			const directories = yield* UserDirectories.UserDirectories;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
-			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+			const services = yield* Effect.context<PrivateWriting>();
 			const state = yield* directories.state("phi-router");
 			const file = path.join(state, "lanes.jsonl");
 
 			const appended = (text: string): Effect.Effect<void, PlatformError.PlatformError> =>
-				appendPrivately(file, text).pipe(
-					Effect.provideService(FileSystem.FileSystem, fs),
-					Effect.provideService(Path.Path, path),
-					Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-				);
+				appendPrivately(file, text).pipe(Effect.provideContext(services));
 
 			const append = Effect.fn("LaneLog.append")(function* append(routed: Routed) {
 				const now = yield* DateTime.now;

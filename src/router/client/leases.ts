@@ -1,7 +1,7 @@
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
-import { ChildProcessSpawner } from "effect/process";
 import { Pid } from "#shared/cli.ts";
 import type { PlatformError } from "effect";
+import type { PrivateWriting } from "./private-file.ts";
 import { Started } from "./processes.ts";
 import { UserDirectories } from "effect/persistence";
 import { writePrivately } from "./private-file.ts";
@@ -25,7 +25,7 @@ class LeaseRegistry extends Context.Service<
 			const directories = yield* UserDirectories.UserDirectories;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
-			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+			const services = yield* Effect.context<PrivateWriting>();
 			const state = yield* directories.state("phi-router");
 			const file = path.join(state, "leases.json");
 
@@ -44,9 +44,7 @@ class LeaseRegistry extends Context.Service<
 			const store = (leases: readonly (typeof Lease.Type)[]): Effect.Effect<void, RegistryFailed> =>
 				Schema.encodeEffect(StoredJson)({ leases }).pipe(
 					Effect.flatMap((text) => writePrivately(file, text)),
-					Effect.provideService(FileSystem.FileSystem, fs),
-					Effect.provideService(Path.Path, path),
-					Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+					Effect.provideContext(services),
 				);
 
 			return LeaseRegistry.of({ adopted, store });
