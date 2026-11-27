@@ -124,10 +124,13 @@ const spellings = Effect.gen(function* spellings() {
 	);
 });
 
-it.layer(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, SessionRequests.layer))("a BAA repo", (test) => {
-	test.effect(
-		"holds a session whose lease folder's real path from its own working folder is inside a listed repository, whatever its case, slash, dot or link, and no other",
-		() => spellings,
-		{ timeout: 60_000 },
-	);
-});
+it.layer(Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, SessionRequests.layer), NodeServices.layer))(
+	"a BAA repo",
+	(test) => {
+		test.effect(
+			"holds a session whose lease folder's real path from its own working folder is inside a listed repository, whatever its case, slash, dot or link, and no other",
+			() => spellings,
+			{ timeout: 60_000 },
+		);
+	},
+);

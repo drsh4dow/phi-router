@@ -1,13 +1,13 @@
-import { Array, Context, Effect, FileSystem, Layer, Option, Path, Schema, Stream, pipe } from "effect";
+import { Array, Context, Effect, FileSystem, Layer, Option, Path, Record, Schema, Stream, pipe } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { Mac, SecureRandom } from "effect/crypto";
 import type { Outgoing, Path as Row } from "./server.ts";
+import { callerHeader, storedToken, tokenUsed } from "./caller-token.ts";
 import { Hex } from "effect/encoding";
 import type { PlatformError } from "effect";
 import { Release } from "#router/primitives/release.ts";
 import { UserDirectories } from "effect/persistence";
-import { callerHeaders } from "./caller-token.ts";
-import { loopback } from "./server.ts";
+import { loopback } from "#shared/cli.ts";
 import { writePrivately } from "#router/client/private-file.ts";
 
 const proofPath = "/phi-router/proof";
@@ -86,6 +86,10 @@ type Proven =
 
 const refuted: Proven = { kind: "refuted" };
 
+type Headers = Readonly<Record<string, string>>;
+
+const noHeaders: Headers = Record.empty<string, string>();
+
 const provenBy = Effect.fnUntraced(function* provenBy(answer: {
 	readonly status: number;
 	readonly body: string;
@@ -115,6 +119,7 @@ class Proofs extends Context.Service<
 	{
 		readonly row: (port: number, version: string | undefined) => Effect.Effect<Row, PlatformError.PlatformError>;
 		readonly ask: (port: number) => Effect.Effect<Proven>;
+		readonly callerHeaders: (port: number) => Effect.Effect<Headers>;
 	}
 >()("phi-router/router/client/router-port/proof/Proofs") {
 	public static readonly layer = Layer.effect(
@@ -130,9 +135,8 @@ class Proofs extends Context.Service<
 			const ask = (port: number): Effect.Effect<Proven> =>
 				Effect.gen(function* asked() {
 					const nonce = yield* fresh;
-					const headers = yield* callerHeaders;
 					const url = `http://${loopback}:${String(port)}${proofPath}`;
-					const sent = HttpClientRequest.get(url, { headers, urlParams: { nonce } });
+					const sent = HttpClientRequest.get(url, { urlParams: { nonce } });
 					const answered = yield* Effect.option(client.execute(sent));
 
 					if (Option.isNone(answered)) {
@@ -158,9 +162,33 @@ class Proofs extends Context.Service<
 					Effect.provideService(HttpClient.TracerPropagationEnabled, false),
 				);
 
-			return Proofs.of({ ask, row: (port, version) => Effect.provideContext(rowOf(file, port, version), services) });
+			const callerHeaders = (port: number): Effect.Effect<Headers> =>
+				Effect.gen(function* signed() {
+					if (!tokenUsed(path)) {
+						return noHeaders;
+					}
+
+					const proven = yield* ask(port);
+
+					if (proven.kind !== "proved") {
+						return noHeaders;
+					}
+
+					const token = yield* storedToken;
+
+					return Record.singleton(callerHeader, token);
+				}).pipe(
+					Effect.orElseSucceed(() => noHeaders),
+					Effect.provideContext(services),
+				);
+
+			return Proofs.of({
+				ask,
+				callerHeaders,
+				row: (port, version) => Effect.provideContext(rowOf(file, port, version), services),
+			});
 		}),
 	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, UserDirectories.layer, macs)));
 }
 
-export { Proofs, hmacOf, proofOf };
+export { Proofs, hmacOf, proofOf, proofPath };

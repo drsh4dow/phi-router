@@ -1,4 +1,4 @@
-import { Array, Config, Console, Effect, Option, Path, Schema } from "effect";
+import { Array, Config, Console, Effect, Layer, Option, Path, Schema } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { checksOf, reportOf } from "./account-checks.ts";
 import { FetchHttpClient } from "effect/http";
@@ -48,6 +48,6 @@ const program = Effect.gen(function* program() {
 	);
 });
 
-NodeRuntime.runMain(
-	program.pipe(Effect.scoped, Effect.provide([NodeServices.layer, FetchHttpClient.layer, SessionRequests.layer])),
-);
+const services = Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, SessionRequests.layer), NodeServices.layer);
+
+NodeRuntime.runMain(program.pipe(Effect.scoped, Effect.provide(services)));
