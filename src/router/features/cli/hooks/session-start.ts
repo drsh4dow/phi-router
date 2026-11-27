@@ -78,27 +78,6 @@ const movedBy = Effect.fnUntraced(function* movedBy(address: string) {
 	});
 });
 
-const orphanedParent = 1;
-
-const noHarnessPid = 0;
-
-const leasedPid = Effect.fnUntraced(function* leasedPid(hook: {
-	readonly pid: typeof Pid.Type;
-	readonly claude: boolean;
-}) {
-	if (!hook.claude || hook.pid !== orphanedParent) {
-		return hook.pid;
-	}
-
-	const harness = yield* Config.Int("CLAUDE_PID").pipe(Config.orElse(() => Config.succeed(noHarnessPid)));
-
-	if (harness <= noHarnessPid) {
-		return hook.pid;
-	}
-
-	return harness;
-});
-
 const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 	readonly pid: typeof Pid.Type;
 	readonly address: string;
@@ -126,9 +105,7 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 
 	const harness = hookHarness[`${hook.claude}`];
 
-	const pid = yield* leasedPid(hook);
-
-	const wait = yield* start({ folder: input.cwd, pid, session: input.session_id }, port.value, harness);
+	const wait = yield* start({ folder: input.cwd, pid: hook.pid, session: input.session_id }, port.value, harness);
 
 	if (!hook.claude && input.hook_event_name === "SessionStart" && Option.isSome(wait)) {
 		const printed = yield* Schema.encodeEffect(Notice)({ systemMessage: waitNotice(wait.value) });
@@ -137,4 +114,4 @@ const sessionStart = Effect.fn("session-start")(function* sessionStart(hook: {
 	}
 });
 
-export { leasedPid, portOf, sessionStart };
+export { portOf, sessionStart };
