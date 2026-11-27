@@ -2,7 +2,7 @@ import { Array, Clock, Effect, FileSystem, Layer, Record, Stream, pipe } from "e
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import type { PlatformError, Scope } from "effect";
-import { answers, bundled, instance, leasedPids, ran, refusedWithin, world } from "./launched.ts";
+import { answers, bundled, instance, killedHard, leasedPids, refusedWithin, world } from "./launched.ts";
 import { assert, it } from "@effect/vitest";
 import { bodyOf, claudeRequest } from "#tools/route/mocked-router.ts";
 import { NodeServices } from "@effect/platform-node";
@@ -111,7 +111,7 @@ const lifecycle = Effect.fnUntraced(function* lifecycle() {
 }, Effect.scoped);
 
 const crashed = Effect.fnUntraced(function* crashed(port: number, killed: number) {
-	yield* ran(["kill", "-9", String(killed)], {});
+	yield* killedHard(killed);
 	yield* TestClock.withLive(refusedWithin(port, tenSeconds));
 
 	const whileDown = yield* TestClock.withLive(claudeAt(port));

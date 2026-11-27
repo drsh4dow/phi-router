@@ -1,4 +1,5 @@
 import { Effect, FileSystem, Schema, Struct } from "effect";
+import { filePath } from "#tools/file-path.ts";
 import { ran } from "#tools/lifecycle/launched.ts";
 
 const routed = {
@@ -19,7 +20,7 @@ const written = Struct.assign(routed, {
 
 const SettingsJson = Schema.fromJsonString(Schema.Json);
 
-const entry = new URL("../../src/router/main.ts", import.meta.url).pathname;
+const entry = filePath(new URL("../../src/router/main.ts", import.meta.url));
 
 interface ClaudeSettings {
 	readonly disableDeepLinkRegistration?: "disable";

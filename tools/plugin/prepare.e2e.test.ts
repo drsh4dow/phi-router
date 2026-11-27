@@ -1,9 +1,10 @@
 import { Effect, FileSystem, Schema } from "effect";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
+import { filePath } from "#tools/file-path.ts";
 import { ran } from "#tools/lifecycle/launched.ts";
 
-const manifest = new URL("../../package.json", import.meta.url).pathname;
+const manifest = filePath(new URL("../../package.json", import.meta.url));
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ scripts: Schema.Struct({ prepare: Schema.String }) }));
 

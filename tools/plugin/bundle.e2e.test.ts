@@ -2,8 +2,9 @@ import { Array, Effect, FileSystem, Order, String as Str } from "effect";
 import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 import { bundles } from "./bundles.ts";
+import { filePath } from "#tools/file-path.ts";
 
-const checkout = Str.replace(/\/$/u, "")(new URL("../..", import.meta.url).pathname);
+const checkout = Str.replace(/\/$/u, "")(filePath(new URL("../..", import.meta.url)));
 
 const portable = Effect.gen(function* portable() {
 	const fs = yield* FileSystem.FileSystem;

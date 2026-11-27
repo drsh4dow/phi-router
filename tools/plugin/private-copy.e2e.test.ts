@@ -3,6 +3,7 @@ import { assert, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 import { copyPrivately } from "#router/client/private-file.ts";
 import { pluginCopy } from "./copied.ts";
+import { privacyUnder } from "#tools/route/private.ts";
 
 const permissions = 0o1000;
 const octal = 8;
@@ -43,6 +44,19 @@ const childrenFirst = Effect.gen(function* childrenFirst() {
 	yield* copyPrivately(source, copy).pipe(Effect.provideService(FileSystem.FileSystem, reversed));
 
 	const original = yield* modesIn(source);
+
+	if (process.platform === "win32") {
+		const { notPrivate, shown } = yield* privacyUnder([copy]);
+
+		assert.deepStrictEqual(
+			{ count: shown.length, notPrivate },
+			{ count: original.length, notPrivate: [] },
+			"every entry is copied, and each grants only the current user",
+		);
+
+		return;
+	}
+
 	const copied = yield* modesIn(copy);
 
 	assert.deepStrictEqual(
@@ -53,5 +67,9 @@ const childrenFirst = Effect.gen(function* childrenFirst() {
 });
 
 it.layer(NodeServices.layer)("copyPrivately", (test) => {
-	test.effect("copies a plugin privately even when the listing names a file before its folder", () => childrenFirst);
+	test.effect(
+		"copies a plugin privately even when the listing names a file before its folder, on Windows with only the current user in each ACL",
+		() => childrenFirst,
+		{ timeout: 60_000 },
+	);
 });

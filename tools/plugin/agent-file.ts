@@ -1,8 +1,9 @@
 import { Array, Effect, FileSystem, Option, Path, Schema, String as Str, pipe } from "effect";
+import { filePath } from "#tools/file-path.ts";
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 
-const plugin = decodeURIComponent(new URL("../../plugins/claude", import.meta.url).pathname);
+const plugin = filePath(new URL("../../plugins/claude", import.meta.url));
 
 const pinnedSubagent = Effect.gen(function* pinnedSubagent() {
 	const fs = yield* FileSystem.FileSystem;

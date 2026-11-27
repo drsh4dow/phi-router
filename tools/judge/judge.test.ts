@@ -130,12 +130,16 @@ const sourceless = [
 	{ name: "neither key source", named: {} },
 ] as const;
 
+const failingCommands: Readonly<Partial<Record<NodeJS.Platform, string>>> = { win32: "echo sk-^4242& exit 3" };
+
+const failingCommand = failingCommands[process.platform] ?? "printf '%s-%s' sk 4242; exit 3";
+
 const keyless = [
 	{ name: "an unset variable", named: { keyEnv: "PHI_UNSET_KEY" }, source: "keyEnv PHI_UNSET_KEY" },
 	{
 		name: "a failing command",
-		named: { keyCommand: "printf '%s-%s' sk 4242; exit 3" },
-		source: "keyCommand printf '%s-%s' sk 4242; exit 3",
+		named: { keyCommand: failingCommand },
+		source: `keyCommand ${failingCommand}`,
 	},
 	{ name: "a command that prints nothing", named: { keyCommand: "true" }, source: "keyCommand true" },
 	{

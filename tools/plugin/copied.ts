@@ -1,5 +1,6 @@
 import { Effect, FileSystem, Path } from "effect";
 import { copyPrivately, writePrivately } from "#router/client/private-file.ts";
+import { filePath } from "#tools/file-path.ts";
 
 const pluginCopy = Effect.gen(function* pluginCopy() {
 	const fs = yield* FileSystem.FileSystem;
@@ -27,7 +28,7 @@ const packageCopy = Effect.gen(function* packageCopy() {
 });
 
 const piCli = decodeURIComponent(
-	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url).pathname,
+	filePath(new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url)),
 );
 
 export { packageCopy, piCli, pluginCopy };
