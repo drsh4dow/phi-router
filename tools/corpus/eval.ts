@@ -1,14 +1,26 @@
-import { Array, Cause, Console, Effect, FileSystem, Option, Path, Predicate, Schema, pipe } from "effect";
+import {
+	Array,
+	Cause,
+	Console,
+	Effect,
+	FileSystem,
+	Number as Num,
+	Option,
+	Path,
+	Predicate,
+	Schema,
+	pipe,
+} from "effect";
 import { CaseFromJsonLine, SyntheticIdentities } from "./manifest.ts";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Digest } from "effect/crypto";
 import { Judge } from "#router/client/judge/index.ts";
 import type { JudgeChoice } from "./judges.ts";
 import { decodeJsonLines } from "./jsonl.ts";
-import { defaultCorpus } from "./default-corpus.ts";
 import { evaluate } from "./evaluate.ts";
 import { judgeOf } from "./judges.ts";
 import { outputOf } from "./render.ts";
+import { playGate } from "./gate-corpus.ts";
 
 class GateFailed extends Schema.TaggedError<GateFailed, { readonly brand: unique symbol }>()("GateFailed", {
 	message: Schema.String,
@@ -84,16 +96,22 @@ const argsOf = (argv: readonly string[]): Effect.Effect<Args, Cause.IllegalArgum
 
 const decodeSynthetic = Schema.decodeUnknownEffect(Schema.fromJsonString(SyntheticIdentities));
 
-const corpusAt = Effect.fn("corpusAt")(function* corpusAt(manifest: string) {
+const manifestReport = Effect.fn("manifestReport")(function* manifestReport(manifest: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const text = yield* fs.readFileString(manifest);
 	const cases = yield* decodeJsonLines({ schema: CaseFromJsonLine, source: manifest, text });
 	const listed = yield* fs.readFileString(path.join(path.dirname(manifest), "synthetic.json"));
 	const synthetic = yield* decodeSynthetic(listed);
+	const report = yield* evaluate({ cases, synthetic });
 
-	return { cases, synthetic };
+	return [{ report, title: `Corpus ${manifest}` }];
 });
+
+const gateReports = pipe(
+	playGate,
+	Effect.map(Array.map(({ seed, report }) => ({ report, title: `Draw of seed ${String(seed)}` }))),
+);
 
 const noLeaks = 0;
 
@@ -110,19 +128,32 @@ const gate = (leaks: number, unrecorded: number): Effect.Effect<void, GateFailed
 const program = Effect.gen(function* program() {
 	const args = yield* argsOf(Array.drop(process.argv, runtimeAndScript));
 
-	const { cases, synthetic } = yield* Option.match(args.manifest, {
-		onNone: () => defaultCorpus,
-		onSome: (manifest) => corpusAt(manifest),
+	const asked = yield* judgeOf(args.judge);
+
+	const played = Option.match(args.manifest, {
+		onNone: () => gateReports,
+		onSome: (manifest) => manifestReport(manifest),
 	});
 
-	const asked = yield* judgeOf(args.judge);
-	const report = yield* Effect.provideService(evaluate({ cases, synthetic }), Judge, asked.judge);
+	const sections = yield* Effect.provideService(played, Judge, asked.judge);
 	const unrecorded = yield* asked.unrecorded;
 
-	yield* Console.log(Array.join([outputOf(report), `unrecorded judge calls ${String(unrecorded)}`], "\n"));
+	const outputs = pipe(
+		sections,
+		Array.map(({ title, report }) => `${title}\n${outputOf(report)}\n`),
+	);
+
+	const leaks = Num.sumAll(
+		pipe(
+			sections,
+			Array.map(({ report }) => report.leaks.length),
+		),
+	);
+
+	yield* Console.log(Array.join([...outputs, `unrecorded judge calls ${String(unrecorded)}`], "\n"));
 	yield* asked.writeRecordings;
 
-	return yield* gate(report.leaks.length, unrecorded);
+	return yield* gate(leaks, unrecorded);
 });
 
 NodeRuntime.runMain(program.pipe(Effect.scoped, Effect.provide([NodeServices.layer, Digest.layerWebCrypto])));
