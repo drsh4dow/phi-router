@@ -41,6 +41,14 @@ class StartFailed extends Schema.TaggedError<StartFailed, { readonly brand: uniq
 	}
 }
 
+const exitReason = (code: number): typeof Reason.Type => {
+	if (code === noBaaKeyExit) {
+		return "noBaaKey";
+	}
+
+	return "notStarted";
+};
+
 const settled = (answered: Answered): boolean => answered === "accepted" || answered === "ended";
 
 const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Type, port: number, harness: Harness) {
@@ -61,9 +69,11 @@ const start = Effect.fn("start")(function* start(request: typeof LeaseRequest.Ty
 
 	const unanswered = launch.pipe(
 		Effect.flatMap(({ exited }) => exited),
-		Effect.filterOrFail(
-			(exited) => !Option.contains(exited, noBaaKeyExit),
-			() => failed("noBaaKey"),
+		Effect.flatMap(
+			Option.match({
+				onNone: () => Effect.void,
+				onSome: (code) => Effect.fail(failed(exitReason(code))),
+			}),
 		),
 	);
 
