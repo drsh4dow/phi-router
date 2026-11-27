@@ -27,8 +27,8 @@ const packageCopy = Effect.gen(function* packageCopy() {
 	return folder;
 });
 
-const piCli = decodeURIComponent(
-	filePath(new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url)),
+const piCli = filePath(
+	new URL("../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url),
 );
 
 export { packageCopy, piCli, pluginCopy };
