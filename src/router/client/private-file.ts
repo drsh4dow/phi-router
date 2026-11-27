@@ -26,11 +26,7 @@ const sidPrefix = "S-1-";
 
 const currentUserSid = MutableRef.make(Option.none<string>());
 
-const restrictedAppendTargets = MutableHashSet.empty<string>();
-
 const privateFolders = MutableHashSet.empty<string>();
-
-const sharedFolders = MutableHashSet.empty<string>();
 
 const aclRefused = (target: string, description: string): PlatformError.PlatformError =>
 	PlatformError.badArgument({
@@ -247,12 +243,6 @@ const madeOnWindows = Effect.fnUntraced(function* madeOnWindows(folder: string) 
 		return true;
 	}
 
-	if (MutableHashSet.has(sharedFolders, resolved)) {
-		yield* fs.makeDirectory(resolved, { mode: privateModes.folder, recursive: true });
-
-		return false;
-	}
-
 	const missing = yield* topmostMissing(resolved);
 
 	if (Option.isSome(missing)) {
@@ -267,7 +257,6 @@ const madeOnWindows = Effect.fnUntraced(function* madeOnWindows(folder: string) 
 		MutableHashSet.add(privateFolders, resolved);
 	} else {
 		MutableHashSet.remove(privateFolders, resolved);
-		MutableHashSet.add(sharedFolders, resolved);
 	}
 
 	return inherits;
@@ -338,18 +327,10 @@ const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string
 
 	const inherits = yield* madePrivately(path.dirname(file));
 
-	if (!inherits) {
-		const exists = yield* fs.exists(file);
-
-		if (!exists) {
-			yield* writtenThroughStaging(file, [], privateModes.file);
-		}
-
-		if (exists && !MutableHashSet.has(restrictedAppendTargets, path.resolve(file))) {
-			yield* restrictToCurrentUser(file, "file");
-		}
-
-		MutableHashSet.add(restrictedAppendTargets, path.resolve(file));
+	if (!inherits && (yield* fs.exists(file))) {
+		yield* restrictToCurrentUser(file, "file");
+	} else if (!inherits) {
+		yield* writtenThroughStaging(file, [], privateModes.file);
 	}
 
 	yield* fs.writeFileString(file, text, { flag: "a", mode: privateModes.file });
