@@ -13,7 +13,6 @@ const patient = { timeout: 60_000 };
 const leaseIntervalAndAHalf = "7 seconds";
 const tenSeconds = 10_000;
 const fiveSeconds = 5000;
-const fifteenSeconds = 15_000;
 const done = { exitCode: 0, printed: "" };
 const none = 0;
 const oneRouter = 1;
@@ -241,7 +240,7 @@ const unstartable: readonly Unstartable[] = [
 		env: () => configHolding({ "config.json": "{" }),
 		line: stopped.notStarted("pi"),
 		what: "a config.json the router cannot read",
-		within: fifteenSeconds,
+		within: fiveSeconds,
 	},
 ];
 
