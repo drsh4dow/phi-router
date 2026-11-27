@@ -73,7 +73,7 @@ In the `sealed` account, replace `keyFile` with `keyEnv`, the name of the variab
 
 Setup offers a Claude Enterprise login as the BAA account, in Claude Code and in pi.
 
-- When Claude Code is logged in to Claude Enterprise, setup asks whether your BAA covers it. On yes, the BAA account is Claude Code's own login folder, and setup asks you to log in to the subscription you use for everyday work, in a login folder of its own under `phi-router/logins/` in your config folder.
+- When Claude Code is logged in to Claude Enterprise, setup asks whether your BAA covers it. On yes, the BAA account is Claude Code's own login folder, and setup asks you to log in to your Claude Pro or Max subscription for everyday work, in a login folder of its own under `phi-router/logins/` in your config folder. Without one, setup stops and says where to get one.
 - When your harness runs on a subscription, pick `Claude Enterprise login` at `Which account does your BAA cover?`. Setup runs `claude auth login` in a login folder of its own.
 
 With a browser, the login opens it. Without one, paste the code the login page shows at `Paste code here if prompted`.
