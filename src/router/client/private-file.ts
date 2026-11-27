@@ -277,8 +277,8 @@ const writtenThroughStaging = Effect.fnUntraced(function* writtenThroughStaging(
 	const temp = path.join(staging, path.basename(file));
 
 	yield* fs.writeFile(temp, Uint8Array.from(bytes), { flag: "wx", mode });
+	yield* restrictToCurrentUser(temp, "file");
 	yield* fs.rename(temp, file);
-	yield* restrictToCurrentUser(file, "file");
 }, Effect.scoped);
 
 const writePrivately = Effect.fnUntraced(function* writePrivately(
