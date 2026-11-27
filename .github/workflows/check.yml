@@ -50,4 +50,5 @@ jobs:
                  tools/lifecycle/platform.test.ts \
                  tools/lifecycle/start.e2e.test.ts \
                  tools/plugin/hook.e2e.test.ts \
+                 tools/route/private-dacl.test.ts \
                  tools/route/private.e2e.test.ts
