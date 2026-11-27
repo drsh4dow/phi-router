@@ -345,17 +345,17 @@ const appendPrivately = Effect.fnUntraced(function* appendPrivately(file: string
 
 	const inherits = yield* madePrivately(path.dirname(file));
 
-	const exists = yield* fs.exists(file);
-
-	if (!inherits && !exists) {
-		yield* writtenThroughStaging(file, [], privateModes.file);
-	}
-
-	if (!inherits && exists && !MutableHashSet.has(restrictedAppendTargets, path.resolve(file))) {
-		yield* restrictToCurrentUser(file, "file");
-	}
-
 	if (!inherits) {
+		const exists = yield* fs.exists(file);
+
+		if (!exists) {
+			yield* writtenThroughStaging(file, [], privateModes.file);
+		}
+
+		if (exists && !MutableHashSet.has(restrictedAppendTargets, path.resolve(file))) {
+			yield* restrictToCurrentUser(file, "file");
+		}
+
 		MutableHashSet.add(restrictedAppendTargets, path.resolve(file));
 	}
 
