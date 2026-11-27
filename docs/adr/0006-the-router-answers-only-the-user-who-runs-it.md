@@ -1,6 +1,6 @@
 # The router answers only the user who runs it
 
-Every request to the router passes one check before its path is matched or its body is read. The router looks up the two ends of the request's TCP connection in the machine's list of sockets and serves the request only when one uid holds both: the caller's end and the router's own end. Anything else gets `403` with an Anthropic-shaped `permission_error`, and reaches no account and no judge. The check is the `middleware` of the HTTP server in `src/router/client/router-port/server.ts`, so every row of the path table, the lease row and any row a later ticket adds sit behind it with no code of their own. `src/router/client/router-port/callers.ts` owns the lookup.
+Every request to the router except `/api/hello` passes one check before its path is matched or its body is read. The router looks up the two ends of the request's TCP connection in the machine's list of sockets and serves the request only when one uid holds both: the caller's end and the router's own end. Anything else gets `403` with an Anthropic-shaped `permission_error`, and reaches no account and no judge. The check is the `middleware` of the HTTP server in `src/router/client/router-port/server.ts`, so every row of the path table, the lease row and any row a later ticket adds sit behind it with no code of their own. `src/router/client/router-port/callers.ts` owns the lookup.
 
 We chose this because the router holds the developer's credentials and state, and any user of the machine can connect to `127.0.0.1`. The kernel already knows who holds each socket, so the router asks it and the harnesses change nothing. The router's own end carries the router's uid, so the router never asks for its uid, and source code names no `process`.
 
@@ -32,10 +32,13 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
 - The router checks the token before it lists processes, so a request without it costs no netstat or tasklist.
    - It compares an HMAC of the presented token against an HMAC of the stored one, so the comparison takes the same time either way.
    - A missing or wrong token gets 403, and so does a token file the router cannot read.
-- `/api/hello` is exempt because Claude Code sends it without custom headers. It still passes the owner check.
 - The port proof is exempt from the token, not from the owner check. Its answer is an HMAC of the caller's own nonce, so it gives a caller nothing.
 - A client sends the token only to a listener that passed the port proof on that port, so a listener that took the port first (ADR 0002) never receives it. On Windows each session and lease request therefore asks for the proof first. `Proofs.callerHeaders` in `src/router/client/router-port/proof.ts` is the one place that turns a proven port into the header.
 - On Linux and macOS no token is created, sent or checked.
+
+### `/api/hello` on every platform
+
+The router answers `/api/hello` before any check, with `{}`. Claude Code sends it without custom headers, and the answer tells a caller only that something listens, which a TCP connect already tells it. On Windows the owner check runs netstat and tasklist, so a loop of `HEAD /api/hello` from another account would otherwise slow the developer's own checks toward the 2 s limit. On Linux and macOS the same rule keeps one code path, and the `403` it replaces said more, since its message names phi-router.
 
 ### What a private file's DACL may name on Windows
 
@@ -54,7 +57,7 @@ Measured on Windows 10 22H2 with a loopback pair held by one process, five runs 
 ## Consequences
 
 - A request the router cannot prove is the developer's is refused: an unreadable socket list, an `lsof` that is missing, fails or takes longer than 2 s, a caller end at another address, or a closed caller end, which the kernel lists under uid 0.
-- Another user gets `403` on a path the table lacks, where the developer gets `404` (ADR 0001).
+- Another user gets `403` on a path the table lacks, where the developer gets `404` (ADR 0001), and `200` on `/api/hello`, like the developer.
 - A process of the same user passes, a container run as that uid included. The check keeps other users out, not the developer's own processes.
 - Linux reads only `/proc/net/tcp`, so a caller on an IPv6 socket, such as one connected to `::ffff:127.0.0.1`, is refused. Every harness connects to `127.0.0.1` over IPv4.
 - The router reads the kernel's addresses as little-endian, which every machine it runs on is. On a big-endian Linux every request would be refused.

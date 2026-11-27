@@ -12,13 +12,11 @@ const holdsCanary = Str.includes(canary);
 
 const status = { forbidden: 403, ok: 200 } as const;
 
-const refusedRequests = 5;
+const refusedRequests = 4;
 
 const anotherUser = Callers.of({ isThisUser: () => Effect.succeed(false), tokenFine: () => Effect.succeed(true) });
 
 const lease = HttpClientRequest.bodyText(HttpClientRequest.post("/phi-router/leases"), "{}", "application/json");
-
-const hello = HttpClientRequest.get("/api/hello");
 
 const unrouted = HttpClientRequest.get("/phi-router/no-such-row");
 
@@ -33,13 +31,7 @@ const claudeRefused = Effect.gen(function* claudeRefused() {
 	const body = yield* bodyOf([{ role: "user", text: `Member ${canary} called.` }]);
 
 	const statuses = yield* Effect.forEach(
-		[
-			post({ body, session: "other-1" }),
-			client.execute(lease),
-			client.execute(hello),
-			client.execute(asked),
-			client.execute(unrouted),
-		],
+		[post({ body, session: "other-1" }), client.execute(lease), client.execute(asked), client.execute(unrouted)],
 		(answered) => answered.pipe(Effect.flatMap((response) => Effect.as(response.text, response.status))),
 		{ concurrency: 1 },
 	);
@@ -108,7 +100,7 @@ const Refusal = Schema.fromJsonString(Schema.Struct({ error: Schema.Struct({ mes
 
 const toldWhy = Effect.gen(function* toldWhy() {
 	const { client } = yield* routed({ callers: anotherUser, holdsPhi: holdsCanary });
-	const response = yield* client.execute(hello);
+	const response = yield* client.execute(asked);
 	const text = yield* response.text;
 	const refusal = yield* Schema.decodeEffect(Refusal)(text);
 
@@ -117,7 +109,7 @@ const toldWhy = Effect.gen(function* toldWhy() {
 
 it.layer(NodeServices.layer)("a caller of another user", (test) => {
 	test.effect(
-		"gets 403 on the Claude path, the lease path, every other and a path the table lacks, and no mock or judge receives anything",
+		"gets 403 on the Claude path, the lease path, the status path and a path the table lacks, and no mock or judge receives anything",
 		() => claudeRefused,
 	);
 	test.effect("gets 403 on the Codex paths, and no mock or judge receives anything", () => codexRefused);

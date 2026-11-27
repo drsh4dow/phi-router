@@ -141,6 +141,7 @@ const statusFor = Effect.fnUntraced(function* statusFor(asked: Asked) {
 const exemptions = Effect.gen(function* exemptions() {
 	const answered = yield* Effect.all(
 		{
+			helloToAnotherUser: statusFor({ owner: "anotherUser", sent: "noToken", to: "hello" }),
 			messagesWithToken: statusFor({ owner: "thisUser", sent: "token", to: "messages" }),
 			messagesWithWrongToken: statusFor({ owner: "thisUser", sent: "otherToken", to: "messages" }),
 			messagesWithoutToken: statusFor({ owner: "thisUser", sent: "noToken", to: "messages" }),
@@ -151,6 +152,7 @@ const exemptions = Effect.gen(function* exemptions() {
 	);
 
 	assert.deepStrictEqual(answered, {
+		helloToAnotherUser: status.ok,
 		messagesWithToken: status.ok,
 		messagesWithWrongToken: status.forbidden,
 		messagesWithoutToken: status.forbidden,
@@ -247,7 +249,7 @@ it.layer(NodeServices.layer)("the caller token on Windows", (test) => {
 		() => tokenChecks,
 	);
 	test.effect(
-		"is asked of no caller of the port proof, and of every caller of the model path; the proof still checks the owner",
+		"is asked of no caller of /api/hello or of the port proof, and of every caller of any other path; the proof still checks the owner",
 		() => exemptions,
 	);
 	test.effect(
