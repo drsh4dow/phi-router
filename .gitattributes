@@ -1,1 +1,5 @@
 package-lock.json -diff linguist-generated
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jar binary
