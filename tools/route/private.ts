@@ -72,7 +72,24 @@ const daclOf = Effect.fnUntraced(function* daclOf(named: string) {
 	);
 }, Effect.scoped);
 
+const trustedAccounts = ["SY", "BA"];
+
+const builtinAdministrator = { alias: "LA", rid: "-500" } as const;
+
+const userNames = (sid: string): readonly string[] => {
+	if (Str.endsWith(builtinAdministrator.rid)(sid)) {
+		return [sid, builtinAdministrator.alias];
+	}
+
+	return [sid];
+};
+
+const grantee = (fields: readonly string[]): string => Option.getOrElse(Array.last(fields), () => "");
+
 const grantsOnlyTo = (dacl: string, sid: string): boolean => {
+	const names = userNames(sid);
+	const accepted = [...names, ...trustedAccounts];
+
 	const entries = pipe(
 		Str.split("(")(dacl),
 		Array.drop(entriesAfterHeader),
@@ -81,12 +98,14 @@ const grantsOnlyTo = (dacl: string, sid: string): boolean => {
 	);
 
 	return (
-		Array.isReadonlyArrayNonEmpty(entries) &&
+		pipe(
+			entries,
+			Array.some((fields) => Array.contains(names, grantee(fields))),
+		) &&
 		pipe(
 			entries,
 			Array.every(
-				(fields) =>
-					Array.head(fields).pipe(Option.contains(allowed)) && Array.last(fields).pipe(Option.contains(sid)),
+				(fields) => Array.head(fields).pipe(Option.contains(allowed)) && Array.contains(accepted, grantee(fields)),
 			),
 		)
 	);
