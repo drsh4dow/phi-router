@@ -1,9 +1,8 @@
 import type { AnswerCheck, AnswerChecked, Status } from "#shared/cli.ts";
-import { AnswerCheckJson, AnswerCheckedJson, StatusJson } from "#shared/cli.ts";
+import { AnswerCheckJson, AnswerCheckedJson, StatusJson, loopback } from "#shared/cli.ts";
 import { Context, Effect, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import { callerHeaders } from "./caller-token.ts";
-import { loopback } from "./server.ts";
+import { Proofs } from "./proof.ts";
 
 const sessionPaths = { answerCheck: "/phi-router/answer-check", status: "/phi-router/status" } as const;
 
@@ -29,18 +28,6 @@ const noRouter = unanswered("no router answers there");
 const stalledFor = (waited: Patience): Unanswered =>
 	unanswered(`it took a request and gave no answer within ${waited}`);
 
-const signedTo = (
-	port: number,
-	request: (origin: string) => HttpClientRequest.HttpClientRequest,
-): Effect.Effect<HttpClientRequest.HttpClientRequest> =>
-	callerHeaders.pipe(
-		Effect.map((headers) => {
-			const sent = request(`http://${loopback}:${String(port)}`);
-
-			return HttpClientRequest.setHeaders(sent, headers);
-		}),
-	);
-
 class SessionRequests extends Context.Service<
 	SessionRequests,
 	{
@@ -55,13 +42,17 @@ class SessionRequests extends Context.Service<
 		SessionRequests,
 		Effect.gen(function* make() {
 			const client = yield* HttpClient.HttpClient;
+			const proofs = yield* Proofs;
 
 			const answerTo = (
 				port: number,
 				waited: Patience,
 				request: (origin: string) => HttpClientRequest.HttpClientRequest,
 			): Effect.Effect<string, Unanswered> =>
-				signedTo(port, request).pipe(
+				proofs.callerHeaders(port).pipe(
+					Effect.map((headers) =>
+						HttpClientRequest.setHeaders(request(`http://${loopback}:${String(port)}`), headers),
+					),
 					Effect.flatMap((sent) => client.execute(sent)),
 					Effect.mapError(() => noRouter),
 					Effect.filterOrFail(
@@ -103,7 +94,7 @@ class SessionRequests extends Context.Service<
 
 			return SessionRequests.of({ answerCheck, status });
 		}),
-	).pipe(Layer.provide(FetchHttpClient.layer));
+	).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Proofs.layer)));
 }
 
 export { SessionRequests, sessionPaths };

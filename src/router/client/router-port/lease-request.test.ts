@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, PlatformError } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, PlatformError } from "effect";
 import { assert, it, vi } from "@effect/vitest";
 import { ChildProcessSpawner } from "effect/process";
 import { FetchHttpClient } from "effect/http";
@@ -16,7 +16,10 @@ const noShell = ChildProcessSpawner.make(() =>
 
 const postedTo = Effect.fnUntraced(function* postedTo(answer: typeof FetchHttpClient.Fetch.Service) {
 	const spawner = Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, noShell);
-	const built = yield* Layer.build(Layer.provide(LeaseRequests.layer, spawner));
+
+	const built = yield* Layer.build(
+		Layer.provide(LeaseRequests.layer, [spawner, Path.layer, FileSystem.layerNoop({})]),
+	);
 
 	return yield* Context.get(built, LeaseRequests)
 		.post(port, lease)
